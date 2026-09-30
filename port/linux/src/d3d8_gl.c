@@ -662,6 +662,7 @@ static void vertical_blank_start(void)
 		{
 			pthread_detach(thread);
 			vertical_blank_thread_started = TRUE;
+			platform_log("vertical blank worker started before frame queue wait");
 		}
 		else
 		{
@@ -3612,6 +3613,11 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 	(void)unused2;
 	if (screenshot_every < 0)
 		screenshot_every = config_integer("debug.screenshot_every");
+
+	/* Loading screens can present before the game registers its vblank
+	 * callback. Start the consumer before adding pending flips, otherwise
+	 * the third presentation waits forever on a queue nobody drains. */
+	vertical_blank_start();
 
 	if (device.gl_ready)
 	{
