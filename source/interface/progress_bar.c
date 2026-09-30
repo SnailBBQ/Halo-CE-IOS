@@ -173,6 +173,9 @@ symbols in this file:
 
 #include "interface/progress_bar.h"
 #include "cache/cache_files.h"
+#ifdef HALO_IOS_GUEST
+#include "cseries/errors.h"
+#endif
 /* The January object retains out-of-line copies of the D3D and D3DX inline
  * wrappers.  The stock XDK definitions of D3DINLINE (static __forceinline) and
  * D3DXINLINE (_inline) reproduce every one of them, including
