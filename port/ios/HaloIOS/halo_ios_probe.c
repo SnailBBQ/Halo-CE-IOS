@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <inttypes.h>
+#include <libkern/OSCacheControl.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -81,7 +82,7 @@ static int prepare_exec_page(void **page_out, void (^line)(const char *), int ve
     }
 
     memcpy(page, k_guest_add1_code, sizeof(k_guest_add1_code));
-    __builtin___clear_cache((char *)page, (char *)page + sizeof(k_guest_add1_code));
+    sys_icache_invalidate(page, sizeof(k_guest_add1_code));
 
     if (mprotect(page, (size_t)page_size, PROT_READ | PROT_EXEC) != 0)
     {
@@ -209,7 +210,7 @@ int halo_ios_run_m05_dynamic_probe(void (^line)(const char *text))
     }
 
     line("[MANUAL] Calling copied guest_add1(41)...");
-    __builtin___clear_cache((char *)page, (char *)page + sizeof(k_guest_add1_code));
+    sys_icache_invalidate(page, sizeof(k_guest_add1_code));
 
     typedef uint32_t (*guest_add1_fn)(uint32_t);
     guest_add1_fn function = (guest_add1_fn)page;
