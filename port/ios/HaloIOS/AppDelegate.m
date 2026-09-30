@@ -22,14 +22,16 @@
         [log.bottomAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.bottomAnchor constant:-12]
     ]];
 
-    NSMutableString *text = [NSMutableString stringWithString:@"Halo iOS - M1.1 Real Halo Function Slice\n\n"];
-    halo_ios_run_m11_probe(^(const char *s) {
+    NSMutableString *text =
+        [NSMutableString stringWithString:@"Halo iOS - M1.2 + M1.3 Combined Integration\n\n"];
+
+    halo_ios_run_combined_m12_m13_probe(^(const char *s) {
         NSString *line = [NSString stringWithUTF8String:s ?: ""];
         [text appendFormat:@"%@\n", line];
-        NSLog(@"[HaloIOS-M1.1] %@", line);
+        NSLog(@"[HaloIOS-M1.3] %@", line);
     });
-    log.text = text;
 
+    log.text = text;
     self.window.rootViewController = vc;
     [self.window makeKeyAndVisible];
     return YES;

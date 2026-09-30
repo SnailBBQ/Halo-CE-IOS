@@ -1,4 +1,4 @@
-name: iOS M1 IPA
+name: iOS M1 Combined IPA
 
 on:
   workflow_dispatch:
@@ -51,7 +51,7 @@ jobs:
             --timestamp=none "$APP"
           /usr/bin/codesign --verify --verbose=2 "$APP"
 
-      - name: Package Halo iOS M1.1 IPA
+      - name: Package Halo iOS M1.3 Combined IPA
         run: |
           set -euxo pipefail
           APP=$(find build/ios-m1/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
@@ -60,14 +60,14 @@ jobs:
           mkdir -p build/ios-m1/Payload
           cp -R "$APP" build/ios-m1/Payload/
           cd build/ios-m1
-          /usr/bin/zip -qry Halo-iOS-M1.1.ipa Payload
-          /usr/bin/unzip -Z1 Halo-iOS-M1.1.ipa | grep -qx 'Payload/HaloIOS.app/Info.plist'
-          /usr/bin/unzip -Z1 Halo-iOS-M1.1.ipa | grep -qx 'Payload/HaloIOS.app/HaloIOS'
+          /usr/bin/zip -qry Halo-iOS-M1.3-Combined.ipa Payload
+          /usr/bin/unzip -Z1 Halo-iOS-M1.3-Combined.ipa | grep -qx 'Payload/HaloIOS.app/Info.plist'
+          /usr/bin/unzip -Z1 Halo-iOS-M1.3-Combined.ipa | grep -qx 'Payload/HaloIOS.app/HaloIOS'
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Halo-iOS-M1.1
-          path: build/ios-m1/Halo-iOS-M1.1.ipa
+          name: Halo-iOS-M1.3-Combined
+          path: build/ios-m1/Halo-iOS-M1.3-Combined.ipa
           if-no-files-found: error
           retention-days: 14
