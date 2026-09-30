@@ -1448,6 +1448,20 @@ static int ios_posix_fstat(int fd, uint32_t info_va)
     return 0;
 }
 
+static int ios_posix_set_file_times(uint32_t path_va,
+                                    uint32_t access_seconds, uint32_t access_nanoseconds,
+                                    uint32_t modification_seconds, uint32_t modification_nanoseconds)
+{
+    const char *path = gp(path_va, 1);
+    if (!path) { errno = EFAULT; return -1; }
+    struct timespec times[2];
+    times[0].tv_sec = (time_t)access_seconds;
+    times[0].tv_nsec = access_seconds ? (long)access_nanoseconds : UTIME_OMIT;
+    times[1].tv_sec = (time_t)modification_seconds;
+    times[1].tv_nsec = modification_seconds ? (long)modification_nanoseconds : UTIME_OMIT;
+    return utimensat(AT_FDCWD, path, times, 0);
+}
+
 static int ios_posix_seek(int fd, int32_t low, int32_t high, int whence,
                           uint32_t out_low_va, uint32_t out_high_va)
 {
@@ -1706,6 +1720,7 @@ static void *resolve_host_import(const char *name)
 #define PMAP(s,f) if(!strcmp(n,s)) return (void *)(f)
         PMAP("stat", ios_posix_stat);
         PMAP("fstat", ios_posix_fstat);
+        PMAP("set_file_times", ios_posix_set_file_times);
         PMAP("seek", ios_posix_seek);
         PMAP("truncate", ios_posix_truncate);
         PMAP("make_directory", ios_posix_make_directory);
@@ -1943,7 +1958,7 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.9 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.10 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);
