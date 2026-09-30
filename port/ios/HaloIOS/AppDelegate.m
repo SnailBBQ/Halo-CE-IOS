@@ -21,7 +21,7 @@
         [log.bottomAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.bottomAnchor constant:-12]
     ]];
 
-    NSMutableString *text = [NSMutableString stringWithString:@"Halo CE Universal - iOS M0\n\n"];
+    NSMutableString *text = [NSMutableString stringWithString:@"Halo CE Universal - iOS M0.1 Address Survey\n\n"];
     halo_ios_run_m0_probe(^(const char *s) {
         [text appendFormat:@"%s\n", s];
         NSLog(@"[HaloM0] %s", s);
