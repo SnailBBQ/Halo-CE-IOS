@@ -817,6 +817,62 @@ static long long ios_host_syscall(long long number, long long a, long long b, lo
             return r ? -errno : 0;
         }
 
+        case 115: /* clock_nanosleep */
+        {
+            struct timespec request;
+            struct timespec remaining = {0};
+            struct timespec now = {0};
+            struct timespec sleep_for = {0};
+
+            if (!guest_timespec_in((uint32_t)c, &request))
+                return -EFAULT;
+
+            clockid_t host_clock;
+            switch ((int)a)
+            {
+                case 0: host_clock = CLOCK_REALTIME; break;
+                case 1: host_clock = CLOCK_MONOTONIC; break;
+#ifdef CLOCK_MONOTONIC_RAW
+                case 4: host_clock = CLOCK_MONOTONIC_RAW; break;
+#endif
+                default: host_clock = CLOCK_MONOTONIC; break;
+            }
+
+            /*
+             * Linux clock_nanosleep flags bit 0 is TIMER_ABSTIME.
+             * Darwin/iOS does not expose Linux's syscall ABI, so translate
+             * absolute sleeps into a relative nanosleep.
+             */
+            if (((int)b & 1) != 0)
+            {
+                if (clock_gettime(host_clock, &now) != 0)
+                    return -errno;
+
+                sleep_for.tv_sec = request.tv_sec - now.tv_sec;
+                sleep_for.tv_nsec = request.tv_nsec - now.tv_nsec;
+                if (sleep_for.tv_nsec < 0)
+                {
+                    sleep_for.tv_sec--;
+                    sleep_for.tv_nsec += 1000000000L;
+                }
+
+                if (sleep_for.tv_sec < 0 ||
+                    (sleep_for.tv_sec == 0 && sleep_for.tv_nsec <= 0))
+                    return 0;
+            }
+            else
+                sleep_for = request;
+
+            int r = nanosleep(&sleep_for, &remaining);
+            if (r != 0)
+            {
+                if (errno == EINTR && d && (((int)b & 1) == 0))
+                    guest_timespec_out((uint32_t)d, &remaining);
+                return -errno;
+            }
+            return 0;
+        }
+
         case 113: /* clock_gettime */
         case 114: /* clock_getres */
         {
@@ -1025,7 +1081,16 @@ static void ios_host_android_path(int which, uint32_t buffer_va, uint32_t size)
 /* Headless SDL service. M2.5 intentionally boots the real engine with the
  * port's null renderer and audio disabled; M2.6 will replace these with the
  * visible iOS graphics/input/audio host. */
-static int ios_sdl_init(uint32_t flags) { (void)flags; return 0; }
+static int ios_sdl_init(uint32_t flags)
+{
+    (void)flags;
+    /*
+     * guest_sdl.c implements SDL_Init() as:
+     *     return host_sdl_init(flags) != 0;
+     * SDL3 uses bool success, unlike SDL2's 0-on-success convention.
+     */
+    return 1;
+}
 static int ios_sdl_set_hint(uint32_t name, uint32_t value) { (void)name; (void)value; return 1; }
 static void ios_sdl_get_error(uint32_t buffer_va, uint32_t size)
 {
@@ -1605,7 +1670,7 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.5.1 runtime fixes active: ioctl + TLS guard + merged 16K ELF permissions");
+    say("M2.5.2 runtime fixes active: SDL3 init + clock_nanosleep + ioctl/TLS/16K ELF fixes");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);
