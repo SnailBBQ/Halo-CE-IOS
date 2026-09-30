@@ -6,6 +6,7 @@
 #ifdef __OBJC__
 #import <UIKit/UIKit.h>
 UIView *halo_ios_gl_create_view(void);
+void halo_ios_gl_set_logger(void (^logger)(const char *));
 #endif
 
 int halo_ios_gl_sdl_init(uint32_t flags);

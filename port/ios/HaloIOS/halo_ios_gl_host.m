@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 
 NSString * const HaloIOSFirstFramePresentedNotification =
@@ -54,6 +55,53 @@ static int g_requested_major = 3;
 static int g_requested_minor = 0;
 static char g_error[256];
 static atomic_int g_first_presented;
+static unsigned long g_present_attempts;
+static unsigned long g_present_failures;
+static void (^g_logger)(const char *);
+
+void halo_ios_gl_set_logger(void (^logger)(const char *))
+{
+    // Installed before the guest starts; immutable during execution.
+    g_logger = [logger copy];
+}
+
+static void report_gl(const char *format, ...)
+{
+    char message[768];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(message, sizeof(message), format, args);
+    va_end(args);
+    NSLog(@"[HaloIOS-GL] %s", message);
+    if (g_logger) {
+        char line[800];
+        snprintf(line, sizeof(line), "[iOS-GL] %s", message);
+        g_logger(line);
+    }
+}
+
+static void draw_display_marker(void)
+{
+    GLint draw_fbo, scissor[4];
+    GLfloat clear_color[4];
+    GLboolean color_mask[4];
+    GLboolean scissor_enabled = glIsEnabled(GL_SCISSOR_TEST);
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw_fbo);
+    glGetIntegerv(GL_SCISSOR_BOX, scissor);
+    glGetFloatv(GL_COLOR_CLEAR_VALUE, clear_color);
+    glGetBooleanv(GL_COLOR_WRITEMASK, color_mask);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, g_drawable_fbo);
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(0, g_drawable_height > 24 ? g_drawable_height - 24 : 0, 24, 24);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glClearColor(0.0f, 1.0f, 1.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glClearColor(clear_color[0], clear_color[1], clear_color[2], clear_color[3]);
+    glColorMask(color_mask[0], color_mask[1], color_mask[2], color_mask[3]);
+    glScissor(scissor[0], scissor[1], scissor[2], scissor[3]);
+    if (!scissor_enabled) glDisable(GL_SCISSOR_TEST);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)draw_fbo);
+}
 static pthread_mutex_t g_gl_lock = PTHREAD_MUTEX_INITIALIZER;
 
 #define FRAME_FENCE_SLOTS 8
@@ -62,7 +110,7 @@ static GLsync g_frame_fences[FRAME_FENCE_SLOTS];
 static void set_error(const char *text)
 {
     snprintf(g_error, sizeof(g_error), "%s", text ? text : "");
-    NSLog(@"[HaloIOS-GL] %s", g_error);
+    report_gl("%s", g_error);
 }
 
 UIView *halo_ios_gl_create_view(void)
@@ -131,7 +179,7 @@ static int ensure_drawable(void)
     if (status != GL_FRAMEBUFFER_COMPLETE)
     {
         snprintf(g_error, sizeof(g_error), "drawable framebuffer incomplete: 0x%04x", status);
-        NSLog(@"[HaloIOS-GL] %s", g_error);
+        report_gl("%s", g_error);
         return 0;
     }
 
@@ -217,7 +265,7 @@ uint32_t halo_ios_gl_create_context(uint32_t window)
     if (!ok)
         return 0;
 
-    NSLog(@"[HaloIOS-GL] OpenGL ES 3 context ready (guest requested %d.%d), drawable %dx%d",
+    report_gl("OpenGL ES 3 context ready (guest requested %d.%d), drawable %dx%d",
           g_requested_major, g_requested_minor, g_drawable_width, g_drawable_height);
     return 1;
 }
@@ -247,8 +295,28 @@ int halo_ios_gl_swap_window(uint32_t window)
         ![EAGLContext setCurrentContext:g_context])
         return 0;
 
+    ++g_present_attempts;
+    GLenum error;
+    static unsigned error_reports;
+    while ((error = glGetError()) != GL_NO_ERROR) {
+        if (error_reports++ < 20)
+            report_gl("GL error 0x%04x before presentation %lu", error, g_present_attempts);
+    }
+    draw_display_marker();
     glBindRenderbuffer(GL_RENDERBUFFER, g_drawable_color);
     BOOL ok = [g_context presentRenderbuffer:GL_RENDERBUFFER];
+
+    if (!ok) ++g_present_failures;
+    if (g_present_attempts == 1 || g_present_attempts == 60 ||
+        g_present_attempts == 300 || g_present_attempts == 1800) {
+        GLint previous_fbo;
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &previous_fbo);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, g_drawable_fbo);
+        GLenum status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)previous_fbo);
+        report_gl("present %lu: failures=%lu drawable=%dx%d FBO=0x%04x; cyan corner is the host display test",
+                  g_present_attempts, g_present_failures, g_drawable_width, g_drawable_height, status);
+    }
 
     if (ok && !atomic_exchange(&g_first_presented, 1))
     {
@@ -331,7 +399,7 @@ void *halo_ios_gl_resolve_import(const char *import_name)
         return function ? function : (void *)halo_glDrawElementsBaseVertex_fallback;
     }
 
-    NSLog(@"[HaloIOS-GL] OpenGL ES import unavailable: %s (guarded fallback)", name);
+    report_gl("OpenGL ES import unavailable: %s (guarded fallback)", name);
     return (void *)halo_gl_unavailable;
 }
 
