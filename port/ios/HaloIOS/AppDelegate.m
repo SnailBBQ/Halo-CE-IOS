@@ -11,6 +11,8 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 @property(nonatomic, strong) UIStackView *menuControls;
 @property(nonatomic, strong) UIButton *logToggle;
 @property(nonatomic, strong) UITextView *bootLog;
+@property(nonatomic, copy) NSString *bootText;
+@property(nonatomic, strong) UISegmentedControl *logSource;
 @property(nonatomic, strong) UIButton *importButton;
 @property(nonatomic, strong) UIButton *startButton;
 @property(nonatomic, copy) void (^startBoot)(void);
@@ -46,6 +48,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     (void)sender;
     if (self.engineStarted || self.importing || !self.foldersReady || ![self hasStartupMap]) return;
     self.engineStarted = YES;
+    self.logSource.hidden = NO;
     self.importButton.hidden = YES;
     self.startButton.hidden = YES;
     if (self.startBoot) self.startBoot();
@@ -133,6 +136,40 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     [self refreshSetup];
 }
 
+- (NSString *)gameLogTail {
+    NSString *path = [[self haloFolder] stringByAppendingPathComponent:@"debug.txt"];
+    NSFileHandle *file = [NSFileHandle fileHandleForReadingAtPath:path];
+    if (!file) return @"No game log yet. Start Halo to create debug.txt.\n";
+    NSError *error = nil;
+    unsigned long long size = 0;
+    const NSUInteger limit = 65536;
+    NSData *data = nil;
+    if ([file seekToEndReturningOffset:&size error:&error] &&
+        [file seekToOffset:size > limit ? size - limit : 0 error:&error])
+        data = [file readDataUpToLength:limit error:&error];
+    [file closeAndReturnError:nil];
+    if (!data) return [NSString stringWithFormat:@"Could not read game log: %@\n", error.localizedDescription ?: @"unknown error"];
+    /* A bounded tail may start halfway through a UTF-8 line. */
+    if (size > limit) {
+        const unsigned char *bytes = data.bytes;
+        NSUInteger start = 0;
+        while (start < data.length && bytes[start] != '\n') ++start;
+        if (start < data.length) data = [data subdataWithRange:NSMakeRange(start + 1, data.length - start - 1)];
+    }
+    NSString *text = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+    return text.length ? text : @"Game log is empty or could not be decoded.\n";
+}
+- (void)refreshLogView {
+    BOOL gameLog = self.logSource.selectedSegmentIndex == 1;
+    NSString *body = gameLog ? [self gameLogTail] : (self.bootText ?: @"Starting Halo…\n");
+    self.bootLog.text = body;
+    if (self.bootLog.text.length)
+        [self.bootLog scrollRangeToVisible:NSMakeRange(self.bootLog.text.length - 1, 1)];
+}
+- (void)changeLogSource:(UISegmentedControl *)sender {
+    (void)sender;
+    if (self.engineStarted) [self refreshLogView];
+}
 - (void)menuPress:(UIButton *)sender { halo_ios_menu_button((int)sender.tag, 1); }
 - (void)menuRelease:(UIButton *)sender { halo_ios_menu_button((int)sender.tag, 0); }
 - (void)applicationWillResignActive:(UIApplication *)application {
@@ -143,6 +180,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     self.bootOverlay.hidden = !self.bootOverlay.hidden;
     self.menuControls.hidden = !self.bootOverlay.hidden;
     halo_ios_menu_reset();
+    if (!self.bootOverlay.hidden && self.engineStarted) [self refreshLogView];
     [sender setTitle:self.bootOverlay.hidden ? @"Show log" : @"Show game"
            forState:UIControlStateNormal];
 }
@@ -163,7 +201,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"HALO iOS — M2.6.14 Startup";
+    title.text = @"HALO iOS — M2.6.15 Startup";
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:18];
 
@@ -175,6 +213,13 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     log.alwaysBounceVertical = YES;
     log.font = [UIFont monospacedSystemFontOfSize:11 weight:UIFontWeightRegular];
 
+    UILabel *notice = [UILabel new];
+    notice.translatesAutoresizingMaskIntoConstraints = NO;
+    notice.text = @"Bink movie playback is not implemented; videos are skipped. Audio is muted.\nImportant messages are available in Game log and Share logs.";
+    notice.numberOfLines = 2;
+    notice.font = [UIFont systemFontOfSize:11];
+    notice.textColor = UIColor.systemOrangeColor;
+    [bootOverlay addSubview:notice];
     [bootOverlay addSubview:title];
     [bootOverlay addSubview:log];
     [vc.view addSubview:bootOverlay];
@@ -234,6 +279,13 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     actions.axis = UILayoutConstraintAxisHorizontal;
     actions.spacing = 24;
     [bootOverlay addSubview:actions];
+    UISegmentedControl *source = [[UISegmentedControl alloc] initWithItems:@[@"Boot log", @"Game log"]];
+    source.translatesAutoresizingMaskIntoConstraints = NO;
+    source.selectedSegmentIndex = 0;
+    source.hidden = YES;
+    [source addTarget:self action:@selector(changeLogSource:) forControlEvents:UIControlEventValueChanged];
+    [bootOverlay addSubview:source];
+    self.logSource = source;
 
 
     [NSLayoutConstraint activateConstraints:@[
@@ -256,8 +308,15 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
         [title.topAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.topAnchor constant:8],
         [log.leadingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.leadingAnchor constant:12],
         [log.trailingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.trailingAnchor constant:-12],
-        [log.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:5],
-        [log.bottomAnchor constraintEqualToAnchor:actions.topAnchor constant:-8],
+        [notice.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:5],
+        [notice.leadingAnchor constraintEqualToAnchor:log.leadingAnchor],
+        [notice.trailingAnchor constraintEqualToAnchor:log.trailingAnchor],
+        [log.topAnchor constraintEqualToAnchor:notice.bottomAnchor constant:5],
+        [log.bottomAnchor constraintEqualToAnchor:source.topAnchor constant:-8],
+        [source.centerXAnchor constraintEqualToAnchor:bootOverlay.centerXAnchor],
+        [source.widthAnchor constraintEqualToConstant:240],
+        [source.heightAnchor constraintEqualToConstant:32],
+        [source.bottomAnchor constraintEqualToAnchor:actions.topAnchor constant:-8],
         [actions.leadingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.leadingAnchor constant:14],
         [actions.bottomAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.bottomAnchor constant:-8],
         [actions.heightAnchor constraintEqualToConstant:44]
@@ -288,6 +347,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     NSError *folderError = nil;
     self.foldersReady = [[NSFileManager defaultManager] createDirectoryAtPath:[self mapsFolder]
         withIntermediateDirectories:YES attributes:nil error:&folderError];
+    __weak AppDelegate *weakSelf = self;
     self.startBoot = ^{
     NSMutableString *text = [NSMutableString string];
     NSString *folder = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Halo"];
@@ -324,11 +384,9 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
                 [text appendFormat:@"%@\n", line];
                 if (text.length > 50000)
                     [text deleteCharactersInRange:NSMakeRange(0, text.length - 40000)];
-                log.text = text;
-                if (log.text.length > 0) {
-                    NSRange bottom = NSMakeRange(log.text.length - 1, 1);
-                    [log scrollRangeToVisible:bottom];
-                }
+                AppDelegate *owner = weakSelf;
+                owner.bootText = [text copy];
+                if (!bootOverlay.hidden) [owner refreshLogView];
             });
         });
     });

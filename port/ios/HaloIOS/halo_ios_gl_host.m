@@ -80,28 +80,6 @@ static void report_gl(const char *format, ...)
     }
 }
 
-static void draw_display_marker(void)
-{
-    GLint draw_fbo, scissor[4];
-    GLfloat clear_color[4];
-    GLboolean color_mask[4];
-    GLboolean scissor_enabled = glIsEnabled(GL_SCISSOR_TEST);
-    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw_fbo);
-    glGetIntegerv(GL_SCISSOR_BOX, scissor);
-    glGetFloatv(GL_COLOR_CLEAR_VALUE, clear_color);
-    glGetBooleanv(GL_COLOR_WRITEMASK, color_mask);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, g_drawable_fbo);
-    glEnable(GL_SCISSOR_TEST);
-    glScissor(0, g_drawable_height > 24 ? g_drawable_height - 24 : 0, 24, 24);
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glClearColor(0.0f, 1.0f, 1.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glClearColor(clear_color[0], clear_color[1], clear_color[2], clear_color[3]);
-    glColorMask(color_mask[0], color_mask[1], color_mask[2], color_mask[3]);
-    glScissor(scissor[0], scissor[1], scissor[2], scissor[3]);
-    if (!scissor_enabled) glDisable(GL_SCISSOR_TEST);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)draw_fbo);
-}
 static pthread_mutex_t g_gl_lock = PTHREAD_MUTEX_INITIALIZER;
 
 #define FRAME_FENCE_SLOTS 8
@@ -302,7 +280,6 @@ int halo_ios_gl_swap_window(uint32_t window)
         if (error_reports++ < 20)
             report_gl("GL error 0x%04x before presentation %lu", error, g_present_attempts);
     }
-    draw_display_marker();
     glBindRenderbuffer(GL_RENDERBUFFER, g_drawable_color);
     BOOL ok = [g_context presentRenderbuffer:GL_RENDERBUFFER];
 
@@ -314,7 +291,7 @@ int halo_ios_gl_swap_window(uint32_t window)
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, g_drawable_fbo);
         GLenum status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)previous_fbo);
-        report_gl("present %lu: failures=%lu drawable=%dx%d FBO=0x%04x; cyan corner is the host display test",
+        report_gl("present %lu: failures=%lu drawable=%dx%d FBO=0x%04x",
                   g_present_attempts, g_present_failures, g_drawable_width, g_drawable_height, status);
     }
 

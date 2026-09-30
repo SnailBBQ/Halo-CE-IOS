@@ -2,7 +2,7 @@
 
 Experimental Halo: Combat Evolved port for physical iPhone and iPad devices running iOS/iPadOS 15 or later. A native `arm64` app hosts the recovered `arm64_32` engine and presents graphics through EAGL/OpenGL ES 3.
 
-**Current version: M2.6.14, awaiting device testing.** M2.6.13 rendered the menu with readable text during a 65-second recording. Intermittent background color artifacts remained, and debug messages covered part of the menu. M2.6.14 targets texture binding isolation, hides that terminal overlay, and adds native on-screen menu controls. Campaign gameplay and multiplayer have not yet been validated. See [port status](../../IOS_PORT_STATUS.md).
+**Current version: M2.6.15, awaiting device testing.** The real main menu and readable text are confirmed. M2.6.14 touch controls worked and the latest game log reached precaching of the first campaign map, `a10`; completed campaign loading and gameplay remain unconfirmed. M2.6.15 removes the cyan test marker and improves log access. See [port status](../../IOS_PORT_STATUS.md).
 
 ## Build with GitHub Actions
 
@@ -46,9 +46,9 @@ These controls are for menu testing. Full gameplay controls and physical control
 
 ## Testing and logs
 
-Use **Show game** to inspect the rendered surface and **Show log** to return to startup diagnostics. **Share logs** exports the existing `ios-boot.log`, `debug.txt`, and `gamestate.txt` files from `Documents/Halo`.
+Use **Show game** to inspect the rendered surface and **Show log** to inspect diagnostics. Switch between **Boot log** (host/guest startup and renderer output) and **Game log** (the latest 64 KiB of `debug.txt`). The in-game terminal overlay is hidden, but its messages remain in the game log. A notice explains that Bink movies are skipped and audio is muted. Game log refreshes when opened/selected and when new boot diagnostics arrive while it is visible. **Share logs** exports the existing `ios-boot.log`, `debug.txt`, and `gamestate.txt` files from `Documents/Halo`.
 
-For a report, include the displayed milestone, the workflow commit, how long the app ran, all available logs, and a screenshot or recording. M2.6.12 needed an extended test to reveal the menu. The neutral loading image and cyan diagnostic corner alone do not confirm a rendered game menu. Audio is currently muted and Bink movies are skipped.
+For a report, include the displayed milestone, the workflow commit, how long the app ran, all available logs, and a screenshot or recording. M2.6.12 needed an extended test to reveal the menu. The neutral loading image alone do not confirm a rendered game menu. Audio is currently muted and Bink movies are skipped.
 
 ## Build the host locally on macOS
 

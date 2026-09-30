@@ -12,7 +12,7 @@ That project is a fork of [punpckhdq/halo](https://github.com/punpckhdq/halo).
 
 ## iOS development status
 
-**M2.6.14 is awaiting device testing.** M2.6.13 rendered the real menu with readable text during a 65-second recording, though intermittent background color artifacts remained. M2.6.14 hides the in-game terminal overlay, separates texture uploads from final stage bindings, and adds on-screen menu navigation. Campaign gameplay, audio, and multiplayer remain unconfirmed.
+**M2.6.15 is awaiting device testing.** The main menu and readable text are confirmed on device. M2.6.14 touch menu controls worked in the latest test, and the game log reached precaching of `a10`. Campaign gameplay is still unconfirmed. M2.6.15 removes the cyan display-test marker and adds Boot log / Game log views with a clear Bink video and muted-audio notice.
 
 See [iOS port status](IOS_PORT_STATUS.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
 
