@@ -6,17 +6,17 @@
 <key>CFBundleName</key><string>Halo iOS</string>
 <key>CFBundleExecutable</key><string>HaloIOS</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.2.2</string>
-<key>CFBundleVersion</key><string>22</string>
+<key>CFBundleShortVersionString</key><string>0.2.2.1</string>
+<key>CFBundleVersion</key><string>221</string>
 <key>CFBundleIcons</key>
 <dict>
     <key>CFBundlePrimaryIcon</key>
     <dict>
         <key>CFBundleIconFiles</key>
         <array>
-            <string>AppIcon60x60</string>
-            <string>AppIcon76x76</string>
-            <string>AppIcon83.5x83.5</string>
+            <string>HaloIconM22160x60</string>
+            <string>HaloIconM22176x76</string>
+            <string>HaloIconM22183.5x83.5</string>
         </array>
         <key>UIPrerenderedIcon</key><false/>
     </dict>
@@ -27,8 +27,8 @@
     <dict>
         <key>CFBundleIconFiles</key>
         <array>
-            <string>AppIcon76x76</string>
-            <string>AppIcon83.5x83.5</string>
+            <string>HaloIconM22176x76</string>
+            <string>HaloIconM22183.5x83.5</string>
         </array>
         <key>UIPrerenderedIcon</key><false/>
     </dict>

@@ -53,8 +53,32 @@ static NSString *fixed_c_string(const uint8_t *p, NSUInteger length)
 static NSString *maps_directory(void)
 {
     NSString *home = NSHomeDirectory() ?: @"";
-    return [[home stringByAppendingPathComponent:@"Documents/Halo"]
-            stringByAppendingPathComponent:@"maps"];
+    NSString *halo = [home stringByAppendingPathComponent:@"Documents/Halo"];
+    NSString *maps = [halo stringByAppendingPathComponent:@"maps"];
+
+    NSError *error = nil;
+    if (![[NSFileManager defaultManager] createDirectoryAtPath:maps
+                                  withIntermediateDirectories:YES
+                                                   attributes:nil
+                                                        error:&error])
+    {
+        return maps;
+    }
+
+    NSString *marker = [halo stringByAppendingPathComponent:@"PUT_HALO_MAPS_HERE.txt"];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:marker])
+    {
+        NSString *instructions =
+            @"Halo iOS content folder\n\n"
+             "Copy your Halo CE Universal .map files into the maps folder next to this file.\n"
+             "Expected path: Documents/Halo/maps\n";
+        [instructions writeToFile:marker
+                       atomically:YES
+                         encoding:NSUTF8StringEncoding
+                            error:nil];
+    }
+
+    return maps;
 }
 
 static NSArray<NSString *> *map_files_sorted(NSString *mapsPath)

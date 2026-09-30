@@ -19,11 +19,11 @@
   B20 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/halo_cache_runtime.h; sourceTree = "<group>"; };
   B21 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HaloIOS/halo_cache_runtime.m; sourceTree = "<group>"; };
 
-  B15 = {isa = PBXFileReference; lastKnownFileType = image.png; path = "HaloIOS/AppIcon60x60@2x.png"; sourceTree = "<group>"; };
-  B16 = {isa = PBXFileReference; lastKnownFileType = image.png; path = "HaloIOS/AppIcon60x60@3x.png"; sourceTree = "<group>"; };
-  B17 = {isa = PBXFileReference; lastKnownFileType = image.png; path = "HaloIOS/AppIcon76x76@2x.png"; sourceTree = "<group>"; };
-  B18 = {isa = PBXFileReference; lastKnownFileType = image.png; path = "HaloIOS/AppIcon83.5x83.5@2x.png"; sourceTree = "<group>"; };
-  B19 = {isa = PBXFileReference; lastKnownFileType = image.png; path = "HaloIOS/AppIcon1024.png"; sourceTree = "<group>"; };
+  B15 = {isa = PBXFileReference; lastKnownFileType = image.png; path = "HaloIOS/HaloIconM22160x60@2x.png"; sourceTree = "<group>"; };
+  B16 = {isa = PBXFileReference; lastKnownFileType = image.png; path = "HaloIOS/HaloIconM22160x60@3x.png"; sourceTree = "<group>"; };
+  B17 = {isa = PBXFileReference; lastKnownFileType = image.png; path = "HaloIOS/HaloIconM22176x76@2x.png"; sourceTree = "<group>"; };
+  B18 = {isa = PBXFileReference; lastKnownFileType = image.png; path = "HaloIOS/HaloIconM22183.5x83.5@2x.png"; sourceTree = "<group>"; };
+  B19 = {isa = PBXFileReference; lastKnownFileType = image.png; path = "HaloIOS/HaloIconM2211024.png"; sourceTree = "<group>"; };
 
   C1 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HaloIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 
