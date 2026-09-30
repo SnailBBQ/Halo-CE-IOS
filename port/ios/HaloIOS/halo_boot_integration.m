@@ -1,6 +1,7 @@
 #import "halo_boot_integration.h"
 
 #import "halo_cache_runtime.h"
+#import "halo_engine_boot.h"
 #import "halo_guest_runtime.h"
 
 #include <stdarg.h>
@@ -18,7 +19,7 @@ static void say(void (^line)(const char *), const char *fmt, ...)
 
 void halo_ios_start_game_boot(void (^line)(const char *text))
 {
-    line("Halo iOS - M2.3 Compressed Cache Boot");
+    line("Halo iOS - M2.4 Engine Boot Entry");
     line("");
 
     if (!halo_guest_runtime_init())
@@ -33,32 +34,34 @@ void halo_ios_start_game_boot(void (^line)(const char *text))
         halo_guest_page_size());
 
     line("");
-    line("Starting real Halo cache bootstrap...");
+    line("[1/2] Loading the real Halo ui.map cache...");
 
-    halo_ios_cache_boot_result result;
-    int ok = halo_ios_cache_bootstrap(line, &result);
+    halo_ios_cache_boot_result cacheResult;
+    if (!halo_ios_cache_bootstrap(line, &cacheResult))
+    {
+        line("");
+        line("M2.4 BOOT RESULT: BLOCKED IN CACHE STARTUP");
+        return;
+    }
 
     line("");
-    if (ok)
+    line("[2/2] Entering recovered scenario/game startup data path...");
+
+    halo_ios_engine_boot_result engineResult;
+    if (!halo_ios_engine_boot_main_menu(line, &engineResult))
     {
-        line("M2.3 BOOT RESULT: REAL CONTENT LOADED");
-        say(line, "Maps indexed: %u valid / %u discovered",
-            result.valid_maps, result.discovered_maps);
-        say(line, "ui.map tags: %u", result.selected_tag_count);
-        say(line, "scenario datum: 0x%08x", result.selected_scenario_tag_index);
         line("");
-        line("Halo iOS has crossed from file discovery into real cache/tag loading.");
-        line("The next update will connect this loaded ui.map state to the recovered");
-        line("scenario/game initialization path instead of returning to probe code.");
-    }
-    else
-    {
-        line("M2.3 BOOT RESULT: BLOCKED");
-        line("The cache loader stopped at the first real content/format boundary above.");
+        line("M2.4 BOOT RESULT: BLOCKED IN ENGINE ENTRY");
+        return;
     }
 
-    /*
-     * Keep the guest reservation alive for the process lifetime. Later engine
-     * startup code will continue from the loaded tag cache instead of rebuilding it.
-     */
+    line("");
+    line("M2.4 BOOT RESULT: RECOVERED ENGINE ENTRY REACHED");
+    say(line, "scenario      : guest 0x%08x", engineResult.scenario_base_va);
+    say(line, "structure BSP : guest 0x%08x", engineResult.bsp_definition_va);
+    say(line, "game globals  : guest 0x%08x", engineResult.game_globals_base_va);
+    line("");
+    line("This build intentionally stops before calling LP64-incompatible recovered");
+    line("engine functions. The next port layer must make their 32-bit pointer ABI");
+    line("executable on iOS, then game_initialize_for_new_map()/main_menu_load can run.");
 }

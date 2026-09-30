@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <zlib.h>
 
 #define HALO_CACHE_HEADER_SIZE        UINT32_C(0x800)
@@ -15,6 +16,13 @@
 #define HALO_TAG_CACHE_CAPACITY       UINT32_C(0x01600000)
 #define HALO_TAG_INSTANCE_SIZE        UINT32_C(0x20)
 #define HALO_TAG_HEADER_SIZE          UINT32_C(0x24)
+
+static NSData *g_selected_cache_image;
+static uint32_t g_tag_instances_va;
+static uint32_t g_tag_count;
+static uint32_t g_scenario_tag_index;
+static uint32_t g_scenario_base_va;
+static uint32_t g_selected_file_length;
 
 static void say(void (^line)(const char *), const char *fmt, ...)
 {
@@ -292,6 +300,12 @@ int halo_ios_cache_bootstrap(void (^line)(const char *text),
                              halo_ios_cache_boot_result *result)
 {
     memset(result, 0, sizeof(*result));
+    g_selected_cache_image = nil;
+    g_tag_instances_va = 0;
+    g_tag_count = 0;
+    g_scenario_tag_index = 0;
+    g_scenario_base_va = 0;
+    g_selected_file_length = 0;
 
     NSString *mapsPath = maps_directory();
     NSArray<NSString *> *maps = map_files_sorted(mapsPath);
@@ -393,6 +407,10 @@ int halo_ios_cache_bootstrap(void (^line)(const char *text),
     if (!cacheImage)
         return 0;
 
+    g_selected_cache_image = cacheImage;
+    g_selected_file_length = selectedHeader.file_length;
+    result->selected_file_length = selectedHeader.file_length;
+
     if ((uint64_t)selectedHeader.tag_data_offset + selectedHeader.tag_data_size > cacheImage.length)
     {
         line("BOOT BLOCKED: expanded ui.map does not contain the declared tag-data range.");
@@ -448,6 +466,9 @@ int halo_ios_cache_bootstrap(void (^line)(const char *text),
     result->selected_tag_count = tagCount;
     result->selected_scenario_tag_index = scenarioTagIndex;
     result->selected_tag_instances_va = tagInstancesVA;
+    g_tag_instances_va = tagInstancesVA;
+    g_tag_count = tagCount;
+    g_scenario_tag_index = scenarioTagIndex;
 
     line("");
     line("REAL TAG CACHE ONLINE:");
@@ -481,6 +502,8 @@ int halo_ios_cache_bootstrap(void (^line)(const char *text),
     uint32_t instanceTagIndex = read_u32le(scenarioInstance + 0x0C);
     uint32_t nameVA = read_u32le(scenarioInstance + 0x10);
     uint32_t baseVA = read_u32le(scenarioInstance + 0x14);
+    result->selected_scenario_base_va = baseVA;
+    g_scenario_base_va = baseVA;
 
     NSString *scenarioName = @"<unresolved>";
     if (guest_range_is_loaded(nameVA, 1, selectedHeader.tag_data_size))
@@ -513,10 +536,104 @@ int halo_ios_cache_bootstrap(void (^line)(const char *text),
     say(line, "  name           : %s", scenarioName.UTF8String);
 
     line("");
-    line("BOOT STAGE COMPLETE: real ui.map cache header, tag payload, tag table,");
-    line("and scenario tag are now being consumed from the iPhone's Halo content.");
-    line("NEXT ENGINE BOUNDARY: wire these loaded globals into scenario_tags_load/");
-    line("game initialization and begin the actual main-menu engine startup path.");
+    line("CACHE STAGE COMPLETE: ui.map tag state is resident and retained for engine startup.");
 
     return 1;
+}
+
+int halo_ios_cache_copy_selected_range(uint32_t file_offset,
+                                       uint32_t size,
+                                       void *destination)
+{
+    if (!g_selected_cache_image || !destination || size == 0)
+        return 0;
+
+    uint64_t end = (uint64_t)file_offset + size;
+    if (end > g_selected_cache_image.length)
+        return 0;
+
+    memcpy(destination,
+           (const uint8_t *)g_selected_cache_image.bytes + file_offset,
+           size);
+    return 1;
+}
+
+int halo_ios_cache_copy_selected_range_to_guest(uint32_t file_offset,
+                                                uint32_t size,
+                                                uint32_t guest_va)
+{
+    if (!size || !halo_guest_commit(guest_va, size))
+        return 0;
+
+    void *destination = halo_guest_ptr(guest_va, size);
+    if (!destination)
+        return 0;
+
+    return halo_ios_cache_copy_selected_range(file_offset, size, destination);
+}
+
+int halo_ios_cache_find_tag(uint32_t group_tag,
+                            const char *name,
+                            uint32_t *tag_index,
+                            uint32_t *base_va)
+{
+    if (!g_tag_instances_va || !g_tag_count || !name)
+        return 0;
+
+    uint8_t *instances =
+        halo_guest_ptr(g_tag_instances_va, g_tag_count * HALO_TAG_INSTANCE_SIZE);
+    if (!instances)
+        return 0;
+
+    for (uint32_t i = 0; i < g_tag_count; ++i)
+    {
+        uint8_t *instance = instances + i * HALO_TAG_INSTANCE_SIZE;
+        uint32_t group = read_u32le(instance + 0x00);
+        uint32_t datum = read_u32le(instance + 0x0C);
+        uint32_t name_va = read_u32le(instance + 0x10);
+        uint32_t base = read_u32le(instance + 0x14);
+
+        if (group != group_tag || !name_va)
+            continue;
+
+        const char *candidate = halo_guest_ptr(name_va, 1);
+        if (!candidate)
+            continue;
+
+        if (!strcasecmp(candidate, name))
+        {
+            if (tag_index)
+                *tag_index = datum;
+            if (base_va)
+                *base_va = base;
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+uint32_t halo_ios_cache_tag_instances_va(void)
+{
+    return g_tag_instances_va;
+}
+
+uint32_t halo_ios_cache_tag_count(void)
+{
+    return g_tag_count;
+}
+
+uint32_t halo_ios_cache_scenario_tag_index(void)
+{
+    return g_scenario_tag_index;
+}
+
+uint32_t halo_ios_cache_scenario_base_va(void)
+{
+    return g_scenario_base_va;
+}
+
+uint32_t halo_ios_cache_selected_file_length(void)
+{
+    return g_selected_file_length;
 }
