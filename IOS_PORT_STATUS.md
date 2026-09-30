@@ -1,6 +1,6 @@
 # Halo CE iOS — Port Status
 
-Updated September 30, 2026. Current development milestone: **M2.6.15**.
+Updated September 30, 2026. Current development milestone: **M2.6.16**.
 
 Halo's real main menu rendered on a physical iPhone with **M2.6.12**. The test ran for more than ten minutes and showed the Halo background and Campaign, Multiplayer, and Settings. Startup and frame rendering were very slow, and blocks covered portions of the menu text. This confirms engine execution and menu rendering; playable campaign and multiplayer are not yet confirmed.
 
@@ -8,7 +8,9 @@ Halo's real main menu rendered on a physical iPhone with **M2.6.12**. The test r
 
 **M2.6.14 device evidence:** the user confirmed working touch menu controls. The supplied game log reached `starting precaching of map 'a10'` after menu navigation. This confirms a campaign loading attempt, not completed loading or playable gameplay. The remaining color artifacts still require verification.
 
-**M2.6.15 is awaiting device testing.** It removes the cyan presentation marker and its log description, and adds separate Boot log and Game log views with a persistent explanation of skipped Bink videos and muted audio. Important terminal messages remain accessible in `debug.txt` and shared logs.
+**M2.6.15 added log improvements:** it removes the cyan presentation marker and its log description, and adds separate Boot log and Game log views with a persistent explanation of skipped Bink videos and muted audio. Important terminal messages remain accessible in `debug.txt` and shared logs.
+
+**M2.6.16 is awaiting device testing:** native bulk memory operations, timed loading stages, and a split menu-control layout. Campaign loading and performance still require device verification.
 
 ## Current capabilities
 
@@ -25,7 +27,7 @@ Halo's real main menu rendered on a physical iPhone with **M2.6.12**. The test r
 
 ## Remaining work
 
-- Test M2.6.15 log views, menu rendering, and campaign loading on the device.
+- Test M2.6.16 log views, menu rendering, and campaign loading on the device.
 - Investigate remaining rendering artifacts and guest/host bridge overhead.
 - Validate menu input and campaign loading before claiming playable gameplay.
 - Add and validate audio and networking support. Bink movies are currently skipped.
@@ -49,3 +51,11 @@ See the [iOS build and setup guide](port/ios/README.md) and [workflow](.github/w
 | M2.6.13 | Native DXT decode, muted playback optimization, and mutable texture refresh; menu with readable text confirmed in recording, intermittent color artifacts remain. |
 | M2.6.14 | Hide in-game terminal, isolate final texture bindings, and add menu controls; touch navigation confirmed, `a10` precaching reached. |
 | M2.6.15 | Remove cyan test marker; add Boot log / Game log views and clear video/audio limitations notice; device verification pending. |
+
+## M2.6.16 performance and loading diagnostics
+
+Bulk guest memory copies, moves, and fills of at least 256 bytes now use native host routines with guest-span validation. Smaller operations retain the guest implementation. Ten-second heartbeats report native call and byte totals. Compiler-inlined operations are unaffected; speed improvements require device measurement.
+
+Map cache preparation, scenario/assets loading, and major initialization steps report elapsed times in Boot log. A loading label displays the current instrumented stage and elapsed seconds, including when Show game is open. It is stage information, not a percentage or proof that loading has completed. Menu navigation uses a left D-pad with Select and Back on the right. Audio remains muted and Bink movies remain skipped.
+
+Awaiting device testing: compare menu startup time and try `a10`. If loading appears stalled, share logs while the loading stage is still visible. Campaign gameplay remains unconfirmed.

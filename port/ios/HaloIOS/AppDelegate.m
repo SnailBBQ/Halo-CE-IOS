@@ -8,7 +8,11 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
 @interface AppDelegate () <UIDocumentPickerDelegate>
 @property(nonatomic, strong) UIView *bootOverlay;
-@property(nonatomic, strong) UIStackView *menuControls;
+@property(nonatomic, strong) UIView *menuControls;
+@property(nonatomic, strong) UILabel *loadingStatus;
+@property(nonatomic, copy) NSString *loadingName;
+@property(nonatomic, strong) NSDate *loadingStarted;
+@property(nonatomic, strong) NSTimer *loadingTimer;
 @property(nonatomic, strong) UIButton *logToggle;
 @property(nonatomic, strong) UITextView *bootLog;
 @property(nonatomic, copy) NSString *bootText;
@@ -22,6 +26,33 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 @end
 
 @implementation AppDelegate
+
+- (void)loadingLine:(NSString *)line
+{
+    if ([line hasPrefix:@"[loading] begin: "]) {
+        self.loadingName = [line substringFromIndex:17];
+        self.loadingStarted = [NSDate date];
+        self.loadingStatus.hidden = NO;
+        [self updateLoadingStatus];
+    } else if ([line hasPrefix:@"[loading] done: Map initialized "] ||
+               [line containsString:@"FULL GUEST STOPPED"] ||
+               [line containsString:@"FULL GUEST BLOCKED"]) {
+        self.loadingStatus.hidden = YES;
+    } else if ([line hasPrefix:@"[loading] done: "]) {
+        self.loadingName = @"Next initialization step";
+        self.loadingStarted = [NSDate date];
+        [self updateLoadingStatus];
+    }
+}
+
+- (void)updateLoadingStatus
+{
+    if (!self.loadingStatus.hidden && self.loadingStarted) {
+        self.loadingStatus.text = [NSString stringWithFormat:@"Loading: %@ · %.0f s",
+            self.loadingName, -self.loadingStarted.timeIntervalSinceNow];
+    }
+}
+
 - (NSString *)haloFolder {
     return [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Halo"];
 }
@@ -201,7 +232,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"HALO iOS — M2.6.15 Startup";
+    title.text = @"HALO iOS — M2.6.16 Startup";
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:18];
 
@@ -236,33 +267,65 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     [vc.view addSubview:toggle];
     self.logToggle = toggle;
     self.bootLog = log;
-    UIStackView *menu = [UIStackView new];
+    UIView *menu = [UIView new];
     menu.translatesAutoresizingMaskIntoConstraints = NO;
-    menu.axis = UILayoutConstraintAxisHorizontal;
-    menu.spacing = 8;
     menu.hidden = YES;
     NSArray<NSString *> *labels = @[@"←", @"↑", @"↓", @"→", @"Select", @"Back"];
     NSArray<NSNumber *> *buttons = @[@13, @11, @12, @14, @0, @1];
+    NSArray<NSString *> *accessibility = @[@"Left", @"Up", @"Down", @"Right", @"Select", @"Back"];
     for (NSUInteger i = 0; i < labels.count; ++i) {
         UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+        button.translatesAutoresizingMaskIntoConstraints = NO;
         [button setTitle:labels[i] forState:UIControlStateNormal];
         [button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+        button.accessibilityLabel = accessibility[i];
         button.backgroundColor = [UIColor colorWithWhite:0.12 alpha:0.8];
-        button.layer.cornerRadius = 8;
+        button.layer.cornerRadius = 12;
         button.tag = buttons[i].integerValue;
-        [button.widthAnchor constraintEqualToConstant:i < 4 ? 44 : 70].active = YES;
-        [button.heightAnchor constraintEqualToConstant:44].active = YES;
+        [button.widthAnchor constraintEqualToConstant:i < 4 ? 48 : 80].active = YES;
+        [button.heightAnchor constraintEqualToConstant:48].active = YES;
         [button addTarget:self action:@selector(menuPress:) forControlEvents:UIControlEventTouchDown];
         [button addTarget:self action:@selector(menuRelease:)
             forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
-        [menu addArrangedSubview:button];
+        [menu addSubview:button];
+        if (i < 4) {
+            CGFloat x[] = {0, 52, 52, 104};
+            CGFloat y[] = {52, 0, 104, 52};
+            [button.leadingAnchor constraintEqualToAnchor:menu.leadingAnchor constant:x[i]].active = YES;
+            [button.topAnchor constraintEqualToAnchor:menu.topAnchor constant:y[i]].active = YES;
+        } else {
+            [button.trailingAnchor constraintEqualToAnchor:menu.trailingAnchor].active = YES;
+            [button.bottomAnchor constraintEqualToAnchor:menu.bottomAnchor constant:i == 4 ? 0 : -60].active = YES;
+        }
     }
     [vc.view addSubview:menu];
     self.menuControls = menu;
     [NSLayoutConstraint activateConstraints:@[
-        [menu.centerXAnchor constraintEqualToAnchor:vc.view.centerXAnchor],
-        [menu.bottomAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.bottomAnchor constant:-8]
+        [menu.leadingAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.leadingAnchor constant:16],
+        [menu.trailingAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.trailingAnchor constant:-16],
+        [menu.heightAnchor constraintEqualToConstant:152],
+        [menu.bottomAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.bottomAnchor constant:-12]
     ]];
+    UILabel *loading = [UILabel new];
+    loading.translatesAutoresizingMaskIntoConstraints = NO;
+    loading.textColor = UIColor.whiteColor;
+    loading.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.9];
+    loading.textAlignment = NSTextAlignmentCenter;
+    loading.numberOfLines = 2;
+    loading.font = [UIFont systemFontOfSize:15];
+    loading.hidden = YES;
+    [vc.view addSubview:loading];
+    self.loadingStatus = loading;
+    [NSLayoutConstraint activateConstraints:@[
+        [loading.centerXAnchor constraintEqualToAnchor:vc.view.centerXAnchor],
+        [loading.topAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.topAnchor constant:68],
+        [loading.widthAnchor constraintEqualToConstant:300],
+        [loading.heightAnchor constraintEqualToConstant:48]
+    ]];
+    __weak AppDelegate *loadingOwner = self;
+    self.loadingTimer = [NSTimer scheduledTimerWithTimeInterval:1 repeats:YES block:^(NSTimer *timer) {
+        [loadingOwner updateLoadingStatus];
+    }];
     UIButton *import = [UIButton buttonWithType:UIButtonTypeSystem];
     [import setTitle:@"Import maps" forState:UIControlStateNormal];
     [import addTarget:self action:@selector(importMaps:) forControlEvents:UIControlEventTouchUpInside];
@@ -385,6 +448,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
                 if (text.length > 50000)
                     [text deleteCharactersInRange:NSMakeRange(0, text.length - 40000)];
                 AppDelegate *owner = weakSelf;
+                [owner loadingLine:line];
                 owner.bootText = [text copy];
                 if (!bootOverlay.hidden) [owner refreshLogView];
             });

@@ -56,6 +56,10 @@ jobs:
           if "-DHALO_ANDROID=1" not in s:
               raise SystemExit("guest compile flags not found in build.ninja")
           s = s.replace("-DHALO_ANDROID=1", "-DHALO_ANDROID=1 -DHALO_IOS_GUEST=1")
+          linker = "ld.lld -m aarch64linux -static"
+          if linker not in s:
+              raise SystemExit("guest link rule not found in build.ninja")
+          s = s.replace(linker, linker + " --wrap=memcpy --wrap=memmove --wrap=memset")
           p.write_text(s.replace("tools/android_gl_stubs.py", "tools/ios_gl_stubs.py"))
           PY
           ninja --version

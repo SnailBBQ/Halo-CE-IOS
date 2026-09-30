@@ -222,6 +222,55 @@ static void *gp(uint64_t guest, size_t size)
     return halo_guest_ptr((uint32_t)guest, size);
 }
 
+
+static _Atomic uint64_t g_bulk_calls, g_bulk_bytes;
+static void ios_memory_copy(uint32_t dst, uint32_t src, uint32_t size, int move)
+{
+    if (!size) return;
+    void *d = gp(dst, size);
+    const void *s = gp(src, size);
+    if (!d || !s) {
+        say("native memory copy: invalid guest span dst=0x%08x src=0x%08x size=%u", dst, src, size);
+        halo_guest_exec_abort(HALO_GUEST_ABORT_HOST);
+        return;
+    }
+    if (move) memmove(d, s, size); else memcpy(d, s, size);
+    atomic_fetch_add(&g_bulk_calls, 1);
+    atomic_fetch_add(&g_bulk_bytes, size);
+}
+static void ios_memory_fill(uint32_t dst, int value, uint32_t size)
+{
+    if (!size) return;
+    void *d = gp(dst, size);
+    if (!d) {
+        say("native memory fill: invalid guest span dst=0x%08x size=%u", dst, size);
+        halo_guest_exec_abort(HALO_GUEST_ABORT_HOST);
+        return;
+    }
+    memset(d, value, size);
+    atomic_fetch_add(&g_bulk_calls, 1);
+    atomic_fetch_add(&g_bulk_bytes, size);
+}
+static double loading_seconds(void)
+{
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (double)t.tv_sec + (double)t.tv_nsec / 1e9;
+}
+static void ios_loading_stage(uint32_t name_va, int done)
+{
+    /* These calls are sequential on the game thread; no nested stages. */
+    static double started;
+    const char *name = gp(name_va, 1);
+    if (!name) return;
+    if (!done) {
+        started = loading_seconds();
+        say("[loading] begin: %s", name);
+    } else {
+        say("[loading] done: %s (%.3f s)", name, loading_seconds() - started);
+    }
+}
+
 static uint32_t guest_alloc(uint32_t size, uint32_t alignment)
 {
     if (alignment < 0x4000)
@@ -1763,6 +1812,9 @@ static void *resolve_host_import(const char *name)
     MAP("host_cache_inflate_init", ios_cache_inflate_init);
     MAP("host_texture_decode_dxt", ios_texture_decode_dxt);
     MAP("host_texture_hash", ios_texture_hash);
+    MAP("host_memory_copy", ios_memory_copy);
+    MAP("host_memory_fill", ios_memory_fill);
+    MAP("host_loading_stage", ios_loading_stage);
     MAP("host_cache_inflate", ios_cache_inflate_step);
     MAP("host_cache_inflate_end", ios_cache_inflate_end);
     MAP("host_guest_pointer", ios_host_guest_pointer);
@@ -2061,7 +2113,7 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.15 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.16 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);
@@ -2188,6 +2240,9 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                     (unsigned long long)(stats.pointer_upgrades - previous_upgrades),
                     stats.last_guest_pc, symbol ? symbol : "unknown",
                     symbol ? stats.last_guest_pc - symbol_va : 0);
+                say("native bulk memory: %llu calls, %llu MiB total",
+                    (unsigned long long)atomic_load(&g_bulk_calls),
+                    (unsigned long long)(atomic_load(&g_bulk_bytes) / (1024 * 1024)));
                 previous_upgrades = stats.pointer_upgrades;
             }
         }

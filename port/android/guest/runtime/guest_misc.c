@@ -100,3 +100,30 @@ void backtrace_symbols_fd(void *const *frames, int size, int fd)
 	(void)size;
 	(void)fd;
 }
+
+#ifdef HALO_IOS_GUEST
+/* Keep return values in guest address space; host addresses must not escape. */
+extern void host_memory_copy(unsigned int, unsigned int, unsigned int, int);
+extern void host_memory_fill(unsigned int, int, unsigned int);
+extern void *__real_memcpy(void *, const void *, size_t);
+extern void *__real_memmove(void *, const void *, size_t);
+extern void *__real_memset(void *, int, size_t);
+__attribute__((no_builtin)) void *__wrap_memcpy(void *dst, const void *src, size_t n)
+{
+    if (n < 256) return __real_memcpy(dst, src, n);
+    host_memory_copy((unsigned int)dst, (unsigned int)src, n, 0);
+    return dst;
+}
+__attribute__((no_builtin)) void *__wrap_memmove(void *dst, const void *src, size_t n)
+{
+    if (n < 256) return __real_memmove(dst, src, n);
+    host_memory_copy((unsigned int)dst, (unsigned int)src, n, 1);
+    return dst;
+}
+__attribute__((no_builtin)) void *__wrap_memset(void *dst, int value, size_t n)
+{
+    if (n < 256) return __real_memset(dst, value, n);
+    host_memory_fill((unsigned int)dst, value, n);
+    return dst;
+}
+#endif

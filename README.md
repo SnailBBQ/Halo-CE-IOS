@@ -12,7 +12,7 @@ That project is a fork of [punpckhdq/halo](https://github.com/punpckhdq/halo).
 
 ## iOS development status
 
-**M2.6.15 is awaiting device testing.** The main menu and readable text are confirmed on device. M2.6.14 touch menu controls worked in the latest test, and the game log reached precaching of `a10`. Campaign gameplay is still unconfirmed. M2.6.15 removes the cyan display-test marker and adds Boot log / Game log views with a clear Bink video and muted-audio notice.
+**M2.6.16 is awaiting device testing.** The main menu and readable text are confirmed on device. M2.6.14 touch menu controls worked in the latest test, and the game log reached precaching of `a10`. Campaign gameplay is still unconfirmed. M2.6.16 adds native bulk memory operations, timed loading-stage diagnostics, and a left D-pad with Select/Back on the right. Boot log and Game log retain important messages.
 
 See [iOS port status](IOS_PORT_STATUS.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
 
@@ -163,3 +163,11 @@ Xbox SDK is not free to distribute. The sources of that build are not
 changed. To use the build again, set `SolutionConfig.matching` in
 `tools/project_x86.py`. You must also have the Xbox SDK in `xbox/` and
 `cachebeta.exe` in the root folder.
+
+## M2.6.16 performance and loading diagnostics
+
+Bulk guest memory copies, moves, and fills of at least 256 bytes now use native host routines with guest-span validation. Smaller operations retain the guest implementation. Ten-second heartbeats report native call and byte totals. Compiler-inlined operations are unaffected; speed improvements require device measurement.
+
+Map cache preparation, scenario/assets loading, and major initialization steps report elapsed times in Boot log. A loading label displays the current instrumented stage and elapsed seconds, including when Show game is open. It is stage information, not a percentage or proof that loading has completed. Menu navigation uses a left D-pad with Select and Back on the right. Audio remains muted and Bink movies remain skipped.
+
+Awaiting device testing: compare menu startup time and try `a10`. If loading appears stalled, share logs while the loading stage is still visible. Campaign gameplay remains unconfirmed.

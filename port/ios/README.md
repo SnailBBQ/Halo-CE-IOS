@@ -2,7 +2,7 @@
 
 Experimental Halo: Combat Evolved port for physical iPhone and iPad devices running iOS/iPadOS 15 or later. A native `arm64` app hosts the recovered `arm64_32` engine and presents graphics through EAGL/OpenGL ES 3.
 
-**Current version: M2.6.15, awaiting device testing.** The real main menu and readable text are confirmed. M2.6.14 touch controls worked and the latest game log reached precaching of the first campaign map, `a10`; completed campaign loading and gameplay remain unconfirmed. M2.6.15 removes the cyan test marker and improves log access. See [port status](../../IOS_PORT_STATUS.md).
+**Current version: M2.6.16, awaiting device testing.** The real main menu and readable text are confirmed. M2.6.14 touch controls worked and the latest game log reached precaching of the first campaign map, `a10`; completed campaign loading and gameplay remain unconfirmed. M2.6.16 adds native bulk memory operations, visible loading-stage timings, and a split control layout. See [port status](../../IOS_PORT_STATUS.md).
 
 ## Build with GitHub Actions
 
@@ -40,7 +40,7 @@ Import supports multiple files and keeps existing maps instead of replacing them
 
 ## Menu controls
 
-M2.6.14 adds on-screen **Left, Up, Down, Right, Select, and Back** buttons when the game view is shown. They feed the guest's first controller slot; Select maps to A and Back to B. A quick tap is retained until it is polled, so slow frames do not simply discard it. Showing the log or leaving the app clears held/pending buttons.
+M2.6.16 arranges the on-screen menu controls as a left D-pad with Select and Back on the right. M2.6.14 introduced on-screen **Left, Up, Down, Right, Select, and Back** buttons when the game view is shown. They feed the guest's first controller slot; Select maps to A and Back to B. A quick tap is retained until it is polled, so slow frames do not simply discard it. Showing the log or leaving the app clears held/pending buttons.
 
 These controls are for menu testing. Full gameplay controls and physical controller support are not implemented by this change. Test moving the highlight, opening Campaign with Select, and returning with Back before attempting a level.
 
@@ -48,7 +48,7 @@ These controls are for menu testing. Full gameplay controls and physical control
 
 Use **Show game** to inspect the rendered surface and **Show log** to inspect diagnostics. Switch between **Boot log** (host/guest startup and renderer output) and **Game log** (the latest 64 KiB of `debug.txt`). The in-game terminal overlay is hidden, but its messages remain in the game log. A notice explains that Bink movies are skipped and audio is muted. Game log refreshes when opened/selected and when new boot diagnostics arrive while it is visible. **Share logs** exports the existing `ios-boot.log`, `debug.txt`, and `gamestate.txt` files from `Documents/Halo`.
 
-For a report, include the displayed milestone, the workflow commit, how long the app ran, all available logs, and a screenshot or recording. M2.6.12 needed an extended test to reveal the menu. The neutral loading image alone do not confirm a rendered game menu. Audio is currently muted and Bink movies are skipped.
+For a report, include the displayed milestone, the workflow commit, how long the app ran, all available logs, and a screenshot or recording. M2.6.12 needed an extended test to reveal the menu. The neutral loading image alone does not confirm a rendered game menu. Audio is currently muted and Bink movies are skipped.
 
 ## Build the host locally on macOS
 
@@ -84,3 +84,11 @@ cp "$PACKAGE/HaloCE.ipa" build/ios/HaloCE.ipa
 ```
 
 Re-sign `build/ios/HaloCE.ipa` with your sideloading tool to install it. The internal target, executable, and app bundle remain `HaloIOS`; the device display name is **Halo CE**. The existing bundle identifier is retained to preserve upgrade continuity. Validate on a physical device: an iOS Simulator build does not validate this guest execution path.
+
+## M2.6.16 performance and loading diagnostics
+
+Bulk guest memory copies, moves, and fills of at least 256 bytes now use native host routines with guest-span validation. Smaller operations retain the guest implementation. Ten-second heartbeats report native call and byte totals. Compiler-inlined operations are unaffected; speed improvements require device measurement.
+
+Map cache preparation, scenario/assets loading, and major initialization steps report elapsed times in Boot log. A loading label displays the current instrumented stage and elapsed seconds, including when Show game is open. It is stage information, not a percentage or proof that loading has completed. Menu navigation uses a left D-pad with Select and Back on the right. Audio remains muted and Bink movies remain skipped.
+
+Awaiting device testing: compare menu startup time and try `a10`. If loading appears stalled, share logs while the loading stage is still visible. Campaign gameplay remains unconfirmed.
