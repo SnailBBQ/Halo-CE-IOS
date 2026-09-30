@@ -22,11 +22,11 @@
         [log.bottomAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.bottomAnchor constant:-12]
     ]];
 
-    NSMutableString *text = [NSMutableString stringWithString:@"Halo iOS - M1.0 Original-Address Guest Runtime\n\n"];
-    halo_ios_run_m1_probe(^(const char *s) {
+    NSMutableString *text = [NSMutableString stringWithString:@"Halo iOS - M1.1 Real Halo Function Slice\n\n"];
+    halo_ios_run_m11_probe(^(const char *s) {
         NSString *line = [NSString stringWithUTF8String:s ?: ""];
         [text appendFormat:@"%@\n", line];
-        NSLog(@"[HaloIOS-M1.0] %@", line);
+        NSLog(@"[HaloIOS-M1.1] %@", line);
     });
     log.text = text;
 
