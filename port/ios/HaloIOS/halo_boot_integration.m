@@ -18,7 +18,7 @@ static void say(void (^line)(const char *), const char *fmt, ...)
 
 void halo_ios_start_game_boot(void (^line)(const char *text))
 {
-    line("Halo iOS - M2.2 Real Cache Boot");
+    line("Halo iOS - M2.3 Compressed Cache Boot");
     line("");
 
     if (!halo_guest_runtime_init())
@@ -41,7 +41,7 @@ void halo_ios_start_game_boot(void (^line)(const char *text))
     line("");
     if (ok)
     {
-        line("M2.2 BOOT RESULT: REAL CONTENT LOADED");
+        line("M2.3 BOOT RESULT: REAL CONTENT LOADED");
         say(line, "Maps indexed: %u valid / %u discovered",
             result.valid_maps, result.discovered_maps);
         say(line, "ui.map tags: %u", result.selected_tag_count);
@@ -53,7 +53,7 @@ void halo_ios_start_game_boot(void (^line)(const char *text))
     }
     else
     {
-        line("M2.2 BOOT RESULT: BLOCKED");
+        line("M2.3 BOOT RESULT: BLOCKED");
         line("The cache loader stopped at the first real content/format boundary above.");
     }
 

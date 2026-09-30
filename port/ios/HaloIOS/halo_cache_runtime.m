@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <zlib.h>
 
 #define HALO_CACHE_HEADER_SIZE        UINT32_C(0x800)
 #define HALO_TAG_CACHE_BASE_VA        UINT32_C(0x803A6000)
@@ -110,10 +111,10 @@ typedef struct halo_parsed_map_header
 } halo_parsed_map_header;
 
 static int parse_cache_header(NSData *headerData,
-                              unsigned long long actualFileSize,
+                              unsigned long long physicalFileSize,
                               halo_parsed_map_header *out)
 {
-    if (headerData.length < HALO_CACHE_HEADER_SIZE)
+    if (headerData.length < HALO_CACHE_HEADER_SIZE || physicalFileSize < HALO_CACHE_HEADER_SIZE)
         return 0;
 
     const uint8_t *b = headerData.bytes;
@@ -128,13 +129,20 @@ static int parse_cache_header(NSData *headerData,
     uint32_t tag_data_offset = read_u32le(b + 0x010);
     uint32_t tag_data_size = read_u32le(b + 0x014);
 
+    /*
+     * Recovered cache_files.c validates the declared cache length against the
+     * Xbox cache maximum, not against the physical source-file byte count.
+     * cache_files_decompress_windows.c copies the 0x800-byte header verbatim and
+     * inflates the body with zlib. The .map files on the content volume can
+     * therefore be smaller than header.file_length.
+     */
     if (version != 5)
         return 0;
-    if (file_length == 0 || (uint64_t)file_length > actualFileSize)
+    if (file_length < HALO_CACHE_HEADER_SIZE || file_length > UINT32_C(0x11600000))
         return 0;
     if (tag_data_size == 0 || tag_data_size > HALO_TAG_CACHE_CAPACITY)
         return 0;
-    if ((uint64_t)tag_data_offset + tag_data_size > actualFileSize)
+    if ((uint64_t)tag_data_offset + tag_data_size > file_length)
         return 0;
 
     out->version = version;
@@ -145,6 +153,95 @@ static int parse_cache_header(NSData *headerData,
     out->build = fixed_c_string(b + 0x040, 0x20);
     out->checksum = read_u32le(b + 0x064);
     return 1;
+}
+
+static NSData *load_cache_image(NSString *path,
+                                halo_parsed_map_header header,
+                                void (^line)(const char *))
+{
+    NSError *error = nil;
+    NSData *source = [NSData dataWithContentsOfFile:path
+                                            options:NSDataReadingMappedIfSafe
+                                              error:&error];
+    if (!source)
+    {
+        say(line, "BOOT BLOCKED: unable to read %s (%s)",
+            path.lastPathComponent.UTF8String,
+            error.localizedDescription.UTF8String ?: "unknown");
+        return nil;
+    }
+
+    if (source.length < HALO_CACHE_HEADER_SIZE)
+        return nil;
+
+    /*
+     * A fully expanded cache can be consumed directly. Otherwise mirror the
+     * recovered Xbox/Windows cache copier: preserve the header and inflate the
+     * body beginning at byte 0x800.
+     */
+    if (source.length == header.file_length)
+    {
+        say(line, "CACHE IMAGE: %s is already expanded (%llu bytes)",
+            path.lastPathComponent.UTF8String,
+            (unsigned long long)source.length);
+        return source;
+    }
+
+    if (source.length > header.file_length)
+    {
+        say(line, "CACHE IMAGE: source is larger than declared image; using first 0x%08x bytes",
+            header.file_length);
+        return [source subdataWithRange:NSMakeRange(0, header.file_length)];
+    }
+
+    uint8_t *expanded = malloc(header.file_length);
+    if (!expanded)
+    {
+        line("BOOT BLOCKED: unable to allocate expanded cache image.");
+        return nil;
+    }
+
+    memcpy(expanded, source.bytes, HALO_CACHE_HEADER_SIZE);
+
+    z_stream stream;
+    memset(&stream, 0, sizeof(stream));
+    int zr = inflateInit(&stream);
+    if (zr != Z_OK)
+    {
+        free(expanded);
+        say(line, "BOOT BLOCKED: inflateInit failed (%d)", zr);
+        return nil;
+    }
+
+    stream.next_in = (Bytef *)source.bytes + HALO_CACHE_HEADER_SIZE;
+    stream.avail_in = (uInt)(source.length - HALO_CACHE_HEADER_SIZE);
+    stream.next_out = expanded + HALO_CACHE_HEADER_SIZE;
+    stream.avail_out = header.file_length - HALO_CACHE_HEADER_SIZE;
+
+    zr = inflate(&stream, Z_FINISH);
+    uLong produced = stream.total_out;
+    inflateEnd(&stream);
+
+    if (zr != Z_STREAM_END ||
+        produced != (uLong)(header.file_length - HALO_CACHE_HEADER_SIZE))
+    {
+        say(line,
+            "BOOT BLOCKED: zlib cache expansion failed result=%d produced=0x%lx expected=0x%08x",
+            zr,
+            (unsigned long)produced,
+            header.file_length - HALO_CACHE_HEADER_SIZE);
+        free(expanded);
+        return nil;
+    }
+
+    say(line, "CACHE EXPANDED: %s %llu -> %u bytes",
+        path.lastPathComponent.UTF8String,
+        (unsigned long long)source.length,
+        header.file_length);
+
+    return [NSData dataWithBytesNoCopy:expanded
+                                length:header.file_length
+                          freeWhenDone:YES];
 }
 
 static int read_exact(NSFileHandle *handle, uint64_t offset, NSUInteger count, NSData **outData)
@@ -243,10 +340,14 @@ int halo_ios_cache_bootstrap(void (^line)(const char *text),
         }
 
         result->valid_maps++;
-        say(line, "  MAP  %-28s name=%-18s build=%s",
+        const char *storage = (actualSize == header.file_length) ? "expanded" : "zlib";
+        say(line, "  MAP  %-24s name=%-16s build=%-14s %s %llu/%u",
             filename.UTF8String,
             header.name.UTF8String,
-            header.build.UTF8String);
+            header.build.UTF8String,
+            storage,
+            actualSize,
+            header.file_length);
 
         if ([[filename lowercaseString] isEqualToString:@"ui.map"])
         {
@@ -288,25 +389,19 @@ int halo_ios_cache_bootstrap(void (^line)(const char *text),
         return 0;
     }
 
-    NSFileHandle *selected = [NSFileHandle fileHandleForReadingAtPath:selectedPath];
-    if (!selected)
+    NSData *cacheImage = load_cache_image(selectedPath, selectedHeader, line);
+    if (!cacheImage)
+        return 0;
+
+    if ((uint64_t)selectedHeader.tag_data_offset + selectedHeader.tag_data_size > cacheImage.length)
     {
-        line("BOOT BLOCKED: ui.map could not be reopened for tag-data loading.");
+        line("BOOT BLOCKED: expanded ui.map does not contain the declared tag-data range.");
         return 0;
     }
 
-    NSData *tagData = nil;
-    int readOK = read_exact(selected,
-                            selectedHeader.tag_data_offset,
-                            selectedHeader.tag_data_size,
-                            &tagData);
-    [selected closeFile];
-
-    if (!readOK)
-    {
-        line("BOOT BLOCKED: failed to read ui.map tag-data payload.");
-        return 0;
-    }
+    NSData *tagData =
+        [cacheImage subdataWithRange:NSMakeRange(selectedHeader.tag_data_offset,
+                                                 selectedHeader.tag_data_size)];
 
     void *tagCache = halo_guest_ptr(HALO_TAG_CACHE_BASE_VA,
                                     selectedHeader.tag_data_size);

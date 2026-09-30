@@ -5,7 +5,7 @@
  objectVersion = 56;
  objects = {
   A1 = {isa = PBXProject; buildConfigurationList = A2; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; mainGroup = A3; productRefGroup = A4; projectDirPath = ""; projectRoot = ""; targets = (A5,); };
-  A3 = {isa = PBXGroup; children = (B1,B2,B3,B6,B7,B8,B13,B14,B20,B21,B15,B16,B17,B18,B19,); sourceTree = "<group>"; };
+  A3 = {isa = PBXGroup; children = (B1,B2,B3,B6,B7,B8,B13,B14,B20,B21,B15,); sourceTree = "<group>"; };
   A4 = {isa = PBXGroup; children = (C1,); name = Products; sourceTree = "<group>"; };
 
   B1 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HaloIOS/main.m; sourceTree = "<group>"; };
@@ -19,11 +19,7 @@
   B20 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/halo_cache_runtime.h; sourceTree = "<group>"; };
   B21 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HaloIOS/halo_cache_runtime.m; sourceTree = "<group>"; };
 
-  B15 = {isa = PBXFileReference; lastKnownFileType = image.png; path = "HaloIOS/HaloIconM22160x60@2x.png"; sourceTree = "<group>"; };
-  B16 = {isa = PBXFileReference; lastKnownFileType = image.png; path = "HaloIOS/HaloIconM22160x60@3x.png"; sourceTree = "<group>"; };
-  B17 = {isa = PBXFileReference; lastKnownFileType = image.png; path = "HaloIOS/HaloIconM22176x76@2x.png"; sourceTree = "<group>"; };
-  B18 = {isa = PBXFileReference; lastKnownFileType = image.png; path = "HaloIOS/HaloIconM22183.5x83.5@2x.png"; sourceTree = "<group>"; };
-  B19 = {isa = PBXFileReference; lastKnownFileType = image.png; path = "HaloIOS/HaloIconM2211024.png"; sourceTree = "<group>"; };
+  B15 = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = HaloIOS/Assets.xcassets; sourceTree = "<group>"; };
 
   C1 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HaloIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 
@@ -36,10 +32,6 @@
   D10 = {isa = PBXBuildFile; fileRef = B14; };
   D16 = {isa = PBXBuildFile; fileRef = B21; };
   D11 = {isa = PBXBuildFile; fileRef = B15; };
-  D12 = {isa = PBXBuildFile; fileRef = B16; };
-  D13 = {isa = PBXBuildFile; fileRef = B17; };
-  D14 = {isa = PBXBuildFile; fileRef = B18; };
-  D15 = {isa = PBXBuildFile; fileRef = B19; };
 
   E1 = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
   E2 = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
@@ -48,14 +40,14 @@
   A5 = {isa = PBXNativeTarget; buildConfigurationList = A6; buildPhases = (F1,F2,F3,); buildRules = (); dependencies = (); name = HaloIOS; productName = HaloIOS; productReference = C1; productType = "com.apple.product-type.application"; };
   F1 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (D1,D2,D7,D10,D16,); runOnlyForDeploymentPostprocessing = 0; };
   F2 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (D4,D5,D6,); runOnlyForDeploymentPostprocessing = 0; };
-  F3 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (D11,D12,D13,D14,D15,); runOnlyForDeploymentPostprocessing = 0; };
+  F3 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (D11,); runOnlyForDeploymentPostprocessing = 0; };
 
   A2 = {isa = XCConfigurationList; buildConfigurations = (G1,G2,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
   A6 = {isa = XCConfigurationList; buildConfigurations = (H1,H2,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
   G1 = {isa = XCBuildConfiguration; buildSettings = {}; name = Debug; };
   G2 = {isa = XCBuildConfiguration; buildSettings = {}; name = Release; };
-  H1 = {isa = XCBuildConfiguration; buildSettings = { ARCHS = arm64; CLANG_ENABLE_OBJC_ARC = YES; CODE_SIGN_ENTITLEMENTS = HaloIOS/HaloIOS.entitlements; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HaloIOS/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.haloceuniversal.ios.m0; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; ALWAYS_SEARCH_USER_PATHS = NO; }; name = Debug; };
-  H2 = {isa = XCBuildConfiguration; buildSettings = { ARCHS = arm64; CLANG_ENABLE_OBJC_ARC = YES; CODE_SIGN_ENTITLEMENTS = HaloIOS/HaloIOS.entitlements; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HaloIOS/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.haloceuniversal.ios.m0; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; ALWAYS_SEARCH_USER_PATHS = NO; }; name = Release; };
+  H1 = {isa = XCBuildConfiguration; buildSettings = { ARCHS = arm64; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CLANG_ENABLE_OBJC_ARC = YES; OTHER_LDFLAGS = "-lz"; CODE_SIGN_ENTITLEMENTS = HaloIOS/HaloIOS.entitlements; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HaloIOS/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.haloceuniversal.ios.m0; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; ALWAYS_SEARCH_USER_PATHS = NO; }; name = Debug; };
+  H2 = {isa = XCBuildConfiguration; buildSettings = { ARCHS = arm64; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CLANG_ENABLE_OBJC_ARC = YES; OTHER_LDFLAGS = "-lz"; CODE_SIGN_ENTITLEMENTS = HaloIOS/HaloIOS.entitlements; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HaloIOS/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.haloceuniversal.ios.m0; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; ALWAYS_SEARCH_USER_PATHS = NO; }; name = Release; };
  };
  rootObject = A1;
 }
