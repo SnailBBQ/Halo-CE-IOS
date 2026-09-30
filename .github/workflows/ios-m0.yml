@@ -28,7 +28,7 @@ jobs:
           rm -rf build/ios-m0
           xcodebuild \
             -project port/ios/HaloIOS.xcodeproj \
-            -target HaloIOS \
+            -scheme HaloIOS \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath "$PWD/build/ios-m0/DerivedData" \
