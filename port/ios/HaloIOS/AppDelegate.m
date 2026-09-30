@@ -7,7 +7,7 @@
     UIViewController *vc = [UIViewController new];
     vc.view.backgroundColor = UIColor.blackColor;
 
-    UITextView *log = [[UITextView alloc] initWithFrame:CGRectZero];
+    UITextView *log = [[UITextView alloc] initWithFrame:(CGRect){0}];
     log.translatesAutoresizingMaskIntoConstraints = NO;
     log.backgroundColor = UIColor.blackColor;
     log.textColor = UIColor.greenColor;
