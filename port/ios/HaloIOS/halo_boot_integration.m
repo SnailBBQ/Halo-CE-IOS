@@ -196,13 +196,54 @@ static unsigned inspect_map_directory(NSString *path, void (^line)(const char *)
     return count;
 }
 
+static NSString *prepare_user_content_directory(void (^line)(const char *))
+{
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSString *home = NSHomeDirectory() ?: @"";
+    NSString *docs = [home stringByAppendingPathComponent:@"Documents"];
+    NSString *halo = [docs stringByAppendingPathComponent:@"Halo"];
+    NSString *maps = [halo stringByAppendingPathComponent:@"maps"];
+
+    NSError *error = nil;
+    if (![fm createDirectoryAtPath:maps
+       withIntermediateDirectories:YES
+                        attributes:nil
+                             error:&error])
+    {
+        say(line, "FAIL create content directory: %s",
+            error.localizedDescription.UTF8String ?: "unknown");
+        return nil;
+    }
+
+    NSString *marker = [halo stringByAppendingPathComponent:@"PUT_HALO_MAPS_HERE.txt"];
+    if (![fm fileExistsAtPath:marker])
+    {
+        NSString *instructions =
+            @"Halo iOS content folder\n\n"
+             "Copy the contents of your own Halo CE Universal 'maps' folder into:\n"
+             "Documents/Halo/maps\n\n"
+             "Keep original filenames and extensions.\n";
+        [instructions writeToFile:marker
+                       atomically:YES
+                         encoding:NSUTF8StringEncoding
+                            error:nil];
+    }
+
+    say(line, "READY user content folder: %s", maps.UTF8String);
+    return maps;
+}
+
 static unsigned inspect_content_locations(void (^line)(const char *))
 {
     NSString *bundle = [[NSBundle mainBundle] resourcePath] ?: @"";
     NSString *home = NSHomeDirectory() ?: @"";
     NSString *docs = [home stringByAppendingPathComponent:@"Documents"];
+    NSString *preparedMaps = prepare_user_content_directory(line);
 
-    NSArray<NSString *> *candidates = @[
+    NSMutableArray<NSString *> *candidates = [NSMutableArray array];
+    if (preparedMaps)
+        [candidates addObject:preparedMaps];
+    [candidates addObjectsFromArray:@[
         [bundle stringByAppendingPathComponent:@"maps"],
         [bundle stringByAppendingPathComponent:@"data/maps"],
         [bundle stringByAppendingPathComponent:@"Halo/maps"],
@@ -210,7 +251,7 @@ static unsigned inspect_content_locations(void (^line)(const char *))
         [docs stringByAppendingPathComponent:@"Halo/maps"],
         [docs stringByAppendingPathComponent:@"halo"],
         [docs stringByAppendingPathComponent:@"halo/maps"],
-    ];
+    ]];
 
     unsigned total = 0;
     for (NSString *path in candidates)
@@ -265,7 +306,8 @@ void halo_ios_run_m20_boot_integration(void (^line)(const char *text))
 
     line("");
     line("[5] First real boot gate - content discovery:");
-    line("Checking likely app-bundle and Documents locations for Halo .map content...");
+    line("Preparing Documents/Halo/maps and checking it plus likely bundle locations...");
+    line("You can transfer your own Halo CE Universal map files into that folder from Windows.");
     result.map_count = inspect_content_locations(line);
     result.content_ok = result.map_count > 0;
     say(line, "%s aggregate content discovery (%u total .map file%s seen)",

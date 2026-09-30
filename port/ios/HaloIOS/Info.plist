@@ -6,8 +6,8 @@
 <key>CFBundleName</key><string>Halo iOS</string>
 <key>CFBundleExecutable</key><string>HaloIOS</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.2.0</string>
-<key>CFBundleVersion</key><string>20</string>
+<key>CFBundleShortVersionString</key><string>0.2.1</string>
+<key>CFBundleVersion</key><string>21</string>
 <key>CFBundleIcons</key>
 <dict>
     <key>CFBundlePrimaryIcon</key>
@@ -33,6 +33,8 @@
         <key>UIPrerenderedIcon</key><false/>
     </dict>
 </dict>
+<key>UIFileSharingEnabled</key><true/>
+<key>LSSupportsOpeningDocumentsInPlace</key><true/>
 <key>UILaunchScreen</key><dict/>
 <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
 <key>UIRequiresFullScreen</key><true/>
