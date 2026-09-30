@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <mach/mach_time.h>
+#include <mach/mach.h>
 #include <libkern/OSCacheControl.h>
 #include <pthread.h>
 #include <sched.h>
@@ -592,6 +593,53 @@ static int ios_cache_inflate_end(uint32_t va)
     return result;
 }
 
+/* Linux ILP32 sysinfo uses 32-bit words, not the native iOS long layout. */
+struct guest_sysinfo
+{
+    int32_t uptime;
+    uint32_t loads[3];
+    uint32_t totalram, freeram, sharedram, bufferram, totalswap, freeswap;
+    uint16_t procs, pad;
+    uint32_t totalhigh, freehigh, mem_unit;
+    uint8_t reserved[8];
+};
+_Static_assert(sizeof(struct guest_sysinfo) == 64, "guest sysinfo must stay ILP32");
+_Static_assert(offsetof(struct guest_sysinfo, mem_unit) == 52, "guest sysinfo memory unit offset");
+
+static long long ios_guest_sysinfo(uint32_t va)
+{
+    struct guest_sysinfo *out = gp(va, sizeof(*out));
+    if (!out) return -EFAULT;
+    memset(out, 0, sizeof(*out));
+    struct timespec uptime;
+    if (clock_gettime(CLOCK_MONOTONIC, &uptime)) return -errno;
+    out->uptime = uptime.tv_sec > INT32_MAX ? INT32_MAX : (int32_t)uptime.tv_sec;
+    /* Page units keep physical-memory totals representable on >4 GB devices. */
+    out->mem_unit = 4096;
+    uint64_t total = NSProcessInfo.processInfo.physicalMemory;
+    uint64_t total_units = total / out->mem_unit;
+    out->totalram = total_units > UINT32_MAX ? UINT32_MAX : (uint32_t)total_units;
+    mach_port_t host = mach_host_self();
+    vm_size_t page_size = 0;
+    vm_statistics64_data_t vm;
+    mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
+    if (host_page_size(host, &page_size) == KERN_SUCCESS &&
+        host_statistics64(host, HOST_VM_INFO64, (host_info64_t)&vm, &count) == KERN_SUCCESS)
+    {
+        uint64_t available = ((uint64_t)vm.free_count + vm.inactive_count) * page_size;
+        if (available > total) available = total;
+        uint64_t units = available / out->mem_unit;
+        out->freeram = units > out->totalram ? out->totalram : (uint32_t)units;
+    }
+    mach_port_deallocate(mach_task_self(), host);
+    out->procs = 1; /* one hosted guest process; no guest swap or high-memory zone */
+    static atomic_flag reported = ATOMIC_FLAG_INIT;
+    if (!atomic_flag_test_and_set(&reported))
+        say("guest memory query ready: total=%u MiB available=%u MiB unit=%u",
+            out->totalram / 256, out->freeram / 256, out->mem_unit);
+    return 0;
+}
+
 /* ---------- guest Linux syscall service ---------- */
 
 static long long ios_host_syscall(long long number, long long a, long long b, long long c,
@@ -1004,6 +1052,9 @@ static long long ios_host_syscall(long long number, long long a, long long b, lo
             guest_timespec_out((uint32_t)b, &value);
             return 0;
         }
+
+        case 179: /* sysinfo */
+            return ios_guest_sysinfo((uint32_t)a);
 
         case 124: /* sched_yield */
             sched_yield();
@@ -1958,7 +2009,7 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.10 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.11 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);
@@ -2070,8 +2121,24 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
             (unsigned long long)stats.pointer_upgrades,
             (unsigned long long)stats.pc_translations);
         say("The guest remains active; monitoring for a later exit or execution fault.");
+        unsigned monitor_ticks = 0;
+        uint64_t previous_upgrades = stats.pointer_upgrades;
         while (!g_guest_finished)
+        {
             usleep(100000);
+            if (++monitor_ticks % 100 == 0 && !g_guest_finished)
+            {
+                halo_guest_exec_stats_get(&stats);
+                uint32_t symbol_va = 0;
+                const char *symbol = symbol_name_nearest(stats.last_guest_pc, &symbol_va);
+                say("guest heartbeat: elapsed~%u seconds, bridge upgrades +%llu; last bridge PC=0x%08x %s+0x%x",
+                    5 + monitor_ticks / 10,
+                    (unsigned long long)(stats.pointer_upgrades - previous_upgrades),
+                    stats.last_guest_pc, symbol ? symbol : "unknown",
+                    symbol ? stats.last_guest_pc - symbol_va : 0);
+                previous_upgrades = stats.pointer_upgrades;
+            }
+        }
         halo_guest_exec_stats_get(&stats);
     }
 
