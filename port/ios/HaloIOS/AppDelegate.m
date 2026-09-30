@@ -21,10 +21,10 @@
         [log.bottomAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.bottomAnchor constant:-12]
     ]];
 
-    NSMutableString *text = [NSMutableString stringWithString:@"Halo CE Universal - iOS M0.3 Guest Pointer Strategy\n\n"];
+    NSMutableString *text = [NSMutableString stringWithString:@"Halo CE Universal - iOS M0.4 Low-4GB / PAGEZERO Probe\n\n"];
     halo_ios_run_m0_probe(^(const char *s) {
         [text appendFormat:@"%s\n", s];
-        NSLog(@"[HaloM0.3] %s", s);
+        NSLog(@"[HaloM0.4] %s", s);
     });
     log.text = text;
     self.window.rootViewController = vc;
