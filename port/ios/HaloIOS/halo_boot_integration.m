@@ -20,7 +20,7 @@ static void say(void (^line)(const char *), const char *fmt, ...)
 
 void halo_ios_start_game_boot(void (^line)(const char *text))
 {
-    line("Halo iOS - M2.6.4 Visible Renderer Startup");
+    line("Halo iOS - M2.6.5 Visible Renderer Startup");
     line("");
 
     if (!halo_guest_runtime_init())
@@ -65,7 +65,7 @@ void halo_ios_start_game_boot(void (^line)(const char *text))
 
     line("");
     if (success)
-        line("M2.6.4 RESULT: FULL GUEST EXITED CLEANLY.");
+        line("M2.6.5 RESULT: FULL GUEST EXITED CLEANLY.");
     else
-        line("M2.6.4 RESULT: FULL GUEST REACHED AN EXECUTION/HOST BOUNDARY ABOVE.");
+        line("M2.6.5 RESULT: FULL GUEST REACHED AN EXECUTION/HOST BOUNDARY ABOVE.");
 }

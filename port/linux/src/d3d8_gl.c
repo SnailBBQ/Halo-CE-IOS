@@ -1749,7 +1749,14 @@ void WINAPI D3DDevice_SelectVertexShader(DWORD handle, DWORD address)
 	if (object)
 		device.vertex_shader = object;
 	if (address < VERTEX_PROGRAM_SLOTS)
+	{
 		device.program_address = address;
+		/* A zero handle selects an already-loaded program. Bootstrap its
+		 * declaration if none is active, retaining an explicit declaration
+		 * once one has been set. */
+		if (!handle && !device.vertex_shader && device.program_slots[address])
+			device.vertex_shader = device.program_slots[address];
+	}
 }
 
 void WINAPI D3DDevice_GetVertexShaderSize(DWORD handle, UINT *size)
@@ -2472,6 +2479,18 @@ static struct program_entry *prepare_draw(BOOL immediate)
 
 	if (!device.gl_ready || !program || !device.vertex_shader || !program->instructions)
 	{
+		static unsigned int missing_states_reported;
+		unsigned int missing = (!device.gl_ready ? 1u : 0u) |
+			(!program ? 2u : 0u) | (!device.vertex_shader ? 4u : 0u) |
+			(program && !program->instructions ? 8u : 0u);
+		if (!(missing_states_reported & (1u << missing)))
+		{
+			missing_states_reported |= 1u << missing;
+			platform_log("draw blocked: GL ready=%d program=%lu declaration=%lu instructions=%lu slot=%lu frame=%lu",
+				device.gl_ready, program ? program->id : 0,
+				device.vertex_shader ? device.vertex_shader->id : 0,
+				program ? program->instruction_count : 0, device.program_address, device.frame);
+		}
 		stats.skipped_no_program++;
 		return NULL;
 	}
