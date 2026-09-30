@@ -1,3 +1,7 @@
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE 700
+#endif
+
 #include "halo_guest_exec_bridge.h"
 #include "halo_guest_runtime.h"
 
