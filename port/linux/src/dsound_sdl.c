@@ -450,17 +450,60 @@ static void SDLCALL audio_callback(void *userdata, SDL_AudioStream *stream, int 
 	}
 }
 
+#ifdef HALO_IOS_GUEST
+/* Muted playback still completes packets; no PCM samples need to be mixed. */
+static void silent_advance(unsigned long frames)
+{
+    struct sdl_stream *stream;
+    pthread_mutex_lock(&mixer_lock);
+    for (stream = streams; stream; stream = stream->next)
+    {
+        if (stream->paused || !stream->packet_count || !stream->sample_rate) continue;
+        double step = (double)(stream->frequency ? stream->frequency : stream->sample_rate) / OUTPUT_RATE;
+        /* Use the same additions and boundary order as mix_voice, without
+           decoding/interpolating samples, gains, or writing an output buffer. */
+        double cursor = stream->cursor;
+        for (unsigned long frame = 0; frame < frames; ++frame)
+        {
+            struct voice_packet *packet;
+            for (;;)
+            {
+                packet = NULL;
+                for (unsigned long position = 0; position < stream->packet_count; ++position)
+                {
+                    struct voice_packet *candidate = &stream->packets[(stream->packet_head + position) % MAXIMUM_STREAM_PACKETS];
+                    if (!candidate->finished) { packet = candidate; break; }
+                }
+                if (!packet || cursor < (double)packet->frames) break;
+                cursor -= (double)packet->frames;
+                packet->finished = TRUE;
+            }
+            if (!packet) break;
+            cursor += step;
+        }
+        stream->cursor = cursor;
+    }
+    pthread_mutex_unlock(&mixer_lock);
+}
+#endif
+
 /* without a device, drain voices in real time */
 static void *silent_clock_thread(void *parameter)
 {
-	float buffer[480 * OUTPUT_CHANNELS];
+#ifndef HALO_IOS_GUEST
+    float buffer[480 * OUTPUT_CHANNELS];
+#endif
 	struct timespec next;
 
 	(void)parameter;
 	clock_gettime(CLOCK_MONOTONIC, &next);
 	for (;;)
 	{
-		mix(buffer, 480);
+#ifdef HALO_IOS_GUEST
+        silent_advance(480);
+#else
+        mix(buffer, 480);
+#endif
 		next.tv_nsec += 10000000L;
 		if (next.tv_nsec >= 1000000000L)
 		{

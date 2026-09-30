@@ -398,6 +398,19 @@ static void decode_level(const struct xgpu_texture_description *description, uns
 #ifdef HALO_ANDROID
 /* ---------- DXT decoding, for ES drivers without S3TC (Mali) */
 
+#ifdef HALO_IOS_GUEST
+extern int host_texture_decode_dxt(unsigned int kind, unsigned int source,
+    unsigned int width, unsigned int height, unsigned int depth, unsigned int destination);
+extern unsigned int host_texture_hash(unsigned int source, unsigned int size);
+static void dxt_decode_level(unsigned char kind, const unsigned char *source,
+    unsigned long width, unsigned long height, unsigned long depth, unsigned long *destination)
+{
+    unsigned int format = kind == _texel_dxt1 ? 1 : kind == _texel_dxt3 ? 3 : 5;
+    if (!host_texture_decode_dxt(format, (unsigned int)source, width, height, depth,
+        (unsigned int)destination))
+        memset(destination, 0, width * height * depth * 4);
+}
+#else
 static unsigned long color565(unsigned long value)
 {
 	return argb(255, expand5(value >> 11), expand6((value >> 5) & 0x3f), expand5(value & 0x1f));
@@ -518,6 +531,7 @@ static void dxt_decode_level(unsigned char kind, const unsigned char *source, un
 		}
 	}
 }
+#endif
 #endif
 
 static GLenum compressed_format(unsigned char kind)
@@ -712,7 +726,13 @@ GLuint xgpu_texture_get(const DWORD *resource, const D3DCOLOR *palette, GLenum *
 	if (!palettized && recent_textures[recent].entry && recent_textures[recent].data == data &&
 		recent_textures[recent].format_word == format_word && recent_textures[recent].size_word == size_word &&
 		recent_textures[recent].watch_serial == watch_serial &&
-		recent_textures[recent].drop_serial == texture_drop_serial)
+		recent_textures[recent].drop_serial == texture_drop_serial
+#ifdef HALO_IOS_GUEST
+        /* The host does not track guest writes; only immutable compressed
+           assets can use this shortcut. Check the drop serial before entry. */
+        && recent_textures[recent].entry->description.compressed
+#endif
+        )
 	{
 		entry = recent_textures[recent].entry;
 		entry->last_used_frame = texture_frame;
@@ -760,11 +780,24 @@ GLuint xgpu_texture_get(const DWORD *resource, const D3DCOLOR *palette, GLenum *
 	if (no_cache < 0)
 		no_cache = config_boolean("debug.texture_no_cache");
 	generation = memory_watch_generation(entry->address, entry->size);
-	if (!entry->generation || generation > entry->generation || no_cache)
+#ifdef HALO_IOS_GUEST
+    if (!entry->description.compressed)
+        generation = host_texture_hash(entry->address, entry->size);
+#endif
+	if (!entry->generation ||
+#ifdef HALO_IOS_GUEST
+        (entry->description.compressed ? generation > entry->generation : generation != entry->generation)
+#else
+        generation > entry->generation
+#endif
+        || no_cache)
 	{
 		/* protect first, so a write racing with the upload is noticed */
 		memory_watch_protect(entry->address, entry->size);
-		entry->generation = memory_watch_generation(entry->address, entry->size);
+		entry->generation = generation;
+#ifndef HALO_IOS_GUEST
+        entry->generation = memory_watch_generation(entry->address, entry->size);
+#endif
 		if (!entry->generation)
 			entry->generation = 1;
 		if (platform_is_contiguous((void *)entry->address) &&

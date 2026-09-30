@@ -22,6 +22,7 @@
 #include <string.h>
 #include <strings.h>
 #include <zlib.h>
+#include "halo_dxt_decode.h"
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
@@ -533,6 +534,32 @@ struct guest_z_stream
 _Static_assert(sizeof(struct guest_z_stream) == 56, "guest z_stream must stay ILP32");
 static z_stream g_cache_inflate;
 static uint32_t g_cache_inflate_va;
+
+static int ios_texture_decode_dxt(uint32_t kind, uint32_t source, uint32_t width,
+    uint32_t height, uint32_t depth, uint32_t destination)
+{
+    if ((kind != 1 && kind != 3 && kind != 5) || !width || !height || !depth ||
+        width > 16384 || height > 16384 || depth > 2048) return 0;
+    uint64_t input_size = (((uint64_t)width + 3) / 4) * (((uint64_t)height + 3) / 4) * depth * (kind == 1 ? 8 : 16);
+    uint64_t output_size = (uint64_t)width * height * depth * 4;
+    if (input_size > UINT32_MAX || output_size > UINT32_MAX) return 0;
+    const unsigned char *input = gp(source, (size_t)input_size);
+    uint32_t *output = gp(destination, (size_t)output_size);
+    if (!input || !output) return 0;
+    halo_dxt_decode_level((unsigned char)kind, input, width, height, depth, output);
+    static atomic_flag reported = ATOMIC_FLAG_INIT;
+    if (!atomic_flag_test_and_set(&reported)) say("native DXT texture decoder ready");
+    return 1;
+}
+
+static uint32_t ios_texture_hash(uint32_t source, uint32_t size)
+{
+    const unsigned char *bytes = gp(source, size);
+    if (!bytes) return 1;
+    uint32_t hash = 2166136261u;
+    for (uint32_t i = 0; i < size; ++i) hash = (hash ^ bytes[i]) * 16777619u;
+    return hash ? hash : 1;
+}
 
 static int ios_cache_inflate_init(uint32_t va)
 {
@@ -1711,6 +1738,8 @@ static void *resolve_host_import(const char *name)
     MAP("host_set_tp", ios_host_set_tp);
     MAP("host_thread_create", ios_host_thread_create);
     MAP("host_cache_inflate_init", ios_cache_inflate_init);
+    MAP("host_texture_decode_dxt", ios_texture_decode_dxt);
+    MAP("host_texture_hash", ios_texture_hash);
     MAP("host_cache_inflate", ios_cache_inflate_step);
     MAP("host_cache_inflate_end", ios_cache_inflate_end);
     MAP("host_guest_pointer", ios_host_guest_pointer);
@@ -2009,7 +2038,7 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.12 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.13 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);
