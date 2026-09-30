@@ -5,7 +5,7 @@
  objectVersion = 56;
  objects = {
   A1 = {isa = PBXProject; buildConfigurationList = A2; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; mainGroup = A3; productRefGroup = A4; projectDirPath = ""; projectRoot = ""; targets = (A5,); };
-  A3 = {isa = PBXGroup; children = (B1,B2,B3,B6,B7,B8,B13,B14,B20,B21,B22,B23,B15,); sourceTree = "<group>"; };
+  A3 = {isa = PBXGroup; children = (B1,B2,B3,B6,B7,B8,B13,B14,B20,B21,B22,B23,B24,B25,B26,B27,B15,); sourceTree = "<group>"; };
   A4 = {isa = PBXGroup; children = (C1,); name = Products; sourceTree = "<group>"; };
 
   B1 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HaloIOS/main.m; sourceTree = "<group>"; };
@@ -20,6 +20,10 @@
   B21 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HaloIOS/halo_cache_runtime.m; sourceTree = "<group>"; };
   B22 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/halo_engine_boot.h; sourceTree = "<group>"; };
   B23 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HaloIOS/halo_engine_boot.m; sourceTree = "<group>"; };
+  B24 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/halo_guest_exec_bridge.h; sourceTree = "<group>"; };
+  B25 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = HaloIOS/halo_guest_exec_bridge.c; sourceTree = "<group>"; };
+  B26 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/halo_guest_runner.h; sourceTree = "<group>"; };
+  B27 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HaloIOS/halo_guest_runner.m; sourceTree = "<group>"; };
 
   B15 = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = HaloIOS/Assets.xcassets; sourceTree = "<group>"; };
 
@@ -34,6 +38,8 @@
   D10 = {isa = PBXBuildFile; fileRef = B14; };
   D16 = {isa = PBXBuildFile; fileRef = B21; };
   D17 = {isa = PBXBuildFile; fileRef = B23; };
+  D18 = {isa = PBXBuildFile; fileRef = B25; };
+  D19 = {isa = PBXBuildFile; fileRef = B27; };
   D11 = {isa = PBXBuildFile; fileRef = B15; };
 
   E1 = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
@@ -41,7 +47,7 @@
   E3 = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 
   A5 = {isa = PBXNativeTarget; buildConfigurationList = A6; buildPhases = (F1,F2,F3,); buildRules = (); dependencies = (); name = HaloIOS; productName = HaloIOS; productReference = C1; productType = "com.apple.product-type.application"; };
-  F1 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (D1,D2,D7,D10,D16,D17,); runOnlyForDeploymentPostprocessing = 0; };
+  F1 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (D1,D2,D7,D10,D16,D17,D18,D19,); runOnlyForDeploymentPostprocessing = 0; };
   F2 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (D4,D5,D6,); runOnlyForDeploymentPostprocessing = 0; };
   F3 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (D11,); runOnlyForDeploymentPostprocessing = 0; };
 

@@ -1,4 +1,4 @@
-name: iOS M2.4 Engine Boot Entry IPA
+name: iOS M2.5 Full Guest Execution IPA
 
 on:
   workflow_dispatch:
@@ -8,8 +8,58 @@ on:
       - '.github/workflows/ios-m0.yml'
 
 jobs:
-  build-ios-m24:
+  build-arm64_32-guest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+
+    steps:
+      - name: Install Ninja
+        run: |
+          set -euxo pipefail
+          mkdir -p "$RUNNER_TEMP/tools"
+          curl -fsSL -o "$RUNNER_TEMP/ninja.zip" \
+            https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-linux.zip
+          unzip -q "$RUNNER_TEMP/ninja.zip" -d "$RUNNER_TEMP/tools"
+          echo "$RUNNER_TEMP/tools" >> "$GITHUB_PATH"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Android guest third party
+        uses: actions/cache@v4
+        with:
+          path: build/android/third_party
+          key: ios-guest-third-party-${{ hashFiles('tools/android_build.py') }}
+
+      - name: Configure recovered arm64_32 guest
+        run: |
+          set -euxo pipefail
+          python3 configure.py --pgo=off
+          ninja --version
+          clang --version
+
+      - name: Build recovered Halo guest ELF
+        run: |
+          set -euxo pipefail
+          ninja build/android/halo_guest.elf
+          test -s build/android/halo_guest.elf
+          file build/android/halo_guest.elf
+          ls -lh build/android/halo_guest.elf
+
+      - name: Upload guest image
+        uses: actions/upload-artifact@v4
+        with:
+          name: halo-ios-arm64_32-guest
+          path: build/android/halo_guest.elf
+          if-no-files-found: error
+          retention-days: 1
+
+  build-ios-m25:
+    needs: build-arm64_32-guest
     runs-on: macos-latest
+    timeout-minutes: 40
     permissions:
       contents: read
 
@@ -17,58 +67,70 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Download recovered guest image
+        uses: actions/download-artifact@v4
+        with:
+          name: halo-ios-arm64_32-guest
+          path: build/guest
+
       - name: Show Apple toolchain
         run: |
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
           clang --version
+          ls -lh build/guest/halo_guest.elf
 
-      - name: Build device app
+      - name: Build device host app
         run: |
           set -euxo pipefail
-          rm -rf build/ios-m24
+          rm -rf build/ios-m25
           xcodebuild \
             -project port/ios/HaloIOS.xcodeproj \
             -scheme HaloIOS \
             -configuration Release \
             -sdk iphoneos \
-            -derivedDataPath "$PWD/build/ios-m24/DerivedData" \
+            -derivedDataPath "$PWD/build/ios-m25/DerivedData" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             build
 
-      - name: Validate and ad-hoc sign
+      - name: Bundle real arm64_32 guest and ad-hoc sign
         run: |
           set -euxo pipefail
-          APP=$(find build/ios-m24/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
+          APP=$(find build/ios-m25/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
           test -n "$APP"
+          cp build/guest/halo_guest.elf "$APP/halo_guest.elf"
+
           EXECUTABLE=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP/Info.plist")
           test "$EXECUTABLE" = "HaloIOS"
           test -f "$APP/$EXECUTABLE"
           test -x "$APP/$EXECUTABLE"
+          test -s "$APP/halo_guest.elf"
+
           /usr/bin/codesign --force --sign - \
             --entitlements port/ios/HaloIOS/HaloIOS.entitlements \
             --timestamp=none "$APP"
           /usr/bin/codesign --verify --verbose=2 "$APP"
 
-      - name: Package Halo iOS M2.2 IPA
+      - name: Package M2.5 IPA
         run: |
           set -euxo pipefail
-          APP=$(find build/ios-m24/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
+          APP=$(find build/ios-m25/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
           test -n "$APP"
-          rm -rf build/ios-m24/Payload
-          mkdir -p build/ios-m24/Payload
-          cp -R "$APP" build/ios-m24/Payload/
-          cd build/ios-m24
-          /usr/bin/zip -qry Halo-iOS-M2.4-Engine-Boot-Entry.ipa Payload
-          /usr/bin/unzip -Z1 Halo-iOS-M2.4-Engine-Boot-Entry.ipa | grep -qx 'Payload/HaloIOS.app/Info.plist'
-          /usr/bin/unzip -Z1 Halo-iOS-M2.4-Engine-Boot-Entry.ipa | grep -qx 'Payload/HaloIOS.app/HaloIOS'
+          rm -rf build/ios-m25/Payload
+          mkdir -p build/ios-m25/Payload
+          cp -R "$APP" build/ios-m25/Payload/
+          cd build/ios-m25
+          /usr/bin/zip -qry Halo-iOS-M2.5-Full-Guest-Execution.ipa Payload
+          /usr/bin/unzip -Z1 Halo-iOS-M2.5-Full-Guest-Execution.ipa | grep -qx 'Payload/HaloIOS.app/Info.plist'
+          /usr/bin/unzip -Z1 Halo-iOS-M2.5-Full-Guest-Execution.ipa | grep -qx 'Payload/HaloIOS.app/HaloIOS'
+          /usr/bin/unzip -Z1 Halo-iOS-M2.5-Full-Guest-Execution.ipa | grep -qx 'Payload/HaloIOS.app/halo_guest.elf'
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Halo-iOS-M2.4-Engine-Boot-Entry
-          path: build/ios-m24/Halo-iOS-M2.4-Engine-Boot-Entry.ipa
+          name: Halo-iOS-M2.5-Full-Guest-Execution
+          path: build/ios-m25/Halo-iOS-M2.5-Full-Guest-Execution.ipa
           if-no-files-found: error
           retention-days: 14

@@ -2,6 +2,7 @@
 
 #import "halo_cache_runtime.h"
 #import "halo_engine_boot.h"
+#import "halo_guest_runner.h"
 #import "halo_guest_runtime.h"
 
 #include <stdarg.h>
@@ -19,49 +20,52 @@ static void say(void (^line)(const char *), const char *fmt, ...)
 
 void halo_ios_start_game_boot(void (^line)(const char *text))
 {
-    line("Halo iOS - M2.4 Engine Boot Entry");
+    line("Halo iOS - M2.5 Guest Execution Bridge");
     line("");
 
     if (!halo_guest_runtime_init())
     {
-        line("FATAL: original-address guest runtime failed to initialize.");
+        line("FATAL: 4-GiB-aligned original-address guest runtime failed.");
         return;
     }
 
-    say(line, "Guest runtime online: base=%p span=0x%llx page=%zu",
+    say(line, "Guest arena: base=%p span=0x%llx page=%zu aligned4G=%s",
         halo_guest_base_address(),
         (unsigned long long)halo_guest_span(),
-        halo_guest_page_size());
+        halo_guest_page_size(),
+        halo_guest_base_is_4gb_aligned() ? "YES" : "NO");
 
     line("");
-    line("[1/2] Loading the real Halo ui.map cache...");
+    line("[1/3] Loading real ui.map cache and original-address tag state...");
 
     halo_ios_cache_boot_result cacheResult;
     if (!halo_ios_cache_bootstrap(line, &cacheResult))
     {
-        line("");
-        line("M2.4 BOOT RESULT: BLOCKED IN CACHE STARTUP");
+        line("M2.5 BOOT RESULT: BLOCKED IN CACHE STARTUP");
         return;
     }
 
     line("");
-    line("[2/2] Entering recovered scenario/game startup data path...");
+    line("[2/3] Binding recovered scenario/BSP/game-global engine state...");
 
     halo_ios_engine_boot_result engineResult;
     if (!halo_ios_engine_boot_main_menu(line, &engineResult))
     {
-        line("");
-        line("M2.4 BOOT RESULT: BLOCKED IN ENGINE ENTRY");
+        line("M2.5 BOOT RESULT: BLOCKED IN ENGINE DATA ENTRY");
         return;
     }
 
     line("");
-    line("M2.4 BOOT RESULT: RECOVERED ENGINE ENTRY REACHED");
-    say(line, "scenario      : guest 0x%08x", engineResult.scenario_base_va);
-    say(line, "structure BSP : guest 0x%08x", engineResult.bsp_definition_va);
-    say(line, "game globals  : guest 0x%08x", engineResult.game_globals_base_va);
+    line("[3/3] Launching the full recovered arm64_32 Halo guest image...");
+    line("Mode for this milestone: real engine execution, null renderer + audio disabled.");
+    line("The guest receives Documents/Halo as its data root and runs its own main().");
     line("");
-    line("This build intentionally stops before calling LP64-incompatible recovered");
-    line("engine functions. The next port layer must make their 32-bit pointer ABI");
-    line("executable on iOS, then game_initialize_for_new_map()/main_menu_load can run.");
+
+    int running = halo_ios_run_full_guest(line);
+
+    line("");
+    if (running)
+        line("M2.5 RESULT: FULL GUEST EXECUTION BRIDGE ACTIVE.");
+    else
+        line("M2.5 RESULT: FULL GUEST REACHED A REAL EXECUTION/HOST BOUNDARY ABOVE.");
 }

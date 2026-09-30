@@ -14,7 +14,7 @@
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:20];
 
-    UITextView *log = [[UITextView alloc] initWithFrame:(CGRect){0}];
+    UITextView *log = [[UITextView alloc] initWithFrame:CGRectZero];
     log.translatesAutoresizingMaskIntoConstraints = NO;
     log.backgroundColor = UIColor.blackColor;
     log.textColor = UIColor.greenColor;
@@ -34,18 +34,27 @@
         [log.bottomAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.bottomAnchor constant:-12]
     ]];
 
-    NSMutableString *text = [NSMutableString string];
-
-    halo_ios_start_game_boot(^(const char *s) {
-        NSString *line = [NSString stringWithUTF8String:s ?: ""];
-        [text appendFormat:@"%@\n", line];
-        NSLog(@"[HaloIOS-Boot] %@", line);
-    });
-
-    log.text = text;
-
     self.window.rootViewController = vc;
     [self.window makeKeyAndVisible];
+
+    NSMutableString *text = [NSMutableString string];
+
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        halo_ios_start_game_boot(^(const char *s) {
+            NSString *line = [NSString stringWithUTF8String:s ?: ""] ?: @"<invalid UTF-8>";
+            NSLog(@"[HaloIOS-Boot] %@", line);
+
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [text appendFormat:@"%@\n", line];
+                log.text = text;
+                if (log.text.length > 0) {
+                    NSRange bottom = NSMakeRange(log.text.length - 1, 1);
+                    [log scrollRangeToVisible:bottom];
+                }
+            });
+        });
+    });
+
     return YES;
 }
 @end
