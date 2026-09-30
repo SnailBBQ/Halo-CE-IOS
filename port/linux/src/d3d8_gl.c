@@ -2226,6 +2226,45 @@ static GLuint mip_composite_get(const struct xgpu_texture_description *descripti
 	return composite->texture;
 }
 
+#ifdef HALO_IOS_GUEST
+static GLuint feedback_texture, feedback_source;
+static unsigned long feedback_width, feedback_height;
+
+/* Xbox loading blur samples the back buffer while drawing to it. GL requires
+ * a separate image: sampling an attached destination produces undefined pixels.
+ * Take one snapshot per draw, shared by all four texture stages. */
+static void snapshot_render_target_feedback(void)
+{
+	int stage;
+	feedback_source = 0;
+	if (!device.render_target) return;
+	for (stage = 0; stage < D3DTSS_MAXSTAGES; stage++)
+	{
+		D3DBaseTexture *texture = device.textures[stage];
+		if (texture && texture->Data == device.render_target->Data)
+		{
+			struct render_target_entry *entry = render_target_get(device.render_target);
+			struct xgpu_render_target *target = &entry->target;
+			if (!feedback_texture) glGenTextures(1, &feedback_texture);
+			glBindTexture(GL_TEXTURE_2D, feedback_texture);
+			if (feedback_width != target->gl_width || feedback_height != target->gl_height)
+			{
+				feedback_width = target->gl_width;
+				feedback_height = target->gl_height;
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, (GLsizei)feedback_width,
+					(GLsizei)feedback_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+				platform_log("loading feedback snapshot ready: %lux%lu", feedback_width, feedback_height);
+			}
+			copy_level_by_blit(target->texture, feedback_texture, 0,
+				(GLsizei)feedback_width, (GLsizei)feedback_height);
+			feedback_source = target->texture;
+			return;
+		}
+	}
+}
+#endif
+
 static void bind_textures(struct nv2a_pixel_shader_key *key, float texture_scale[4][4])
 {
 	int stage;
@@ -2253,6 +2292,10 @@ static void bind_textures(struct nv2a_pixel_shader_key *key, float texture_scale
 			{
 				xgpu_texture_describe(texture->Format, texture->Size, &description);
 				gl_texture = target->texture;
+#ifdef HALO_IOS_GUEST
+				if (feedback_source == target->texture)
+					gl_texture = feedback_texture;
+#endif
 				gl_target = GL_TEXTURE_2D;
 				if (description.linear)
 				{
@@ -2571,6 +2614,9 @@ static struct program_entry *prepare_draw(BOOL immediate)
 				skip++;
 		}
 	}
+#ifdef HALO_IOS_GUEST
+	snapshot_render_target_feedback();
+#endif
 	if (!bind_targets(&has_depth))
 	{
 		stats.skipped_no_target++;

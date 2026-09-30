@@ -228,6 +228,10 @@ symbols in this file:
 #include <xtl.h>
 #ifdef HALO_IOS_GUEST
 #include <stdio.h>
+/* Host services preserve the guest z_stream layout; native state stays on iOS. */
+int host_cache_inflate_init(unsigned int stream);
+int host_cache_inflate(unsigned int stream, int flush);
+int host_cache_inflate_end(unsigned int stream);
 #endif
 
 /* ---------- constants */
@@ -661,7 +665,16 @@ static void cache_copy_initialize_zlib(
 	self->zlib_stream.next_out = NULL;
 	self->zlib_stream.avail_out = 0;
 
+#ifdef HALO_IOS_GUEST
+	int result= host_cache_inflate_init((unsigned int)&self->zlib_stream);
+	if (result != Z_OK)
+	{
+		printf("native cache inflate initialization failed: %d\n", result);
+		cache_copy_set_flag(_copy_bad_file_bit);
+	}
+#else
 	inflateInit(&self->zlib_stream);
+#endif
 
 	return;
 }
@@ -669,7 +682,11 @@ static void cache_copy_initialize_zlib(
 static void cache_copy_dispose_zlib(
 	struct simple_decompressor_definition *self)
 {
+#ifdef HALO_IOS_GUEST
+	host_cache_inflate_end((unsigned int)&self->zlib_stream);
+#else
 	inflateEnd(&self->zlib_stream);
+#endif
 
 	self->zlib_stream.next_in = NULL;
 	self->zlib_stream.avail_in = 0;
@@ -1622,7 +1639,11 @@ static void cache_copy_run_decompression(
 		if (self->write_requests_pending > 1)
 			decompressor_timer_start(_decompressor_timer_zlib_during_write_file);
 
+#ifdef HALO_IOS_GUEST
+		zlib_result = host_cache_inflate((unsigned int)zlib_stream, 0);
+#else
 		zlib_result = inflate(zlib_stream, 0);
+#endif
 
 		decompressor_timer_stop(_decompressor_timer_zlib);
 		if (self->write_requests_pending > 1)

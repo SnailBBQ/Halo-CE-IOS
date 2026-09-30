@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <zlib.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
@@ -517,6 +518,78 @@ static int guest_futex_deadline(int operation, int flags,
         }
     }
     return 0;
+}
+
+/* The cache worker is the sole owner of this native decompressor. */
+struct guest_z_stream
+{
+    uint32_t next_in, avail_in, total_in;
+    uint32_t next_out, avail_out, total_out;
+    uint32_t msg, state, zalloc, zfree, opaque;
+    int32_t data_type;
+    uint32_t adler, reserved;
+};
+_Static_assert(sizeof(struct guest_z_stream) == 56, "guest z_stream must stay ILP32");
+static z_stream g_cache_inflate;
+static uint32_t g_cache_inflate_va;
+
+static int ios_cache_inflate_init(uint32_t va)
+{
+    struct guest_z_stream *guest = gp(va, sizeof(*guest));
+    if (!va || !guest || g_cache_inflate_va) return Z_STREAM_ERROR;
+    memset(&g_cache_inflate, 0, sizeof(g_cache_inflate));
+    int result = inflateInit(&g_cache_inflate);
+    if (result == Z_OK)
+    {
+        g_cache_inflate_va = va;
+        guest->total_in = guest->total_out = guest->msg = 0;
+        guest->data_type = g_cache_inflate.data_type;
+        guest->adler = (uint32_t)g_cache_inflate.adler;
+        say("native cache decompressor ready: guest stream=0x%08x", va);
+    }
+    return result;
+}
+
+static int ios_cache_inflate_step(uint32_t va, int flush)
+{
+    struct guest_z_stream *guest = gp(va, sizeof(*guest));
+    if (!va || va != g_cache_inflate_va || !guest) return Z_STREAM_ERROR;
+    Bytef *input = guest->avail_in ? gp(guest->next_in, guest->avail_in) : NULL;
+    Bytef *output = guest->avail_out ? gp(guest->next_out, guest->avail_out) : NULL;
+    if ((guest->avail_in && !input) || (guest->avail_out && !output))
+        return Z_STREAM_ERROR;
+    uint32_t input_size = guest->avail_in, output_size = guest->avail_out;
+    g_cache_inflate.next_in = input;
+    g_cache_inflate.avail_in = input_size;
+    g_cache_inflate.next_out = output;
+    g_cache_inflate.avail_out = output_size;
+    int result = inflate(&g_cache_inflate, flush);
+    guest->next_in += input_size - g_cache_inflate.avail_in;
+    guest->next_out += output_size - g_cache_inflate.avail_out;
+    guest->avail_in = g_cache_inflate.avail_in;
+    guest->avail_out = g_cache_inflate.avail_out;
+    guest->total_in = (uint32_t)g_cache_inflate.total_in;
+    guest->total_out = (uint32_t)g_cache_inflate.total_out;
+    guest->data_type = g_cache_inflate.data_type;
+    guest->adler = (uint32_t)g_cache_inflate.adler;
+    /* A native zlib error string must never escape as a guest pointer. */
+    guest->msg = 0;
+    if (result != Z_OK && result != Z_STREAM_END)
+        say("native cache decompression result=%d input=%u output=%u: %s",
+            result, guest->total_in, guest->total_out,
+            g_cache_inflate.msg ? g_cache_inflate.msg : "no error message");
+    return result;
+}
+
+static int ios_cache_inflate_end(uint32_t va)
+{
+    if (!va || va != g_cache_inflate_va) return Z_STREAM_ERROR;
+    say("native cache decompressor finished: input=%lu output=%lu",
+        (unsigned long)g_cache_inflate.total_in, (unsigned long)g_cache_inflate.total_out);
+    int result = inflateEnd(&g_cache_inflate);
+    g_cache_inflate_va = 0;
+    memset(&g_cache_inflate, 0, sizeof(g_cache_inflate));
+    return result;
 }
 
 /* ---------- guest Linux syscall service ---------- */
@@ -1572,6 +1645,9 @@ static void *resolve_host_import(const char *name)
     MAP("host_get_tp", ios_host_get_tp);
     MAP("host_set_tp", ios_host_set_tp);
     MAP("host_thread_create", ios_host_thread_create);
+    MAP("host_cache_inflate_init", ios_cache_inflate_init);
+    MAP("host_cache_inflate", ios_cache_inflate_step);
+    MAP("host_cache_inflate_end", ios_cache_inflate_end);
     MAP("host_guest_pointer", ios_host_guest_pointer);
 
     MAP("host_memory_watch_initialize", ios_memory_watch_initialize);
@@ -1867,7 +1943,7 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.8 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.9 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);

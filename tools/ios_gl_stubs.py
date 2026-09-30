@@ -69,7 +69,8 @@ def main():
         "",
     ]
     table = []
-    import_names = ["host_guest_pointer"]
+    import_names = ["host_guest_pointer", "host_cache_inflate_init",
+                    "host_cache_inflate", "host_cache_inflate_end"]
 
     for name in functions:
         if name not in protos:
