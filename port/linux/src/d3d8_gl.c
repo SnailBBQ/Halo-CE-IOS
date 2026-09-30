@@ -303,6 +303,7 @@ struct gl_device
 	D3DSHADERCONSTANTMODE shader_constant_mode;
 
 	struct vertex_shader_object *vertex_shader;
+	BOOL fixed_vertex_mode;
 	struct vertex_shader_object *program_slots[VERTEX_PROGRAM_SLOTS];
 	unsigned long program_address;
 	float constants[XGPU_VERTEX_CONSTANT_COUNT][4];
@@ -1726,10 +1727,17 @@ void WINAPI D3DDevice_DeleteVertexShader(DWORD handle)
 
 void WINAPI D3DDevice_SetVertexShader(DWORD handle)
 {
-	struct vertex_shader_object *object = vertex_shader_from_handle(handle);
+	struct vertex_shader_object *object;
 
+	if (!handle)
+	{
+		device.fixed_vertex_mode = TRUE;
+		return;
+	}
+	object = vertex_shader_from_handle(handle);
 	if (object)
 	{
+		device.fixed_vertex_mode = FALSE;
 		device.vertex_shader = object;
 		device.program_address = 0;
 		device.program_slots[0] = object;
@@ -1751,6 +1759,7 @@ void WINAPI D3DDevice_SelectVertexShader(DWORD handle, DWORD address)
 	if (address < VERTEX_PROGRAM_SLOTS)
 	{
 		device.program_address = address;
+		if (device.program_slots[address]) device.fixed_vertex_mode = FALSE;
 		/* A zero handle selects an already-loaded program. Bootstrap its
 		 * declaration if none is active, retaining an explicit declaration
 		 * once one has been set. */
@@ -1797,6 +1806,61 @@ static unsigned long hash_words(const void *data, unsigned long size)
 	for (size /= 4; size; size--)
 		hash = (hash ^ *words++) * 16777619UL;
 	return hash;
+}
+
+static GLuint fixed_vertex_shader_get(void)
+{
+	static GLuint shader;
+	static BOOL attempted;
+	if (!attempted)
+	{
+		struct xgpu_text text = {0};
+		attempted = TRUE;
+#ifdef HALO_ANDROID
+		xgpu_text_append(&text, "#version %s\n", xgpu_capabilities.shading_language);
+#else
+		xgpu_text_append(&text, "#version 450 core\n");
+#endif
+		xgpu_text_append(&text, "%s",
+		"#ifdef GL_ES\n"
+		"precision highp float;\n"
+		"precision highp int;\n"
+		"#endif\n"
+		"layout(location=0) in vec4 position;\n"
+		"layout(location=3) in vec4 diffuse;\n"
+		"layout(location=4) in vec4 specular;\n"
+		"layout(location=9) in vec4 tex0;\n"
+		"layout(location=10) in vec4 tex1;\n"
+		"layout(location=11) in vec4 tex2;\n"
+		"layout(location=12) in vec4 tex3;\n"
+		"uniform vec4 fixed_world[4];\n"
+		"uniform vec4 fixed_view[4];\n"
+		"uniform vec4 fixed_projection[4];\n"
+		"out vec4 xD0; out vec4 xD1; out vec4 xB0; out vec4 xB1;\n"
+		"out vec4 xT0; out vec4 xT1; out vec4 xT2; out vec4 xT3;\n"
+		"out float xFog;\n"
+		"invariant gl_Position;\n"
+		"void main() {\n"
+		"	// D3D uses row vectors. Raw matrix rows become GLSL columns.\n"
+		"	mat4 world = mat4(fixed_world[0],fixed_world[1],fixed_world[2],fixed_world[3]);\n"
+		"	mat4 view = mat4(fixed_view[0],fixed_view[1],fixed_view[2],fixed_view[3]);\n"
+		"	mat4 projection = mat4(fixed_projection[0],fixed_projection[1],fixed_projection[2],fixed_projection[3]);\n"
+		"	gl_Position = projection * view * world * position;\n"
+		"#ifdef GL_ES\n"
+		"	gl_Position.y = -gl_Position.y;\n"
+		"	gl_Position.z = 2.0 * gl_Position.z - gl_Position.w;\n"
+		"#endif\n"
+		"	gl_PointSize = 1.0;\n"
+		"	xD0 = clamp(diffuse,0.0,1.0); xD1 = clamp(specular,0.0,1.0);\n"
+		"	xB0 = xD0; xB1 = xD1;\n"
+		"	xT0 = tex0; xT1 = tex1; xT2 = tex2; xT3 = tex3;\n"
+		"	xFog = 1.0;\n"
+		"}\n");
+		shader = compile_shader(GL_VERTEX_SHADER, text.buffer, "fixed-function loading vertex");
+		free(text.buffer);
+		platform_log("fixed-function loading vertex shader: %s", shader ? "ready" : "failed; see compiler log");
+	}
+	return shader;
 }
 
 static GLuint vertex_shader_get(struct vertex_shader_object *program, BOOL immediate)
@@ -2475,9 +2539,10 @@ static struct program_entry *prepare_draw(BOOL immediate)
 	struct program_entry *entry;
 	struct draw_uniforms uniforms;
 	BOOL has_depth = FALSE;
+	BOOL fixed = device.fixed_vertex_mode && immediate;
 	int stage;
 
-	if (!device.gl_ready || !program || !device.vertex_shader || !program->instructions)
+	if (!device.gl_ready || (!fixed && (!program || !device.vertex_shader || !program->instructions)))
 	{
 		static unsigned int missing_states_reported;
 		unsigned int missing = (!device.gl_ready ? 1u : 0u) |
@@ -2497,7 +2562,7 @@ static struct program_entry *prepare_draw(BOOL immediate)
 	{
 		const char *skip = debug_settings.skip_vertex_shaders;
 
-		while (skip && *skip)
+		while (!fixed && skip && *skip)
 		{
 			if ((unsigned long)atol(skip) == program->id)
 				return NULL;
@@ -2533,7 +2598,7 @@ static struct program_entry *prepare_draw(BOOL immediate)
 	key.count_samples = device.visibility_test_active && xgpu_capabilities.atomic_counters;
 #endif
 
-	entry = program_get(vertex_shader_get(program, immediate), fragment_shader_get(&key));
+	entry = program_get(fixed ? fixed_vertex_shader_get() : vertex_shader_get(program, immediate), fragment_shader_get(&key));
 	if (!entry)
 	{
 		stats.skipped_link++;
@@ -2546,6 +2611,12 @@ static struct program_entry *prepare_draw(BOOL immediate)
 	else
 		stats.draws++;
 	state_program(entry->program);
+	if (fixed)
+	{
+		glUniform4fv(glGetUniformLocation(entry->program, "fixed_world"), 4, (const GLfloat *)&device.transforms[D3DTS_WORLD]);
+		glUniform4fv(glGetUniformLocation(entry->program, "fixed_view"), 4, (const GLfloat *)&device.transforms[D3DTS_VIEW]);
+		glUniform4fv(glGetUniformLocation(entry->program, "fixed_projection"), 4, (const GLfloat *)&device.transforms[D3DTS_PROJECTION]);
+	}
 #ifdef HALO_ANDROID
 	if (key.count_samples)
 		glBindBufferRange(GL_ATOMIC_COUNTER_BUFFER, 0, device.visibility_counters,
@@ -3660,15 +3731,19 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		}
 		x = (window_width - width) / 2;
 		y = (window_height - height) / 2;
+		gl_check_errors("before window framebuffer");
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+		gl_check_errors("window framebuffer binding");
 		glDisable(GL_SCISSOR_TEST);
 		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
+		gl_check_errors("window clear");
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer_get(back_buffer->target.texture, 0));
 		/* row 0 of the render target is the top of the picture */
 		glBlitFramebuffer(0, 0, (GLint)back_buffer->target.gl_width, (GLint)back_buffer->target.gl_height,
 			x, y + height, x + width, y, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+		gl_check_errors("window blit");
 		platform_video_swap();
 		xgpu_gl_state_invalidate();
 		xgpu_texture_cache_begin_frame();
