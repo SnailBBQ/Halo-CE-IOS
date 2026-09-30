@@ -1,7 +1,7 @@
-# Halo: Combat Evolved for Linux, Windows and Android
+# Halo: Combat Evolved for Linux, Windows, Android and iOS
 
 This project is a port of the Halo: Combat Evolved decompilation to Linux,
-Windows and Android. The decompilation is of the Xbox build 2342
+Windows, Android and an experimental iOS port. The decompilation is of the Xbox build 2342
 (`cachebeta.exe`, SHA-256
 `4cc87b45f721270392a96f1674ed2b5cd4a7bb4355faeab4531d1cf1884d9520`).
 
@@ -10,37 +10,49 @@ Windows and Android. The decompilation is of the Xbox build 2342
 The port starts from the decompilation of [bnunu/halo-1](https://github.com/bnunu/halo-1).
 That project is a fork of [punpckhdq/halo](https://github.com/punpckhdq/halo).
 
+## iOS development status
+
+**M2.6.13 is awaiting device testing.** M2.6.12 reached and rendered Halo's real main menu on an iPhone, with severe slowness and text artifacts. The latest changes target native texture decoding, muted playback overhead, and font texture refresh. Playable campaign, iOS controls, audio, and multiplayer are not yet confirmed.
+
+See [iOS port status](IOS_PORT_STATUS.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
+
 ## Download
 
-GitHub Actions builds the game for each commit. These links download the
-builds of the latest release:
+The Linux/Windows/Android workflow publishes successful builds as releases.
+The links below point to this repository’s latest release assets:
 
 | Platform | Release | Debug |
 | --- | --- | --- |
-| Linux | [halo-linux-release.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-linux-release.zip) | [halo-linux-debug.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-linux-debug.zip) |
-| Windows | [halo-windows-release.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-windows-release.zip) | [halo-windows-debug.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-windows-debug.zip) |
-| Android | [halo-android-release.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-android-release.zip) | [halo-android-debug.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-android-debug.zip) |
+| Linux | [halo-linux-release.zip](https://github.com/xSkullHD/Halo-CE-IOS/releases/latest/download/halo-linux-release.zip) | [halo-linux-debug.zip](https://github.com/xSkullHD/Halo-CE-IOS/releases/latest/download/halo-linux-debug.zip) |
+| Windows | [halo-windows-release.zip](https://github.com/xSkullHD/Halo-CE-IOS/releases/latest/download/halo-windows-release.zip) | [halo-windows-debug.zip](https://github.com/xSkullHD/Halo-CE-IOS/releases/latest/download/halo-windows-debug.zip) |
+| Android | [halo-android-release.zip](https://github.com/xSkullHD/Halo-CE-IOS/releases/latest/download/halo-android-release.zip) | [halo-android-debug.zip](https://github.com/xSkullHD/Halo-CE-IOS/releases/latest/download/halo-android-debug.zip) |
+
+For iOS, open [Actions → Halo CE iOS — Build IPA](https://github.com/xSkullHD/Halo-CE-IOS/actions/workflows/ios.yml), run it on `main`, and download **HaloCE-iOS**. Extract the artifact ZIP to obtain **HaloCE.ipa**, then re-sign and install it with your sideloading tool. iOS builds are experimental and are distributed as Actions artifacts, separately from the releases above.
 
 Use the release build to play. The debug build stops at the first failed
 assertion and writes it to the log. Use the debug build to find and report
 problems.
 
-The game updates itself. At start-up it looks for a newer release, and asks
+The Linux/Windows/Android ports support updates. The iOS build currently requires installing a newly built IPA.
+
+On the established ports, the game updates itself. At start-up it looks for a newer release, and asks
 if you want to install it. Refer to "Updates" in
 [port/linux/README.md](port/linux/README.md#updates).
 
 Each build of the `main` branch that passes on all three platforms is a new
-release. The [Releases](https://github.com/cybersecurity/halo-ce-universal/releases)
+release. The [Releases](https://github.com/xSkullHD/Halo-CE-IOS/releases)
 page keeps the last five releases. If the latest build has a problem, get
 an older build from that page.
 
 ## Game data
 
-The port does not include the game data. Download an Xbox disc image
+The port does not include game data. Supply an Xbox disc image
 (`.xiso` or `.iso`) of Halo: Combat Evolved. All versions of the game
 operate. The maps of the European (PAL) version were made for a slower
 console. The port changes them to play as the North American (NTSC) maps do,
 so players of the two versions can play together.
+
+For Linux, Windows, and Android:
 
 1. Start the game.
 2. At the first start, the game asks for the disc image. Select it.
@@ -49,6 +61,8 @@ so players of the two versions can play together.
 On Linux and Windows, the game puts `maps/` next to the executable. On
 Android, copy the disc image to the phone first. The app puts `maps/` in its
 data folder. Refer to [port/android/README.md](port/android/README.md).
+
+For iOS, launch **Halo CE** to create `Documents/Halo/maps`, then use **Import maps** or copy Xbox `.map` files into that folder through Files. Include `ui.map` before starting the engine. iOS does not currently provide the disc-image extraction flow above. See the [iOS setup guide](port/ios/README.md#maps-and-first-launch).
 
 ## Platforms
 
@@ -59,13 +73,14 @@ Each platform has its own instructions:
 | Linux (32-bit x86 executable, OpenGL 4.5, SDL3) | [port/linux/README.md](port/linux/README.md) |
 | Windows (32-bit x86 executable, OpenGL 4.5, SDL3) | [port/windows/README.md](port/windows/README.md) |
 | Android (arm64 app, OpenGL ES 3, SDL3) | [port/android/README.md](port/android/README.md) |
+| iOS/iPadOS 15+ (arm64 host, arm64_32 guest, OpenGL ES 3; experimental) | [port/ios/README.md](port/ios/README.md) |
 
 The Linux README also gives the controls, the settings and the multiplayer
-functions. These are almost the same on all platforms.
+functions for Linux, Windows, and Android. iOS controls and multiplayer still need validation.
 
 ## Multiplayer
 
-The game can play system link games on a local network and on the internet:
+The Linux, Windows, and Android ports support system link games on a local network and on the internet. iOS multiplayer is not yet validated:
 
 - A system link game can have up to 128 players on up to 128 machines.
 - Linux, Windows and Android machines can play in the same game.
@@ -80,7 +95,9 @@ The game can play system link games on a local network and on the internet:
 You do not need the Xbox SDK. The port supplies the SDK declarations that
 the game uses. Refer to [port/include/xdk](port/include/xdk/README.md).
 
-To build the game:
+For iOS, use **Halo CE iOS — Build IPA** to produce `HaloCE.ipa`. The [iOS build instructions](port/ios/README.md#build-with-github-actions) explain the Linux guest build, macOS/Xcode host build, and optional local Mac packaging. There is no `ninja ios` target.
+
+To build Linux, Windows, or Android:
 
 1. Install Python and [ninja](https://ninja-build.org/).
 2. Install the tools for your platform. Refer to the README for the

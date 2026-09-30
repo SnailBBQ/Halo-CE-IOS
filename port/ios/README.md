@@ -1,48 +1,80 @@
-# Halo CE Universal - iOS M0
+# Halo CE iOS
 
-M0 is a physical-device feasibility test. It does **not** run Halo yet and does not modify the existing Windows, Linux, or Android ports.
+Experimental Halo: Combat Evolved port for physical iPhone and iPad devices running iOS/iPadOS 15 or later. A native `arm64` app hosts the recovered `arm64_32` engine and presents graphics through EAGL/OpenGL ES 3.
 
-## What M0 proves
+**Current version: M2.6.13, awaiting device testing.** M2.6.12 rendered the real main menu on an iPhone, with very slow startup/frame rendering and blocks over menu text. M2.6.13 targets texture decoding, muted audio overhead, and font texture updates. Campaign gameplay, iOS input, and multiplayer have not yet been validated. See [port status](../../IOS_PORT_STATUS.md).
 
-The Android port's ILP32 guest requires fixed low-4GB ranges. The important existing constants are:
+## Build with GitHub Actions
 
-- Xbox contiguous window: `0x80000000` through `0x87ffffff` (128 MiB)
-- Android guest image starts at `0x88000000`
+This is the supported packaging route, including when working from Windows. No local Mac is required.
 
-M0 runs as a native arm64 iOS app and attempts to reserve those ranges. The result is shown on screen.
+1. Push your changes to the repository.
+2. Open **Actions → Halo CE iOS — Build IPA**.
+3. Select **Run workflow**, choose `main` (or your development branch), and start a new run.
+4. Wait for **Build Halo engine guest** and **Build and package iOS app** to finish successfully.
+5. Download the **HaloCE-iOS** artifact and extract its ZIP. It contains **HaloCE.ipa**.
+6. Re-sign and install `HaloCE.ipa` with your sideloading tool, such as Sideloadly, using your own signing setup.
+7. Launch **Halo CE** on the physical device.
 
-## Windows + GitHub Actions + Sideloadly workflow
+Re-running an old workflow uses its original commit. Start a new run on the branch to test newer changes. The intermediate **HaloCE-iOS-Guest** artifact contains the engine ELF, not an installable app. The final IPA artifact is retained for 14 days; the intermediate guest artifact for one day.
 
-No local Mac or Xcode installation is required for this test. GitHub Actions supplies the macOS/Xcode build machine; Sideloadly signs the resulting unsigned IPA with your own Apple account when you install it.
+The [workflow](../../.github/workflows/ios.yml) performs two builds:
 
-1. Create a GitHub repository and upload/push this source tree.
-2. Open the repository's **Actions** tab.
-3. Select **iOS M0 IPA** and choose **Run workflow**.
-4. When the job completes, download the artifact named `HaloCEUniversal-iOS-M0-Sideloadly`.
-5. Extract the downloaded artifact ZIP. It contains `HaloCEUniversal-iOS-M0-unsigned.ipa`.
-6. On Windows, open Sideloadly and select that IPA.
-7. Connect the physical iPhone/iPad, select it in Sideloadly, and sideload the IPA using your own Apple account/signing setup.
-8. If iOS asks you to trust/enable the development app, follow the device prompt/settings required by your signing method.
-9. Launch **Halo M0** and record or screenshot the result.
+- Ubuntu configures the shared guest build with `python3 configure.py --pgo=off`, applies `HALO_IOS_GUEST=1` and the iOS GL stubs, and runs `ninja build/android/halo_guest.elf`.
+- macOS builds `port/ios/HaloIOS.xcodeproj` with the `HaloIOS` scheme for `iphoneos`, bundles `halo_guest.elf`, ad-hoc signs the app, and packages `HaloCE.ipa`.
 
-Do not use an iOS Simulator result for the feasibility decision. We need the address-space behavior of a physical device.
+The guest's `build/android` directory is shared build infrastructure; the resulting IPA uses the iOS host. There is currently no `ninja ios` target. The separate **Build** workflow packages Linux, Windows, and Android releases; it does not produce an IPA.
 
-## Expected result
+## Maps and first launch
 
-A successful device should show two `PASS mapped` lines and:
+Game assets are not included. Supply Xbox Halo: Combat Evolved `.map` files from your own game data. PC Halo CE maps are not the format this engine expects.
 
-`M0 RESULT: PASS - required fixed ranges can be reserved on this device/OS.`
+The app creates **Documents/Halo/maps** on its first launch, before starting the engine. iOS does not run the app during installation, so this folder cannot be created by app code at install time.
 
-If either fixed mapping fails, keep the exact error shown. That tells us the Android address-space strategy cannot be copied unchanged.
+1. Open Halo CE once to create its folders.
+2. Use **Import maps** to select `.map` files from Files, or copy them into **Files → On My iPhone/iPad → Halo CE → Halo → maps**.
+3. Include `ui.map` for the main menu, plus the maps needed for any levels you intend to test.
+4. Tap **Start Halo** when setup reports that `ui.map` is ready. On later launches, an existing `ui.map` allows automatic engine startup.
 
-## Safety of the probe
+Import supports multiple files and keeps existing maps instead of replacing them. Files are copied into a temporary location before being published into the maps folder. Setup checks the presence and minimum size of `ui.map`; the engine performs the actual cache validation.
 
-The branch maps the test ranges with `PROT_NONE`, does not load Halo data, and immediately unmaps each successful reservation. It contains no Halo game assets.
+## Testing and logs
 
-## Local Mac build (optional)
+Use **Show game** to inspect the rendered surface and **Show log** to return to startup diagnostics. **Share logs** exports the existing `ios-boot.log`, `debug.txt`, and `gamestate.txt` files from `Documents/Halo`.
 
-The Xcode project is retained for contributors who do have a Mac. Open `HaloIOS.xcodeproj`, configure a development team, select a physical device, and run it normally.
+For a report, include the displayed milestone, the workflow commit, how long the app ran, all available logs, and a screenshot or recording. M2.6.12 needed an extended test to reveal the menu. The neutral loading image and cyan diagnostic corner alone do not confirm a rendered game menu. Audio is currently muted and Bink movies are skipped.
 
-## Next milestone after PASS
+## Build the host locally on macOS
 
-M0.1 will generalize the Android guest ABI naming, add the iOS host loader, and compile a tiny ILP32 guest image that crosses the host/guest boundary. Only after that succeeds should the Halo guest itself be integrated.
+Install Xcode with the iOS SDK and clone this repository. Obtain `halo_guest.elf` from **HaloCE-iOS-Guest** for the same commit as your checkout, and extract it to `build/guest/halo_guest.elf`. Building only the host without bundling the matching guest is insufficient.
+
+From the repository root, build the device host:
+
+```sh
+xcodebuild \
+  -project port/ios/HaloIOS.xcodeproj \
+  -scheme HaloIOS \
+  -configuration Release \
+  -sdk iphoneos \
+  -derivedDataPath "$PWD/build/ios/DerivedData" \
+  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+  build
+```
+
+Then bundle the guest and package the IPA:
+
+```sh
+APP="$PWD/build/ios/DerivedData/Build/Products/Release-iphoneos/HaloIOS.app"
+test -s build/guest/halo_guest.elf
+cp build/guest/halo_guest.elf "$APP/halo_guest.elf"
+codesign --force --sign - --entitlements port/ios/HaloIOS/HaloIOS.entitlements --timestamp=none "$APP"
+codesign --verify --verbose=2 "$APP"
+mkdir -p build/ios/package
+PACKAGE=$(mktemp -d "$PWD/build/ios/package/ipa.XXXXXX")
+mkdir "$PACKAGE/Payload"
+cp -R "$APP" "$PACKAGE/Payload/"
+(cd "$PACKAGE" && zip -qry HaloCE.ipa Payload)
+cp "$PACKAGE/HaloCE.ipa" build/ios/HaloCE.ipa
+```
+
+Re-sign `build/ios/HaloCE.ipa` with your sideloading tool to install it. The internal target, executable, and app bundle remain `HaloIOS`; the device display name is **Halo CE**. The existing bundle identifier is retained to preserve upgrade continuity. Validate on a physical device: an iOS Simulator build does not validate this guest execution path.
