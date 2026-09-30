@@ -43,6 +43,9 @@ jobs:
           s = p.read_text()
           if "tools/android_gl_stubs.py" not in s:
               raise SystemExit("android GL stub rule not found in build.ninja")
+          if "-DHALO_ANDROID=1" not in s:
+              raise SystemExit("guest compile flags not found in build.ninja")
+          s = s.replace("-DHALO_ANDROID=1", "-DHALO_ANDROID=1 -DHALO_IOS_GUEST=1")
           p.write_text(s.replace("tools/android_gl_stubs.py", "tools/ios_gl_stubs.py"))
           PY
           ninja --version

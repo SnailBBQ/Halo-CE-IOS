@@ -226,6 +226,9 @@ symbols in this file:
 #include "memory/zlib/zlib.h"
 
 #include <xtl.h>
+#ifdef HALO_IOS_GUEST
+#include <stdio.h>
+#endif
 
 /* ---------- constants */
 
@@ -1010,6 +1013,18 @@ short cache_copy_get_status(
 {
 	unsigned long flags = cache_copy_get_flags();
 	short status = 0;
+#ifdef HALO_IOS_GUEST
+	static DWORD last_report;
+	DWORD now= GetTickCount();
+	if ((DWORD)(now-last_report)>=5000)
+	{
+		last_report= now;
+		printf("cache progress: flags=%lu header=%ld read-left=%ld write-left=%ld io=%lx completed=%lx progress=%.3f\n",
+			flags, global_self->header.size, global_self->async_read_bytes_left,
+			global_self->write_bytes_left, (unsigned long)global_self->overlapped_in_use_flags[0],
+			(unsigned long)global_self->overlapped_completed_flags[0], (double)global_self->read_progress);
+	}
+#endif
 
 	match_assert(
 		"c:\\halo\\SOURCE\\cache\\cache_files_decompress_windows.c",
@@ -1657,6 +1672,9 @@ static unsigned long __stdcall simple_cache_copy_thread(
 	for (;;)
 	{
 		WaitForSingleObject(self->copy_start_event, INFINITE);
+#ifdef HALO_IOS_GUEST
+		printf("cache worker: starting %s\n", self->src_name);
+#endif
 
 		decompressor_reset_timing();
 		decompressor_timer_start(_decompressor_timer_copying);
@@ -1668,6 +1686,10 @@ static unsigned long __stdcall simple_cache_copy_thread(
 		{
 			decompressor_timer_start(_decompressor_timer_setup);
 			cache_copy_initialize_read_data(self);
+#ifdef HALO_IOS_GUEST
+			printf("cache worker: header ready, source=%ld expanded=%ld\n",
+				self->read_file_size, self->header.size);
+#endif
 			cache_copy_initialize_zlib(self);
 			decompressor_timer_stop(_decompressor_timer_setup);
 
@@ -1773,6 +1795,10 @@ static unsigned long __stdcall simple_cache_copy_thread(
 		decompressor_timer_stop(_decompressor_timer_copying);
 
 		self->destination_file = NULL;
+#ifdef HALO_IOS_GUEST
+		printf("cache worker: finished, flags=%lu remaining=%ld\n",
+			self->flags, self->write_bytes_left);
+#endif
 		SetEvent(self->copy_complete_event);
 	}
 

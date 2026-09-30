@@ -484,6 +484,41 @@ static void guest_log_bytes(const void *bytes, size_t size)
     }
 }
 
+/* Convert Linux futex timeouts to the realtime deadline Darwin expects. */
+static int guest_futex_deadline(int operation, int flags,
+                                const struct timespec *timeout, struct timespec *deadline)
+{
+    if (timeout->tv_sec < 0 || timeout->tv_nsec < 0 || timeout->tv_nsec >= 1000000000L)
+        return EINVAL;
+    struct timespec now;
+    if (clock_gettime(CLOCK_REALTIME, &now)) return errno;
+    if (operation == 9 && (flags & 256)) /* WAIT_BITSET | CLOCK_REALTIME */
+        *deadline = *timeout;
+    else
+    {
+        deadline->tv_sec = now.tv_sec + timeout->tv_sec;
+        deadline->tv_nsec = now.tv_nsec + timeout->tv_nsec;
+        if (operation == 9) /* WAIT_BITSET is absolute in the monotonic clock */
+        {
+            struct timespec monotonic;
+            if (clock_gettime(CLOCK_MONOTONIC, &monotonic)) return errno;
+            deadline->tv_sec -= monotonic.tv_sec;
+            deadline->tv_nsec -= monotonic.tv_nsec;
+        }
+        if (deadline->tv_nsec >= 1000000000L)
+        {
+            deadline->tv_sec++;
+            deadline->tv_nsec -= 1000000000L;
+        }
+        else if (deadline->tv_nsec < 0)
+        {
+            deadline->tv_sec--;
+            deadline->tv_nsec += 1000000000L;
+        }
+    }
+    return 0;
+}
+
 /* ---------- guest Linux syscall service ---------- */
 
 static long long ios_host_syscall(long long number, long long a, long long b, long long c,
@@ -777,26 +812,25 @@ static long long ios_host_syscall(long long number, long long a, long long b, lo
                 int r = 0;
                 if (d)
                 {
-                    struct timespec relative;
-                    if (guest_timespec_in((uint32_t)d, &relative))
+                    struct timespec timeout, deadline;
+                    if (!guest_timespec_in((uint32_t)d, &timeout))
                     {
-                        struct timespec now, deadline;
-                        clock_gettime(CLOCK_REALTIME, &now);
-                        deadline.tv_sec = now.tv_sec + relative.tv_sec;
-                        deadline.tv_nsec = now.tv_nsec + relative.tv_nsec;
-                        if (deadline.tv_nsec >= 1000000000L)
-                        {
-                            deadline.tv_sec++;
-                            deadline.tv_nsec -= 1000000000L;
-                        }
-                        r = pthread_cond_timedwait(&g_futex_cond, &g_futex_lock, &deadline);
+                        pthread_mutex_unlock(&g_futex_lock);
+                        return -EFAULT;
                     }
+                    r = guest_futex_deadline(operation, (int)b, &timeout, &deadline);
+                    if (r)
+                    {
+                        pthread_mutex_unlock(&g_futex_lock);
+                        return -r;
+                    }
+                    r = pthread_cond_timedwait(&g_futex_cond, &g_futex_lock, &deadline);
                 }
                 else
                     r = pthread_cond_wait(&g_futex_cond, &g_futex_lock);
 
                 pthread_mutex_unlock(&g_futex_lock);
-                return r == ETIMEDOUT ? -ETIMEDOUT : 0;
+                return r ? -r : 0;
             }
             if (operation == 1 || operation == 10) /* WAKE / WAKE_BITSET */
             {
@@ -1833,7 +1867,7 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.7 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.8 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);

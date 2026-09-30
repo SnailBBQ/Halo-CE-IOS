@@ -2274,6 +2274,27 @@ static void progress_bar_load_loading_texture(
 	csstrcpy(map_directory, cache_files_map_directory());
 	sprintf(source_path, "z%sloading.tga", map_directory + 1);
 	file= fopen(source_path, "rb");
+#ifdef HALO_IOS_GUEST
+	/* The persistent-cache copy of this optional artwork may not exist. */
+	if (!file)
+	{
+		source_path[0]= 'd';
+		file= fopen(source_path, "rb");
+	}
+	/* Clear row padding too; a failed load must never upload stale memory. */
+	memset(locked_rect.pBits, 0, locked_rect.Pitch*surface_description.Height);
+	if (!file)
+	{
+		unsigned long x, y;
+		for (y= 0; y<surface_description.Height; y++)
+		{
+			unsigned long *row= (unsigned long *)((byte *)locked_rect.pBits + y*locked_rect.Pitch);
+			for (x= 0; x<surface_description.Width; x++)
+				row[x]= 0xff202020;
+		}
+		error(_error_silent, "loading.tga unavailable; using neutral loading texture");
+	}
+#endif
 	if (file)
 	{
 		tgaLoadHeader(file, &image);
