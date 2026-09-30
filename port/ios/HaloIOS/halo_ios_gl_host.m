@@ -343,6 +343,28 @@ static void halo_glBindFramebuffer(GLenum target, GLuint framebuffer)
     glBindFramebuffer(target, framebuffer);
 }
 
+/*
+ * The guest bridge widens spilled integer arguments to 8-byte slots.
+ * Apple's arm64 ABI packs native 32-bit stack arguments together, so calling
+ * glBlitFramebuffer directly reads filter from the upper half of mask.
+ * Receive the guest layout here and let the compiler repack the native call.
+ */
+static void halo_glBlitFramebuffer(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
+                                   GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
+                                   long long mask, long long filter)
+{
+    static int reported;
+    if (!reported)
+    {
+        reported = 1;
+        report_gl("window blit ABI adapter: mask=0x%04x filter=0x%04x",
+                  (unsigned int)mask, (unsigned int)filter);
+    }
+    glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1,
+                      dstX0, dstY0, dstX1, dstY1,
+                      (GLbitfield)mask, (GLenum)filter);
+}
+
 static void halo_glCopyImageSubData_fallback(GLuint srcName, GLenum srcTarget, GLint srcLevel,
                                              GLint srcX, GLint srcY, GLint srcZ,
                                              GLuint dstName, GLenum dstTarget, GLint dstLevel,
@@ -380,6 +402,9 @@ void *halo_ios_gl_resolve_import(const char *import_name)
 
     if (!strcmp(name, "glBindFramebuffer"))
         return (void *)halo_glBindFramebuffer;
+
+    if (!strcmp(name, "glBlitFramebuffer"))
+        return (void *)halo_glBlitFramebuffer;
 
     void *function = dlsym(RTLD_DEFAULT, name);
     if (function)
