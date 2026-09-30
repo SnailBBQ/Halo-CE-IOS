@@ -1,4 +1,4 @@
-name: iOS M1 Combined IPA
+name: iOS M2.0 Boot Integration IPA
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
       - '.github/workflows/ios-m0.yml'
 
 jobs:
-  build-ios-m1:
+  build-ios-m2:
     runs-on: macos-latest
     permissions:
       contents: read
@@ -25,22 +25,22 @@ jobs:
       - name: Build device app
         run: |
           set -euxo pipefail
-          rm -rf build/ios-m1
+          rm -rf build/ios-m2
           xcodebuild \
             -project port/ios/HaloIOS.xcodeproj \
             -scheme HaloIOS \
             -configuration Release \
             -sdk iphoneos \
-            -derivedDataPath "$PWD/build/ios-m1/DerivedData" \
+            -derivedDataPath "$PWD/build/ios-m2/DerivedData" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             build
 
-      - name: Validate and ad-hoc sign with M1 memory entitlements
+      - name: Validate and ad-hoc sign
         run: |
           set -euxo pipefail
-          APP=$(find build/ios-m1/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
+          APP=$(find build/ios-m2/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
           test -n "$APP"
           EXECUTABLE=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP/Info.plist")
           test "$EXECUTABLE" = "HaloIOS"
@@ -51,23 +51,23 @@ jobs:
             --timestamp=none "$APP"
           /usr/bin/codesign --verify --verbose=2 "$APP"
 
-      - name: Package Halo iOS M1.3 Combined IPA
+      - name: Package Halo iOS M2.0 IPA
         run: |
           set -euxo pipefail
-          APP=$(find build/ios-m1/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
+          APP=$(find build/ios-m2/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
           test -n "$APP"
-          rm -rf build/ios-m1/Payload
-          mkdir -p build/ios-m1/Payload
-          cp -R "$APP" build/ios-m1/Payload/
-          cd build/ios-m1
-          /usr/bin/zip -qry Halo-iOS-M1.3-Combined.ipa Payload
-          /usr/bin/unzip -Z1 Halo-iOS-M1.3-Combined.ipa | grep -qx 'Payload/HaloIOS.app/Info.plist'
-          /usr/bin/unzip -Z1 Halo-iOS-M1.3-Combined.ipa | grep -qx 'Payload/HaloIOS.app/HaloIOS'
+          rm -rf build/ios-m2/Payload
+          mkdir -p build/ios-m2/Payload
+          cp -R "$APP" build/ios-m2/Payload/
+          cd build/ios-m2
+          /usr/bin/zip -qry Halo-iOS-M2.0-Boot-Integration.ipa Payload
+          /usr/bin/unzip -Z1 Halo-iOS-M2.0-Boot-Integration.ipa | grep -qx 'Payload/HaloIOS.app/Info.plist'
+          /usr/bin/unzip -Z1 Halo-iOS-M2.0-Boot-Integration.ipa | grep -qx 'Payload/HaloIOS.app/HaloIOS'
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Halo-iOS-M1.3-Combined
-          path: build/ios-m1/Halo-iOS-M1.3-Combined.ipa
+          name: Halo-iOS-M2.0-Boot-Integration
+          path: build/ios-m2/Halo-iOS-M2.0-Boot-Integration.ipa
           if-no-files-found: error
           retention-days: 14

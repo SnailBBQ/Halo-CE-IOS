@@ -1,5 +1,5 @@
 #import "AppDelegate.h"
-#import "halo_ios_probe.h"
+#import "halo_boot_integration.h"
 
 @implementation AppDelegate
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
@@ -22,13 +22,12 @@
         [log.bottomAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.bottomAnchor constant:-12]
     ]];
 
-    NSMutableString *text =
-        [NSMutableString stringWithString:@"Halo iOS - M1.2 + M1.3 Combined Integration\n\n"];
+    NSMutableString *text = [NSMutableString string];
 
-    halo_ios_run_combined_m12_m13_probe(^(const char *s) {
+    halo_ios_run_m20_boot_integration(^(const char *s) {
         NSString *line = [NSString stringWithUTF8String:s ?: ""];
         [text appendFormat:@"%@\n", line];
-        NSLog(@"[HaloIOS-M1.3] %@", line);
+        NSLog(@"[HaloIOS-M2.0] %@", line);
     });
 
     log.text = text;

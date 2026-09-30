@@ -3,11 +3,36 @@
 <plist version="1.0"><dict>
 <key>CFBundleDisplayName</key><string>Halo iOS</string>
 <key>CFBundleIdentifier</key><string>com.haloceuniversal.ios.m0</string>
-<key>CFBundleName</key><string>HaloIOS</string>
+<key>CFBundleName</key><string>Halo iOS</string>
 <key>CFBundleExecutable</key><string>HaloIOS</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.3</string>
-<key>CFBundleVersion</key><string>13</string>
+<key>CFBundleShortVersionString</key><string>0.2.0</string>
+<key>CFBundleVersion</key><string>20</string>
+<key>CFBundleIcons</key>
+<dict>
+    <key>CFBundlePrimaryIcon</key>
+    <dict>
+        <key>CFBundleIconFiles</key>
+        <array>
+            <string>AppIcon60x60</string>
+            <string>AppIcon76x76</string>
+            <string>AppIcon83.5x83.5</string>
+        </array>
+        <key>UIPrerenderedIcon</key><false/>
+    </dict>
+</dict>
+<key>CFBundleIcons~ipad</key>
+<dict>
+    <key>CFBundlePrimaryIcon</key>
+    <dict>
+        <key>CFBundleIconFiles</key>
+        <array>
+            <string>AppIcon76x76</string>
+            <string>AppIcon83.5x83.5</string>
+        </array>
+        <key>UIPrerenderedIcon</key><false/>
+    </dict>
+</dict>
 <key>UILaunchScreen</key><dict/>
 <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
 <key>UIRequiresFullScreen</key><true/>
