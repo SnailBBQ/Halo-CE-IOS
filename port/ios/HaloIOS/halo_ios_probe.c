@@ -2,7 +2,6 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <mach/mach.h>
-#include <mach/mach_vm.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -38,16 +37,16 @@ static void probe_hint(uint64_t base, uint64_t size, void (^line)(const char *))
 }
 
 static int probe_mach_fixed(uint64_t base, uint64_t size, void (^line)(const char *)) {
-    mach_vm_address_t addr = (mach_vm_address_t)base;
-    kern_return_t kr = mach_vm_allocate(mach_task_self(), &addr,
-                                        (mach_vm_size_t)size, VM_FLAGS_FIXED);
+    vm_address_t addr = (vm_address_t)base;
+    kern_return_t kr = vm_allocate(mach_task_self(), &addr,
+                                   (vm_size_t)size, VM_FLAGS_FIXED);
     if (kr != KERN_SUCCESS) {
         say(line, "FIXED FAIL 0x%08" PRIx64 " + 0x%08" PRIx64 ": kr=%d (%s)",
             base, size, kr, mach_error_string(kr));
         return 0;
     }
     say(line, "FIXED PASS 0x%08" PRIx64 " + 0x%08" PRIx64, base, size);
-    mach_vm_deallocate(mach_task_self(), addr, (mach_vm_size_t)size);
+    vm_deallocate(mach_task_self(), addr, (vm_size_t)size);
     return 1;
 }
 
