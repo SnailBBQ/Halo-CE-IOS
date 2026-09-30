@@ -5,13 +5,14 @@
  objectVersion = 56;
  objects = {
   A1 = {isa = PBXProject; buildConfigurationList = A2; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; mainGroup = A3; productRefGroup = A4; projectDirPath = ""; projectRoot = ""; targets = (A5,); };
-  A3 = {isa = PBXGroup; children = (B1,B2,B3,B4,B5,); sourceTree = "<group>"; };
+  A3 = {isa = PBXGroup; children = (B1,B2,B3,B4,B5,B6,); sourceTree = "<group>"; };
   A4 = {isa = PBXGroup; children = (C1,); name = Products; sourceTree = "<group>"; };
   B1 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HaloIOS/main.m; sourceTree = "<group>"; };
   B2 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HaloIOS/AppDelegate.m; sourceTree = "<group>"; };
   B3 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/AppDelegate.h; sourceTree = "<group>"; };
   B4 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = HaloIOS/halo_ios_probe.c; sourceTree = "<group>"; };
   B5 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/halo_ios_probe.h; sourceTree = "<group>"; };
+  B6 = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HaloIOS/HaloIOS.entitlements; sourceTree = "<group>"; };
   C1 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HaloIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
   D1 = {isa = PBXBuildFile; fileRef = B1; };
   D2 = {isa = PBXBuildFile; fileRef = B2; };
@@ -29,8 +30,8 @@
   A6 = {isa = XCConfigurationList; buildConfigurations = (H1,H2,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
   G1 = {isa = XCBuildConfiguration; buildSettings = {}; name = Debug; };
   G2 = {isa = XCBuildConfiguration; buildSettings = {}; name = Release; };
-  H1 = {isa = XCBuildConfiguration; buildSettings = { ARCHS = arm64; CLANG_ENABLE_OBJC_ARC = YES; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HaloIOS/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.haloceuniversal.ios.m0; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; ALWAYS_SEARCH_USER_PATHS = NO; }; name = Debug; };
-  H2 = {isa = XCBuildConfiguration; buildSettings = { ARCHS = arm64; CLANG_ENABLE_OBJC_ARC = YES; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HaloIOS/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.haloceuniversal.ios.m0; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; ALWAYS_SEARCH_USER_PATHS = NO; }; name = Release; };
+  H1 = {isa = XCBuildConfiguration; buildSettings = { ARCHS = arm64; CLANG_ENABLE_OBJC_ARC = YES; CODE_SIGN_ENTITLEMENTS = HaloIOS/HaloIOS.entitlements; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HaloIOS/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.haloceuniversal.ios.m0; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; ALWAYS_SEARCH_USER_PATHS = NO; }; name = Debug; };
+  H2 = {isa = XCBuildConfiguration; buildSettings = { ARCHS = arm64; CLANG_ENABLE_OBJC_ARC = YES; CODE_SIGN_ENTITLEMENTS = HaloIOS/HaloIOS.entitlements; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HaloIOS/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.haloceuniversal.ios.m0; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; ALWAYS_SEARCH_USER_PATHS = NO; }; name = Release; };
  };
  rootObject = A1;
 }

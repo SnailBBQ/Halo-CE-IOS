@@ -1,4 +1,4 @@
-name: iOS M0 IPA
+name: iOS M1 IPA
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
       - '.github/workflows/ios-m0.yml'
 
 jobs:
-  build-ios-m0:
+  build-ios-m1:
     runs-on: macos-latest
     permissions:
       contents: read
@@ -22,53 +22,55 @@ jobs:
           xcrun --sdk iphoneos --show-sdk-version
           clang --version
 
-      - name: Build unsigned device app
+      - name: Build device app
         run: |
           set -euxo pipefail
-          rm -rf build/ios-m0
+          rm -rf build/ios-m1
           xcodebuild \
             -project port/ios/HaloIOS.xcodeproj \
             -scheme HaloIOS \
             -configuration Release \
             -sdk iphoneos \
-            -derivedDataPath "$PWD/build/ios-m0/DerivedData" \
+            -derivedDataPath "$PWD/build/ios-m1/DerivedData" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             build
 
-      - name: Validate built app bundle
+      - name: Validate and ad-hoc sign with M1 memory entitlements
         run: |
           set -euxo pipefail
-          APP=$(find build/ios-m0/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
+          APP=$(find build/ios-m1/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
           test -n "$APP"
-          echo "=== Built app contents ==="
-          ls -la "$APP"
           EXECUTABLE=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP/Info.plist")
-          echo "CFBundleExecutable=$EXECUTABLE"
           test "$EXECUTABLE" = "HaloIOS"
           test -f "$APP/$EXECUTABLE"
           test -x "$APP/$EXECUTABLE"
-          file "$APP/$EXECUTABLE"
+          /usr/bin/codesign --force --sign - \
+            --entitlements port/ios/HaloIOS/HaloIOS.entitlements \
+            --timestamp=none "$APP"
+          echo "=== Embedded entitlements ==="
+          /usr/bin/codesign -d --entitlements :- "$APP" 2>&1 || true
+          /usr/bin/codesign --verify --verbose=2 "$APP"
 
-      - name: Package unsigned IPA for Sideloadly
+      - name: Package Halo iOS M1 IPA
         run: |
           set -euxo pipefail
-          APP=$(find build/ios-m0/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
+          APP=$(find build/ios-m1/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
           test -n "$APP"
-          rm -rf build/ios-m0/Payload
-          mkdir -p build/ios-m0/Payload
-          cp -R "$APP" build/ios-m0/Payload/
-          cd build/ios-m0
-          /usr/bin/zip -qry HaloCEUniversal-iOS-M0-unsigned.ipa Payload
-          /usr/bin/unzip -l HaloCEUniversal-iOS-M0-unsigned.ipa | head -80
-          /usr/bin/unzip -Z1 HaloCEUniversal-iOS-M0-unsigned.ipa | grep -qx 'Payload/HaloIOS.app/Info.plist'
-          /usr/bin/unzip -Z1 HaloCEUniversal-iOS-M0-unsigned.ipa | grep -qx 'Payload/HaloIOS.app/HaloIOS'
+          rm -rf build/ios-m1/Payload
+          mkdir -p build/ios-m1/Payload
+          cp -R "$APP" build/ios-m1/Payload/
+          cd build/ios-m1
+          /usr/bin/zip -qry Halo-iOS-M1.0.ipa Payload
+          /usr/bin/unzip -l Halo-iOS-M1.0.ipa | head -80
+          /usr/bin/unzip -Z1 Halo-iOS-M1.0.ipa | grep -qx 'Payload/HaloIOS.app/Info.plist'
+          /usr/bin/unzip -Z1 Halo-iOS-M1.0.ipa | grep -qx 'Payload/HaloIOS.app/HaloIOS'
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: HaloCEUniversal-iOS-M0-Sideloadly
-          path: build/ios-m0/HaloCEUniversal-iOS-M0-unsigned.ipa
+          name: Halo-iOS-M1.0
+          path: build/ios-m1/Halo-iOS-M1.0.ipa
           if-no-files-found: error
           retention-days: 14
