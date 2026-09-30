@@ -4,6 +4,7 @@
 
 #include "halo_guest_exec_bridge.h"
 #include "halo_guest_runtime.h"
+#include "halo_ios_gl_host.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -1078,65 +1079,221 @@ static void ios_host_android_path(int which, uint32_t buffer_va, uint32_t size)
     snprintf(buffer, size, "%s", root.fileSystemRepresentation);
 }
 
-/* Headless SDL service. M2.5 intentionally boots the real engine with the
- * port's null renderer and audio disabled; M2.6 will replace these with the
- * visible iOS graphics/input/audio host. */
+/* ---------- iOS SDL / OpenGL ES service ---------- */
+
 static int ios_sdl_init(uint32_t flags)
 {
-    (void)flags;
-    /*
-     * guest_sdl.c implements SDL_Init() as:
-     *     return host_sdl_init(flags) != 0;
-     * SDL3 uses bool success, unlike SDL2's 0-on-success convention.
-     */
-    return 1;
+    return halo_ios_gl_sdl_init(flags);
 }
-static int ios_sdl_set_hint(uint32_t name, uint32_t value) { (void)name; (void)value; return 1; }
+
+static int ios_sdl_set_hint(uint32_t name_va, uint32_t value_va)
+{
+    const char *name = gp(name_va, 1);
+    const char *value = gp(value_va, 1);
+    return halo_ios_gl_set_hint(name, value);
+}
+
 static void ios_sdl_get_error(uint32_t buffer_va, uint32_t size)
 {
-    char *b = gp(buffer_va, size);
-    if (b && size) b[0] = 0;
+    char *buffer = gp(buffer_va, size);
+    if (buffer)
+        halo_ios_gl_get_error(buffer, size);
 }
+
 static int64_t ios_sdl_ticks(void)
 {
     static mach_timebase_info_data_t tb;
-    if (!tb.denom) mach_timebase_info(&tb);
-    uint64_t n = mach_absolute_time();
-    long double ns = (long double)n * tb.numer / tb.denom;
+    if (!tb.denom)
+        mach_timebase_info(&tb);
+    uint64_t now = mach_absolute_time();
+    long double ns = (long double)now * tb.numer / tb.denom;
     return (int64_t)(ns / 1000000.0L);
 }
-static int64_t ios_sdl_thread_id(void) { return (int64_t)pthread_mach_thread_np(pthread_self()); }
-static uint32_t ios_sdl_create_window(uint32_t t, int w, int h, int64_t f) { (void)t;(void)w;(void)h;(void)f; return 1; }
+
+static int64_t ios_sdl_thread_id(void)
+{
+    return (int64_t)pthread_mach_thread_np(pthread_self());
+}
+
+static uint32_t ios_sdl_create_window(uint32_t title_va, int width, int height, int64_t flags)
+{
+    const char *title = gp(title_va, 1);
+    return halo_ios_gl_create_window(title, width, height, flags);
+}
+
 static void ios_sdl_window_size(uint32_t window, uint32_t w_va, uint32_t h_va)
 {
     (void)window;
+    int width = 0, height = 0;
+    halo_ios_gl_window_size(&width, &height);
     int *w = gp(w_va, sizeof(int));
     int *h = gp(h_va, sizeof(int));
-    if (w) *w = 640;
-    if (h) *h = 480;
+    if (w) *w = width;
+    if (h) *h = height;
 }
-static int ios_sdl_ok0(void) { return 0; }
-static int ios_sdl_ok1(void) { return 1; }
-static int ios_sdl_poll_event(uint32_t event) { (void)event; return 0; }
-static int ios_sdl_get_gamepads(uint32_t ids, int capacity) { (void)ids;(void)capacity; return 0; }
-static int ios_sdl_gamepad_axis(uint32_t g, int a) { (void)g;(void)a; return 0; }
-static int ios_sdl_gamepad_button(uint32_t g, int b) { (void)g;(void)b; return 0; }
-static int ios_sdl_gamepad_type(uint32_t g) { (void)g; return 0; }
-static uint32_t ios_sdl_open_gamepad(uint32_t id) { (void)id; return 0; }
-static int ios_sdl_rumble(uint32_t g,uint32_t l,uint32_t h,uint32_t ms){(void)g;(void)l;(void)h;(void)ms;return 0;}
-static uint32_t ios_sdl_open_audio(uint32_t d,uint32_t s,uint32_t c,uint32_t u){(void)d;(void)s;(void)c;(void)u;return 0;}
-static int ios_sdl_audio_data(uint32_t s,uint32_t d,int l){(void)s;(void)d;(void)l;return 0;}
+
+static int ios_sdl_set_relative_mouse(uint32_t window, int enabled)
+{
+    return halo_ios_gl_set_relative_mouse(window, enabled);
+}
+
+static int ios_sdl_gl_set_attribute(int attribute, int value)
+{
+    return halo_ios_gl_set_attribute(attribute, value);
+}
+
+static uint32_t ios_sdl_gl_create_context(uint32_t window)
+{
+    return halo_ios_gl_create_context(window);
+}
+
+static int ios_sdl_gl_make_current(uint32_t window, uint32_t context)
+{
+    return halo_ios_gl_make_current(window, context);
+}
+
+static int ios_sdl_gl_set_swap_interval(int interval)
+{
+    return halo_ios_gl_set_swap_interval(interval);
+}
+
+static int ios_sdl_gl_swap_window(uint32_t window)
+{
+    return halo_ios_gl_swap_window(window);
+}
+
+static int ios_sdl_poll_event(uint32_t event)
+{
+    (void)event;
+    return 0;
+}
+
+static int ios_sdl_set_clipboard_text(uint32_t text)
+{
+    (void)text;
+    return 1;
+}
+
+static void ios_sdl_get_clipboard_text(uint32_t buffer_va, uint32_t size)
+{
+    char *buffer = gp(buffer_va, size);
+    if (buffer && size)
+        buffer[0] = 0;
+}
+
+static int ios_sdl_show_toast(uint32_t message, int duration, int gravity, int x, int y)
+{
+    (void)message; (void)duration; (void)gravity; (void)x; (void)y;
+    return 1;
+}
+
+static int ios_sdl_show_simple_message_box(uint32_t flags, uint32_t title, uint32_t message)
+{
+    (void)flags; (void)title; (void)message;
+    return 1;
+}
+
+static int ios_sdl_get_gamepads(uint32_t ids, int capacity)
+{
+    (void)ids; (void)capacity;
+    return 0;
+}
+
+static uint32_t ios_sdl_open_gamepad(uint32_t id)
+{
+    (void)id;
+    return 0;
+}
+
+static int ios_sdl_gamepad_axis(uint32_t gamepad, int axis)
+{
+    (void)gamepad; (void)axis;
+    return 0;
+}
+
+static int ios_sdl_gamepad_button(uint32_t gamepad, int button)
+{
+    (void)gamepad; (void)button;
+    return 0;
+}
+
+static int ios_sdl_gamepad_type(uint32_t gamepad)
+{
+    (void)gamepad;
+    return 0;
+}
+
+static int ios_sdl_rumble(uint32_t gamepad, uint32_t low, uint32_t high, uint32_t milliseconds)
+{
+    (void)gamepad; (void)low; (void)high; (void)milliseconds;
+    return 0;
+}
+
+static uint32_t ios_sdl_open_audio(uint32_t device, uint32_t spec,
+                                   uint32_t callback, uint32_t userdata)
+{
+    (void)device; (void)spec; (void)callback; (void)userdata;
+    return 0;
+}
+
+static int ios_sdl_audio_data(uint32_t stream, uint32_t data, int length)
+{
+    (void)stream; (void)data; (void)length;
+    return 0;
+}
+
+static int ios_sdl_audio_resume(uint32_t stream)
+{
+    (void)stream;
+    return 0;
+}
 
 static void ios_gl_get_string(uint32_t name, int index, uint32_t buffer_va, uint32_t size)
 {
-    (void)name; (void)index;
-    char *b = gp(buffer_va, size);
-    if (b && size) b[0] = 0;
+    char *buffer = gp(buffer_va, size);
+    if (buffer)
+        halo_ios_gl_get_string(name, index, buffer, size);
 }
-static int ios_gl_has_extension(uint32_t name) { (void)name; return 0; }
-static uint32_t ios_gl_read_word(uint32_t b,uint32_t o){(void)b;(void)o;return 0;}
-static void ios_gl_buffer_write(uint32_t t,uint32_t o,uint32_t s,uint32_t d){(void)t;(void)o;(void)s;(void)d;}
-static void ios_gl_fence(uint32_t s){(void)s;}
+
+static int ios_gl_has_extension(uint32_t name_va)
+{
+    const char *name = gp(name_va, 1);
+    return halo_ios_gl_has_extension(name);
+}
+
+static uint32_t ios_gl_read_word(uint32_t buffer, uint32_t offset)
+{
+    return halo_ios_gl_read_buffer_word(buffer, offset);
+}
+
+static void ios_gl_buffer_write(uint32_t target, uint32_t offset,
+                                uint32_t size, uint32_t data_va)
+{
+    const void *data = data_va ? gp(data_va, size) : NULL;
+    halo_ios_gl_buffer_write(target, offset, size, data);
+}
+
+static void ios_gl_fence(uint32_t slot)
+{
+    halo_ios_gl_fence_frame(slot);
+}
+
+static void ios_gl_wait(uint32_t slot)
+{
+    halo_ios_gl_wait_frame(slot);
+}
+
+/*
+ * The iOS-specific generated guest GL wrappers call this before native GL
+ * imports. It converts a 32-bit guest address into the real 64-bit address
+ * inside the aligned guest arena while preserving NULL.
+ */
+static uint64_t ios_host_guest_pointer(uint32_t guest)
+{
+    if (!guest)
+        return 0;
+    return (uint64_t)(uintptr_t)halo_guest_ptr(guest, 1);
+}
 
 /* ---------- hostposix file helpers ---------- */
 
@@ -1380,6 +1537,7 @@ static void *resolve_host_import(const char *name)
     MAP("host_get_tp", ios_host_get_tp);
     MAP("host_set_tp", ios_host_set_tp);
     MAP("host_thread_create", ios_host_thread_create);
+    MAP("host_guest_pointer", ios_host_guest_pointer);
 
     MAP("host_memory_watch_initialize", ios_memory_watch_initialize);
     MAP("host_memory_watch_protect", ios_memory_watch_protect);
@@ -1395,17 +1553,17 @@ static void *resolve_host_import(const char *name)
     MAP("host_sdl_thread_id", ios_sdl_thread_id);
     MAP("host_sdl_create_window", ios_sdl_create_window);
     MAP("host_sdl_window_size_in_pixels", ios_sdl_window_size);
-    MAP("host_sdl_set_relative_mouse", ios_sdl_ok1);
-    MAP("host_sdl_gl_set_attribute", ios_sdl_ok0);
-    MAP("host_sdl_gl_create_context", ios_sdl_ok0);
-    MAP("host_sdl_gl_make_current", ios_sdl_ok0);
-    MAP("host_sdl_gl_set_swap_interval", ios_sdl_ok0);
-    MAP("host_sdl_gl_swap_window", ios_sdl_ok0);
+    MAP("host_sdl_set_relative_mouse", ios_sdl_set_relative_mouse);
+    MAP("host_sdl_gl_set_attribute", ios_sdl_gl_set_attribute);
+    MAP("host_sdl_gl_create_context", ios_sdl_gl_create_context);
+    MAP("host_sdl_gl_make_current", ios_sdl_gl_make_current);
+    MAP("host_sdl_gl_set_swap_interval", ios_sdl_gl_set_swap_interval);
+    MAP("host_sdl_gl_swap_window", ios_sdl_gl_swap_window);
     MAP("host_sdl_poll_event", ios_sdl_poll_event);
-    MAP("host_sdl_set_clipboard_text", ios_sdl_ok0);
-    MAP("host_sdl_get_clipboard_text", ios_sdl_get_error);
-    MAP("host_sdl_show_toast", ios_sdl_ok0);
-    MAP("host_sdl_show_simple_message_box", ios_sdl_ok0);
+    MAP("host_sdl_set_clipboard_text", ios_sdl_set_clipboard_text);
+    MAP("host_sdl_get_clipboard_text", ios_sdl_get_clipboard_text);
+    MAP("host_sdl_show_toast", ios_sdl_show_toast);
+    MAP("host_sdl_show_simple_message_box", ios_sdl_show_simple_message_box);
     MAP("host_sdl_get_gamepads", ios_sdl_get_gamepads);
     MAP("host_sdl_open_gamepad", ios_sdl_open_gamepad);
     MAP("host_sdl_gamepad_from_id", ios_sdl_open_gamepad);
@@ -1415,18 +1573,21 @@ static void *resolve_host_import(const char *name)
     MAP("host_sdl_rumble_gamepad", ios_sdl_rumble);
     MAP("host_sdl_open_audio_stream", ios_sdl_open_audio);
     MAP("host_sdl_put_audio_stream_data", ios_sdl_audio_data);
-    MAP("host_sdl_resume_audio_stream_device", ios_sdl_ok0);
+    MAP("host_sdl_resume_audio_stream_device", ios_sdl_audio_resume);
 
     MAP("host_gl_get_string", ios_gl_get_string);
     MAP("host_gl_has_extension", ios_gl_has_extension);
     MAP("host_gl_read_buffer_word", ios_gl_read_word);
     MAP("host_gl_buffer_write", ios_gl_buffer_write);
     MAP("host_gl_fence_frame", ios_gl_fence);
-    MAP("host_gl_wait_frame", ios_gl_fence);
+    MAP("host_gl_wait_frame", ios_gl_wait);
     MAP("host_android_path", ios_host_android_path);
 
     if(!strncmp(name,"hostgl_",7))
-        return (void *)missing_import;
+    {
+        void *gl = halo_ios_gl_resolve_import(name);
+        return gl ? gl : (void *)missing_import;
+    }
 
     if(!strncmp(name,"hostposix_",10))
     {
@@ -1635,7 +1796,7 @@ static uint32_t build_boot(void)
     const char *values[]={
         data,
         save,
-        "HALO_NULL_RENDERER=1",
+        "HALO_NULL_RENDERER=false",
         "HALO_NO_AUDIO=1",
         "HALO_EXIT_AFTER=3.0",
         "HALO_NET_ONLINE=false",
@@ -1670,7 +1831,7 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.5.2 runtime fixes active: SDL3 init + clock_nanosleep + ioctl/TLS/16K ELF fixes");
+    say("M2.6 visible-render runtime: iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);

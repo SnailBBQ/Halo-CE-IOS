@@ -1,4 +1,4 @@
-name: iOS M2.5 Full Guest Execution IPA
+name: iOS M2.6 First Visible Halo Frame IPA
 
 on:
   workflow_dispatch:
@@ -31,12 +31,20 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build/android/third_party
-          key: ios-guest-third-party-${{ hashFiles('tools/android_build.py') }}
+          key: ios-guest-third-party-${{ hashFiles('tools/android_build.py', 'tools/ios_gl_stubs.py') }}
 
       - name: Configure recovered arm64_32 guest
         run: |
           set -euxo pipefail
           python3 configure.py --pgo=off
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("build.ninja")
+          s = p.read_text()
+          if "tools/android_gl_stubs.py" not in s:
+              raise SystemExit("android GL stub rule not found in build.ninja")
+          p.write_text(s.replace("tools/android_gl_stubs.py", "tools/ios_gl_stubs.py"))
+          PY
           ninja --version
           clang --version
 
@@ -56,7 +64,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  build-ios-m25:
+  build-ios-m26:
     needs: build-arm64_32-guest
     runs-on: macos-latest
     timeout-minutes: 40
@@ -83,13 +91,13 @@ jobs:
       - name: Build device host app
         run: |
           set -euxo pipefail
-          rm -rf build/ios-m25
+          rm -rf build/ios-m26
           xcodebuild \
             -project port/ios/HaloIOS.xcodeproj \
             -scheme HaloIOS \
             -configuration Release \
             -sdk iphoneos \
-            -derivedDataPath "$PWD/build/ios-m25/DerivedData" \
+            -derivedDataPath "$PWD/build/ios-m26/DerivedData" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
@@ -98,7 +106,7 @@ jobs:
       - name: Bundle real arm64_32 guest and ad-hoc sign
         run: |
           set -euxo pipefail
-          APP=$(find build/ios-m25/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
+          APP=$(find build/ios-m26/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
           test -n "$APP"
           cp build/guest/halo_guest.elf "$APP/halo_guest.elf"
 
@@ -113,24 +121,24 @@ jobs:
             --timestamp=none "$APP"
           /usr/bin/codesign --verify --verbose=2 "$APP"
 
-      - name: Package M2.5 IPA
+      - name: Package M2.6 IPA
         run: |
           set -euxo pipefail
-          APP=$(find build/ios-m25/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
+          APP=$(find build/ios-m26/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
           test -n "$APP"
-          rm -rf build/ios-m25/Payload
-          mkdir -p build/ios-m25/Payload
-          cp -R "$APP" build/ios-m25/Payload/
-          cd build/ios-m25
-          /usr/bin/zip -qry Halo-iOS-M2.5-Full-Guest-Execution.ipa Payload
-          /usr/bin/unzip -Z1 Halo-iOS-M2.5-Full-Guest-Execution.ipa | grep -qx 'Payload/HaloIOS.app/Info.plist'
-          /usr/bin/unzip -Z1 Halo-iOS-M2.5-Full-Guest-Execution.ipa | grep -qx 'Payload/HaloIOS.app/HaloIOS'
-          /usr/bin/unzip -Z1 Halo-iOS-M2.5-Full-Guest-Execution.ipa | grep -qx 'Payload/HaloIOS.app/halo_guest.elf'
+          rm -rf build/ios-m26/Payload
+          mkdir -p build/ios-m26/Payload
+          cp -R "$APP" build/ios-m26/Payload/
+          cd build/ios-m26
+          /usr/bin/zip -qry Halo-iOS-M2.6-First-Visible-Frame.ipa Payload
+          /usr/bin/unzip -Z1 Halo-iOS-M2.6-First-Visible-Frame.ipa | grep -qx 'Payload/HaloIOS.app/Info.plist'
+          /usr/bin/unzip -Z1 Halo-iOS-M2.6-First-Visible-Frame.ipa | grep -qx 'Payload/HaloIOS.app/HaloIOS'
+          /usr/bin/unzip -Z1 Halo-iOS-M2.6-First-Visible-Frame.ipa | grep -qx 'Payload/HaloIOS.app/halo_guest.elf'
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Halo-iOS-M2.5-Full-Guest-Execution
-          path: build/ios-m25/Halo-iOS-M2.5-Full-Guest-Execution.ipa
+          name: Halo-iOS-M2.6-First-Visible-Frame
+          path: build/ios-m26/Halo-iOS-M2.6-First-Visible-Frame.ipa
           if-no-files-found: error
           retention-days: 14
