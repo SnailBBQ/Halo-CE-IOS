@@ -29,8 +29,8 @@
   A6 = {isa = XCConfigurationList; buildConfigurations = (H1,H2,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
   G1 = {isa = XCBuildConfiguration; buildSettings = {}; name = Debug; };
   G2 = {isa = XCBuildConfiguration; buildSettings = {}; name = Release; };
-  H1 = {isa = XCBuildConfiguration; buildSettings = { ARCHS = arm64; CLANG_ENABLE_OBJC_ARC = YES; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HaloIOS/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.haloceuniversal.ios.m0; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; OTHER_LDFLAGS = "-Wl,-pagezero_size,0x4000"; }; name = Debug; };
-  H2 = {isa = XCBuildConfiguration; buildSettings = { ARCHS = arm64; CLANG_ENABLE_OBJC_ARC = YES; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HaloIOS/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.haloceuniversal.ios.m0; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; OTHER_LDFLAGS = "-Wl,-pagezero_size,0x4000"; }; name = Release; };
+  H1 = {isa = XCBuildConfiguration; buildSettings = { ARCHS = arm64; CLANG_ENABLE_OBJC_ARC = YES; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HaloIOS/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.haloceuniversal.ios.m0; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; ALWAYS_SEARCH_USER_PATHS = NO; }; name = Debug; };
+  H2 = {isa = XCBuildConfiguration; buildSettings = { ARCHS = arm64; CLANG_ENABLE_OBJC_ARC = YES; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HaloIOS/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.haloceuniversal.ios.m0; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; ALWAYS_SEARCH_USER_PATHS = NO; }; name = Release; };
  };
  rootObject = A1;
 }
