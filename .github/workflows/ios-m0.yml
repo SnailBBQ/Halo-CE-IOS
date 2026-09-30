@@ -37,6 +37,20 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             build
 
+      - name: Validate built app bundle
+        run: |
+          set -euxo pipefail
+          APP=$(find build/ios-m0/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
+          test -n "$APP"
+          echo "=== Built app contents ==="
+          ls -la "$APP"
+          EXECUTABLE=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP/Info.plist")
+          echo "CFBundleExecutable=$EXECUTABLE"
+          test "$EXECUTABLE" = "HaloIOS"
+          test -f "$APP/$EXECUTABLE"
+          test -x "$APP/$EXECUTABLE"
+          file "$APP/$EXECUTABLE"
+
       - name: Package unsigned IPA for Sideloadly
         run: |
           set -euxo pipefail
@@ -48,6 +62,8 @@ jobs:
           cd build/ios-m0
           /usr/bin/zip -qry HaloCEUniversal-iOS-M0-unsigned.ipa Payload
           /usr/bin/unzip -l HaloCEUniversal-iOS-M0-unsigned.ipa | head -80
+          /usr/bin/unzip -Z1 HaloCEUniversal-iOS-M0-unsigned.ipa | grep -qx 'Payload/HaloIOS.app/Info.plist'
+          /usr/bin/unzip -Z1 HaloCEUniversal-iOS-M0-unsigned.ipa | grep -qx 'Payload/HaloIOS.app/HaloIOS'
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4

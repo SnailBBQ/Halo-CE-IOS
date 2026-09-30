@@ -4,6 +4,7 @@
 <key>CFBundleDisplayName</key><string>Halo M0</string>
 <key>CFBundleIdentifier</key><string>com.haloceuniversal.ios.m0</string>
 <key>CFBundleName</key><string>HaloM0</string>
+<key>CFBundleExecutable</key><string>HaloIOS</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.0.1</string>
 <key>CFBundleVersion</key><string>1</string>

@@ -17,10 +17,14 @@
   D2 = {isa = PBXBuildFile; fileRef = B2; };
   D3 = {isa = PBXBuildFile; fileRef = B4; };
   D4 = {isa = PBXBuildFile; fileRef = E1; };
+  D5 = {isa = PBXBuildFile; fileRef = E2; };
+  D6 = {isa = PBXBuildFile; fileRef = E3; };
   E1 = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+  E2 = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+  E3 = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
   A5 = {isa = PBXNativeTarget; buildConfigurationList = A6; buildPhases = (F1,F2,); buildRules = (); dependencies = (); name = HaloIOS; productName = HaloIOS; productReference = C1; productType = "com.apple.product-type.application"; };
   F1 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (D1,D2,D3,); runOnlyForDeploymentPostprocessing = 0; };
-  F2 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (D4,); runOnlyForDeploymentPostprocessing = 0; };
+  F2 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (D4,D5,D6,); runOnlyForDeploymentPostprocessing = 0; };
   A2 = {isa = XCConfigurationList; buildConfigurations = (G1,G2,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
   A6 = {isa = XCConfigurationList; buildConfigurations = (H1,H2,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
   G1 = {isa = XCBuildConfiguration; buildSettings = {}; name = Debug; };
