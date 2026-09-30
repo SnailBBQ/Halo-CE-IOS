@@ -1,0 +1,58 @@
+name: iOS M0 IPA
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'port/ios/**'
+      - '.github/workflows/ios-m0.yml'
+
+jobs:
+  build-ios-m0:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Apple toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          clang --version
+
+      - name: Build unsigned device app
+        run: |
+          set -euxo pipefail
+          rm -rf build/ios-m0
+          xcodebuild \
+            -project port/ios/HaloIOS.xcodeproj \
+            -target HaloIOS \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath "$PWD/build/ios-m0/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package unsigned IPA for Sideloadly
+        run: |
+          set -euxo pipefail
+          APP=$(find build/ios-m0/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
+          test -n "$APP"
+          rm -rf build/ios-m0/Payload
+          mkdir -p build/ios-m0/Payload
+          cp -R "$APP" build/ios-m0/Payload/
+          cd build/ios-m0
+          /usr/bin/zip -qry HaloCEUniversal-iOS-M0-unsigned.ipa Payload
+          /usr/bin/unzip -l HaloCEUniversal-iOS-M0-unsigned.ipa | head -80
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: HaloCEUniversal-iOS-M0-Sideloadly
+          path: build/ios-m0/HaloCEUniversal-iOS-M0-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
