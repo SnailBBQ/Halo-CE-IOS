@@ -1,12 +1,14 @@
 #import "AppDelegate.h"
 #import "halo_boot_integration.h"
 #import "halo_ios_gl_host.h"
+#import "halo_guest_runner.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 extern NSString * const HaloIOSFirstFramePresentedNotification;
 
 @interface AppDelegate () <UIDocumentPickerDelegate>
 @property(nonatomic, strong) UIView *bootOverlay;
+@property(nonatomic, strong) UIStackView *menuControls;
 @property(nonatomic, strong) UIButton *logToggle;
 @property(nonatomic, strong) UITextView *bootLog;
 @property(nonatomic, strong) UIButton *importButton;
@@ -131,8 +133,16 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     [self refreshSetup];
 }
 
+- (void)menuPress:(UIButton *)sender { halo_ios_menu_button((int)sender.tag, 1); }
+- (void)menuRelease:(UIButton *)sender { halo_ios_menu_button((int)sender.tag, 0); }
+- (void)applicationWillResignActive:(UIApplication *)application {
+    (void)application;
+    halo_ios_menu_reset();
+}
 - (void)toggleBootLog:(UIButton *)sender {
     self.bootOverlay.hidden = !self.bootOverlay.hidden;
+    self.menuControls.hidden = !self.bootOverlay.hidden;
+    halo_ios_menu_reset();
     [sender setTitle:self.bootOverlay.hidden ? @"Show log" : @"Show game"
            forState:UIControlStateNormal];
 }
@@ -153,7 +163,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"HALO iOS — M2.6.13 Startup";
+    title.text = @"HALO iOS — M2.6.14 Startup";
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:18];
 
@@ -181,6 +191,33 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     [vc.view addSubview:toggle];
     self.logToggle = toggle;
     self.bootLog = log;
+    UIStackView *menu = [UIStackView new];
+    menu.translatesAutoresizingMaskIntoConstraints = NO;
+    menu.axis = UILayoutConstraintAxisHorizontal;
+    menu.spacing = 8;
+    menu.hidden = YES;
+    NSArray<NSString *> *labels = @[@"←", @"↑", @"↓", @"→", @"Select", @"Back"];
+    NSArray<NSNumber *> *buttons = @[@13, @11, @12, @14, @0, @1];
+    for (NSUInteger i = 0; i < labels.count; ++i) {
+        UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+        [button setTitle:labels[i] forState:UIControlStateNormal];
+        [button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+        button.backgroundColor = [UIColor colorWithWhite:0.12 alpha:0.8];
+        button.layer.cornerRadius = 8;
+        button.tag = buttons[i].integerValue;
+        [button.widthAnchor constraintEqualToConstant:i < 4 ? 44 : 70].active = YES;
+        [button.heightAnchor constraintEqualToConstant:44].active = YES;
+        [button addTarget:self action:@selector(menuPress:) forControlEvents:UIControlEventTouchDown];
+        [button addTarget:self action:@selector(menuRelease:)
+            forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
+        [menu addArrangedSubview:button];
+    }
+    [vc.view addSubview:menu];
+    self.menuControls = menu;
+    [NSLayoutConstraint activateConstraints:@[
+        [menu.centerXAnchor constraintEqualToAnchor:vc.view.centerXAnchor],
+        [menu.bottomAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.bottomAnchor constant:-8]
+    ]];
     UIButton *import = [UIButton buttonWithType:UIButtonTypeSystem];
     [import setTitle:@"Import maps" forState:UIControlStateNormal];
     [import addTarget:self action:@selector(importMaps:) forControlEvents:UIControlEventTouchUpInside];
@@ -277,9 +314,11 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
                 }
             });
             dispatch_async(dispatch_get_main_queue(), ^{
-                if ([line hasPrefix:@"M2.5 FULL GUEST STOPPED:"] ||
+                if ([line hasPrefix:@"FULL GUEST STOPPED:"] ||
                     [line hasPrefix:@"FULL GUEST BLOCKED:"]) {
                     bootOverlay.hidden = NO;
+                    menu.hidden = YES;
+                    halo_ios_menu_reset();
                     [toggle setTitle:@"Show game" forState:UIControlStateNormal];
                 }
                 [text appendFormat:@"%@\n", line];

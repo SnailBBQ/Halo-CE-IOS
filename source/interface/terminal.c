@@ -116,7 +116,12 @@ static long terminal_new_line(void);
 
 /* ---------- globals */
 
+#ifdef HALO_IOS_GUEST
+/* Keep terminal messages in logs without drawing them over the menu. */
+boolean terminal_render_enable = FALSE;
+#else
 boolean terminal_render_enable = TRUE;
+#endif
 
 const short rdata_002712d0[] = {160, 320, 470};
 

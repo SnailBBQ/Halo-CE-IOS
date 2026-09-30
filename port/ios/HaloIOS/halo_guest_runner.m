@@ -1379,16 +1379,37 @@ static int ios_sdl_show_simple_message_box(uint32_t flags, uint32_t title, uint3
     return 1;
 }
 
+static _Atomic(uint32_t) g_menu_held;
+static _Atomic(uint32_t) g_menu_pending;
+
+void halo_ios_menu_button(int button, int pressed)
+{
+    if (button < 0 || button >= 32) return;
+    uint32_t bit = UINT32_C(1) << button;
+    if (pressed) {
+        atomic_fetch_or(&g_menu_held, bit);
+        atomic_fetch_or(&g_menu_pending, bit);
+    } else atomic_fetch_and(&g_menu_held, ~bit);
+}
+
+void halo_ios_menu_reset(void)
+{
+    atomic_store(&g_menu_held, 0);
+    atomic_store(&g_menu_pending, 0);
+}
+
 static int ios_sdl_get_gamepads(uint32_t ids, int capacity)
 {
-    (void)ids; (void)capacity;
-    return 0;
+    if (capacity < 1) return 0;
+    uint32_t *out = gp(ids, sizeof(*out));
+    if (!out) return 0;
+    out[0] = 1; /* the native menu pad */
+    return 1;
 }
 
 static uint32_t ios_sdl_open_gamepad(uint32_t id)
 {
-    (void)id;
-    return 0;
+    return id == 1 ? 1 : 0;
 }
 
 static int ios_sdl_gamepad_axis(uint32_t gamepad, int axis)
@@ -1399,14 +1420,16 @@ static int ios_sdl_gamepad_axis(uint32_t gamepad, int axis)
 
 static int ios_sdl_gamepad_button(uint32_t gamepad, int button)
 {
-    (void)gamepad; (void)button;
-    return 0;
+    if (gamepad != 1 || button < 0 || button >= 32) return 0;
+    uint32_t bit = UINT32_C(1) << button;
+    /* A quick tap is delivered at least once even between slow frames. */
+    uint32_t pending = atomic_fetch_and(&g_menu_pending, ~bit);
+    return ((atomic_load(&g_menu_held) | pending) & bit) != 0;
 }
 
 static int ios_sdl_gamepad_type(uint32_t gamepad)
 {
-    (void)gamepad;
-    return 0;
+    return gamepad == 1 ? 1 : 0; /* SDL_GAMEPAD_TYPE_STANDARD */
 }
 
 static int ios_sdl_rumble(uint32_t gamepad, uint32_t low, uint32_t high, uint32_t milliseconds)
@@ -1955,7 +1978,7 @@ static int load_guest_image(NSString *path)
         low,high,g_header->start);
     say("GUEST TLS: writable_start=0x%08x main_thread=0x%08x",
         g_guest_writable_start, g_main_thread_va);
-    say("HOST IMPORTS: %u resolved/headless, %u guarded fallback",
+    say("HOST IMPORTS: %u resolved, %u guarded fallback",
         resolved,fallback);
     return 1;
 }
@@ -2038,7 +2061,7 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.13 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.14 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);
@@ -2145,7 +2168,7 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
     if(!g_guest_finished)
     {
         say("");
-        say("M2.5 FULL GUEST STATUS: STILL RUNNING AFTER 5 SECONDS");
+        say("FULL GUEST STATUS: STILL RUNNING AFTER 5 SECONDS");
         say("PAGEZERO bridge: %llu pointer upgrades, %llu indirect-PC translations",
             (unsigned long long)stats.pointer_upgrades,
             (unsigned long long)stats.pc_translations);
@@ -2172,7 +2195,7 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
     }
 
     say("");
-    say("M2.5 FULL GUEST STOPPED: reason=%d exit=%d",g_guest_reason,g_guest_exit_code);
+    say("FULL GUEST STOPPED: reason=%d exit=%d",g_guest_reason,g_guest_exit_code);
     say("PAGEZERO bridge: %llu pointer upgrades, %llu indirect-PC translations",
         (unsigned long long)stats.pointer_upgrades,
         (unsigned long long)stats.pc_translations);

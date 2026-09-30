@@ -12,7 +12,7 @@ That project is a fork of [punpckhdq/halo](https://github.com/punpckhdq/halo).
 
 ## iOS development status
 
-**M2.6.13 is awaiting device testing.** M2.6.12 reached and rendered Halo's real main menu on an iPhone, with severe slowness and text artifacts. The latest changes target native texture decoding, muted playback overhead, and font texture refresh. Playable campaign, iOS controls, audio, and multiplayer are not yet confirmed.
+**M2.6.14 is awaiting device testing.** M2.6.13 rendered the real menu with readable text during a 65-second recording, though intermittent background color artifacts remained. M2.6.14 hides the in-game terminal overlay, separates texture uploads from final stage bindings, and adds on-screen menu navigation. Campaign gameplay, audio, and multiplayer remain unconfirmed.
 
 See [iOS port status](IOS_PORT_STATUS.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
 

@@ -2,7 +2,7 @@
 
 Experimental Halo: Combat Evolved port for physical iPhone and iPad devices running iOS/iPadOS 15 or later. A native `arm64` app hosts the recovered `arm64_32` engine and presents graphics through EAGL/OpenGL ES 3.
 
-**Current version: M2.6.13, awaiting device testing.** M2.6.12 rendered the real main menu on an iPhone, with very slow startup/frame rendering and blocks over menu text. M2.6.13 targets texture decoding, muted audio overhead, and font texture updates. Campaign gameplay, iOS input, and multiplayer have not yet been validated. See [port status](../../IOS_PORT_STATUS.md).
+**Current version: M2.6.14, awaiting device testing.** M2.6.13 rendered the menu with readable text during a 65-second recording. Intermittent background color artifacts remained, and debug messages covered part of the menu. M2.6.14 targets texture binding isolation, hides that terminal overlay, and adds native on-screen menu controls. Campaign gameplay and multiplayer have not yet been validated. See [port status](../../IOS_PORT_STATUS.md).
 
 ## Build with GitHub Actions
 
@@ -37,6 +37,12 @@ The app creates **Documents/Halo/maps** on its first launch, before starting the
 4. Tap **Start Halo** when setup reports that `ui.map` is ready. On later launches, an existing `ui.map` allows automatic engine startup.
 
 Import supports multiple files and keeps existing maps instead of replacing them. Files are copied into a temporary location before being published into the maps folder. Setup checks the presence and minimum size of `ui.map`; the engine performs the actual cache validation.
+
+## Menu controls
+
+M2.6.14 adds on-screen **Left, Up, Down, Right, Select, and Back** buttons when the game view is shown. They feed the guest's first controller slot; Select maps to A and Back to B. A quick tap is retained until it is polled, so slow frames do not simply discard it. Showing the log or leaving the app clears held/pending buttons.
+
+These controls are for menu testing. Full gameplay controls and physical controller support are not implemented by this change. Test moving the highlight, opening Campaign with Select, and returning with Back before attempting a level.
 
 ## Testing and logs
 

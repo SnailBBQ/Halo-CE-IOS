@@ -279,13 +279,8 @@ int halo_ios_engine_boot_main_menu(void (^line)(const char *text),
     line("ENGINE ENTRY REACHED: the same scenario/BSP/global state required by");
     line("game_load() is now resident at original guest addresses.");
     line("");
-    line("NEXT HARD BOUNDARY: game_initialize_for_new_map() fans into the real");
-    line("rasterizer, game-state allocator, input, audio, objects, AI, scripts,");
-    line("director/observer and render systems. Those recovered modules are not");
-    line("yet executable under the iOS LP64 host ABI; invoking them as native");
-    line("functions would corrupt their 32-bit pointer layouts.");
-    line("");
-    line("M2.4 RESULT: ENGINE DATA BOOT COMPLETE; EXECUTION/RUNTIME BRIDGE REQUIRED.");
+    line("ENGINE DATA BOOT COMPLETE: continuing into the full arm64_32 guest.");
+    line("Engine initialization and rendering run through the iOS guest/host bridge.");
 
     return 1;
 }

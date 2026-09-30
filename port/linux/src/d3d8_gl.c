@@ -2268,6 +2268,11 @@ static void snapshot_render_target_feedback(void)
 static void bind_textures(struct nv2a_pixel_shader_key *key, float texture_scale[4][4])
 {
 	int stage;
+#ifdef HALO_IOS_GUEST
+    GLenum prepared_targets[D3DTSS_MAXSTAGES];
+    GLuint prepared_textures[D3DTSS_MAXSTAGES];
+    BOOL prepared_mips[D3DTSS_MAXSTAGES] = {0};
+#endif
 
 	for (stage = 0; stage < D3DTSS_MAXSTAGES; stage++)
 	{
@@ -2278,7 +2283,12 @@ static void bind_textures(struct nv2a_pixel_shader_key *key, float texture_scale
 		texture_scale[stage][2] = texture_scale[stage][3] = 1.0f;
 		if (!texture || !texture->Data || mode == 0 || mode == 0x04 || mode == 0x05 || mode == 0x11)
 		{
-			state_texture(stage, GL_TEXTURE_2D, 0);
+#ifdef HALO_IOS_GUEST
+            prepared_targets[stage] = GL_TEXTURE_2D;
+            prepared_textures[stage] = 0;
+#else
+            state_texture(stage, GL_TEXTURE_2D, 0);
+#endif
 			key->sampler_type[stage] = mode == 0x11 ? _xgpu_sampler_2d : _xgpu_sampler_none;
 			continue;
 		}
@@ -2320,13 +2330,32 @@ static void bind_textures(struct nv2a_pixel_shader_key *key, float texture_scale
 					texture_scale[stage][1] = 1.0f / (float)description.height;
 				}
 			}
-			state_texture(stage, gl_target, gl_texture);
-			state_sampler(stage, device.samplers[stage]);
-			configure_sampler(stage, description.levels > 1);
+#ifdef HALO_IOS_GUEST
+            prepared_targets[stage] = gl_target;
+            prepared_textures[stage] = gl_texture;
+            prepared_mips[stage] = description.levels > 1;
+#else
+            state_texture(stage, gl_target, gl_texture);
+            state_sampler(stage, device.samplers[stage]);
+            configure_sampler(stage, description.levels > 1);
+#endif
 			key->sampler_type[stage] = gl_target == GL_TEXTURE_CUBE_MAP ? _xgpu_sampler_cube :
 				gl_target == GL_TEXTURE_3D ? _xgpu_sampler_3d : _xgpu_sampler_2d;
 		}
 	}
+#ifdef HALO_IOS_GUEST
+    /* Uploads and mip copies can change the active unit's binding. Resolve
+       every stage first, then establish all bindings for this draw. */
+    for (stage = 0; stage < D3DTSS_MAXSTAGES; ++stage)
+    {
+        state_texture(stage, prepared_targets[stage], prepared_textures[stage]);
+        if (key->sampler_type[stage] != _xgpu_sampler_none && prepared_textures[stage])
+        {
+            state_sampler(stage, device.samplers[stage]);
+            configure_sampler(stage, prepared_mips[stage]);
+        }
+    }
+#endif
 }
 
 static GLenum stencil_operation(DWORD operation)
