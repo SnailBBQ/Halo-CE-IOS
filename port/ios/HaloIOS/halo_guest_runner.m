@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <mach/mach_time.h>
+#include <libkern/OSCacheControl.h>
 #include <pthread.h>
 #include <sched.h>
 #include <stdarg.h>
@@ -1252,7 +1253,11 @@ static int load_guest_image(NSString *path)
         if((uint64_t)va+mem>high)high=va+mem;
     }
 
-    __builtin___clear_cache((char *)halo_guest_ptr(low,1),(char *)halo_guest_ptr(high-1,1)+1);
+    void *code_start = halo_guest_ptr(low, 1);
+    size_t code_size = (size_t)((uint64_t)high - low);
+    if (!code_start || !code_size)
+        return 0;
+    sys_icache_invalidate(code_start, code_size);
 
     for(uint16_t i=0;i<g_ehdr->e_phnum;i++)
     {
