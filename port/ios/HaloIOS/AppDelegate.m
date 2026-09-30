@@ -4,7 +4,18 @@
 
 extern NSString * const HaloIOSFirstFramePresentedNotification;
 
+@interface AppDelegate ()
+@property(nonatomic, strong) UIView *bootOverlay;
+@property(nonatomic, strong) UIButton *logToggle;
+@end
+
 @implementation AppDelegate
+- (void)toggleBootLog:(UIButton *)sender {
+    self.bootOverlay.hidden = !self.bootOverlay.hidden;
+    [sender setTitle:self.bootOverlay.hidden ? @"Show log" : @"Show game"
+           forState:UIControlStateNormal];
+}
+
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
 
@@ -21,7 +32,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"HALO iOS — M2.6 Visible Frame";
+    title.text = @"HALO iOS — M2.6.2 Startup";
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:18];
 
@@ -36,6 +47,18 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     [bootOverlay addSubview:title];
     [bootOverlay addSubview:log];
     [vc.view addSubview:bootOverlay];
+    self.bootOverlay = bootOverlay;
+
+    UIButton *toggle = [UIButton buttonWithType:UIButtonTypeSystem];
+    toggle.translatesAutoresizingMaskIntoConstraints = NO;
+    toggle.backgroundColor = [UIColor colorWithWhite:0.15 alpha:0.9];
+    [toggle setTitle:@"Starting…" forState:UIControlStateNormal];
+    [toggle setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+    toggle.enabled = NO;
+    [toggle addTarget:self action:@selector(toggleBootLog:)
+       forControlEvents:UIControlEventTouchUpInside];
+    [vc.view addSubview:toggle];
+    self.logToggle = toggle;
 
     [NSLayoutConstraint activateConstraints:@[
         [gameView.leadingAnchor constraintEqualToAnchor:vc.view.leadingAnchor],
@@ -49,6 +72,11 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
         [bootOverlay.bottomAnchor constraintEqualToAnchor:vc.view.bottomAnchor],
 
         [title.leadingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.leadingAnchor constant:14],
+        [title.trailingAnchor constraintLessThanOrEqualToAnchor:toggle.leadingAnchor constant:-8],
+        [toggle.trailingAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.trailingAnchor constant:-12],
+        [toggle.topAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.topAnchor constant:4],
+        [toggle.widthAnchor constraintEqualToConstant:100],
+        [toggle.heightAnchor constraintEqualToConstant:36],
         [title.topAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.topAnchor constant:8],
         [log.leadingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.leadingAnchor constant:12],
         [log.trailingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.trailingAnchor constant:-12],
@@ -67,12 +95,10 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
                          queue:NSOperationQueue.mainQueue
                     usingBlock:^(NSNotification *note) {
         (void)note;
-        [UIView animateWithDuration:0.20 animations:^{
-            bootOverlay.alpha = 0.0;
-        } completion:^(BOOL finished) {
-            (void)finished;
-            bootOverlay.hidden = YES;
-        }];
+        toggle.enabled = YES;
+        [toggle setTitle:@"Show game" forState:UIControlStateNormal];
+        // A successful presentation can contain only black pixels.
+        // Keep diagnostics visible until the user chooses the game surface.
 
         if (firstFrameObserver) {
             [[NSNotificationCenter defaultCenter] removeObserver:firstFrameObserver];
@@ -81,16 +107,35 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     }];
 
     NSMutableString *text = [NSMutableString string];
+    NSString *folder = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Halo"];
+    [[NSFileManager defaultManager] createDirectoryAtPath:folder
+                            withIntermediateDirectories:YES attributes:nil error:nil];
+    NSString *logPath = [folder stringByAppendingPathComponent:@"ios-boot.log"];
+    BOOL logCreated = [[NSFileManager defaultManager] createFileAtPath:logPath
+                                                       contents:[NSData data] attributes:nil];
+    NSFileHandle *logFile = logCreated ? [NSFileHandle fileHandleForWritingAtPath:logPath] : nil;
+    dispatch_queue_t logQueue = dispatch_queue_create("HaloIOS.boot-log", DISPATCH_QUEUE_SERIAL);
+    log.text = @"Starting Halo. Boot diagnostics remain visible until you select Show game.\n";
 
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         halo_ios_start_game_boot(^(const char *s) {
             NSString *line = [NSString stringWithUTF8String:s ?: ""] ?: @"<invalid UTF-8>";
             NSLog(@"[HaloIOS-Boot] %@", line);
 
+            dispatch_async(logQueue, ^{
+                NSData *bytes = [[line stringByAppendingString:@"\n"] dataUsingEncoding:NSUTF8StringEncoding];
+                if (logFile) {
+                    NSError *error = nil;
+                    if (![logFile writeData:bytes error:&error])
+                        NSLog(@"[HaloIOS-Boot] Could not save boot log: %@", error);
+                }
+            });
             dispatch_async(dispatch_get_main_queue(), ^{
-                if (bootOverlay.hidden)
-                    return;
-
+                if ([line hasPrefix:@"M2.5 FULL GUEST STOPPED:"] ||
+                    [line hasPrefix:@"FULL GUEST BLOCKED:"]) {
+                    bootOverlay.hidden = NO;
+                    [toggle setTitle:@"Show game" forState:UIControlStateNormal];
+                }
                 [text appendFormat:@"%@\n", line];
                 if (text.length > 50000)
                     [text deleteCharactersInRange:NSMakeRange(0, text.length - 40000)];

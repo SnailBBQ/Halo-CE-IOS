@@ -15,6 +15,7 @@
 #include <sched.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -193,7 +194,7 @@ static pthread_mutex_t g_alloc_lock = PTHREAD_MUTEX_INITIALIZER;
 static uint32_t g_heap_next = UINT32_C(0xA0000000);
 static uint32_t g_thread_stack_next = UINT32_C(0xEC000000);
 
-static volatile int g_guest_finished;
+static atomic_int g_guest_finished;
 static volatile int g_guest_reason;
 static volatile int g_guest_exit_code;
 static volatile uint64_t g_missing_lr;
@@ -1797,7 +1798,6 @@ static uint32_t build_boot(void)
         data,
         save,
         "HALO_NO_AUDIO=1",
-        "HALO_EXIT_AFTER=3.0",
         "HALO_NET_ONLINE=false",
         "HALO_NET_ALLOW_UPNP=false",
         "HALO_UPDATE_AUTO=false",
@@ -1830,7 +1830,7 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.1 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.2 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);
@@ -1940,8 +1940,10 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
         say("PAGEZERO bridge: %llu pointer upgrades, %llu indirect-PC translations",
             (unsigned long long)stats.pointer_upgrades,
             (unsigned long long)stats.pc_translations);
-        say("This is a live headless execution of the recovered arm64_32 game image.");
-        return 1;
+        say("The guest remains active; monitoring for a later exit or execution fault.");
+        while (!g_guest_finished)
+            usleep(100000);
+        halo_guest_exec_stats_get(&stats);
     }
 
     say("");

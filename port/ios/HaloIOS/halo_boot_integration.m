@@ -20,7 +20,7 @@ static void say(void (^line)(const char *), const char *fmt, ...)
 
 void halo_ios_start_game_boot(void (^line)(const char *text))
 {
-    line("Halo iOS - M2.5 Guest Execution Bridge");
+    line("Halo iOS - M2.6.2 Visible Renderer Startup");
     line("");
 
     if (!halo_guest_runtime_init())
@@ -57,15 +57,15 @@ void halo_ios_start_game_boot(void (^line)(const char *text))
 
     line("");
     line("[3/3] Launching the full recovered arm64_32 Halo guest image...");
-    line("Mode for this milestone: real engine execution, null renderer + audio disabled.");
+    line("Mode: real engine execution + iOS OpenGL ES renderer; audio disabled.");
     line("The guest receives Documents/Halo as its data root and runs its own main().");
     line("");
 
-    int running = halo_ios_run_full_guest(line);
+    int success = halo_ios_run_full_guest(line);
 
     line("");
-    if (running)
-        line("M2.5 RESULT: FULL GUEST EXECUTION BRIDGE ACTIVE.");
+    if (success)
+        line("M2.6.2 RESULT: FULL GUEST EXITED CLEANLY.");
     else
-        line("M2.5 RESULT: FULL GUEST REACHED A REAL EXECUTION/HOST BOUNDARY ABOVE.");
+        line("M2.6.2 RESULT: FULL GUEST REACHED AN EXECUTION/HOST BOUNDARY ABOVE.");
 }
