@@ -125,6 +125,14 @@ struct guest_iovec
     uint32_t length;
 };
 
+struct guest_winsize
+{
+    uint16_t rows;
+    uint16_t cols;
+    uint16_t xpixel;
+    uint16_t ypixel;
+};
+
 struct guest_kstat
 {
     uint64_t st_dev;
@@ -170,6 +178,13 @@ static NSString *g_save_root;
 
 static _Thread_local uint32_t g_guest_tp;
 static _Thread_local int g_guest_errno;
+
+static uint32_t g_guest_writable_start;
+static uint32_t g_main_thread_va;
+static pthread_t g_main_host_thread;
+static int g_main_host_thread_valid;
+static int g_logged_ioctl;
+static int g_logged_tp_repair;
 
 static pthread_mutex_t g_futex_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t g_futex_cond = PTHREAD_COND_INITIALIZER;
@@ -259,6 +274,94 @@ static const char *symbol_name_exact(uint32_t value)
         }
     }
     return NULL;
+}
+
+
+static uint32_t symbol_value_named(const char *wanted)
+{
+    if (!wanted || !g_elf || !g_ehdr || !g_ehdr->e_shoff || !g_ehdr->e_shnum)
+        return 0;
+
+    const uint8_t *file = g_elf.bytes;
+    size_t file_size = g_elf.length;
+    if (g_ehdr->e_shoff + (uint64_t)g_ehdr->e_shnum * g_ehdr->e_shentsize > file_size)
+        return 0;
+
+    const Elf64_Shdr *sections = (const Elf64_Shdr *)(file + g_ehdr->e_shoff);
+    for (uint16_t i = 0; i < g_ehdr->e_shnum; ++i)
+    {
+        const Elf64_Shdr *sh = &sections[i];
+        if (sh->sh_type != SHT_SYMTAB || sh->sh_entsize != sizeof(Elf64_Sym))
+            continue;
+        if (sh->sh_offset + sh->sh_size > file_size || sh->sh_link >= g_ehdr->e_shnum)
+            continue;
+
+        const Elf64_Shdr *strsh = &sections[sh->sh_link];
+        if (strsh->sh_offset + strsh->sh_size > file_size)
+            continue;
+
+        const char *strings = (const char *)(file + strsh->sh_offset);
+        const Elf64_Sym *symbols = (const Elf64_Sym *)(file + sh->sh_offset);
+        uint64_t count = sh->sh_size / sizeof(Elf64_Sym);
+
+        for (uint64_t n = 0; n < count; ++n)
+        {
+            if (symbols[n].st_name >= strsh->sh_size)
+                continue;
+            const char *name = strings + symbols[n].st_name;
+            if (!strcmp(name, wanted))
+                return (uint32_t)symbols[n].st_value;
+        }
+    }
+    return 0;
+}
+
+static const char *symbol_name_nearest(uint32_t value, uint32_t *symbol_va)
+{
+    if (!g_elf || !g_ehdr || !g_ehdr->e_shoff || !g_ehdr->e_shnum)
+        return NULL;
+
+    const uint8_t *file = g_elf.bytes;
+    size_t file_size = g_elf.length;
+    if (g_ehdr->e_shoff + (uint64_t)g_ehdr->e_shnum * g_ehdr->e_shentsize > file_size)
+        return NULL;
+
+    const char *best_name = NULL;
+    uint32_t best_value = 0;
+
+    const Elf64_Shdr *sections = (const Elf64_Shdr *)(file + g_ehdr->e_shoff);
+    for (uint16_t i = 0; i < g_ehdr->e_shnum; ++i)
+    {
+        const Elf64_Shdr *sh = &sections[i];
+        if (sh->sh_type != SHT_SYMTAB || sh->sh_entsize != sizeof(Elf64_Sym))
+            continue;
+        if (sh->sh_offset + sh->sh_size > file_size || sh->sh_link >= g_ehdr->e_shnum)
+            continue;
+
+        const Elf64_Shdr *strsh = &sections[sh->sh_link];
+        if (strsh->sh_offset + strsh->sh_size > file_size)
+            continue;
+
+        const char *strings = (const char *)(file + strsh->sh_offset);
+        const Elf64_Sym *symbols = (const Elf64_Sym *)(file + sh->sh_offset);
+        uint64_t count = sh->sh_size / sizeof(Elf64_Sym);
+
+        for (uint64_t n = 0; n < count; ++n)
+        {
+            uint64_t sv = symbols[n].st_value;
+            if (!sv || sv > value || sv > UINT32_MAX || symbols[n].st_name >= strsh->sh_size)
+                continue;
+            if ((uint32_t)sv >= best_value)
+            {
+                best_value = (uint32_t)sv;
+                best_name = strings + symbols[n].st_name;
+            }
+        }
+    }
+
+    if (symbol_va)
+        *symbol_va = best_value;
+    return best_name;
 }
 
 static const char *missing_import_from_lr(uint64_t lr)
@@ -409,6 +512,63 @@ static long long ios_host_syscall(long long number, long long a, long long b, lo
         {
             int r = fcntl((int)a, (int)b, (int)c);
             return r < 0 ? -errno : r;
+        }
+
+        case 29: /* ioctl */
+        {
+            uint32_t request = (uint32_t)b;
+            uint32_t argument = (uint32_t)c;
+
+            if (!g_logged_ioctl)
+            {
+                say("[guest-ioctl] first request fd=%lld request=0x%08x arg=0x%08x",
+                    a, request, argument);
+                g_logged_ioctl = 1;
+            }
+
+            /*
+             * The arm64_32 musl startup uses Linux ioctl request numbers.
+             * Handle the terminal/stdio probes it performs instead of returning
+             * ENOSYS, which immediately sends musl through its errno/TLS path.
+             */
+            switch (request)
+            {
+                case UINT32_C(0x5413): /* TIOCGWINSZ */
+                {
+                    struct guest_winsize *ws = gp(argument, sizeof(*ws));
+                    if (!ws)
+                        return -EFAULT;
+                    ws->rows = 24;
+                    ws->cols = 80;
+                    ws->xpixel = 0;
+                    ws->ypixel = 0;
+                    return 0;
+                }
+
+                case UINT32_C(0x5401): /* TCGETS */
+                {
+                    void *termios = gp(argument, 64);
+                    if (!termios)
+                        return -EFAULT;
+                    memset(termios, 0, 64);
+                    return 0;
+                }
+
+                case UINT32_C(0x541B): /* FIONREAD */
+                {
+                    int32_t *available = gp(argument, sizeof(*available));
+                    if (!available)
+                        return -EFAULT;
+                    *available = 0;
+                    return 0;
+                }
+
+                case UINT32_C(0x5421): /* FIONBIO */
+                    return 0;
+
+                default:
+                    return -ENOTTY;
+            }
         }
 
         case 34: /* mkdirat */
@@ -808,11 +968,41 @@ static int ios_host_errno(void)
 
 static uint32_t ios_host_get_tp(void)
 {
+    if (g_guest_tp &&
+        g_guest_writable_start &&
+        g_guest_tp < g_guest_writable_start)
+    {
+        if (g_main_host_thread_valid &&
+            pthread_equal(pthread_self(), g_main_host_thread) &&
+            g_main_thread_va)
+        {
+            if (!g_logged_tp_repair)
+            {
+                say("[guest-tls] repaired invalid main TP 0x%08x -> 0x%08x",
+                    g_guest_tp, g_main_thread_va);
+                g_logged_tp_repair = 1;
+            }
+            g_guest_tp = g_main_thread_va;
+        }
+    }
+
     return g_guest_tp;
 }
 
 static void ios_host_set_tp(uint32_t thread)
 {
+    if (thread &&
+        g_guest_writable_start &&
+        thread < g_guest_writable_start &&
+        g_main_host_thread_valid &&
+        pthread_equal(pthread_self(), g_main_host_thread) &&
+        g_main_thread_va)
+    {
+        say("[guest-tls] rejected non-writable TP 0x%08x; using main_thread 0x%08x",
+            thread, g_main_thread_va);
+        thread = g_main_thread_va;
+    }
+
     g_guest_tp = thread;
 }
 
@@ -1259,19 +1449,51 @@ static int load_guest_image(NSString *path)
         return 0;
     sys_icache_invalidate(code_start, code_size);
 
+    g_guest_writable_start = UINT32_MAX;
+
     for(uint16_t i=0;i<g_ehdr->e_phnum;i++)
     {
         if(ph[i].p_type!=PT_LOAD) continue;
         uint32_t va=(uint32_t)ph[i].p_vaddr;
         uint32_t mem=(uint32_t)ph[i].p_memsz;
-        int prot=0;
-        if(ph[i].p_flags&PF_R)prot|=PROT_READ;
-        if(ph[i].p_flags&PF_W)prot|=PROT_WRITE;
-        if(ph[i].p_flags&PF_X){
-            prot|=PROT_EXEC;
+
+        if(ph[i].p_flags&PF_X)
             halo_guest_exec_bridge_register_code(va,va+mem);
+        if((ph[i].p_flags&PF_W) && va < g_guest_writable_start)
+            g_guest_writable_start = va;
+    }
+
+    /*
+     * iPhones use 16 KiB VM pages. The ELF's text/rodata boundaries can fall
+     * inside one of those pages, so protecting PT_LOAD segments one by one can
+     * accidentally remove execute permission from the tail of .text.
+     * Apply the union of all overlapping segment permissions per host page.
+     */
+    const uint64_t page_size = halo_guest_page_size();
+    const uint64_t page_mask = page_size - 1;
+    uint64_t first_page = ((uint64_t)low) & ~page_mask;
+    uint64_t last_page = (((uint64_t)high + page_mask) & ~page_mask);
+
+    for(uint64_t page=first_page; page<last_page; page+=page_size)
+    {
+        int prot=0;
+        uint64_t page_end=page+page_size;
+
+        for(uint16_t i=0;i<g_ehdr->e_phnum;i++)
+        {
+            if(ph[i].p_type!=PT_LOAD) continue;
+            uint64_t seg_start=ph[i].p_vaddr;
+            uint64_t seg_end=seg_start+ph[i].p_memsz;
+            if(page>=seg_end || page_end<=seg_start)
+                continue;
+
+            if(ph[i].p_flags&PF_R)prot|=PROT_READ;
+            if(ph[i].p_flags&PF_W)prot|=PROT_WRITE;
+            if(ph[i].p_flags&PF_X)prot|=PROT_EXEC;
         }
-        if(!halo_guest_protect(va,mem,prot)) return 0;
+
+        if(prot && !halo_guest_protect((uint32_t)page,(size_t)page_size,prot))
+            return 0;
     }
 
     g_header=(struct halo_guest_header *)halo_guest_ptr(HALO_GUEST_IMAGE_BASE,sizeof(*g_header));
@@ -1295,8 +1517,12 @@ static int load_guest_image(NSString *path)
         name+=strlen(name)+1;
     }
 
+    g_main_thread_va = symbol_value_named("main_thread");
+
     say("FULL GUEST IMAGE: 0x%08x-0x%08x, start=0x%08x",
         low,high,g_header->start);
+    say("GUEST TLS: writable_start=0x%08x main_thread=0x%08x",
+        g_guest_writable_start, g_main_thread_va);
     say("HOST IMPORTS: %u resolved/headless, %u guarded fallback",
         resolved,fallback);
     return 1;
@@ -1374,6 +1600,13 @@ static void *main_guest_thread(void *opaque)
     struct main_guest_context context=*(struct main_guest_context *)opaque;
     free(opaque);
 
+    g_main_host_thread = pthread_self();
+    g_main_host_thread_valid = 1;
+    if (g_main_thread_va)
+        g_guest_tp = g_main_thread_va;
+
+    say("M2.5.1 runtime fixes active: ioctl + TLS guard + merged 16K ELF permissions");
+
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);
     if(reason==0)
@@ -1400,6 +1633,11 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
     g_guest_reason=0;
     g_guest_exit_code=0;
     g_missing_lr=0;
+    g_guest_writable_start=0;
+    g_main_thread_va=0;
+    g_main_host_thread_valid=0;
+    g_logged_ioctl=0;
+    g_logged_tp_repair=0;
     g_heap_next=UINT32_C(0xA0000000);
     g_thread_stack_next=UINT32_C(0xEC000000);
 
@@ -1499,8 +1737,24 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
             (unsigned long long)stats.last_fault_address,
             stats.last_instruction,
             stats.last_base_register);
-        const char *symbol=symbol_name_exact(stats.last_guest_pc);
-        if(symbol) say("FAULT SYMBOL: %s",symbol);
+
+        uint32_t symbol_va=0;
+        const char *symbol=symbol_name_nearest(stats.last_guest_pc,&symbol_va);
+        if(symbol)
+            say("FAULT PC SYMBOL: %s+0x%x",symbol,stats.last_guest_pc-symbol_va);
+
+        uint64_t base=(uint64_t)(uintptr_t)halo_guest_base_address();
+        if(stats.last_fault_address>=base &&
+           stats.last_fault_address-base<FOUR_GB)
+        {
+            uint32_t fault_va=(uint32_t)(stats.last_fault_address-base);
+            uint32_t fault_symbol_va=0;
+            const char *fault_symbol=symbol_name_nearest(fault_va,&fault_symbol_va);
+            say("FAULT GUEST VA: 0x%08x",fault_va);
+            if(fault_symbol)
+                say("FAULT ADDRESS SYMBOL: %s+0x%x",
+                    fault_symbol,fault_va-fault_symbol_va);
+        }
     }
     else if(g_guest_reason==HALO_GUEST_ABORT_EXIT)
     {
