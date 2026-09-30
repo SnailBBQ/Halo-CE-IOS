@@ -1796,7 +1796,6 @@ static uint32_t build_boot(void)
     const char *values[]={
         data,
         save,
-        "HALO_NULL_RENDERER=false",
         "HALO_NO_AUDIO=1",
         "HALO_EXIT_AFTER=3.0",
         "HALO_NET_ONLINE=false",
@@ -1831,7 +1830,7 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6 visible-render runtime: iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.1 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);
