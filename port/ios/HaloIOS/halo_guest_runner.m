@@ -432,7 +432,7 @@ static int ios_scene_datum(uint32_t kind,uint32_t data,uint32_t index,uint32_t r
     return 0;
 }
 
-static int ios_scene_filter_objects(uint32_t header_data, uint32_t indices_va,
+static int __attribute__((unused)) ios_scene_filter_objects(uint32_t header_data, uint32_t indices_va,
     uint32_t count, uint32_t filter_mask, uint32_t result_va, uint32_t layout_va)
 {
     double started=loading_seconds();
