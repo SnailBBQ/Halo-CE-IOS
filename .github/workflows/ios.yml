@@ -14,6 +14,8 @@ on:
       - 'port/android/host_imports.list'
       - 'tools/ios_gl_stubs.py'
       - 'tools/android_build.py'
+      - 'tools/android_asm_convert.py'
+      - 'tools/tests/test_ios_pointer_fastpath.py'
       - 'configure.py'
 
 jobs:
@@ -37,6 +39,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify iOS pointer conversion
+        run: |
+          set -euxo pipefail
+          python3 -m venv "$RUNNER_TEMP/halo-arm-test"
+          "$RUNNER_TEMP/halo-arm-test/bin/python" -m pip install unicorn==2.1.4 keystone-engine==0.9.2
+          "$RUNNER_TEMP/halo-arm-test/bin/python" tools/tests/test_ios_pointer_fastpath.py
+
       - name: Cache Android guest third party
         uses: actions/cache@v4
         with:
@@ -56,6 +65,10 @@ jobs:
           if "-DHALO_ANDROID=1" not in s:
               raise SystemExit("guest compile flags not found in build.ninja")
           s = s.replace("-DHALO_ANDROID=1", "-DHALO_ANDROID=1 -DHALO_IOS_GUEST=1")
+          converter = "tools/android_asm_convert.py $out.darwin.s $out.s"
+          if converter not in s:
+              raise SystemExit("guest assembly converter rule not found")
+          s = s.replace(converter, "tools/android_asm_convert.py --ios-pointer-fastpath $out.darwin.s $out.s")
           linker = "ld.lld -m aarch64linux -static"
           if linker not in s:
               raise SystemExit("guest link rule not found in build.ninja")

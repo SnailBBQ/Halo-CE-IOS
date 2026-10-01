@@ -9,7 +9,7 @@ symbol decoration and relocation operators are Darwin-specific. This script
 rewrites them for the ELF assembler, so the objects can be linked by ld.lld
 into an image that the Android loader maps into the low 4 GB of the process.
 
-Usage: android_asm_convert.py input.s output.s
+Usage: android_asm_convert.py [--ios-pointer-fastpath] input.s output.s
 """
 
 import re
@@ -245,18 +245,76 @@ class Converter:
         return "\n".join(out) + "\n"
 
 
+
+# This pass is selected explicitly by the iOS workflow. Android's converted
+# assembly is unchanged. Limit the first device trial to measured hot objects.
+IOS_POINTER_OBJECTS = (
+    '/port/linux/src/d3d8_gl.o.darwin.s',
+    '/source/physics/collision_bsp.o.darwin.s',
+    '/source/structures/structure_visibility.o.darwin.s',
+    '/source/structures/structure_render.o.darwin.s',
+)
+
+def ios_pointer_fastpath(assembly: str, input_path: str) -> str:
+    path = '/' + input_path.replace('\\', '/').lstrip('/')
+    if not path.endswith(IOS_POINTER_OBJECTS):
+        return assembly
+    # Never insert scratch-stack accesses inside an exclusive-access sequence.
+    if re.search(r'^\s*(?:ldax?r|ldx[pr]|ldax[pr]|stlx?r|stx[pr]|stlx[pr])\b', assembly, re.M):
+        raise ConvertError('iOS fast path cannot instrument an exclusive-access object')
+    if '.Lhalo_ios_pointer_' in assembly:
+        raise ConvertError('iOS fast-path label collision')
+    out = []
+    count = 0
+    for line in assembly.splitlines():
+        instruction = re.match(r'^\s*(ldr[bs]?|ldur[bs]?|ldrs[whb]|ldurs[whb]|ldp|ldpsw|str[bs]?|stur[bs]?|stp)\s+', line)
+        address = re.search(r'\[\s*x(\d+)\b', line) if instruction else None
+        if address and int(address[1]) < 31:
+            rn = int(address[1])
+            scratch = 17 if rn == 16 else 16
+            label = f'.Lhalo_ios_pointer_{count}'
+            # Match the signal bridge: nonzero 32-bit bases become arena+VA;
+            # already-wide addresses and null bases retain their original value.
+            # Preserve NZCV, scratch register and stack alignment. Spill below
+            # the 128-byte Darwin leaf red zone so live leaf locals survive.
+            # Restore SP before executing the original instruction, including
+            # indexed, pre/post-indexed and register-overlap forms.
+            out.extend([
+                f'\tstr x{scratch}, [sp, #-144]!',
+                f'\tlsr x{scratch}, x{rn}, #32',
+                f'\tcbnz x{scratch}, {label}',
+                f'\tcbz x{rn}, {label}',
+                f'\tadrp x{scratch}, halo_ios_arena_base',
+                f'\tldr x{scratch}, [x{scratch}, :lo12:halo_ios_arena_base]',
+                f'\tadd x{rn}, x{rn}, x{scratch}',
+                label + ':',
+                f'\tldr x{scratch}, [sp], #144',
+            ])
+            count += 1
+        out.append(line)
+    # Build logs make the scope reviewable without per-access runtime counters.
+    print(f'iOS pointer fast path: {count} memory sites in {input_path}')
+    return '\n'.join(out) + '\n'
+
+
 def main():
-    if len(sys.argv) != 3:
+    args = sys.argv[1:]
+    ios_fastpath = bool(args and args[0] == '--ios-pointer-fastpath')
+    if ios_fastpath:
+        args = args[1:]
+    if len(args) != 2:
         print(__doc__)
         sys.exit(2)
-    with open(sys.argv[1], "r", encoding="utf-8", errors="surrogateescape") as f:
+    with open(args[0], "r", encoding="utf-8", errors="surrogateescape") as f:
         lines = f.read().split("\n")
     try:
         result = Converter(lines).run()
+        if ios_fastpath:
+            result = ios_pointer_fastpath(result, args[0])
     except ConvertError as e:
-        print(f"{sys.argv[1]}: {e}", file=sys.stderr)
+        print(f"{args[0]}: {e}", file=sys.stderr)
         sys.exit(1)
-    with open(sys.argv[2], "w", encoding="utf-8", errors="surrogateescape") as f:
+    with open(args[1], "w", encoding="utf-8", errors="surrogateescape") as f:
         f.write(result)
 
 

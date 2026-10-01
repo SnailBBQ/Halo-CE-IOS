@@ -2,7 +2,7 @@
 
 Experimental Halo: Combat Evolved port for physical iPhone and iPad devices running iOS/iPadOS 15 or later. A native `arm64` app hosts the recovered `arm64_32` engine and presents graphics through EAGL/OpenGL ES 3.
 
-**Current version: M2.6.19, awaiting device testing.** The real main menu and readable text are confirmed. M2.6.14 touch controls worked and the latest game log reached precaching of the first campaign map, `a10`; completed campaign loading and gameplay remain unconfirmed. M2.6.18 adds native CRC and texel conversion plus loading status through the first frame presentation. The colored Xbox buttons are retained. See [port status](../../IOS_PORT_STATUS.md).
+**Current version: M2.6.20, awaiting device testing.** M2.6.19 reached the `a10` intro cutscene and initial campaign gameplay on the test iPhone, with improved menu response but very low frame rates. This update targets CPU pointer-conversion overhead and reduces forced debugging work. Audio remains muted; full movement/aim controls and multiplayer remain pending. See [port status](../../IOS_PORT_STATUS.md).
 
 ## Build with GitHub Actions
 
@@ -91,7 +91,7 @@ Bulk guest memory copies, moves, and fills of at least 256 bytes now use native 
 
 Map cache preparation, scenario/assets loading, and major initialization steps report elapsed times in Boot log. A loading label displays the current instrumented stage and elapsed seconds, including when Show game is open. It is stage information, not a percentage or proof that loading has completed. Menu navigation uses a left D-pad with Select and Back on the right. Audio remains muted and Bink movies remain skipped.
 
-Awaiting device testing: compare menu startup time and try `a10`. If loading appears stalled, share logs while the loading stage is still visible. Campaign gameplay remains unconfirmed.
+Historical test plan: compare menu startup and campaign loading. M2.6.19 subsequently reached the intro and initial gameplay.
 
 ## Latest device evidence
 
@@ -113,4 +113,14 @@ M2.6.19 adds overlapping CPU categories for draw setup, texture binding/cache, s
 
 Without an audio output device, PCM/ADPCM packets retain their durations without decoding unused samples. Native silent-clock advancement preserves per-frame floating-point additions and packet boundaries; existing guest status/callback handling remains responsible for completion events. Native clock cost is logged. Actual audio playback remains unimplemented.
 
-Device test: compare menu FPS, load `a10`, allow the campaign test to run, and share the three logs plus a recording. Look for advancing simulation ticks, fade values, camera/back-buffer state and the largest renderer category. This is an optimization and diagnostic update; campaign visibility remains unconfirmed.
+Device test: compare menu FPS, load `a10`, allow the campaign test to run, and share the three logs plus a recording. Look for advancing simulation ticks, fade values, camera/back-buffer state and the largest renderer category. The subsequent M2.6.19 device test confirmed the intro and initial gameplay; performance remains poor.
+
+## M2.6.20 campaign performance trial
+
+M2.6.19 reached the `a10` intro and initial gameplay on the test iPhone. M2.6.20 adds an iOS-only assembly pass for four measured hot objects: `d3d8_gl`, `collision_bsp`, `structure_visibility` and `structure_render`. Before ordinary loads/stores through a nonzero 32-bit base, it adds the host arena base directly instead of waiting for a PAGEZERO fault. Wide pointers, null pointers, registers, flags, stack alignment and the Darwin leaf red zone are preserved. Atomic exclusive-access objects fail closed; indirect branches and uninstrumented code retain the signal bridge. The host initializes the shared arena value before guest execution. Android uses the original converter invocation.
+
+The performance defaults stop forcing per-draw GL error polling and stop forcing frame-zero draw tracing. Interpolation stays off and graphics fidelity is retained. To investigate GL errors, set `gl_debug = true` in the `[debug]` table of `Documents/Halo/config.toml`; set `gpu_trace_frame` to a frame number only for a diagnostic run. These diagnostics add overhead. Muted-audio decoding was already removed in M2.6.19; the latest native silent-clock timings are small, so timing and completion behavior are retained.
+
+Boot logs now report successful drawable presentations per measured wall-clock interval, independent of loading-stage durations. Update/render/draw/vertex timing categories overlap and must not be added together. Direct conversions are not counted as signal pointer upgrades; compare FPS and CPU time as well as residual fault counts.
+
+Validation: 1,540 assembled ARM64 emulation cases compare the fast path with the existing pointer-upgrade behavior, including wide/null bases, register overlap, writeback, memory stores, NZCV and red-zone preservation. The emulation test is retained in `tools/tests/test_ios_pointer_fastpath.py` and runs in the iOS workflow. Apple compilation and real performance gains require CI and a device test. Test the same menu, `a10` intro, skip and initial gameplay, then share the logs; verify geometry, text and progression alongside FPS. The white cryotube wake-up effect is left intact.

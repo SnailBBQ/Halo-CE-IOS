@@ -266,6 +266,7 @@ static _Atomic uint64_t g_phase_ns[9], g_phase_calls[9], g_phase_upgrades[9];
 static double g_phase_started[9];
 static uint64_t g_phase_upgrade_start[9];
 static _Atomic int g_waiting_frame, g_frame_present_ok;
+static _Atomic uint64_t g_presented_frames;
 static _Atomic uint32_t g_frame_draws;
 static double g_last_candidate_report;
 static pthread_mutex_t g_timing_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -1533,6 +1534,7 @@ static int ios_sdl_gl_swap_window(uint32_t window)
 {
     int ok=halo_ios_gl_swap_window(window);
     g_frame_present_ok=ok;
+    if (ok) atomic_fetch_add_explicit(&g_presented_frames,1,memory_order_relaxed);
     return ok;
 }
 
@@ -2169,6 +2171,18 @@ static int load_guest_image(NSString *path)
         name+=strlen(name)+1;
     }
 
+    uint32_t arena_symbol = symbol_value_named("halo_ios_arena_base");
+    if (arena_symbol) {
+        uint64_t *arena_slot = gp(arena_symbol, sizeof(uint64_t));
+        if (!arena_slot || !halo_guest_base_is_4gb_aligned()) {
+            say("FULL GUEST: pointer fast-path arena initialization failed.");
+            return 0;
+        }
+        *arena_slot = (uint64_t)(uintptr_t)halo_guest_base_address();
+        say("iOS pointer fast path: renderer, world visibility/lightmaps and BSP collision enabled; signal fallback retained.");
+    } else {
+        say("iOS pointer fast path: legacy guest image; signal bridge only.");
+    }
     g_main_thread_va = symbol_value_named("main_thread");
 
     say("FULL GUEST IMAGE: 0x%08x-0x%08x, start=0x%08x",
@@ -2223,9 +2237,7 @@ static uint32_t build_boot(void)
         data,
         save,
         "HALO_NO_AUDIO=1",
-        "HALO_GL_DEBUG=1",
         "HALO_GPU_STATS=1",
-        "HALO_GPU_TRACE=0",
         "HALO_NET_ONLINE=false",
         "HALO_NET_ALLOW_UPNP=false",
         "HALO_UPDATE_AUTO=false",
@@ -2258,7 +2270,8 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.19 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("Performance defaults: interpolation off; draw tracing and GL polling follow config.toml (off by default).");
+    say("M2.6.20 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);
@@ -2372,11 +2385,21 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
         say("The guest remains active; monitoring for a later exit or execution fault.");
         unsigned monitor_ticks = 0;
         uint64_t previous_upgrades = stats.pointer_upgrades;
+        uint64_t previous_presented = atomic_load_explicit(&g_presented_frames,memory_order_relaxed);
+        double previous_frame_sample = loading_seconds();
         while (!g_guest_finished)
         {
             usleep(100000);
             if (++monitor_ticks % 100 == 0 && !g_guest_finished)
             {
+                double frame_sample = loading_seconds();
+                uint64_t presented = atomic_load_explicit(&g_presented_frames,memory_order_relaxed);
+                double interval = frame_sample-previous_frame_sample;
+                if (interval > 0) say("presentation rate: %.2f FPS (%llu successful drawable presents in %.2f s; loading durations reported separately)",
+                    (double)(presented-previous_presented)/interval,
+                    (unsigned long long)(presented-previous_presented),interval);
+                previous_presented=presented;
+                previous_frame_sample=frame_sample;
                 halo_guest_exec_stats_get(&stats);
                 uint32_t symbol_va = 0;
                 const char *symbol = symbol_name_nearest(stats.last_guest_pc, &symbol_va);
