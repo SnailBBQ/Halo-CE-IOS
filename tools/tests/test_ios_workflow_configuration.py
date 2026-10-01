@@ -1,6 +1,6 @@
 from pathlib import Path
 import ast,importlib.util,io,subprocess,sys,tempfile
-r=Path(r'C:\Users\Skull\Desktop\Halo-CE-IOS')
+r=Path(__file__).resolve().parents[2]
 spec=importlib.util.spec_from_file_location('ninja_syntax',r/'tools/ninja_syntax.py')
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 tree=ast.parse((r/'tools/android_build.py').read_text(encoding='utf-8'))
