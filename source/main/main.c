@@ -1180,6 +1180,7 @@ void set_window_camera_values(
 #ifdef HALO_IOS_GUEST
 extern void host_loading_stage(const char *, int);
 extern void host_frame_phase(int, int);
+extern void host_debug_state(int, unsigned int);
 #define IOS_LOAD(name, done) host_loading_stage(name, done)
 #define IOS_PHASE(phase, done) host_frame_phase(phase, done)
 #else
@@ -3086,6 +3087,20 @@ void main_game_render(
 	window->console_window = TRUE;
 	set_window_camera_values(window, NULL);
 
+#ifdef HALO_IOS_GUEST
+    {
+        const struct render_camera *camera=&global_screenshot_count.windows[0].rasterizer_camera;
+        unsigned int state[14]={game_time_get(),cinematic_in_progress(),window_count,
+            global_screenshot_count.windows[0].local_player_index};
+        memcpy(state+4,&camera->position,12);
+        memcpy(state+7,&camera->z_near,4);
+        memcpy(state+8,&camera->z_far,4);
+        memcpy(state+9,&camera->vertical_field_of_view,4);
+        state[10]=camera->viewport_bounds.x0;state[11]=camera->viewport_bounds.y0;
+        state[12]=camera->viewport_bounds.x1;state[13]=camera->viewport_bounds.y1;
+        host_debug_state(0,(unsigned int)state);
+    }
+#endif
 	if (global_screenshot_count.count <= 0)
 	{
 		render_frame(

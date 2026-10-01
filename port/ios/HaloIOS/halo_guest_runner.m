@@ -25,6 +25,7 @@
 #include "halo_dxt_decode.h"
 #include "halo_crc_native.h"
 #include "halo_texel_native.h"
+#include "halo_silent_native.h"
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
@@ -261,8 +262,9 @@ static double loading_seconds(void)
 }
 
 static _Atomic uint64_t g_crc_calls, g_crc_bytes, g_crc_ns, g_texel_calls, g_texel_bytes, g_texel_ns, g_texel_fallbacks;
-static _Atomic uint64_t g_phase_ns[4], g_phase_calls[4];
-static double g_phase_started[4];
+static _Atomic uint64_t g_phase_ns[9], g_phase_calls[9], g_phase_upgrades[9];
+static double g_phase_started[9];
+static uint64_t g_phase_upgrade_start[9];
 static _Atomic int g_waiting_frame, g_frame_present_ok;
 static _Atomic uint32_t g_frame_draws;
 static double g_last_candidate_report;
@@ -335,17 +337,59 @@ static void ios_frame_counts(uint32_t draws, uint32_t skipped, uint32_t clears, 
 }
 static void ios_frame_phase(int phase, int done)
 {
-    if (phase<0 || phase>=4) return;
-    if (!done) { g_phase_started[phase]=loading_seconds(); if (phase==2) g_frame_present_ok=0; }
+    if (phase<0 || phase>=9) return;
+    if (!done) { g_phase_started[phase]=loading_seconds(); g_phase_upgrade_start[phase]=halo_guest_exec_thread_pointer_upgrades(); if (phase==2) g_frame_present_ok=0; }
     else {
         pthread_mutex_lock(&g_timing_lock);
         atomic_fetch_add(&g_phase_ns[phase], (uint64_t)((loading_seconds()-g_phase_started[phase])*1e9));
         atomic_fetch_add(&g_phase_calls[phase],1);
+        atomic_fetch_add(&g_phase_upgrades[phase],halo_guest_exec_thread_pointer_upgrades()-g_phase_upgrade_start[phase]);
         pthread_mutex_unlock(&g_timing_lock);
         if (phase==2 && g_waiting_frame && g_frame_draws && g_frame_present_ok) {
             say("[loading] done: First game frame (%.3f s; draw calls submitted and drawable presented; visual correctness unverified)", loading_seconds()-g_first_frame_started);
             g_waiting_frame=0;
         }
+    }
+}
+
+
+static _Atomic uint64_t g_silent_calls, g_silent_ns;
+static void ios_silent_advance(uint32_t packet_va)
+{
+    uint32_t *header=gp(packet_va,24);
+    if (!header || header[5]>64 || header[4]>48000) {
+        say("native silent clock: invalid packet");
+        halo_guest_exec_abort(HALO_GUEST_ABORT_HOST); return;
+    }
+    uint32_t count=header[5], frames=header[4];
+    uint32_t *packet=gp(packet_va,24+(size_t)count*8);
+    if (!packet) { halo_guest_exec_abort(HALO_GUEST_ABORT_HOST); return; }
+    double cursor,step;
+    memcpy(&cursor,packet,8); memcpy(&step,packet+2,8);
+    double started=loading_seconds();
+    halo_silent_native(&cursor,step,frames,count,(uint32_t (*)[2])(packet+6));
+    memcpy(packet,&cursor,8);
+    atomic_fetch_add(&g_silent_calls,1);
+    atomic_fetch_add(&g_silent_ns,(uint64_t)((loading_seconds()-started)*1e9));
+}
+static void ios_debug_state(int kind, uint32_t packet_va)
+{
+    static double previous[3];
+    if (kind<0 || kind>2) return;
+    double now=loading_seconds();
+    if (now-previous[kind]<5) return;
+    previous[kind]=now;
+    const uint32_t *p=gp(packet_va,kind==0 ? 56 : kind==1 ? 4 : 16);
+    if (!p) return;
+    if (kind==0) {
+        float f[6]; memcpy(f,p+4,sizeof(f));
+        say("scene: tick=%d cinematic=%u windows=%u player=%d camera=(%.3f %.3f %.3f) near=%.3f far=%.3f fov=%.3f viewport=(%d %d %d %d)",
+            (int32_t)p[0],p[1],p[2],(int32_t)p[3],f[0],f[1],f[2],f[3],f[4],f[5],(int32_t)p[10],(int32_t)p[11],(int32_t)p[12],(int32_t)p[13]);
+    } else if (kind==1) {
+        float fade; memcpy(&fade,p,4);
+        say("screen fade: %.3f (-1 disabled, 1 opaque black)",fade);
+    } else {
+        say("final back buffer: guest=0x%08x texture=%u size=%ux%u",p[0],p[1],p[2],p[3]);
     }
 }
 
@@ -1914,6 +1958,8 @@ static void *resolve_host_import(const char *name)
     MAP("host_texture_decode_texels", ios_texture_decode_texels);
     MAP("host_frame_phase", ios_frame_phase);
     MAP("host_frame_counts", ios_frame_counts);
+    MAP("host_silent_advance", ios_silent_advance);
+    MAP("host_debug_state", ios_debug_state);
     MAP("host_cache_inflate", ios_cache_inflate_step);
     MAP("host_cache_inflate_end", ios_cache_inflate_end);
     MAP("host_guest_pointer", ios_host_guest_pointer);
@@ -2212,7 +2258,7 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.18 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.19 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);
@@ -2345,12 +2391,14 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                 say("native CRC: %llu calls, %llu MiB, %.1f ms total; texels: %llu levels, %llu MiB, %.1f ms total, %llu guest fallbacks",
                     (unsigned long long)atomic_load(&g_crc_calls), (unsigned long long)(atomic_load(&g_crc_bytes)/1048576), atomic_load(&g_crc_ns)/1e6,
                     (unsigned long long)atomic_load(&g_texel_calls), (unsigned long long)(atomic_load(&g_texel_bytes)/1048576), atomic_load(&g_texel_ns)/1e6, (unsigned long long)atomic_load(&g_texel_fallbacks));
-                for (int phase=0; phase<4; phase++) {
+                say("native silent clock: %llu calls, %.1f ms total",
+                    (unsigned long long)atomic_load(&g_silent_calls),atomic_load(&g_silent_ns)/1e6);
+                for (int phase=0; phase<9; phase++) {
                     pthread_mutex_lock(&g_timing_lock);
-                    uint64_t calls=atomic_exchange(&g_phase_calls[phase],0), ns=atomic_exchange(&g_phase_ns[phase],0);
+                    uint64_t calls=atomic_exchange(&g_phase_calls[phase],0), ns=atomic_exchange(&g_phase_ns[phase],0), upgrades=atomic_exchange(&g_phase_upgrades[phase],0);
                     pthread_mutex_unlock(&g_timing_lock);
-                    static const char *names[]={"update", "render CPU (includes conversion/upload)", "present CPU", "GL upload CPU"};
-                    if (calls) say("timing %s: %llu calls, %.1f ms average (overlapping categories)", names[phase], (unsigned long long)calls, ns/1e6/calls);
+                    static const char *names[]={"update", "render CPU (includes conversion/upload)", "present CPU", "GL upload CPU", "draw setup total", "texture binding/cache", "shader lookup/link", "vertex preparation", "uniform/state setup"};
+                    if (calls) say("timing %s: %llu calls, %.1f ms average, %.0f thread pointer upgrades/call (overlapping categories)", names[phase], (unsigned long long)calls, ns/1e6/calls, (double)upgrades/calls);
                 }
                 previous_upgrades = stats.pointer_upgrades;
             }

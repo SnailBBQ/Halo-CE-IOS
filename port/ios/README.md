@@ -2,7 +2,7 @@
 
 Experimental Halo: Combat Evolved port for physical iPhone and iPad devices running iOS/iPadOS 15 or later. A native `arm64` app hosts the recovered `arm64_32` engine and presents graphics through EAGL/OpenGL ES 3.
 
-**Current version: M2.6.18, awaiting device testing.** The real main menu and readable text are confirmed. M2.6.14 touch controls worked and the latest game log reached precaching of the first campaign map, `a10`; completed campaign loading and gameplay remain unconfirmed. M2.6.18 adds native CRC and texel conversion plus loading status through the first frame presentation. The colored Xbox buttons are retained. See [port status](../../IOS_PORT_STATUS.md).
+**Current version: M2.6.19, awaiting device testing.** The real main menu and readable text are confirmed. M2.6.14 touch controls worked and the latest game log reached precaching of the first campaign map, `a10`; completed campaign loading and gameplay remain unconfirmed. M2.6.18 adds native CRC and texel conversion plus loading status through the first frame presentation. The colored Xbox buttons are retained. See [port status](../../IOS_PORT_STATUS.md).
 
 ## Build with GitHub Actions
 
@@ -104,3 +104,13 @@ CRC buffers of at least 256 bytes use a native, raw incremental CRC matching the
 Loading status now continues through local player creation, initial update, persistent storage checks, and the first game frame with submitted draw calls and a successful drawable presentation. This is not proof of a visually correct campaign frame. Ten-second diagnostics report native CRC/conversion totals and CPU timings for game-time update, rendering, presentation and GL uploads. Render timing includes conversion/uploads; categories overlap and are not GPU timings.
 
 Device test: compare menu startup and responsiveness, load `a10`, and record the loading stage and first visible campaign frame. Share all logs if the screen stays black. Audio, movies, sticks and triggers remain future work; the M2.6.17 colored Xbox buttons are retained.
+
+## M2.6.19 renderer and muted-audio investigation
+
+M2.6.18 device logs confirm fast native CRC/texture conversion and a campaign frame with 447 submitted draws and successful drawable presentation, while the recording remained black. Menu render CPU times were about 1–2 seconds; campaign rendering took about 3–8 seconds. These observations do not establish the cause of the black output.
+
+M2.6.19 adds overlapping CPU categories for draw setup, texture binding/cache, shader lookup/link, vertex preparation and uniform/state setup. Each timed category also reports pointer upgrades on the rendering thread, excluding background audio-worker faults. Rate-limited scene diagnostics report simulation ticks, cinematic state, camera, viewport, UI fade and final back buffer. No fade or rendering state is forcibly bypassed.
+
+Without an audio output device, PCM/ADPCM packets retain their durations without decoding unused samples. Native silent-clock advancement preserves per-frame floating-point additions and packet boundaries; existing guest status/callback handling remains responsible for completion events. Native clock cost is logged. Actual audio playback remains unimplemented.
+
+Device test: compare menu FPS, load `a10`, allow the campaign test to run, and share the three logs plus a recording. Look for advancing simulation ticks, fade values, camera/back-buffer state and the largest renderer category. This is an optimization and diagnostic update; campaign visibility remains unconfirmed.

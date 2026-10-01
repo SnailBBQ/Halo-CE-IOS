@@ -6,6 +6,7 @@
 #include "halo_guest_runtime.h"
 
 #include <signal.h>
+#include <stdatomic.h>
 #include <stdint.h>
 #include <string.h>
 #include <ucontext.h>
@@ -28,6 +29,9 @@ static halo_guest_exec_stats g_stats;
 
 static _Thread_local sigjmp_buf g_guard;
 static _Thread_local int g_guard_active;
+/* Arm64 lock-free atomics are safe to increment in the fault handler. */
+_Static_assert(ATOMIC_LONG_LOCK_FREE == 2 && ATOMIC_LLONG_LOCK_FREE == 2, "64-bit bridge counters must be lock-free");
+static _Thread_local _Atomic uint64_t g_thread_pointer_upgrades;
 
 static int guest_code_va(uint32_t va)
 {
@@ -160,6 +164,7 @@ static void bridge_signal(int signal_number, siginfo_t *info, void *opaque)
         {
             set_register(context, rn, base + (uint32_t)value);
             g_stats.pointer_upgrades++;
+            atomic_fetch_add_explicit(&g_thread_pointer_upgrades,1,memory_order_relaxed);
             g_stats.handled_faults++;
             g_stats.last_fault_address = fault;
             g_stats.last_host_pc = pc;
@@ -224,6 +229,8 @@ void halo_guest_exec_bridge_reset_ranges(void)
 
 sigjmp_buf *halo_guest_exec_guard_buffer(void)
 {
+    /* Initialize this TLS address before entering guest signal handling. */
+    (void)atomic_load_explicit(&g_thread_pointer_upgrades,memory_order_relaxed);
     return &g_guard;
 }
 
@@ -238,6 +245,11 @@ void halo_guest_exec_abort(int reason)
         reason = HALO_GUEST_ABORT_HOST;
     if (g_guard_active)
         siglongjmp(g_guard, reason);
+}
+
+uint64_t halo_guest_exec_thread_pointer_upgrades(void)
+{
+    return atomic_load_explicit(&g_thread_pointer_upgrades,memory_order_relaxed);
 }
 
 void halo_guest_exec_stats_get(halo_guest_exec_stats *stats)

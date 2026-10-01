@@ -6049,6 +6049,12 @@ void render_ui_widgets(
 				}
 			}
 		}
+#ifdef HALO_IOS_GUEST
+        {
+            extern void host_debug_state(int,unsigned int);
+            host_debug_state(1,(unsigned int)&widget_globals.fade_to_black);
+        }
+#endif
 		if (widget_globals.fade_to_black >= 0.0f &&
 			widget_globals.fade_to_black <= 1.0f)
 		{

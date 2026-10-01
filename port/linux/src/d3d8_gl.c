@@ -2265,6 +2265,14 @@ static void snapshot_render_target_feedback(void)
 }
 #endif
 
+#ifdef HALO_IOS_GUEST
+extern void host_frame_phase(int,int);
+extern void host_debug_state(int,unsigned int);
+#endif
+
+#ifdef HALO_IOS_GUEST
+#define bind_textures bind_textures_profiled
+#endif
 static void bind_textures(struct nv2a_pixel_shader_key *key, float texture_scale[4][4])
 {
 	int stage;
@@ -2357,6 +2365,16 @@ static void bind_textures(struct nv2a_pixel_shader_key *key, float texture_scale
     }
 #endif
 }
+#ifdef HALO_IOS_GUEST
+#undef bind_textures
+static void bind_textures(struct nv2a_pixel_shader_key *key, float texture_scale[4][4])
+{
+    host_frame_phase(5,0);
+    bind_textures_profiled(key, texture_scale);
+    host_frame_phase(5,1);
+}
+#endif
+
 
 static GLenum stencil_operation(DWORD operation)
 {
@@ -2604,6 +2622,9 @@ static void uniform_float(GLint location, float *shadow, float value)
 	glUniform1f(location, value);
 }
 
+#ifdef HALO_IOS_GUEST
+#define prepare_draw prepare_draw_profiled
+#endif
 static struct program_entry *prepare_draw(BOOL immediate)
 {
 	struct vertex_shader_object *program = current_program();
@@ -2673,7 +2694,13 @@ static struct program_entry *prepare_draw(BOOL immediate)
 	key.count_samples = device.visibility_test_active && xgpu_capabilities.atomic_counters;
 #endif
 
+#ifdef HALO_IOS_GUEST
+    host_frame_phase(6,0);
+#endif
 	entry = program_get(fixed ? fixed_vertex_shader_get() : vertex_shader_get(program, immediate), fragment_shader_get(&key));
+#ifdef HALO_IOS_GUEST
+    host_frame_phase(6,1);
+#endif
 	if (!entry)
 	{
 		stats.skipped_link++;
@@ -2685,6 +2712,9 @@ static struct program_entry *prepare_draw(BOOL immediate)
 		stats.immediate_draws++;
 	else
 		stats.draws++;
+#ifdef HALO_IOS_GUEST
+    host_frame_phase(8,0);
+#endif
 	state_program(entry->program);
 	if (fixed)
 	{
@@ -2818,8 +2848,12 @@ static struct program_entry *prepare_draw(BOOL immediate)
 		}
 	}
 	/* and a program that has had them since needs none of them */
-	if (entry->uniforms_serial == draw_uniforms_serial)
+	if (entry->uniforms_serial == draw_uniforms_serial) {
+#ifdef HALO_IOS_GUEST
+        host_frame_phase(8,1);
+#endif
 		return entry;
+    }
 	entry->uniforms_serial = draw_uniforms_serial;
 	uniform_vec4(entry->viewport_scale, entry->uniforms.viewport_scale, draw_uniforms.viewport_scale, 1);
 	uniform_vec4(entry->viewport_offset, entry->uniforms.viewport_offset, draw_uniforms.viewport_offset, 1);
@@ -2836,8 +2870,23 @@ static struct program_entry *prepare_draw(BOOL immediate)
 	uniform_vec4(entry->texture_scale, entry->uniforms.texture_scale[0], draw_uniforms.texture_scale[0], 4);
 	uniform_float(entry->screen_offset, &entry->uniforms.screen_offset, draw_uniforms.screen_offset);
 	uniform_vec4(entry->texture_lod_bias, entry->uniforms.texture_lod_bias, draw_uniforms.texture_lod_bias, 1);
+#ifdef HALO_IOS_GUEST
+    host_frame_phase(8,1);
+#endif
 	return entry;
 }
+#ifdef HALO_IOS_GUEST
+#undef prepare_draw
+static struct program_entry * prepare_draw(BOOL immediate)
+{
+    struct program_entry *result;
+    host_frame_phase(4,0);
+    result=prepare_draw_profiled(immediate);
+    host_frame_phase(4,1);
+    return result;
+}
+#endif
+
 
 /* ---------- tracing (debug.gpu_trace_frame) */
 
@@ -3325,6 +3374,9 @@ static BOOL stream_has_colors(const struct vertex_shader_object *declaration, un
 }
 #endif
 
+#ifdef HALO_IOS_GUEST
+#define setup_streams setup_streams_profiled
+#endif
 static void setup_streams(unsigned long first, unsigned long count)
 {
 	struct vertex_shader_object *declaration = device.vertex_shader;
@@ -3400,6 +3452,16 @@ static void setup_streams(unsigned long first, unsigned long count)
 			state_attribute_value(index, declaration->packed_mask & (1UL << index) ? NULL : device.attributes[index]);
 	}
 }
+#ifdef HALO_IOS_GUEST
+#undef setup_streams
+static void setup_streams(unsigned long first, unsigned long count)
+{
+    host_frame_phase(7,0);
+    setup_streams_profiled(first, count);
+    host_frame_phase(7,1);
+}
+#endif
+
 
 static GLenum primitive_mode(D3DPRIMITIVETYPE type)
 {
@@ -3788,6 +3850,11 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 	{
 		struct render_target_entry *back_buffer = render_target_get(&device.back_buffer);
 		int window_width, window_height, width, height, x, y;
+#ifdef HALO_IOS_GUEST
+        unsigned int output[4]={(unsigned int)device.back_buffer.Data, back_buffer->target.texture,
+            back_buffer->target.gl_width, back_buffer->target.gl_height};
+        host_debug_state(2,(unsigned int)output);
+#endif
 
 		if (trace_frame())
 			platform_log("present back buffer %08lx texture %u", (unsigned long)device.back_buffer.Data,

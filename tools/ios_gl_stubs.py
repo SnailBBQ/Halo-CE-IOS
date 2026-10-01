@@ -73,7 +73,8 @@ def main():
                     "host_cache_inflate", "host_cache_inflate_end",
                     "host_texture_decode_dxt", "host_texture_hash",
                     "host_memory_copy", "host_memory_fill", "host_loading_stage",
-                    "host_crc_checksum", "host_texture_decode_texels", "host_frame_phase", "host_frame_counts"]
+                    "host_crc_checksum", "host_texture_decode_texels", "host_frame_phase", "host_frame_counts",
+                    "host_silent_advance", "host_debug_state"]
 
     for name in functions:
         if name not in protos:

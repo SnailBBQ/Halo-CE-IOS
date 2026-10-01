@@ -34,6 +34,9 @@ sigjmp_buf *halo_guest_exec_guard_buffer(void);
 void halo_guest_exec_guard_set_active(int active);
 void halo_guest_exec_abort(int reason);
 
+/* Current calling thread only; excludes background audio-worker faults. */
+uint64_t halo_guest_exec_thread_pointer_upgrades(void);
+
 void halo_guest_exec_stats_get(halo_guest_exec_stats *stats);
 void halo_guest_exec_stats_reset(void);
 

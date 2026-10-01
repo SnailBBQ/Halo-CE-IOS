@@ -459,29 +459,23 @@ static void silent_advance(unsigned long frames)
     for (stream = streams; stream; stream = stream->next)
     {
         if (stream->paused || !stream->packet_count || !stream->sample_rate) continue;
+        extern void host_silent_advance(unsigned int);
+        /* Byte-copy doubles: packet alignment differs across ILP32/LP64. */
+        unsigned int packet[6 + MAXIMUM_STREAM_PACKETS * 2];
         double step = (double)(stream->frequency ? stream->frequency : stream->sample_rate) / OUTPUT_RATE;
-        /* Use the same additions and boundary order as mix_voice, without
-           decoding/interpolating samples, gains, or writing an output buffer. */
-        double cursor = stream->cursor;
-        for (unsigned long frame = 0; frame < frames; ++frame)
-        {
-            struct voice_packet *packet;
-            for (;;)
-            {
-                packet = NULL;
-                for (unsigned long position = 0; position < stream->packet_count; ++position)
-                {
-                    struct voice_packet *candidate = &stream->packets[(stream->packet_head + position) % MAXIMUM_STREAM_PACKETS];
-                    if (!candidate->finished) { packet = candidate; break; }
-                }
-                if (!packet || cursor < (double)packet->frames) break;
-                cursor -= (double)packet->frames;
-                packet->finished = TRUE;
-            }
-            if (!packet) break;
-            cursor += step;
+        memcpy(packet, &stream->cursor, 8);
+        memcpy(packet + 2, &step, 8);
+        packet[4] = frames;
+        packet[5] = stream->packet_count;
+        for (unsigned long i=0; i<stream->packet_count; i++) {
+            struct voice_packet *entry=&stream->packets[(stream->packet_head+i)%MAXIMUM_STREAM_PACKETS];
+            packet[6+i*2]=entry->frames;
+            packet[7+i*2]=entry->finished;
         }
-        stream->cursor = cursor;
+        host_silent_advance((unsigned int)packet);
+        memcpy(&stream->cursor, packet, 8);
+        for (unsigned long i=0; i<stream->packet_count; i++)
+            stream->packets[(stream->packet_head+i)%MAXIMUM_STREAM_PACKETS].finished=packet[7+i*2];
     }
     pthread_mutex_unlock(&mixer_lock);
 }
@@ -672,9 +666,20 @@ static HRESULT STDMETHODCALLTYPE stream_process(IDirectSoundStream *object, LPCX
 	if (!input)
 		return E_INVALIDARG;
 	/* decode outside the lock */
+#ifdef HALO_IOS_GUEST
+    if (!audio_stream) {
+        /* No output device: retain durations, not unused PCM samples. */
+        samples = NULL;
+        if (stream->channels)
+            frames = stream->adpcm ? (input->dwMaxSize / (XBOX_ADPCM_BLOCK_BYTES * stream->channels)) * XBOX_ADPCM_BLOCK_SAMPLES :
+                input->dwMaxSize / (2 * stream->channels);
+    } else
+#endif
+    {
 	samples = stream->adpcm ?
 		decode_adpcm(input->pvBuffer, input->dwMaxSize, stream->channels, &frames) :
 		decode_pcm(input->pvBuffer, input->dwMaxSize, stream->channels, &frames);
+    }
 	pthread_mutex_lock(&mixer_lock);
 	if (stream->packet_count == MAXIMUM_STREAM_PACKETS)
 	{
@@ -685,7 +690,11 @@ static HRESULT STDMETHODCALLTYPE stream_process(IDirectSoundStream *object, LPCX
 	entry = &stream->packets[(stream->packet_head + stream->packet_count) % MAXIMUM_STREAM_PACKETS];
 	entry->packet = *input;
 	entry->samples = samples;
+#ifdef HALO_IOS_GUEST
+    entry->frames = (!audio_stream || samples) ? frames : 0;
+#else
 	entry->frames = samples ? frames : 0;
+#endif
 	entry->finished = FALSE;
 	if (input->pdwStatus)
 		*input->pdwStatus = XMEDIAPACKET_STATUS_PENDING;
