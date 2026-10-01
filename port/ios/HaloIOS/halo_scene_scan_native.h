@@ -184,7 +184,7 @@ const void *allowed,void *seen,void *indices,uint32_t maximum,uint32_t *found,ui
  * All addresses go through the existing arena resolver. No guest pointer is
  * retained after the call. Invalid metadata aborts to the guest path.
  */
-static int halo_scene_filter_objects(
+static int __attribute__((unused)) halo_scene_filter_objects(
     halo_scene_resolve resolve,
     uint32_t header_data_va,
     const uint32_t *layout,
