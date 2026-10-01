@@ -472,6 +472,10 @@ static struct
 void xgpu_gl_state_invalidate(void)
 {
 	memset(&gl_state, 0xff, sizeof(gl_state));
+#ifdef HALO_IOS_GUEST
+    extern void host_vertex_state_invalidate(void);
+    host_vertex_state_invalidate();
+#endif
 }
 
 static void state_enable(unsigned char *shadow, GLenum capability, BOOL enabled)
@@ -550,6 +554,11 @@ static void state_element_array_buffer(GLuint buffer)
 static void state_attribute_pointer(GLuint index, GLuint buffer, GLint size, GLenum type, GLboolean normalized,
 	BOOL integer, GLsizei stride, unsigned long offset)
 {
+#ifdef HALO_IOS_GUEST
+    extern int host_vertex_attribute_pointer(unsigned int,unsigned int,int,unsigned int,unsigned int,int,unsigned int);
+    if (host_vertex_attribute_pointer(index,buffer,size,type,(normalized?1u:0u)|(integer?2u:0u),stride,offset))
+        gl_state.array_buffer=buffer;
+#else
 	struct attribute_pointer *pointer = &gl_state.attribute_pointers[index];
 
 	if (gl_state.attribute_enabled[index] != 1)
@@ -575,11 +584,16 @@ static void state_attribute_pointer(GLuint index, GLuint buffer, GLint size, GLe
 	pointer->integer = integer ? GL_TRUE : GL_FALSE;
 	pointer->stride = stride;
 	pointer->offset = offset;
+#endif
 }
 
 /* disables the attribute, which then reads value, or the integer zero */
 static void state_attribute_value(GLuint index, const float *value)
 {
+#ifdef HALO_IOS_GUEST
+    extern void host_vertex_attribute_value(unsigned int,unsigned int);
+    host_vertex_attribute_value(index,(unsigned int)value);
+#else
 	unsigned char kind = value ? 0 : 1;
 
 	if (gl_state.attribute_enabled[index] != 0)
@@ -602,6 +616,7 @@ static void state_attribute_value(GLuint index, const float *value)
 	{
 		glVertexAttribI4ui(index, 0, 0, 0, 0);
 	}
+#endif
 }
 
 /* ---------- vertical blank emulation */

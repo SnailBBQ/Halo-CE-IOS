@@ -27,6 +27,8 @@
 #include "halo_texel_native.h"
 #include "halo_silent_native.h"
 #include "halo_vertex_native.h"
+#include <OpenGLES/ES3/gl.h>
+#include "halo_attribute_native.h"
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
@@ -273,6 +275,40 @@ static _Atomic uint32_t g_frame_draws;
 static double g_last_candidate_report;
 static pthread_mutex_t g_timing_lock = PTHREAD_MUTEX_INITIALIZER;
 static double g_first_frame_started;
+/* Native attribute cache is used only on the existing guest GL thread. */
+static struct halo_attribute_cache g_attribute_cache;
+static int g_attribute_initialized;
+static _Atomic uint64_t g_attribute_pointer_calls,g_attribute_pointer_reused,g_attribute_value_calls,g_attribute_ns;
+static void ios_vertex_state_invalidate(void)
+{
+    halo_attribute_invalidate(&g_attribute_cache);g_attribute_initialized=1;
+}
+static int ios_vertex_attribute_pointer(uint32_t index,uint32_t buffer,int32_t size,uint32_t type,
+    uint32_t flags,int32_t stride,uint32_t offset)
+{
+    if (!g_attribute_initialized) ios_vertex_state_invalidate();
+    double started=loading_seconds();
+    int result=halo_attribute_pointer(&g_attribute_cache,index,buffer,size,type,flags,stride,offset);
+    if (result<0) { say("native vertex attribute: invalid index %u",index);halo_guest_exec_abort(HALO_GUEST_ABORT_HOST);return 0; }
+    atomic_fetch_add(&g_attribute_pointer_calls,1);
+    if (!result) atomic_fetch_add(&g_attribute_pointer_reused,1);
+    atomic_fetch_add(&g_attribute_ns,(uint64_t)((loading_seconds()-started)*1e9));
+    return result;
+}
+static void ios_vertex_attribute_value(uint32_t index,uint32_t value_va)
+{
+    const float *value=value_va?gp(value_va,16):NULL;
+    if (index>=16 || (value_va && (!value || (value_va&3u)))) {
+        say("native vertex value: invalid index/span %u 0x%08x",index,value_va);
+        halo_guest_exec_abort(HALO_GUEST_ABORT_HOST);return;
+    }
+    if (!g_attribute_initialized) ios_vertex_state_invalidate();
+    double started=loading_seconds();
+    halo_attribute_value(&g_attribute_cache,index,value);
+    atomic_fetch_add(&g_attribute_value_calls,1);
+    atomic_fetch_add(&g_attribute_ns,(uint64_t)((loading_seconds()-started)*1e9));
+}
+
 static int ios_vertex_color_swizzle(uint32_t dst, uint32_t src, uint32_t size,
     uint32_t stride, uint32_t offsets_va, uint32_t count)
 {
@@ -1972,6 +2008,9 @@ static void *resolve_host_import(const char *name)
     MAP("host_texture_decode_dxt", ios_texture_decode_dxt);
     MAP("host_texture_hash", ios_texture_hash);
     MAP("host_vertex_color_swizzle", ios_vertex_color_swizzle);
+    MAP("host_vertex_attribute_pointer", ios_vertex_attribute_pointer);
+    MAP("host_vertex_attribute_value", ios_vertex_attribute_value);
+    MAP("host_vertex_state_invalidate", ios_vertex_state_invalidate);
     MAP("host_memory_copy", ios_memory_copy);
     MAP("host_memory_fill", ios_memory_fill);
     MAP("host_loading_stage", ios_loading_stage);
@@ -2277,9 +2316,9 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.22 recovery: experimental direct pointer conversion disabled; original signal bridge restored.");
+    say("M2.6.23 recovery: experimental direct pointer conversion disabled; original signal bridge restored.");
     say("Performance defaults: interpolation off; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.22 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.23 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);
@@ -2427,6 +2466,9 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                 say("native vertex colors: %llu calls, %llu KiB, %.1f ms total, %llu guest fallbacks",
                     (unsigned long long)atomic_load(&g_vertex_calls), (unsigned long long)(atomic_load(&g_vertex_bytes)/1024),
                     atomic_load(&g_vertex_ns)/1e6, (unsigned long long)atomic_load(&g_vertex_fallbacks));
+                say("native vertex attributes: %llu pointer calls, %llu pointer descriptors reused, %llu value calls, %.1f ms total",
+                    (unsigned long long)atomic_load(&g_attribute_pointer_calls),(unsigned long long)atomic_load(&g_attribute_pointer_reused),
+                    (unsigned long long)atomic_load(&g_attribute_value_calls),atomic_load(&g_attribute_ns)/1e6);
                 for (int phase=0; phase<12; phase++) {
                     pthread_mutex_lock(&g_timing_lock);
                     uint64_t calls=atomic_exchange(&g_phase_calls[phase],0), ns=atomic_exchange(&g_phase_ns[phase],0), upgrades=atomic_exchange(&g_phase_upgrades[phase],0);

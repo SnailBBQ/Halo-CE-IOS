@@ -12,7 +12,7 @@ That project is a fork of [punpckhdq/halo](https://github.com/punpckhdq/halo).
 
 ## iOS development status
 
-**M2.6.21 confirms menu, intro and initial campaign gameplay on the test iPhone.** Menu presentation is generally 6.5–7.3 FPS; tutorial gameplay is around 0.38–0.48 FPS. **M2.6.22 awaits device testing:** it accelerates streamed vertex-color conversion natively and adds finer renderer measurements. The working pointer bridge is retained and the assembly experiment remains disabled. Audio remains muted; full movement/aim controls and multiplayer are pending.
+**M2.6.21 confirms menu, intro and initial campaign gameplay on the test iPhone.** Menu presentation is generally 6.5–7.3 FPS; tutorial gameplay is around 0.38–0.48 FPS. **M2.6.22 device logs show about 0.38 FPS in tutorial gameplay. M2.6.23 awaits device testing:** it moves vertex-attribute state comparisons and GL setup into the native host. The working pointer bridge is retained and the assembly experiment remains disabled. Audio remains muted; full movement/aim controls and multiplayer are pending.
 
 See [iOS port status](IOS_PORT_STATUS.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
 
@@ -213,3 +213,11 @@ The M2.6.21 device test restored campaign boot. Menu presentation was generally 
 M2.6.22 moves the existing streamed-vertex BGRA-to-RGBA copy/conversion loop into a bounded native helper. It validates every color offset before writing, preserves duplicate-offset ordering and partial trailing vertices, and retains the original conversion on unsupported input. Texture cache invalidation, geometry, collision and the working signal bridge are unchanged. The assembly pointer experiment stays disabled.
 
 New overlapping timing categories isolate vertex-color conversion/upload, index bounds/cache and texture lookup/upload. Native conversion call, byte, time and fallback totals show how often the helper is used. This is a narrow optimization candidate, not a claim that it accounts for the full rendering delay. Device testing must compare menu, intro and tutorial frame times and verify colors and progression.
+
+## M2.6.23 native vertex-state trial
+
+M2.6.22 device logs show roughly 0.38 FPS in tutorial gameplay, about two seconds of CPU rendering per frame and about 640,000 pointer upgrades per rendering call. Native color conversion took only 0.5 ms across 1,228 calls: it works, but does not materially resolve overall performance.
+
+M2.6.23 moves vertex-attribute descriptor comparisons, enable/disable state and GL setup into the native host. Every renderer cache invalidation also invalidates the native cache. Buffer-binding side effects are returned to the guest, and constant attribute values are copied from validated guest memory. This is a default iOS optimization; resolution stays 640×480 and the working execution bridge remains enabled. Other platforms keep their existing path.
+
+The workflow checks cache transitions, each descriptor field, buffer side effects, invalidation and bounds. Apple compilation and device performance still need verification. Compare presentation FPS, vertex-preparation time/upgrades and render time/upgrades in the same menu and tutorial scenes; a passing build alone does not establish improved performance. The full static pointer-rewrite experiment remains disabled. See the [performance migration review](port/ios/PERFORMANCE_PLAN.md).
