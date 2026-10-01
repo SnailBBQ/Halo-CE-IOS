@@ -2545,9 +2545,31 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.25 recovery: experimental direct pointer conversion disabled; original signal bridge restored.");
+    /* M2.6.27: selective direct pointer fast path (4 hot objects). The guest
+     * ELF may contain halo_ios_arena_base when built with --ios-pointer-fastpath.
+     * Host publishes the 4-GiB-aligned arena base before entry. Missing symbol
+     * means an uninstrumented guest; signal bridge remains the only path. */
+    uint32_t arena_sym = symbol_value_named("halo_ios_arena_base");
+    void *arena_host = halo_guest_base_address();
+    uint64_t arena_base = (uint64_t)(uintptr_t)arena_host;
+    if (arena_sym && arena_host) {
+        uint64_t *slot = (uint64_t *)halo_guest_ptr(arena_sym, sizeof(uint64_t));
+        if (slot) {
+            *slot = arena_base;
+            say("M2.6.27 pointer fast path: halo_ios_arena_base guest VA=0x%08x host slot=%p value=0x%llx",
+                arena_sym, slot, (unsigned long long)arena_base);
+        } else {
+            say("M2.6.27 pointer fast path: symbol present but guest mapping failed VA=0x%08x", arena_sym);
+        }
+    } else {
+        say("M2.6.27 recovery: no halo_ios_arena_base in guest (fast path off or uninstrumented); signal bridge active.");
+    }
     say("Performance defaults: interpolation off; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.25 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.27 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.27 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
+        g_header ? g_header->start : 0u,
+        context.boot_va,
+        halo_guest_base_is_4gb_aligned() ? "YES" : "NO");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);
@@ -2555,13 +2577,26 @@ static void *main_guest_thread(void *opaque)
     {
         halo_guest_exec_guard_set_active(1);
         void (*start)(uint32_t)=(void (*)(uint32_t))halo_guest_ptr(g_header->start,1);
-        say("ENTERING REAL arm64_32 __guest_start()...");
+        say("ENTERING REAL arm64_32 __guest_start()... (PC host=%p guest VA=0x%08x)",
+            (void *)start, g_header->start);
         start(context.boot_va);
         halo_guest_exec_guard_set_active(0);
         reason=HALO_GUEST_ABORT_HOST;
     }
     else
+    {
         halo_guest_exec_guard_set_active(0);
+        halo_guest_exec_stats st;
+        halo_guest_exec_stats_get(&st);
+        say("M2.6.27 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
+            reason,
+            (unsigned long long)st.pointer_upgrades,
+            (unsigned long long)st.handled_faults,
+            (unsigned long long)st.last_fault_address,
+            st.last_guest_pc,
+            (unsigned long long)st.last_host_pc,
+            st.last_instruction);
+    }
 
     g_guest_reason=reason;
     g_guest_finished=1;

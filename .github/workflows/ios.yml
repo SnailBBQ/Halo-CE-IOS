@@ -91,6 +91,16 @@ jobs:
               raise SystemExit("guest link rule not found in build.ninja")
           s = s.replace(linker, linker + " --wrap=memcpy --wrap=memmove --wrap=memset")
           p.write_text(s.replace("tools/android_gl_stubs.py", "tools/ios_gl_stubs.py"))
+          # M2.6.27: enable selective iOS pointer fast path on the four measured
+          # hot objects. Converter remains identity for all other translation units.
+          s = Path("build.ninja").read_text()
+          s = s.replace(
+              "tools/android_asm_convert.py $out.darwin.s $out.s",
+              "tools/android_asm_convert.py --ios-pointer-fastpath $out.darwin.s $out.s",
+          )
+          if "--ios-pointer-fastpath" not in s:
+              raise SystemExit("failed to inject --ios-pointer-fastpath into build.ninja")
+          Path("build.ninja").write_text(s)
           PY
           ninja --version
           clang --version
