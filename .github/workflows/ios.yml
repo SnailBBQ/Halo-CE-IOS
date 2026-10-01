@@ -17,6 +17,7 @@ on:
       - 'tools/android_asm_convert.py'
       - 'tools/tests/test_ios_pointer_fastpath.py'
       - 'tools/tests/test_ios_workflow_configuration.py'
+      - 'tools/tests/test_ios_vertex_colors.c'
       - 'configure.py'
 
 jobs:
@@ -44,6 +45,8 @@ jobs:
         run: |
           set -euxo pipefail
           python3 tools/tests/test_ios_workflow_configuration.py
+          cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_vertex_colors.c -o "$RUNNER_TEMP/halo-vertex-test"
+          "$RUNNER_TEMP/halo-vertex-test"
           python3 -m venv "$RUNNER_TEMP/halo-arm-test"
           "$RUNNER_TEMP/halo-arm-test/bin/python" -m pip install unicorn==2.1.4 keystone-engine==0.9.2
           "$RUNNER_TEMP/halo-arm-test/bin/python" tools/tests/test_ios_pointer_fastpath.py

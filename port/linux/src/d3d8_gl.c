@@ -3195,6 +3195,9 @@ static struct
 	WORD maximum;
 } index_ranges[INDEX_RANGE_SLOTS];
 
+#ifdef HALO_IOS_GUEST
+#define index_extent index_extent_profiled
+#endif
 static void index_extent(const WORD *indices, unsigned long count, unsigned long generation, BOOL cached,
 	unsigned long *minimum, unsigned long *maximum)
 {
@@ -3226,6 +3229,17 @@ static void index_extent(const WORD *indices, unsigned long count, unsigned long
 	*minimum = low;
 	*maximum = high;
 }
+
+#ifdef HALO_IOS_GUEST
+#undef index_extent
+static void index_extent(const WORD *indices, unsigned long count, unsigned long generation, BOOL cached,
+    unsigned long *minimum, unsigned long *maximum)
+{
+    host_frame_phase(10,0);
+    index_extent_profiled(indices,count,generation,cached,minimum,maximum);
+    host_frame_phase(10,1);
+}
+#endif
 
 /* ---------- vertex data */
 
@@ -3264,6 +3278,9 @@ static unsigned long stream_upload(const void *data, unsigned long size)
 #ifdef HALO_ANDROID
 /* stream_upload, with the D3DCOLOR elements of the stream turned from BGRA
 into the RGBA byte order ES reads */
+#ifdef HALO_IOS_GUEST
+#define stream_upload_swizzled stream_upload_swizzled_profiled
+#endif
 static unsigned long stream_upload_swizzled(const struct vertex_shader_object *declaration, unsigned long stream,
 	const unsigned char *data, unsigned long size, unsigned long stride)
 {
@@ -3287,6 +3304,11 @@ static unsigned long stream_upload_swizzled(const struct vertex_shader_object *d
 		scratch_size = size + 65536;
 		scratch = malloc(scratch_size);
 	}
+#ifdef HALO_IOS_GUEST
+    extern int host_vertex_color_swizzle(unsigned int,unsigned int,unsigned int,unsigned int,unsigned int,unsigned int);
+    if (host_vertex_color_swizzle((unsigned int)scratch,(unsigned int)data,size,stride,(unsigned int)offsets,count))
+        return stream_upload(scratch,size);
+#endif
 	memcpy(scratch, data, size);
 	for (vertex = 0; vertex + stride <= size; vertex += stride)
 	{
@@ -3301,6 +3323,18 @@ static unsigned long stream_upload_swizzled(const struct vertex_shader_object *d
 	}
 	return stream_upload(scratch, size);
 }
+#ifdef HALO_IOS_GUEST
+#undef stream_upload_swizzled
+static unsigned long stream_upload_swizzled(const struct vertex_shader_object *declaration, unsigned long stream,
+    const unsigned char *data, unsigned long size, unsigned long stride)
+{
+    unsigned long result;
+    host_frame_phase(9,0);
+    result=stream_upload_swizzled_profiled(declaration,stream,data,size,stride);
+    host_frame_phase(9,1);
+    return result;
+}
+#endif
 #endif
 
 static unsigned long index_upload(const void *data, unsigned long size)

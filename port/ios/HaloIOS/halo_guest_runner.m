@@ -26,6 +26,7 @@
 #include "halo_crc_native.h"
 #include "halo_texel_native.h"
 #include "halo_silent_native.h"
+#include "halo_vertex_native.h"
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
@@ -262,15 +263,32 @@ static double loading_seconds(void)
 }
 
 static _Atomic uint64_t g_crc_calls, g_crc_bytes, g_crc_ns, g_texel_calls, g_texel_bytes, g_texel_ns, g_texel_fallbacks;
-static _Atomic uint64_t g_phase_ns[9], g_phase_calls[9], g_phase_upgrades[9];
-static double g_phase_started[9];
-static uint64_t g_phase_upgrade_start[9];
+static _Atomic uint64_t g_phase_ns[12], g_phase_calls[12], g_phase_upgrades[12];
+static _Atomic uint64_t g_vertex_calls, g_vertex_bytes, g_vertex_ns, g_vertex_fallbacks;
+static double g_phase_started[12];
+static uint64_t g_phase_upgrade_start[12];
 static _Atomic int g_waiting_frame, g_frame_present_ok;
 static _Atomic uint64_t g_presented_frames;
 static _Atomic uint32_t g_frame_draws;
 static double g_last_candidate_report;
 static pthread_mutex_t g_timing_lock = PTHREAD_MUTEX_INITIALIZER;
 static double g_first_frame_started;
+static int ios_vertex_color_swizzle(uint32_t dst, uint32_t src, uint32_t size,
+    uint32_t stride, uint32_t offsets_va, uint32_t count)
+{
+    double started=loading_seconds();
+    if (!dst || !src || !offsets_va || (offsets_va & 3u) || !size || !stride || !count || count>16) { atomic_fetch_add(&g_vertex_fallbacks,1); return 0; }
+    unsigned char *d=gp(dst,size);
+    const unsigned char *s=gp(src,size);
+    const uint32_t *offsets=gp(offsets_va,count*sizeof(uint32_t));
+    if (!d || !s || !offsets || !halo_vertex_color_swizzle(d,s,size,stride,offsets,count)) {
+        atomic_fetch_add(&g_vertex_fallbacks,1); return 0;
+    }
+    atomic_fetch_add(&g_vertex_calls,1);atomic_fetch_add(&g_vertex_bytes,size);
+    atomic_fetch_add(&g_vertex_ns,(uint64_t)((loading_seconds()-started)*1e9));
+    return 1;
+}
+
 static void ios_crc_checksum(uint32_t crc_va, uint32_t buffer_va, int32_t size)
 {
     uint32_t *crc = gp(crc_va, 4);
@@ -338,7 +356,7 @@ static void ios_frame_counts(uint32_t draws, uint32_t skipped, uint32_t clears, 
 }
 static void ios_frame_phase(int phase, int done)
 {
-    if (phase<0 || phase>=9) return;
+    if (phase<0 || phase>=12) return;
     if (!done) { g_phase_started[phase]=loading_seconds(); g_phase_upgrade_start[phase]=halo_guest_exec_thread_pointer_upgrades(); if (phase==2) g_frame_present_ok=0; }
     else {
         pthread_mutex_lock(&g_timing_lock);
@@ -1953,6 +1971,7 @@ static void *resolve_host_import(const char *name)
     MAP("host_cache_inflate_init", ios_cache_inflate_init);
     MAP("host_texture_decode_dxt", ios_texture_decode_dxt);
     MAP("host_texture_hash", ios_texture_hash);
+    MAP("host_vertex_color_swizzle", ios_vertex_color_swizzle);
     MAP("host_memory_copy", ios_memory_copy);
     MAP("host_memory_fill", ios_memory_fill);
     MAP("host_loading_stage", ios_loading_stage);
@@ -2258,9 +2277,9 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.21 recovery: experimental direct pointer conversion disabled; original signal bridge restored.");
+    say("M2.6.22 recovery: experimental direct pointer conversion disabled; original signal bridge restored.");
     say("Performance defaults: interpolation off; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.21 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.22 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);
@@ -2405,11 +2424,14 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                     (unsigned long long)atomic_load(&g_texel_calls), (unsigned long long)(atomic_load(&g_texel_bytes)/1048576), atomic_load(&g_texel_ns)/1e6, (unsigned long long)atomic_load(&g_texel_fallbacks));
                 say("native silent clock: %llu calls, %.1f ms total",
                     (unsigned long long)atomic_load(&g_silent_calls),atomic_load(&g_silent_ns)/1e6);
-                for (int phase=0; phase<9; phase++) {
+                say("native vertex colors: %llu calls, %llu KiB, %.1f ms total, %llu guest fallbacks",
+                    (unsigned long long)atomic_load(&g_vertex_calls), (unsigned long long)(atomic_load(&g_vertex_bytes)/1024),
+                    atomic_load(&g_vertex_ns)/1e6, (unsigned long long)atomic_load(&g_vertex_fallbacks));
+                for (int phase=0; phase<12; phase++) {
                     pthread_mutex_lock(&g_timing_lock);
                     uint64_t calls=atomic_exchange(&g_phase_calls[phase],0), ns=atomic_exchange(&g_phase_ns[phase],0), upgrades=atomic_exchange(&g_phase_upgrades[phase],0);
                     pthread_mutex_unlock(&g_timing_lock);
-                    static const char *names[]={"update", "render CPU (includes conversion/upload)", "present CPU", "GL upload CPU", "draw setup total", "texture binding/cache", "shader lookup/link", "vertex preparation", "uniform/state setup"};
+                    static const char *names[]={"update", "render CPU (includes conversion/upload)", "present CPU", "GL upload CPU", "draw setup total", "texture binding/cache", "shader lookup/link", "vertex preparation", "uniform/state setup", "vertex color conversion/upload", "index bounds/cache", "texture lookup/upload"};
                     if (calls) say("timing %s: %llu calls, %.1f ms average, %.0f thread pointer upgrades/call (overlapping categories)", names[phase], (unsigned long long)calls, ns/1e6/calls, (double)upgrades/calls);
                 }
                 previous_upgrades = stats.pointer_upgrades;

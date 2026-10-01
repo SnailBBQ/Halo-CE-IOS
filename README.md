@@ -12,7 +12,7 @@ That project is a fork of [punpckhdq/halo](https://github.com/punpckhdq/halo).
 
 ## iOS development status
 
-**M2.6.19 reached the `a10` intro and initial campaign gameplay on the test iPhone.** The user reports a more responsive menu, but gameplay still has very low frame rates. **M2.6.20 launch regression:** the user reports a launch crash. M2.6.21 disables the direct pointer experiment and awaits testing. Original M2.6.20 scope: it targets pointer-conversion overhead in the renderer, world visibility/lightmaps and BSP collision, reduces forced debugging overhead, and measures successful frame presentation separately from loading stages. Colored Xbox touch menu controls, Boot log and Game log are retained. Audio remains muted; full gameplay controls and multiplayer are still pending.
+**M2.6.21 confirms menu, intro and initial campaign gameplay on the test iPhone.** Menu presentation is generally 6.5–7.3 FPS; tutorial gameplay is around 0.38–0.48 FPS. **M2.6.22 awaits device testing:** it accelerates streamed vertex-color conversion natively and adds finer renderer measurements. The working pointer bridge is retained and the assembly experiment remains disabled. Audio remains muted; full movement/aim controls and multiplayer are pending.
 
 See [iOS port status](IOS_PORT_STATUS.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
 
@@ -205,3 +205,11 @@ Validation: 1,540 assembled ARM64 emulation cases compare the fast path with the
 The user reports that the M2.6.20 IPA crashes on launch. The exact cause has not been established from a crash report. M2.6.21 disables the experimental assembly pointer pass in the shipping workflow and removes its shared arena variable and host initialization, restoring the original signal-based pointer bridge used by the working M2.6.19 campaign test. The experimental converter and its emulation tests remain available for investigation but are not applied to the shipped guest.
 
 Successful-presentation FPS reporting and the reduced forced debugging defaults are retained. This recovery build requires a device test: first verify startup, then the menu and `a10` intro/gameplay. No performance improvement is claimed from the disabled experiment.
+
+## M2.6.22 native vertex-color trial
+
+The M2.6.21 device test restored campaign boot. Menu presentation was generally 6.5–7.3 FPS; tutorial gameplay was about 0.38–0.48 FPS. Rendering averaged roughly 1.8–2.1 seconds while presentation took only milliseconds.
+
+M2.6.22 moves the existing streamed-vertex BGRA-to-RGBA copy/conversion loop into a bounded native helper. It validates every color offset before writing, preserves duplicate-offset ordering and partial trailing vertices, and retains the original conversion on unsupported input. Texture cache invalidation, geometry, collision and the working signal bridge are unchanged. The assembly pointer experiment stays disabled.
+
+New overlapping timing categories isolate vertex-color conversion/upload, index bounds/cache and texture lookup/upload. Native conversion call, byte, time and fallback totals show how often the helper is used. This is a narrow optimization candidate, not a claim that it accounts for the full rendering delay. Device testing must compare menu, intro and tutorial frame times and verify colors and progression.

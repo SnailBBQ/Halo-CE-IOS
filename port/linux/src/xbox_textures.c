@@ -731,6 +731,9 @@ static unsigned long palette_hash(const D3DCOLOR *palette)
 	return hash ? hash : 1;
 }
 
+#ifdef HALO_IOS_GUEST
+#define xgpu_texture_get xgpu_texture_get_profiled
+#endif
 GLuint xgpu_texture_get(const DWORD *resource, const D3DCOLOR *palette, GLenum *target,
 	struct xgpu_texture_description *description)
 {
@@ -859,6 +862,20 @@ GLuint xgpu_texture_get(const DWORD *resource, const D3DCOLOR *palette, GLenum *
 	*description = entry->description;
 	return entry->texture;
 }
+
+#ifdef HALO_IOS_GUEST
+#undef xgpu_texture_get
+GLuint xgpu_texture_get(const DWORD *resource, const D3DCOLOR *palette, GLenum *target,
+    struct xgpu_texture_description *description)
+{
+    extern void host_frame_phase(int,int);
+    GLuint result;
+    host_frame_phase(11,0);
+    result=xgpu_texture_get_profiled(resource,palette,target,description);
+    host_frame_phase(11,1);
+    return result;
+}
+#endif
 
 void xgpu_texture_cache_begin_frame(void)
 {
