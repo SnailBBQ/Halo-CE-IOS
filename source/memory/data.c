@@ -69,7 +69,7 @@ symbols in this file:
 #include "../../port/include/ios_scene_scan.h"
 typedef char ios_data_iterator_layout[(sizeof(void *)==4 && sizeof(long)==4 && sizeof(struct data_iterator)==16 &&
     offsetof(struct data_iterator,absolute_index)==4 && offsetof(struct data_iterator,datum_index)==8 && offsetof(struct data_iterator,signature)==12)?1:-1];
-static const unsigned int ios_datum_layout[13]={sizeof(struct data_array),offsetof(struct data_array,maximum_count),
+const unsigned int ios_datum_layout[13]={sizeof(struct data_array),offsetof(struct data_array,maximum_count),
     offsetof(struct data_array,size),offsetof(struct data_array,valid),offsetof(struct data_array,identifier_zero_invalid),
     offsetof(struct data_array,signature),offsetof(struct data_array,first_free_absolute_index),offsetof(struct data_array,count),
     offsetof(struct data_array,actual_count),offsetof(struct data_array,data),offsetof(struct data_array,next_identifier),'d@t@','iter'};

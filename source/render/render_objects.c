@@ -94,6 +94,9 @@ symbols in this file:
 #include "render/render_cameras_internal.h"
 #include "render/render_debug.h"
 #include "objects/objects.h"
+#ifdef HALO_IOS_GUEST
+#include "../../port/include/ios_scene_scan.h"
+#endif
 #include "objects/object_definitions.h"
 #include "objects/object_lights.h"
 #include "objects/object_lights_rendering.h"
@@ -1265,9 +1268,34 @@ static void process_rendered_objects(
 	struct object_render_data *data)
 {
 	short rendered_object_index;
+	short count = render_object_globals.rendered_object_count;
+
+#ifdef HALO_IOS_GUEST
+	/* M2.6.26: native pre-filter drops invisible / shadowless objects before
+	   the expensive per-object guest work.  Falls back to the full list on
+	   any native failure so behaviour stays identical. */
+	{
+		extern const unsigned int ios_datum_layout[13];
+		unsigned int kept = (unsigned int)count;
+		unsigned int filter_mask = 1u; /* always drop invisible */
+		if (data->shadow)
+			filter_mask |= 2u; /* also drop shadowless on the shadow pass */
+		if (count > 0 &&
+			host_scene_filter_objects(
+				(unsigned int)object_header_data,
+				(unsigned int)&render_object_globals.rendered_object_indices[0],
+				(unsigned int)count,
+				filter_mask,
+				(unsigned int)&kept,
+				(unsigned int)ios_datum_layout))
+		{
+			count = (short)kept;
+		}
+	}
+#endif
 
 	for (rendered_object_index = 0;
-		rendered_object_index < render_object_globals.rendered_object_count;
+		rendered_object_index < count;
 		rendered_object_index++)
 	{
 		data->object_index =

@@ -401,7 +401,7 @@ invalid:
     halo_guest_exec_abort(HALO_GUEST_ABORT_HOST);
 }
 
-static _Atomic uint64_t g_scene_calls[6],g_scene_items[6],g_scene_ns[6],g_scene_invalid,g_datum_fallbacks;
+static _Atomic uint64_t g_scene_calls[7],g_scene_items[7],g_scene_ns[7],g_scene_invalid,g_datum_fallbacks;
 static const void *ios_scene_resolve(uint32_t va,size_t size) { return gp(va,size); }
 static int ios_scene_datum(uint32_t kind,uint32_t data,uint32_t index,uint32_t result_va,uint32_t layout_va)
 {
@@ -425,6 +425,30 @@ static int ios_scene_datum(uint32_t kind,uint32_t data,uint32_t index,uint32_t r
     atomic_fetch_add(&g_scene_calls[0],1);
     atomic_fetch_add(&g_scene_items[0],visited);
     atomic_fetch_add(&g_scene_ns[0],(uint64_t)((loading_seconds()-started)*1e9));
+    atomic_fetch_add(&g_native_loop_upgrades,halo_guest_exec_thread_pointer_upgrades()-upgrades);
+    return 1;
+    fallback:
+    atomic_fetch_add(&g_datum_fallbacks,1);
+    return 0;
+}
+
+static int ios_scene_filter_objects(uint32_t header_data, uint32_t indices_va,
+    uint32_t count, uint32_t filter_mask, uint32_t result_va, uint32_t layout_va)
+{
+    double started=loading_seconds();
+    uint64_t upgrades=halo_guest_exec_thread_pointer_upgrades(),visited=0;
+    uint32_t l[13], kept=0;
+    const void *layout=gp(layout_va,sizeof(l));
+    void *result=(result_va&3u)?NULL:gp(result_va,4);
+    uint32_t *indices=(indices_va&3u || !count)?NULL:gp(indices_va,(size_t)count*4);
+    if (!layout || !result || !indices || (layout_va&3u) || count>512) goto fallback;
+    memcpy(l,layout,sizeof(l));
+    if (!halo_scene_filter_objects(ios_scene_resolve,header_data,l,indices,count,filter_mask,&kept,&visited))
+        goto fallback;
+    memcpy(result,&kept,4);
+    atomic_fetch_add(&g_scene_calls[6],1);
+    atomic_fetch_add(&g_scene_items[6],visited);
+    atomic_fetch_add(&g_scene_ns[6],(uint64_t)((loading_seconds()-started)*1e9));
     atomic_fetch_add(&g_native_loop_upgrades,halo_guest_exec_thread_pointer_upgrades()-upgrades);
     return 1;
     fallback:
@@ -2215,6 +2239,7 @@ static void *resolve_host_import(const char *name)
     MAP("host_uniform_apply", ios_uniform_apply);
     MAP("host_scene_scan", ios_scene_scan);
     MAP("host_scene_datum", ios_scene_datum);
+    MAP("host_scene_filter_objects", ios_scene_filter_objects);
     MAP("host_memory_copy", ios_memory_copy);
     MAP("host_memory_fill", ios_memory_fill);
     MAP("host_loading_stage", ios_loading_stage);
@@ -2681,8 +2706,8 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                     (unsigned long long)atomic_load(&g_uniform_calls),(unsigned long long)atomic_load(&g_uniform_uploads),
                     (unsigned long long)(atomic_load(&g_uniform_bytes)/1024),atomic_load(&g_uniform_ns)/1e6,(unsigned long long)atomic_load(&g_scan_invalid));
                 say("native renderer helper thread upgrades: %llu",(unsigned long long)atomic_load(&g_native_loop_upgrades));
-                static const char *scene_names[]={"datum lookup/iteration","BSP index triangles","BSP bit triangles","material ranges","visibility surface lists","visibility leaf references"};
-                for(unsigned kind=0;kind<6;kind++)say("native scene %s: %llu calls, %llu items, %.1f ms total",scene_names[kind],
+                static const char *scene_names[]={"datum lookup/iteration","BSP index triangles","BSP bit triangles","material ranges","visibility surface lists","visibility leaf references","object list filter"};
+                for(unsigned kind=0;kind<7;kind++)say("native scene %s: %llu calls, %llu items, %.1f ms total",scene_names[kind],
                     (unsigned long long)atomic_load(&g_scene_calls[kind]),(unsigned long long)atomic_load(&g_scene_items[kind]),atomic_load(&g_scene_ns[kind])/1e6);
                 say("native scene invalid inputs: %llu; datum diagnostic fallbacks: %llu",(unsigned long long)atomic_load(&g_scene_invalid),(unsigned long long)atomic_load(&g_datum_fallbacks));
                 for (int phase=0; phase<20; phase++) {
