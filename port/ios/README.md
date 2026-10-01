@@ -2,7 +2,7 @@
 
 Experimental Halo: Combat Evolved port for physical iPhone and iPad devices running iOS/iPadOS 15 or later. A native `arm64` app hosts the recovered `arm64_32` engine and presents graphics through EAGL/OpenGL ES 3.
 
-**Current version: M2.6.20, awaiting device testing.** M2.6.19 reached the `a10` intro cutscene and initial campaign gameplay on the test iPhone, with improved menu response but very low frame rates. This update targets CPU pointer-conversion overhead and reduces forced debugging work. Audio remains muted; full movement/aim controls and multiplayer remain pending. See [port status](../../IOS_PORT_STATUS.md).
+**Current version: M2.6.21 launch recovery, awaiting device testing.** M2.6.19 reached the `a10` intro cutscene and initial campaign gameplay on the test iPhone, with improved menu response but very low frame rates. This recovery disables the direct pointer-conversion experiment after a reported launch crash and retains reduced debugging overhead. Audio remains muted; full movement/aim controls and multiplayer remain pending. See [port status](../../IOS_PORT_STATUS.md).
 
 ## Build with GitHub Actions
 
@@ -124,3 +124,9 @@ The performance defaults stop forcing per-draw GL error polling and stop forcing
 Boot logs now report successful drawable presentations per measured wall-clock interval, independent of loading-stage durations. Update/render/draw/vertex timing categories overlap and must not be added together. Direct conversions are not counted as signal pointer upgrades; compare FPS and CPU time as well as residual fault counts.
 
 Validation: 1,540 assembled ARM64 emulation cases compare the fast path with the existing pointer-upgrade behavior, including wide/null bases, register overlap, writeback, memory stores, NZCV and red-zone preservation. The emulation test is retained in `tools/tests/test_ios_pointer_fastpath.py` and runs in the iOS workflow. Apple compilation and real performance gains require CI and a device test. Test the same menu, `a10` intro, skip and initial gameplay, then share the logs; verify geometry, text and progression alongside FPS. The white cryotube wake-up effect is left intact.
+
+## M2.6.21 launch recovery
+
+The user reports that the M2.6.20 IPA crashes on launch. The exact cause has not been established from a crash report. M2.6.21 disables the experimental assembly pointer pass in the shipping workflow and removes its shared arena variable and host initialization, restoring the original signal-based pointer bridge used by the working M2.6.19 campaign test. The experimental converter and its emulation tests remain available for investigation but are not applied to the shipped guest.
+
+Successful-presentation FPS reporting and the reduced forced debugging defaults are retained. This recovery build requires a device test: first verify startup, then the menu and `a10` intro/gameplay. No performance improvement is claimed from the disabled experiment.

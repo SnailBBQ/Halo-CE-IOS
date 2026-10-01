@@ -2171,18 +2171,6 @@ static int load_guest_image(NSString *path)
         name+=strlen(name)+1;
     }
 
-    uint32_t arena_symbol = symbol_value_named("halo_ios_arena_base");
-    if (arena_symbol) {
-        uint64_t *arena_slot = gp(arena_symbol, sizeof(uint64_t));
-        if (!arena_slot || !halo_guest_base_is_4gb_aligned()) {
-            say("FULL GUEST: pointer fast-path arena initialization failed.");
-            return 0;
-        }
-        *arena_slot = (uint64_t)(uintptr_t)halo_guest_base_address();
-        say("iOS pointer fast path: renderer, world visibility/lightmaps and BSP collision enabled; signal fallback retained.");
-    } else {
-        say("iOS pointer fast path: legacy guest image; signal bridge only.");
-    }
     g_main_thread_va = symbol_value_named("main_thread");
 
     say("FULL GUEST IMAGE: 0x%08x-0x%08x, start=0x%08x",
@@ -2270,8 +2258,9 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
+    say("M2.6.21 recovery: experimental direct pointer conversion disabled; original signal bridge restored.");
     say("Performance defaults: interpolation off; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.20 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.21 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);

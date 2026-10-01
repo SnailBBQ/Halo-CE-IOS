@@ -1,6 +1,6 @@
 # Halo CE iOS — Port Status
 
-Updated September 30, 2026. Current development milestone: **M2.6.20**.
+Updated September 30, 2026. Current development milestone: **M2.6.21**.
 
 Halo's real main menu rendered on a physical iPhone with **M2.6.12**. The test ran for more than ten minutes and showed the Halo background and Campaign, Multiplayer, and Settings. Startup and frame rendering were very slow, and blocks covered portions of the menu text. This was the first menu milestone; later campaign evidence is recorded below.
 
@@ -14,7 +14,7 @@ Halo's real main menu rendered on a physical iPhone with **M2.6.12**. The test r
 
 **M2.6.19 device evidence:** the user reports a faster responding menu, the `a10` intro cutscene, successful skipping of the intro and initial gameplay. Logs show cinematic state changing to zero and simulation ticks advancing, with successful presentation and no skipped draws in the sampled renderer report. Gameplay CPU update averages were about 0.8–1.0 s and rendering about 1.9–2.1 s, with hundreds of thousands of pointer upgrades per call. This confirms initial campaign boot, not acceptable performance or complete gameplay controls.
 
-**M2.6.20 awaits device testing:** selective direct pointer conversion, performance defaults and a successful-presentation FPS metric.
+**M2.6.20 launch regression:** the user reports a launch crash. M2.6.21 disables the direct pointer experiment and awaits testing. Original M2.6.20 scope: selective direct pointer conversion, performance defaults and a successful-presentation FPS metric.
 
 ## Current capabilities
 
@@ -96,3 +96,9 @@ The performance defaults stop forcing per-draw GL error polling and stop forcing
 Boot logs now report successful drawable presentations per measured wall-clock interval, independent of loading-stage durations. Update/render/draw/vertex timing categories overlap and must not be added together. Direct conversions are not counted as signal pointer upgrades; compare FPS and CPU time as well as residual fault counts.
 
 Validation: 1,540 assembled ARM64 emulation cases compare the fast path with the existing pointer-upgrade behavior, including wide/null bases, register overlap, writeback, memory stores, NZCV and red-zone preservation. The emulation test is retained in `tools/tests/test_ios_pointer_fastpath.py` and runs in the iOS workflow. Apple compilation and real performance gains require CI and a device test. Test the same menu, `a10` intro, skip and initial gameplay, then share the logs; verify geometry, text and progression alongside FPS. The white cryotube wake-up effect is left intact.
+
+## M2.6.21 launch recovery
+
+The user reports that the M2.6.20 IPA crashes on launch. The exact cause has not been established from a crash report. M2.6.21 disables the experimental assembly pointer pass in the shipping workflow and removes its shared arena variable and host initialization, restoring the original signal-based pointer bridge used by the working M2.6.19 campaign test. The experimental converter and its emulation tests remain available for investigation but are not applied to the shipped guest.
+
+Successful-presentation FPS reporting and the reduced forced debugging defaults are retained. This recovery build requires a device test: first verify startup, then the menu and `a10` intro/gameplay. No performance improvement is claimed from the disabled experiment.

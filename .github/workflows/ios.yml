@@ -70,10 +70,6 @@ jobs:
           if "-DHALO_ANDROID=1" not in s:
               raise SystemExit("guest compile flags not found in build.ninja")
           s = s.replace("-DHALO_ANDROID=1", "-DHALO_ANDROID=1 -DHALO_IOS_GUEST=1")
-          converter = "tools/android_asm_convert.py $out.darwin.s $out.s"
-          if converter not in s:
-              raise SystemExit("guest assembly converter rule not found")
-          s = s.replace(converter, "tools/android_asm_convert.py --ios-pointer-fastpath $out.darwin.s $out.s")
           linker = "ld.lld -m aarch64linux -static"
           if linker not in s:
               raise SystemExit("guest link rule not found in build.ninja")

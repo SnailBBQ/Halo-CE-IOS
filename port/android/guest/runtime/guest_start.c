@@ -15,12 +15,6 @@ page size), runs the image's constructors and calls the game's main().
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef HALO_IOS_GUEST
-/* Filled by the host before any guest constructor or worker runs. The
-   assembly fast path loads this through PC-relative addressing. */
-__attribute__((used, aligned(8))) unsigned long long halo_ios_arena_base;
-#endif
-
 extern char __guest_image_end[];
 extern unsigned long long __host_import_table[];
 extern const char __host_import_names[];
