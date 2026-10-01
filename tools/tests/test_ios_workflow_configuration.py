@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 import ast,importlib.util,io,subprocess,sys,tempfile
 r=Path(__file__).resolve().parents[2]
 spec=importlib.util.spec_from_file_location('ninja_syntax',r/'tools/ninja_syntax.py')
@@ -19,8 +19,8 @@ for text in [generated,generated.replace('\n','\r\n')]:
     (scratch/'build.ninja').write_bytes((text+'\n-DHALO_ANDROID=1\nld.lld -m aarch64linux -static\ntools/android_gl_stubs.py\n').encode())
     subprocess.run([sys.executable,'-c',body],cwd=scratch,check=True)
     patched=(scratch/'build.ninja').read_text()
-    assert 'tools/android_asm_convert.py --ios-pointer-fastpath $out.darwin.s $out.s' in patched
-    assert '--ios-pointer-fastpath' in patched
+    assert 'tools/android_asm_convert.py $out.darwin.s $out.s' in patched
+    assert '--ios-pointer-fastpath' not in patched
     assert '--wrap=memcpy --wrap=memmove --wrap=memset' in patched
     assert '-DHALO_ANDROID=1 -DHALO_IOS_GUEST=1' in patched
     assert '$\n' not in patched
