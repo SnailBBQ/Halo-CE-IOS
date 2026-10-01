@@ -16,6 +16,7 @@ on:
       - 'tools/android_build.py'
       - 'tools/android_asm_convert.py'
       - 'tools/tests/test_ios_pointer_fastpath.py'
+      - 'tools/tests/test_ios_workflow_configuration.py'
       - 'configure.py'
 
 jobs:
@@ -42,6 +43,7 @@ jobs:
       - name: Verify iOS pointer conversion
         run: |
           set -euxo pipefail
+          python3 tools/tests/test_ios_workflow_configuration.py
           python3 -m venv "$RUNNER_TEMP/halo-arm-test"
           "$RUNNER_TEMP/halo-arm-test/bin/python" -m pip install unicorn==2.1.4 keystone-engine==0.9.2
           "$RUNNER_TEMP/halo-arm-test/bin/python" tools/tests/test_ios_pointer_fastpath.py
@@ -58,8 +60,11 @@ jobs:
           python3 configure.py --pgo=off
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p = Path("build.ninja")
-          s = p.read_text()
+          # Ninja wraps long command lines with dollar-newline continuations.
+          # Join those before matching the converter invocation.
+          s = re.sub(r"\$\r?\n[ \t]*", "", p.read_text())
           if "tools/android_gl_stubs.py" not in s:
               raise SystemExit("android GL stub rule not found in build.ninja")
           if "-DHALO_ANDROID=1" not in s:
