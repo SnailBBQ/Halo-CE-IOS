@@ -30,6 +30,10 @@ Conventions carried over from the Xbox:
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
+#ifdef HALO_IOS_GUEST
+#include "ios_render_scan.h"
+#endif
 #include <time.h>
 
 void d3d8_surface_initialize(D3DSurface *surface, D3DFORMAT format, unsigned long width, unsigned long height);
@@ -1815,12 +1819,19 @@ static struct vertex_shader_object *current_program(void)
 /* size is a multiple of 4 */
 static unsigned long hash_words(const void *data, unsigned long size)
 {
+#ifdef HALO_IOS_GUEST
+    unsigned int result;
+    struct halo_render_scan_packet p={0};
+    p.kind=HALO_SCAN_SHADER_HASH;p.head=(unsigned int)data;p.size=size;p.result=(unsigned int)&result;
+    host_render_scan((unsigned int)&p);return result;
+#else
 	const DWORD *words = data;
 	unsigned long hash = 2166136261UL;
 
 	for (size /= 4; size; size--)
 		hash = (hash ^ *words++) * 16777619UL;
 	return hash;
+#endif
 }
 
 static GLuint fixed_vertex_shader_get(void)
@@ -1907,6 +1918,19 @@ static GLuint vertex_shader_get(struct vertex_shader_object *program, BOOL immed
 
 typedef char pixel_shader_key_size_assert[sizeof(struct nv2a_pixel_shader_key) % 4 == 0 ? 1 : -1];
 
+#ifdef HALO_IOS_GUEST
+typedef char ios_program_key_layout[(offsetof(struct program_entry,fragment_shader)==offsetof(struct program_entry,vertex_shader)+4) ? 1 : -1];
+typedef char ios_guest_word_size[(sizeof(unsigned long)==4 && sizeof(void *)==4) ? 1 : -1];
+static unsigned int native_shader_find(unsigned int head,unsigned int size,unsigned int next,
+    unsigned int key_offset,unsigned int key_size,const void *key,unsigned int hash_offset,unsigned int hash,unsigned int use_hash)
+{
+    unsigned int result;
+    struct halo_render_scan_packet p={HALO_SCAN_SHADER,head,size,next,key_offset,key_size,
+        (unsigned int)key,hash_offset,hash,use_hash,(unsigned int)&result};
+    host_render_scan((unsigned int)&p);return result;
+}
+#endif
+
 static GLuint fragment_shader_get(const struct nv2a_pixel_shader_key *key)
 {
 	/* consecutive draws mostly use the same pixel shader */
@@ -1916,10 +1940,20 @@ static GLuint fragment_shader_get(const struct nv2a_pixel_shader_key *key)
 	struct fragment_entry *entry;
 	char *source;
 
+#ifdef HALO_IOS_GUEST
+    if (last && native_shader_find((unsigned int)last,sizeof(*last),offsetof(struct fragment_entry,next),
+        offsetof(struct fragment_entry,key),sizeof(*key),key,0,0,2)) return last->shader;
+#else
 	if (last && !memcmp(&last->key, key, sizeof(*key)))
 		return last->shader;
+#endif
 	hash = hash_words(key, sizeof(*key));
 	bucket = &fragment_buckets[hash % FRAGMENT_BUCKETS];
+#ifdef HALO_IOS_GUEST
+    entry=(struct fragment_entry *)native_shader_find((unsigned int)*bucket,sizeof(*entry),offsetof(struct fragment_entry,next),
+        offsetof(struct fragment_entry,key),sizeof(*key),key,offsetof(struct fragment_entry,hash),hash,1);
+    if (entry) { last=entry;return entry->shader; }
+#else
 	for (entry = *bucket; entry; entry = entry->next)
 	{
 		if (entry->hash == hash && !memcmp(&entry->key, key, sizeof(*key)))
@@ -1928,6 +1962,7 @@ static GLuint fragment_shader_get(const struct nv2a_pixel_shader_key *key)
 			return entry->shader;
 		}
 	}
+#endif
 	entry = calloc(1, sizeof(*entry));
 	entry->hash = hash;
 	entry->key = *key;
@@ -1963,6 +1998,12 @@ static struct program_entry *program_get(GLuint vertex_shader, GLuint fragment_s
 
 	if (last && last->vertex_shader == vertex_shader && last->fragment_shader == fragment_shader)
 		return last;
+#ifdef HALO_IOS_GUEST
+    unsigned int shader_key[2]={vertex_shader,fragment_shader};
+    entry=(struct program_entry *)native_shader_find((unsigned int)*bucket,sizeof(*entry),offsetof(struct program_entry,next),
+        offsetof(struct program_entry,vertex_shader),sizeof(shader_key),shader_key,0,0,0);
+    if (entry) { if (!entry->program) return NULL;last=entry;return entry; }
+#else
 	for (entry = *bucket; entry; entry = entry->next)
 	{
 		if (entry->vertex_shader == vertex_shader && entry->fragment_shader == fragment_shader)
@@ -1973,6 +2014,7 @@ static struct program_entry *program_get(GLuint vertex_shader, GLuint fragment_s
 			return entry;
 		}
 	}
+#endif
 	entry = calloc(1, sizeof(*entry));
 	entry->vertex_shader = vertex_shader;
 	entry->fragment_shader = fragment_shader;
@@ -2623,18 +2665,28 @@ static unsigned long draw_uniforms_serial;
 /* sets a program's uniform unless it already holds value */
 static void uniform_vec4(GLint location, float *shadow, const float *value, int count)
 {
+#ifdef HALO_IOS_GUEST
+    host_uniform_apply(location,(unsigned int)shadow,(unsigned int)value,count,0);
+#else
 	if (location < 0 || !memcmp(shadow, value, (size_t)count * 4 * sizeof(float)))
 		return;
 	memcpy(shadow, value, (size_t)count * 4 * sizeof(float));
 	glUniform4fv(location, count, value);
+
+#endif
 }
 
 static void uniform_float(GLint location, float *shadow, float value)
 {
+#ifdef HALO_IOS_GUEST
+    host_uniform_apply(location,(unsigned int)shadow,(unsigned int)&value,1,1);
+#else
 	if (location < 0 || !memcmp(shadow, &value, sizeof(value)))
 		return;
 	*shadow = value;
 	glUniform1f(location, value);
+
+#endif
 }
 
 #ifdef HALO_IOS_GUEST
@@ -3199,6 +3251,7 @@ static BOOL mirror_range(unsigned long address, unsigned long size, GLuint *buff
 
 /* the smallest and largest index of an index range the mirror holds: the
 same ranges are drawn frame after frame */
+#ifndef HALO_IOS_GUEST
 #define INDEX_RANGE_SLOTS 4096
 
 static struct
@@ -3209,10 +3262,6 @@ static struct
 	WORD minimum;
 	WORD maximum;
 } index_ranges[INDEX_RANGE_SLOTS];
-
-#ifdef HALO_IOS_GUEST
-#define index_extent index_extent_profiled
-#endif
 static void index_extent(const WORD *indices, unsigned long count, unsigned long generation, BOOL cached,
 	unsigned long *minimum, unsigned long *maximum)
 {
@@ -3245,13 +3294,18 @@ static void index_extent(const WORD *indices, unsigned long count, unsigned long
 	*maximum = high;
 }
 
+#endif
 #ifdef HALO_IOS_GUEST
-#undef index_extent
 static void index_extent(const WORD *indices, unsigned long count, unsigned long generation, BOOL cached,
     unsigned long *minimum, unsigned long *maximum)
 {
     host_frame_phase(10,0);
-    index_extent_profiled(indices,count,generation,cached,minimum,maximum);
+    unsigned int result[2];
+    struct halo_render_scan_packet p={0};
+    (void)generation;(void)cached;
+    p.kind=HALO_SCAN_INDICES;p.head=(unsigned int)indices;p.size=count;p.result=(unsigned int)result;
+    host_render_scan((unsigned int)&p);
+    *minimum=result[0];*maximum=result[1];
     host_frame_phase(10,1);
 }
 #endif

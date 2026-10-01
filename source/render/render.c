@@ -61,6 +61,13 @@ symbols in this file:
 
 #include "cseries.h"
 #include "render.h"
+/* Separate engine scene work from the overlapping D3D/GL measurements. */
+#ifdef HALO_IOS_GUEST
+extern void host_frame_phase(int,int);
+#define IOS_SCENE_PHASE(phase,call) do { host_frame_phase(phase,0);call;host_frame_phase(phase,1); } while (0)
+#else
+#define IOS_SCENE_PHASE(phase,call) do { call; } while (0)
+#endif
 #include "render_cameras_internal.h"
 #include "render_particles.h"
 #include "objects.h"
@@ -356,7 +363,7 @@ static void render_window(
 	parameters.window_index = render.window_index;
 	parameters.fog = render.fog;
 
-	structure_visibility_compute();
+	IOS_SCENE_PHASE(12,structure_visibility_compute());
 	player_effect_get_screen_flash(local_player_index, &parameters.screen_flash);
 	rasterizer_window_begin(&parameters);
 
@@ -365,13 +372,13 @@ static void render_window(
 		build_sprite_prepare_for_window();
 		render_sky();
 		first_person_weapon_render_update();
-		lights_preprocess_scene();
-		render_objects();
-		structure_render_preprocess();
-		structure_render_lightmaps();
+		IOS_SCENE_PHASE(16,lights_preprocess_scene());
+		IOS_SCENE_PHASE(13,render_objects());
+		IOS_SCENE_PHASE(14,structure_render_preprocess());
+		IOS_SCENE_PHASE(14,structure_render_lightmaps());
 		rasterizer_lens_flares_submit_occlusion_tests();
-		render_object_shadows();
-		lights_render_diffuse();
+		IOS_SCENE_PHASE(13,render_object_shadows());
+		IOS_SCENE_PHASE(16,lights_render_diffuse());
 
 		rasterizer_decals_begin(_decal_layer_light);
 		for (rendered_cluster_index = 0;
@@ -391,7 +398,7 @@ static void render_window(
 		}
 		rasterizer_decals_end();
 
-		structure_render_diffuse_texture();
+		IOS_SCENE_PHASE(14,structure_render_diffuse_texture());
 
 		rasterizer_decals_begin(_decal_layer_primary);
 		for (rendered_cluster_index = 0;
@@ -411,19 +418,19 @@ static void render_window(
 		}
 		rasterizer_decals_end();
 
-		lights_render_specular();
-		structure_render_specular_lightmaps();
-		structure_render_reflection_lightmap_masks();
-		structure_render_reflection_mirrors();
-		structure_render_reflections();
-		structure_render_transparent_geometry();
-		structure_render_fog();
+		IOS_SCENE_PHASE(16,lights_render_specular());
+		IOS_SCENE_PHASE(14,structure_render_specular_lightmaps());
+		IOS_SCENE_PHASE(14,structure_render_reflection_lightmap_masks());
+		IOS_SCENE_PHASE(14,structure_render_reflection_mirrors());
+		IOS_SCENE_PHASE(14,structure_render_reflections());
+		IOS_SCENE_PHASE(14,structure_render_transparent_geometry());
+		IOS_SCENE_PHASE(14,structure_render_fog());
 		game_engine_post_rasterize_objects();
-		weather_particle_systems_render();
-		render_particles();
-		particle_systems_render();
-		render_contrails_normal();
-		rasterizer_transparent_geometry_draw(TRUE);
+		IOS_SCENE_PHASE(15,weather_particle_systems_render());
+		IOS_SCENE_PHASE(15,render_particles());
+		IOS_SCENE_PHASE(15,particle_systems_render());
+		IOS_SCENE_PHASE(15,render_contrails_normal());
+		IOS_SCENE_PHASE(15,rasterizer_transparent_geometry_draw(TRUE));
 
 		rasterizer_decals_begin(_decal_layer_water);
 		for (rendered_cluster_index = 0;
@@ -434,19 +441,19 @@ static void render_window(
 		}
 		rasterizer_decals_end();
 
-		structure_render_detail_objects();
-		rasterizer_transparent_geometry_draw(FALSE);
+		IOS_SCENE_PHASE(14,structure_render_detail_objects());
+		IOS_SCENE_PHASE(15,rasterizer_transparent_geometry_draw(FALSE));
 		rasterizer_transparent_geometry_stop();
-		structure_render_fog_screen();
+		IOS_SCENE_PHASE(14,structure_render_fog_screen());
 		rasterizer_lens_flares_draw();
-		interface_draw_screen();
+		IOS_SCENE_PHASE(17,interface_draw_screen());
 		rasterizer_screen_flash();
 #ifdef HALO_LINUX
 		halo_screen_ui_offset(TRUE);
-		render_ui_widgets(local_player_index, &rasterizer_camera->viewport_bounds);
+		IOS_SCENE_PHASE(17,render_ui_widgets(local_player_index, &rasterizer_camera->viewport_bounds));
 		halo_screen_ui_offset(FALSE);
 #else
-		render_ui_widgets(local_player_index, &rasterizer_camera->viewport_bounds);
+		IOS_SCENE_PHASE(17,render_ui_widgets(local_player_index, &rasterizer_camera->viewport_bounds));
 #endif
 	}
 

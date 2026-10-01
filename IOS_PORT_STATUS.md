@@ -1,6 +1,6 @@
 # Halo CE iOS — Port Status
 
-Updated October 1, 2026. Current development milestone: **M2.6.23**.
+Updated October 1, 2026. Current development milestone: **M2.6.24**.
 
 Halo's real main menu rendered on a physical iPhone with **M2.6.12**. The test ran for more than ten minutes and showed the Halo background and Campaign, Multiplayer, and Settings. Startup and frame rendering were very slow, and blocks covered portions of the menu text. This was the first menu milestone; later campaign evidence is recorded below.
 
@@ -118,3 +118,7 @@ M2.6.22 device logs show roughly 0.38 FPS in tutorial gameplay, about two second
 M2.6.23 moves vertex-attribute descriptor comparisons, enable/disable state and GL setup into the native host. Every renderer cache invalidation also invalidates the native cache. Buffer-binding side effects are returned to the guest, and constant attribute values are copied from validated guest memory. This is a default iOS optimization; resolution stays 640×480 and the working execution bridge remains enabled. Other platforms keep their existing path.
 
 The workflow checks cache transitions, each descriptor field, buffer side effects, invalidation and bounds. Apple compilation and device performance still need verification. Compare presentation FPS, vertex-preparation time/upgrades and render time/upgrades in the same menu and tutorial scenes; a passing build alone does not establish improved performance. The full static pointer-rewrite experiment remains disabled. See the [performance migration review](port/ios/PERFORMANCE_PLAN.md).
+
+## M2.6.24 native renderer scans
+
+Index bounds, shader/texture cache searches and uniform comparisons now run in bounded native helpers. No native cache or static pointer rewrite is introduced; the working signal bridge, page protection behavior and resolution remain unchanged. New scene categories cover visibility, objects, structure passes, particles, lights and UI. Device correctness and performance remain to be tested; no FPS gain is claimed yet. See the [implementation, exact functions, rebuild checklist and log acceptance criteria](port/ios/RENDER_PERFORMANCE_M2624.md).

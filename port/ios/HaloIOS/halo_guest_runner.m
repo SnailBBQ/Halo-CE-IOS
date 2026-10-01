@@ -29,6 +29,8 @@
 #include "halo_vertex_native.h"
 #include <OpenGLES/ES3/gl.h>
 #include "halo_attribute_native.h"
+#include "halo_render_scan_native.h"
+#include "../../include/ios_render_scan.h"
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
@@ -265,10 +267,10 @@ static double loading_seconds(void)
 }
 
 static _Atomic uint64_t g_crc_calls, g_crc_bytes, g_crc_ns, g_texel_calls, g_texel_bytes, g_texel_ns, g_texel_fallbacks;
-static _Atomic uint64_t g_phase_ns[12], g_phase_calls[12], g_phase_upgrades[12];
+static _Atomic uint64_t g_phase_ns[18], g_phase_calls[18], g_phase_upgrades[18];
 static _Atomic uint64_t g_vertex_calls, g_vertex_bytes, g_vertex_ns, g_vertex_fallbacks;
-static double g_phase_started[12];
-static uint64_t g_phase_upgrade_start[12];
+static double g_phase_started[18];
+static uint64_t g_phase_upgrade_start[18];
 static _Atomic int g_waiting_frame, g_frame_present_ok;
 static _Atomic uint64_t g_presented_frames;
 static _Atomic uint32_t g_frame_draws;
@@ -307,6 +309,94 @@ static void ios_vertex_attribute_value(uint32_t index,uint32_t value_va)
     halo_attribute_value(&g_attribute_cache,index,value);
     atomic_fetch_add(&g_attribute_value_calls,1);
     atomic_fetch_add(&g_attribute_ns,(uint64_t)((loading_seconds()-started)*1e9));
+}
+
+/* No persistent cache: renderer/drop invalidation remains wholly guest-owned.
+   Packet fields are snapshotted before any result write, including aliases. */
+static _Atomic uint64_t g_scan_calls[5],g_scan_items[5],g_scan_ns[5],g_scan_invalid,g_native_loop_upgrades;
+static _Atomic uint64_t g_uniform_calls,g_uniform_uploads,g_uniform_bytes,g_uniform_ns;
+static const void *ios_scan_resolve(void *context,uint32_t address,size_t size)
+{ (void)context;return gp(address,size); }
+static void ios_render_scan(uint32_t packet_va)
+{
+    double started=loading_seconds();
+    uint64_t upgrades=halo_guest_exec_thread_pointer_upgrades();
+    struct halo_render_scan_packet p;
+    const void *packet=(packet_va&3u)?NULL:gp(packet_va,sizeof(p));
+    if (!packet) goto invalid;
+    memcpy(&p,packet,sizeof(p));
+    uint32_t result[3]={0},visited=0,items=0;
+    void *output=NULL;
+    if (p.kind==HALO_SCAN_INDICES) {
+        output=(p.result&3u)?NULL:gp(p.result,8);
+        if (!output || p.size>UINT32_MAX/2u) goto invalid;
+        const void *indices=p.size?gp(p.head,(size_t)p.size*2):NULL;
+        if (p.size && !indices) goto invalid;
+        halo_scan_indices(indices,p.size,result);items=p.size;
+    } else if (p.kind==HALO_SCAN_PALETTE) {
+        output=(p.result&3u)?NULL:gp(p.result,4);
+        const void *palette=p.head?gp(p.head,1024):NULL;
+        if (!output || (p.head && !palette)) goto invalid;
+        result[0]=halo_scan_palette(palette);items=p.head?256:0;
+    } else if (p.kind==HALO_SCAN_SHADER_HASH) {
+        output=(p.result&3u)?NULL:gp(p.result,4);
+        if (!output || p.size>4096 || (p.size&3u)) goto invalid;
+        const void *key=p.size?gp(p.head,p.size):NULL;
+        if (p.size && !key) goto invalid;
+        result[0]=halo_scan_hash_words(key,p.size);items=p.size/4;
+    } else if (p.kind==HALO_SCAN_SHADER) {
+        output=(p.result&3u)?NULL:gp(p.result,4);
+        const void *key=(p.key_size && p.key_size<=4096)?gp(p.key,p.key_size):NULL;
+        if (!output || !halo_scan_shader(ios_scan_resolve,NULL,p.head,p.size,p.next,p.key_offset,p.key_size,
+            key,p.hash_offset,p.hash,p.use_hash,result,&visited)) goto invalid;
+        items=visited;
+    } else if (p.kind==HALO_SCAN_TEXTURE) {
+        output=(p.result&3u)?NULL:gp(p.result,12);
+        uint32_t key[4];const void *source=gp(p.key,16);
+        if (!output || !source) goto invalid;
+        memcpy(key,source,sizeof(key));
+        if (!halo_scan_texture(ios_scan_resolve,NULL,p.head,p.size,p.next,p.key_offset,p.hash_offset,p.hash,
+            key,result,&visited)) goto invalid;
+        items=visited;
+    } else goto invalid;
+    memcpy(output,result,p.kind==HALO_SCAN_INDICES?8:p.kind==HALO_SCAN_TEXTURE?12:4);
+    unsigned kind=p.kind-1;
+    atomic_fetch_add(&g_native_loop_upgrades,halo_guest_exec_thread_pointer_upgrades()-upgrades);
+    atomic_fetch_add(&g_scan_calls[kind],1);atomic_fetch_add(&g_scan_items[kind],items);
+    atomic_fetch_add(&g_scan_ns[kind],(uint64_t)((loading_seconds()-started)*1e9));return;
+invalid:
+    atomic_fetch_add(&g_scan_invalid,1);
+    say("native render scan: invalid packet/span/list at 0x%08x",packet_va);
+    halo_guest_exec_abort(HALO_GUEST_ABORT_HOST);
+}
+/* Comparison, shadow update and upload preserve the original order. No native
+   uniform cache or guest pointer survives this call. Negative locations are
+   ignored before pointer access, as in the original renderer. */
+static void ios_uniform_apply(int32_t location,uint32_t shadow_va,uint32_t value_va,uint32_t count,uint32_t scalar)
+{
+    if (location<0 || !count) return;
+    double started=loading_seconds();
+    uint64_t upgrades=halo_guest_exec_thread_pointer_upgrades();
+    if (scalar>1 || !count || count>256 || (scalar && count!=1) || ((shadow_va|value_va)&3u)) goto invalid;
+    size_t size=(size_t)count*(scalar?4:16);
+    void *shadow=gp(shadow_va,size);const void *value=gp(value_va,size);
+    if (!shadow || !value) goto invalid;
+    /* Partial overlap was never a valid memcpy input in the guest path. */
+    if (shadow_va!=value_va && (uint64_t)shadow_va<(uint64_t)value_va+size &&
+        (uint64_t)value_va<(uint64_t)shadow_va+size) goto invalid;
+    atomic_fetch_add(&g_uniform_calls,1);atomic_fetch_add(&g_uniform_bytes,size);
+    if (memcmp(shadow,value,size)) {
+        memcpy(shadow,value,size);
+        if (scalar) { float v;memcpy(&v,value,4);glUniform1f(location,v); }
+        else glUniform4fv(location,(GLsizei)count,value);
+        atomic_fetch_add(&g_uniform_uploads,1);
+    }
+    atomic_fetch_add(&g_native_loop_upgrades,halo_guest_exec_thread_pointer_upgrades()-upgrades);
+    atomic_fetch_add(&g_uniform_ns,(uint64_t)((loading_seconds()-started)*1e9));return;
+invalid:
+    atomic_fetch_add(&g_scan_invalid,1);
+    say("native uniform: invalid location/span/count %d %u",location,count);
+    halo_guest_exec_abort(HALO_GUEST_ABORT_HOST);
 }
 
 static int ios_vertex_color_swizzle(uint32_t dst, uint32_t src, uint32_t size,
@@ -392,7 +482,7 @@ static void ios_frame_counts(uint32_t draws, uint32_t skipped, uint32_t clears, 
 }
 static void ios_frame_phase(int phase, int done)
 {
-    if (phase<0 || phase>=12) return;
+    if (phase<0 || phase>=18) return;
     if (!done) { g_phase_started[phase]=loading_seconds(); g_phase_upgrade_start[phase]=halo_guest_exec_thread_pointer_upgrades(); if (phase==2) g_frame_present_ok=0; }
     else {
         pthread_mutex_lock(&g_timing_lock);
@@ -2011,6 +2101,8 @@ static void *resolve_host_import(const char *name)
     MAP("host_vertex_attribute_pointer", ios_vertex_attribute_pointer);
     MAP("host_vertex_attribute_value", ios_vertex_attribute_value);
     MAP("host_vertex_state_invalidate", ios_vertex_state_invalidate);
+    MAP("host_render_scan", ios_render_scan);
+    MAP("host_uniform_apply", ios_uniform_apply);
     MAP("host_memory_copy", ios_memory_copy);
     MAP("host_memory_fill", ios_memory_fill);
     MAP("host_loading_stage", ios_loading_stage);
@@ -2316,9 +2408,9 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.23 recovery: experimental direct pointer conversion disabled; original signal bridge restored.");
+    say("M2.6.24 recovery: experimental direct pointer conversion disabled; original signal bridge restored.");
     say("Performance defaults: interpolation off; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.23 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.24 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);
@@ -2469,11 +2561,19 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                 say("native vertex attributes: %llu pointer calls, %llu pointer descriptors reused, %llu value calls, %.1f ms total",
                     (unsigned long long)atomic_load(&g_attribute_pointer_calls),(unsigned long long)atomic_load(&g_attribute_pointer_reused),
                     (unsigned long long)atomic_load(&g_attribute_value_calls),atomic_load(&g_attribute_ns)/1e6);
-                for (int phase=0; phase<12; phase++) {
+                static const char *scan_names[]={"indices","palette","shader cache","texture cache","shader hash"};
+                for (unsigned kind=0;kind<5;kind++)
+                    say("native scan %s: %llu calls, %llu items, %.1f ms total",scan_names[kind],
+                        (unsigned long long)atomic_load(&g_scan_calls[kind]),(unsigned long long)atomic_load(&g_scan_items[kind]),atomic_load(&g_scan_ns[kind])/1e6);
+                say("native uniforms: %llu comparisons, %llu uploads, %llu KiB compared, %.1f ms total; invalid native inputs %llu",
+                    (unsigned long long)atomic_load(&g_uniform_calls),(unsigned long long)atomic_load(&g_uniform_uploads),
+                    (unsigned long long)(atomic_load(&g_uniform_bytes)/1024),atomic_load(&g_uniform_ns)/1e6,(unsigned long long)atomic_load(&g_scan_invalid));
+                say("native renderer helper thread upgrades: %llu",(unsigned long long)atomic_load(&g_native_loop_upgrades));
+                for (int phase=0; phase<18; phase++) {
                     pthread_mutex_lock(&g_timing_lock);
                     uint64_t calls=atomic_exchange(&g_phase_calls[phase],0), ns=atomic_exchange(&g_phase_ns[phase],0), upgrades=atomic_exchange(&g_phase_upgrades[phase],0);
                     pthread_mutex_unlock(&g_timing_lock);
-                    static const char *names[]={"update", "render CPU (includes conversion/upload)", "present CPU", "GL upload CPU", "draw setup total", "texture binding/cache", "shader lookup/link", "vertex preparation", "uniform/state setup", "vertex color conversion/upload", "index bounds/cache", "texture lookup/upload"};
+                    static const char *names[]={"update", "render CPU (includes conversion/upload)", "present CPU", "GL upload CPU", "draw setup total", "texture binding/cache", "shader lookup/link", "vertex preparation", "uniform/state setup", "vertex color conversion/upload", "index bounds/cache", "texture lookup/upload", "scene visibility", "scene objects/shadows", "scene structure passes", "scene particles/transparency", "scene lights", "scene interface"};
                     if (calls) say("timing %s: %llu calls, %.1f ms average, %.0f thread pointer upgrades/call (overlapping categories)", names[phase], (unsigned long long)calls, ns/1e6/calls, (double)upgrades/calls);
                 }
                 previous_upgrades = stats.pointer_upgrades;

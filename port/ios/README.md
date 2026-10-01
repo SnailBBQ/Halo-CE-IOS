@@ -2,7 +2,7 @@
 
 Experimental Halo: Combat Evolved port for physical iPhone and iPad devices running iOS/iPadOS 15 or later. A native `arm64` app hosts the recovered `arm64_32` engine and presents graphics through EAGL/OpenGL ES 3.
 
-**Current version: M2.6.23 native vertex-state trial, awaiting device testing.** M2.6.19 reached the `a10` intro cutscene and initial campaign gameplay on the test iPhone, with improved menu response but very low frame rates. M2.6.21 restored campaign boot. M2.6.22 accelerates streamed vertex-color conversion natively and adds finer renderer measurements while retaining the working pointer bridge. Audio remains muted; full movement/aim controls and multiplayer remain pending. See [port status](../../IOS_PORT_STATUS.md).
+**Current version: M2.6.24 native renderer scans, awaiting device testing.** M2.6.19 reached the `a10` intro cutscene and initial campaign gameplay on the test iPhone, with improved menu response but very low frame rates. M2.6.21 restored campaign boot. M2.6.22 accelerates streamed vertex-color conversion natively and adds finer renderer measurements while retaining the working pointer bridge. Audio remains muted; full movement/aim controls and multiplayer remain pending. See [port status](../../IOS_PORT_STATUS.md).
 
 ## Build with GitHub Actions
 
@@ -146,3 +146,7 @@ M2.6.22 device logs show roughly 0.38 FPS in tutorial gameplay, about two second
 M2.6.23 moves vertex-attribute descriptor comparisons, enable/disable state and GL setup into the native host. Every renderer cache invalidation also invalidates the native cache. Buffer-binding side effects are returned to the guest, and constant attribute values are copied from validated guest memory. This is a default iOS optimization; resolution stays 640×480 and the working execution bridge remains enabled. Other platforms keep their existing path.
 
 The workflow checks cache transitions, each descriptor field, buffer side effects, invalidation and bounds. Apple compilation and device performance still need verification. Compare presentation FPS, vertex-preparation time/upgrades and render time/upgrades in the same menu and tutorial scenes; a passing build alone does not establish improved performance. The full static pointer-rewrite experiment remains disabled. See the [performance migration review](PERFORMANCE_PLAN.md).
+
+## M2.6.24 native renderer scans
+
+Index bounds, shader/texture cache searches and uniform comparisons now run in bounded native helpers. No native cache or static pointer rewrite is introduced; the working signal bridge, page protection behavior and resolution remain unchanged. New scene categories cover visibility, objects, structure passes, particles, lights and UI. Device correctness and performance remain to be tested; no FPS gain is claimed yet. See the [implementation, exact functions, rebuild checklist and log acceptance criteria](RENDER_PERFORMANCE_M2624.md).

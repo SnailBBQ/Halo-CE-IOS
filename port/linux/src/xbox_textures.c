@@ -23,6 +23,10 @@ memory_watch.c detects that by write-protecting the pages.
 #endif
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
+#ifdef HALO_IOS_GUEST
+#include "ios_render_scan.h"
+#endif
 
 #ifndef GL_COMPRESSED_RGBA_S3TC_DXT1_EXT
 #define GL_COMPRESSED_RGBA_S3TC_DXT1_EXT 0x83f1
@@ -691,6 +695,10 @@ struct texture_entry
 	unsigned long last_used_frame;
 };
 
+#ifdef HALO_IOS_GUEST
+typedef char ios_texture_key_layout[(offsetof(struct texture_entry,format_word)==offsetof(struct texture_entry,data)+4 &&
+    offsetof(struct texture_entry,size_word)==offsetof(struct texture_entry,data)+8 && sizeof(unsigned long)==4) ? 1 : -1];
+#endif
 #define TEXTURE_BUCKET_COUNT 4096
 #define TEXTURE_IDLE_FRAMES 1800
 #define MAXIMUM_PALETTE_VARIANTS 8
@@ -722,6 +730,12 @@ static unsigned long bucket_index(DWORD data, DWORD format_word, DWORD size_word
 palettes freely, and often cycles a texture through a few of them */
 static unsigned long palette_hash(const D3DCOLOR *palette)
 {
+#ifdef HALO_IOS_GUEST
+    unsigned int result;
+    struct halo_render_scan_packet p={0};
+    p.kind=HALO_SCAN_PALETTE;p.head=(unsigned int)palette;p.result=(unsigned int)&result;
+    host_render_scan((unsigned int)&p);return result;
+#else
 	unsigned long hash = 2166136261UL, index;
 
 	if (!palette)
@@ -729,6 +743,8 @@ static unsigned long palette_hash(const D3DCOLOR *palette)
 	for (index = 0; index < 256; index++)
 		hash = (hash ^ palette[index]) * 16777619UL;
 	return hash ? hash : 1;
+
+#endif
 }
 
 #ifdef HALO_IOS_GUEST
@@ -768,6 +784,16 @@ GLuint xgpu_texture_get(const DWORD *resource, const D3DCOLOR *palette, GLenum *
 		return entry->texture;
 	}
 
+#ifdef HALO_IOS_GUEST
+    unsigned int texture_key[4]={data,format_word,size_word,hash},result[3];
+    struct halo_render_scan_packet p={0};
+    p.kind=HALO_SCAN_TEXTURE;p.head=(unsigned int)*bucket;p.size=sizeof(*entry);
+    p.next=offsetof(struct texture_entry,next);p.key_offset=offsetof(struct texture_entry,data);
+    p.hash_offset=offsetof(struct texture_entry,palette_hash);p.hash=offsetof(struct texture_entry,last_used_frame);
+    p.key=(unsigned int)texture_key;p.result=(unsigned int)result;
+    host_render_scan((unsigned int)&p);
+    entry=(struct texture_entry *)result[0];variant_count=result[1];oldest_variant=(struct texture_entry *)result[2];
+#else
 	for (entry = *bucket; entry; entry = entry->next)
 	{
 		if (entry->data == data && entry->format_word == format_word && entry->size_word == size_word)
@@ -779,6 +805,7 @@ GLuint xgpu_texture_get(const DWORD *resource, const D3DCOLOR *palette, GLenum *
 				oldest_variant = entry;
 		}
 	}
+#endif
 	if (!entry && variant_count >= MAXIMUM_PALETTE_VARIANTS)
 	{
 		/* a palette that keeps changing reuses the stalest copy */
