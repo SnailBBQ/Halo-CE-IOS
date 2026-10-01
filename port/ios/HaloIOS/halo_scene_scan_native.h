@@ -159,92 +159,36 @@ const void *allowed,void *seen,void *indices,uint32_t maximum,uint32_t *found,ui
     *found=result;
     return 1;
 }
-#endif
 
-/* ---------- M2.6.26 rendered-object list prefilter -----------------------
- * Compacts the list of rendered object indices by dropping objects that the
- * guest would early-out on (invisible, or shadowless on the shadow pass).
- *
- * object_header_datum layout (32-bit guest, from objects.h):
- *   +0  short identifier
- *   +2  byte  flags
- *   +3  byte  type
- *   +4  short cluster_index
- *   +6  short data_size
- *   +8  u32   datum (guest pointer to object_datum)
- *
- * object_datum layout:
- *   +0  long  definition_index
- *   +4  u32   flags   (_object_invisible_bit = 0, _object_shadowless_bit = 18)
- *
- * filter_mask:
- *   bit 0 → drop if _object_invisible_bit is set
- *   bit 1 → drop if _object_shadowless_bit is set
- *
- * All addresses go through the existing arena resolver. No guest pointer is
- * retained after the call. Invalid metadata aborts to the guest path.
- */
-static int __attribute__((unused)) halo_scene_filter_objects(
-    halo_scene_resolve resolve,
-    uint32_t header_data_va,
-    const uint32_t *layout,
-    uint32_t *indices,
-    uint32_t count,
-    uint32_t filter_mask,
-    uint32_t *kept,
-    uint64_t *visited)
+/* Shadow-only rejection. Invisible parents/widgets stay in the guest path.
+   Guest callers query ONE scratch entry immediately before its callback; no
+   eligibility snapshot survives another callback. Stage bulk output so even
+   a late malformed datum leaves the caller's input and count untouched. */
+static inline int halo_scene_filter_objects(halo_scene_resolve resolve,
+    uint32_t data_va,const uint32_t *layout,uint32_t *indices,uint32_t count,
+    uint32_t mask,uint32_t *kept,uint64_t *visited)
 {
-    if (!layout || !indices || count == 0 || count > 512 ||
-        !layout[0] || layout[0] > 4096)
-        return 0;
-
-    const unsigned char *data = resolve(header_data_va, layout[0]);
-    if (!data) return 0;
-
-    int32_t maximum = halo_scene_i16(data, layout[1]);
-    int32_t stride  = halo_scene_i16(data, layout[2]);
-    int32_t dcount  = halo_scene_i16(data, layout[7]);
-    uint32_t base   = halo_scene_u32(data, layout[9]);
-    if (!base || maximum < 0 || stride < 12 || dcount < 0 || dcount > maximum ||
-        halo_scene_u32(data, layout[5]) != layout[11] || !data[layout[3]])
-        return 0;
-
-    uint32_t out = 0;
-    for (uint32_t i = 0; i < count; i++) {
-        uint32_t index = indices[i];
-        int32_t slot = (int16_t)index;
-        uint16_t identifier = (uint16_t)(index >> 16);
-        ++*visited;
-
-        if (slot < 0 || slot >= dcount)
-            continue;
-
-        uint64_t hva = (uint64_t)base + (uint64_t)(uint32_t)slot * (uint32_t)stride;
-        if (hva > UINT32_MAX) return 0;
-        const void *header = resolve((uint32_t)hva, (size_t)stride);
-        if (!header) return 0;
-
-        uint16_t salt = (uint16_t)halo_scene_i16(header, 0);
-        if (!salt || (identifier && salt != identifier))
-            continue;
-
-        /* Follow the guest pointer to the real object_datum. */
-        uint32_t datum_va = halo_scene_u32(header, 8);
-        if (!datum_va) continue;
-        const void *datum = resolve(datum_va, 8); /* need at least flags */
-        if (!datum) return 0;
-
-        uint32_t flags = halo_scene_u32(datum, 4); /* object.flags */
-
-        int reject = 0;
-        if ((filter_mask & 1u) && (flags & (1u << 0)))   /* invisible */
-            reject = 1;
-        if ((filter_mask & 2u) && (flags & (1u << 18)))  /* shadowless */
-            reject = 1;
-
-        if (!reject)
-            indices[out++] = index;
+    uint32_t staged[512],out_count=0;
+    static const uint32_t widths[10]={2,2,1,1,4,2,2,2,4,2};
+    if(!resolve || !layout || !indices || !kept || !visited || count>512 ||
+       (mask&~2u) || !layout[0] || layout[0]>4096) return 0;
+    for(unsigned i=1;i<=10;i++)
+        if(layout[i]>layout[0] || widths[i-1]>layout[0]-layout[i]) return 0;
+    const void *data=resolve(data_va,layout[0]);
+    if(!data || halo_scene_i16(data,layout[2])<12) return 0;
+    for(uint32_t i=0;i<count;i++) {
+        uint32_t result[3];
+        /* Strict datum lookup: invalid salts/rows fall back to guest asserts. */
+        if(!halo_scene_datum(resolve,3,data_va,indices[i],layout,result,visited)) return 0;
+        const void *header=resolve(result[0],12);
+        if(!header) return 0;
+        const void *object=resolve(halo_scene_u32(header,8),8);
+        if(!object) return 0;
+        uint32_t flags=halo_scene_u32(object,4);
+        if(!(mask&2u) || !(flags&(1u<<18))) staged[out_count++]=indices[i];
     }
-    *kept = out;
+    if(out_count) memcpy(indices,staged,(size_t)out_count*4);
+    *kept=out_count;
     return 1;
 }
+#endif

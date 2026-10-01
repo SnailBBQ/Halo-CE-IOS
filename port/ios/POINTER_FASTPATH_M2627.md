@@ -1,3 +1,5 @@
+> Historical experiment: launch crashes led to disabling this path. The M2.6.29 shipping workflow keeps it disabled; see [current status](PERFORMANCE_M2629.md).
+
 # M2.6.27 — Selective iOS pointer fast path (Phase 1)
 
 ## Intent

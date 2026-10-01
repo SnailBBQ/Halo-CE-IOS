@@ -1,3 +1,5 @@
+> Historical M2.6.26 experiment: its in-place/invisible filter was superseded by [M2.6.29](PERFORMANCE_M2629.md). Do not use its safety claims as the current implementation contract.
+
 # M2.6.26 object render list prefilter
 
 ## Goal

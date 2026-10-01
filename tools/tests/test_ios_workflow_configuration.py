@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 import ast,importlib.util,io,subprocess,sys,tempfile
 r=Path(__file__).resolve().parents[2]
 spec=importlib.util.spec_from_file_location('ninja_syntax',r/'tools/ninja_syntax.py')
@@ -12,6 +12,7 @@ generated=out.getvalue()
 assert 'tools/android_asm_convert.py $out.darwin.s $out.s' not in generated,generated
 assert '$\n' in generated
 wf=(r/'.github/workflows/ios.yml').read_text(encoding='utf-8')
+assert '--ios-pointer-fastpath' not in wf, 'shipping workflow must not activate pointer rewriting'
 body=wf.split("python3 - <<'PY'\n",1)[1].split('\n          PY',1)[0]
 body='\n'.join(line[10:] for line in body.splitlines())
 temporary=tempfile.TemporaryDirectory();scratch=Path(temporary.name)

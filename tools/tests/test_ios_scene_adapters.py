@@ -49,6 +49,42 @@ int main(void){
     assert(word(3080)==(((uint32_t)(uint16_t)salt<<16)|1));
     halo_scene_write32(arena,1536+40,0);assert(!ios_scene_datum(1,1536,0,1024,2048) && atomic_load(&g_datum_fallbacks)==1);
     assert(atomic_load(&g_native_loop_upgrades)==0 && atomic_load(&g_scene_invalid)==3);
+
+    /* Object header array: 12-byte rows, object flags at object+4. */
+    stride=12;count=3;maximum=3;
+    memcpy(arena+1536+32,&maximum,2);memcpy(arena+1536+34,&stride,2);
+    memcpy(arena+1536+46,&count,2);halo_scene_write32(arena,1536+40,layout[11]);
+    halo_scene_write32(arena,4096,1);halo_scene_write32(arena,4108,1);halo_scene_write32(arena,4120,1);
+    halo_scene_write32(arena,4104,8192);halo_scene_write32(arena,4116,8208);halo_scene_write32(arena,4128,8224);
+    halo_scene_write32(arena,8196,1); /* invisible parent/widgets: keep */
+    halo_scene_write32(arena,8212,1u<<18); /* shadowless */
+    halo_scene_write32(arena,8228,0);
+    uint32_t original[3]={0x10000,0x10001,0x10002};
+    memcpy(arena+9000,original,12);
+    assert(ios_scene_filter_objects(1536,9000,3,0,1024,2048) && word(1024)==3);
+    assert(!memcmp(arena+9000,original,12));
+    /* Shadow output is scratch, not the shared list used by normal passes. */
+    uint32_t scratch[3];memcpy(scratch,original,12);memcpy(arena+9000,scratch,12);
+    assert(ios_scene_filter_objects(1536,9000,3,2,1024,2048) && word(1024)==2);
+    assert(word(9000)==original[0] && word(9004)==original[2]);
+    /* Fail after a would-be compaction: input/result must remain untouched. */
+    memcpy(arena+9000,original,12);halo_scene_write32(arena,8196,1u<<18);
+    halo_scene_write32(arena,4128,65535);halo_scene_write32(arena,1024,77);
+    assert(!ios_scene_filter_objects(1536,9000,3,2,1024,2048));
+    assert(!memcmp(arena+9000,original,12) && word(1024)==77);
+    halo_scene_write32(arena,4128,8224);
+    uint32_t bad_offset=layout[9];halo_scene_write32(arena,2048+9*4,UINT32_MAX);
+    assert(!ios_scene_filter_objects(1536,9000,3,2,1024,2048));
+    halo_scene_write32(arena,2048+9*4,bad_offset);
+    /* Fresh single-entry queries observe callbacks changing later flags. */
+    halo_scene_write32(arena,9000,original[2]);
+    assert(ios_scene_filter_objects(1536,9000,1,2,1024,2048) && word(1024)==1);
+    halo_scene_write32(arena,8228,1u<<18);
+    assert(ios_scene_filter_objects(1536,9000,1,2,1024,2048) && word(1024)==0);
+    memcpy(arena+9000,original,12);
+    assert(!ios_scene_filter_objects(1536,9000,3,1,1024,2048));
+    assert(!memcmp(arena+9000,original,12));
+    assert(atomic_load(&g_native_loop_upgrades)==0);
     puts("PASS: actual scene adapters, full spans, overlap rejection, packet ABI, iterator writeback, diagnostic fallback and zero helper upgrades");return 0;
 }
 """

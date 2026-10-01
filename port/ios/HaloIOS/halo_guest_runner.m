@@ -269,10 +269,10 @@ static double loading_seconds(void)
 }
 
 static _Atomic uint64_t g_crc_calls, g_crc_bytes, g_crc_ns, g_texel_calls, g_texel_bytes, g_texel_ns, g_texel_fallbacks;
-static _Atomic uint64_t g_phase_ns[20], g_phase_calls[20], g_phase_upgrades[20];
+static _Atomic uint64_t g_phase_ns[24], g_phase_calls[24], g_phase_upgrades[24];
 static _Atomic uint64_t g_vertex_calls, g_vertex_bytes, g_vertex_ns, g_vertex_fallbacks;
-static double g_phase_started[20];
-static uint64_t g_phase_upgrade_start[20];
+static double g_phase_started[24];
+static uint64_t g_phase_upgrade_start[24];
 static _Atomic int g_waiting_frame, g_frame_present_ok;
 static _Atomic uint64_t g_presented_frames;
 static _Atomic uint32_t g_frame_draws;
@@ -402,6 +402,7 @@ invalid:
 }
 
 static _Atomic uint64_t g_scene_calls[7],g_scene_items[7],g_scene_ns[7],g_scene_invalid,g_datum_fallbacks;
+static _Atomic uint64_t g_object_filter_skipped,g_object_filter_fallbacks;
 static const void *ios_scene_resolve(uint32_t va,size_t size) { return gp(va,size); }
 static int ios_scene_datum(uint32_t kind,uint32_t data,uint32_t index,uint32_t result_va,uint32_t layout_va)
 {
@@ -432,7 +433,7 @@ static int ios_scene_datum(uint32_t kind,uint32_t data,uint32_t index,uint32_t r
     return 0;
 }
 
-static int __attribute__((unused)) ios_scene_filter_objects(uint32_t header_data, uint32_t indices_va,
+static int ios_scene_filter_objects(uint32_t header_data, uint32_t indices_va,
     uint32_t count, uint32_t filter_mask, uint32_t result_va, uint32_t layout_va)
 {
     double started=loading_seconds();
@@ -441,18 +442,19 @@ static int __attribute__((unused)) ios_scene_filter_objects(uint32_t header_data
     const void *layout=gp(layout_va,sizeof(l));
     void *result=(result_va&3u)?NULL:gp(result_va,4);
     uint32_t *indices=(indices_va&3u || !count)?NULL:gp(indices_va,(size_t)count*4);
-    if (!layout || !result || !indices || (layout_va&3u) || count>512) goto fallback;
+    if (!layout || !result || !indices || (layout_va&3u) || count>512 || (filter_mask&~2u)) goto fallback;
     memcpy(l,layout,sizeof(l));
     if (!halo_scene_filter_objects(ios_scene_resolve,header_data,l,indices,count,filter_mask,&kept,&visited))
         goto fallback;
     memcpy(result,&kept,4);
+    atomic_fetch_add(&g_object_filter_skipped,count-kept);
     atomic_fetch_add(&g_scene_calls[6],1);
     atomic_fetch_add(&g_scene_items[6],visited);
     atomic_fetch_add(&g_scene_ns[6],(uint64_t)((loading_seconds()-started)*1e9));
     atomic_fetch_add(&g_native_loop_upgrades,halo_guest_exec_thread_pointer_upgrades()-upgrades);
     return 1;
     fallback:
-    atomic_fetch_add(&g_datum_fallbacks,1);
+    atomic_fetch_add(&g_object_filter_fallbacks,1);
     return 0;
 }
 static int ios_scene_overlap(uint32_t a,size_t an,uint32_t b,size_t bn)
@@ -616,7 +618,7 @@ static void ios_frame_counts(uint32_t draws, uint32_t skipped, uint32_t clears, 
 }
 static void ios_frame_phase(int phase, int done)
 {
-    if (phase<0 || phase>=20) return;
+    if (phase<0 || phase>=24) return;
     if (!done) { g_phase_started[phase]=loading_seconds(); g_phase_upgrade_start[phase]=halo_guest_exec_thread_pointer_upgrades(); if (phase==2) g_frame_present_ok=0; }
     else {
         pthread_mutex_lock(&g_timing_lock);
@@ -2545,28 +2547,10 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    /* M2.6.27: selective direct pointer fast path (4 hot objects). The guest
-     * ELF may contain halo_ios_arena_base when built with --ios-pointer-fastpath.
-     * Host publishes the 4-GiB-aligned arena base before entry. Missing symbol
-     * means an uninstrumented guest; signal bridge remains the only path. */
-    uint32_t arena_sym = symbol_value_named("halo_ios_arena_base");
-    void *arena_host = halo_guest_base_address();
-    uint64_t arena_base = (uint64_t)(uintptr_t)arena_host;
-    if (arena_sym && arena_host) {
-        uint64_t *slot = (uint64_t *)halo_guest_ptr(arena_sym, sizeof(uint64_t));
-        if (slot) {
-            *slot = arena_base;
-            say("M2.6.27 pointer fast path: halo_ios_arena_base guest VA=0x%08x host slot=%p value=0x%llx",
-                arena_sym, slot, (unsigned long long)arena_base);
-        } else {
-            say("M2.6.27 pointer fast path: symbol present but guest mapping failed VA=0x%08x", arena_sym);
-        }
-    } else {
-        say("M2.6.27 recovery: no halo_ios_arena_base in guest (fast path off or uninstrumented); signal bridge active.");
-    }
+    say("M2.6.29: static pointer conversion disabled; original signal bridge active.");
     say("Performance defaults: interpolation off; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.27 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
-    say("M2.6.27 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
+    say("M2.6.29 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.29 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
         g_header ? g_header->start : 0u,
         context.boot_va,
         halo_guest_base_is_4gb_aligned() ? "YES" : "NO");
@@ -2588,7 +2572,7 @@ static void *main_guest_thread(void *opaque)
         halo_guest_exec_guard_set_active(0);
         halo_guest_exec_stats st;
         halo_guest_exec_stats_get(&st);
-        say("M2.6.27 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
+        say("M2.6.29 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
             reason,
             (unsigned long long)st.pointer_upgrades,
             (unsigned long long)st.handled_faults,
@@ -2745,11 +2729,12 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                 for(unsigned kind=0;kind<7;kind++)say("native scene %s: %llu calls, %llu items, %.1f ms total",scene_names[kind],
                     (unsigned long long)atomic_load(&g_scene_calls[kind]),(unsigned long long)atomic_load(&g_scene_items[kind]),atomic_load(&g_scene_ns[kind])/1e6);
                 say("native scene invalid inputs: %llu; datum diagnostic fallbacks: %llu",(unsigned long long)atomic_load(&g_scene_invalid),(unsigned long long)atomic_load(&g_datum_fallbacks));
-                for (int phase=0; phase<20; phase++) {
+                say("native shadow filter: %llu skipped; %llu diagnostic fallbacks",(unsigned long long)atomic_load(&g_object_filter_skipped),(unsigned long long)atomic_load(&g_object_filter_fallbacks));
+                for (int phase=0; phase<24; phase++) {
                     pthread_mutex_lock(&g_timing_lock);
                     uint64_t calls=atomic_exchange(&g_phase_calls[phase],0), ns=atomic_exchange(&g_phase_ns[phase],0), upgrades=atomic_exchange(&g_phase_upgrades[phase],0);
                     pthread_mutex_unlock(&g_timing_lock);
-                    static const char *names[]={"update", "render CPU (includes conversion/upload)", "present CPU", "GL upload CPU", "draw setup total", "texture binding/cache", "shader lookup/link", "vertex preparation", "uniform/state setup", "vertex color conversion/upload", "index bounds/cache", "texture lookup/upload", "scene visibility", "scene objects/shadows", "scene structure passes", "scene particles/transparency", "scene lights", "scene interface", "object discovery", "object render callbacks"};
+                    static const char *names[]={"update", "render CPU (includes conversion/upload)", "present CPU", "GL upload CPU", "draw setup total", "texture binding/cache", "shader lookup/link", "vertex preparation", "uniform/state setup", "vertex color conversion/upload", "index bounds/cache", "texture lookup/upload", "scene visibility", "scene objects/shadows", "scene structure passes", "scene particles/transparency", "scene lights", "scene interface", "object discovery", "object render callbacks", "object lighting/cache", "object lighting refresh", "object model/widget traversal", "object simulation update"};
                     if (calls) say("timing %s: %llu calls, %.1f ms average, %.0f thread pointer upgrades/call (overlapping categories)", names[phase], (unsigned long long)calls, ns/1e6/calls, (double)upgrades/calls);
                 }
                 previous_upgrades = stats.pointer_upgrades;

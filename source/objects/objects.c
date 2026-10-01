@@ -4200,6 +4200,9 @@ void objects_garbage_collection(
 }
 
 
+#ifdef HALO_IOS_GUEST
+#define objects_update objects_update_profiled
+#endif
 void objects_update(
 	void)
 {
@@ -4320,6 +4323,17 @@ void objects_update(
 
 	return;
 }
+#ifdef HALO_IOS_GUEST
+#undef objects_update
+void objects_update(void)
+{
+    extern void host_frame_phase(int,int);
+    host_frame_phase(23,0);
+    objects_update_profiled();
+    host_frame_phase(23,1);
+}
+#endif
+
 
 boolean debug_objects_bounding_spheres = TRUE;
 boolean debug_objects_collision_models = TRUE;

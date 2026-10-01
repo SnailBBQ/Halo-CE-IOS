@@ -229,3 +229,7 @@ Index bounds, shader/texture cache searches and uniform comparisons now run in b
 ## M2.6.25 native scene traversal
 
 The M2.6.24 device test confirms working native renderer helpers and better menu performance, but very slow a10 gameplay. M2.6.25 adds bounded native datum lookup/iteration, BSP surface sorting/triangle gathering/material runs and visibility marking/reference scans. Object callbacks and portal recursion retain their existing guest behavior. No new native cache or pointer rewrite is introduced. See the [exact loops, safety properties, tests and device checklist](port/ios/SCENE_PERFORMANCE_M2625.md).
+
+## M2.6.29 object filtering and performance measurements
+
+The current test build preserves shared object lists, invisible parents and widgets, and safely skips only shadowless objects on shadow passes. New timings separate object lighting, model/widget traversal and simulation updates. Static pointer rewriting remains disabled. See the [correctness changes and device comparison checklist](port/ios/PERFORMANCE_M2629.md).

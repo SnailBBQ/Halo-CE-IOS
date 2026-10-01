@@ -95,6 +95,7 @@ symbols in this file:
 #include "render/render_debug.h"
 #include "objects/objects.h"
 #ifdef HALO_IOS_GUEST
+#include <stddef.h>
 #include "../../port/include/ios_scene_scan.h"
 #endif
 #include "objects/object_definitions.h"
@@ -365,6 +366,9 @@ void render_objects_dispose(
 	return;
 }
 
+#ifdef HALO_IOS_GUEST
+#define object_get_cached_render_lighting object_get_cached_render_lighting_profiled
+#endif
 struct render_lighting *object_get_cached_render_lighting(
 	long object_index,
 	real level_of_detail_pixels)
@@ -384,6 +388,18 @@ struct render_lighting *object_get_cached_render_lighting(
 
 	return &lighting_storage;
 }
+#ifdef HALO_IOS_GUEST
+#undef object_get_cached_render_lighting
+struct render_lighting *object_get_cached_render_lighting(long object_index,real level_of_detail_pixels)
+{
+    extern void host_frame_phase(int,int);
+    host_frame_phase(20,0);
+    struct render_lighting *result=object_get_cached_render_lighting_profiled(object_index,level_of_detail_pixels);
+    host_frame_phase(20,1);
+    return result;
+}
+#endif
+
 
 void render_objects(
 	void)
@@ -522,6 +538,9 @@ static real object_get_level_of_detail_pixels(
 	return render_frustum_sphere_diameter_in_pixels(&render.frustum, &center, radius);
 }
 
+#ifdef HALO_IOS_GUEST
+#define render_object_list render_object_list_profiled
+#endif
 static void render_object_list(
 	struct object_render_data *data,
 	struct render_model_effect const *parent_model_effect,
@@ -721,6 +740,19 @@ static void render_object_list(
 
 	return;
 }
+#ifdef HALO_IOS_GUEST
+#undef render_object_list
+static void render_object_list(struct object_render_data *data,struct render_model_effect const *parent_model_effect,long object_index)
+{
+    extern void host_frame_phase(int,int);
+    static unsigned int depth;
+    int outer=(depth++==0);
+    if(outer) host_frame_phase(22,0);
+    render_object_list_profiled(data,parent_model_effect,object_index);
+    if(!--depth) host_frame_phase(22,1);
+}
+#endif
+
 
 static void interpolate_real_rgb_color(
 	union real_rgb_color *color,
@@ -938,6 +970,9 @@ static void render_object_shadow_end(
 	return;
 }
 
+#ifdef HALO_IOS_GUEST
+#define object_render_state_refresh object_render_state_refresh_profiled
+#endif
 static void object_render_state_refresh(
 	long render_state_index,
 	long object_index,
@@ -1099,6 +1134,17 @@ static void object_render_state_refresh(
 
 	return;
 }
+#ifdef HALO_IOS_GUEST
+#undef object_render_state_refresh
+static void object_render_state_refresh(long render_state_index,long object_index,real level_of_detail_pixels,boolean rebuild)
+{
+    extern void host_frame_phase(int,int);
+    host_frame_phase(21,0);
+    object_render_state_refresh_profiled(render_state_index,object_index,level_of_detail_pixels,rebuild);
+    host_frame_phase(21,1);
+}
+#endif
+
 
 static long object_get_cached_render_state(
 	long object_index,
@@ -1268,40 +1314,32 @@ static void process_rendered_objects(
 	struct object_render_data *data)
 {
 	short rendered_object_index;
-	short count = render_object_globals.rendered_object_count;
 
 #ifdef HALO_IOS_GUEST
-	/* M2.6.26: native pre-filter drops invisible / shadowless objects before
-	   the expensive per-object guest work.  Falls back to the full list on
-	   any native failure so behaviour stays identical. */
-	{
-		extern const unsigned int ios_datum_layout[13];
-		unsigned int kept = (unsigned int)count;
-		unsigned int filter_mask = 1u; /* always drop invisible */
-		if (data->shadow)
-			filter_mask |= 2u; /* also drop shadowless on the shadow pass */
-		if (count > 0 &&
-			host_scene_filter_objects(
-				(unsigned int)object_header_data,
-				(unsigned int)&render_object_globals.rendered_object_indices[0],
-				(unsigned int)count,
-				filter_mask,
-				(unsigned int)&kept,
-				(unsigned int)ios_datum_layout))
-		{
-			count = (short)kept;
-		}
-	}
+    /* Native offsets are valid only for this checked ILP32 object layout. */
+    typedef char ios_object_layout[(sizeof(struct object_header_datum)==12 &&
+        offsetof(struct object_header_datum,datum)==8 &&
+        offsetof(struct object_datum,object)==4 &&
+        offsetof(struct _object_datum,flags)==0 &&
+        _object_shadowless_bit==18)?1:-1];
+    (void)sizeof(ios_object_layout);
 #endif
-
-	for (rendered_object_index = 0;
-		rendered_object_index < count;
-		rendered_object_index++)
-	{
-		data->object_index =
-			render_object_globals.rendered_object_indices[rendered_object_index];
-		render_object(data);
-	}
+    for(rendered_object_index=0;
+        rendered_object_index<render_object_globals.rendered_object_count;
+        rendered_object_index++) {
+        data->object_index=render_object_globals.rendered_object_indices[rendered_object_index];
+#ifdef HALO_IOS_GUEST
+        if(data->shadow) {
+            unsigned int scratch=(unsigned int)data->object_index,kept=1;
+            /* Never compact the shared list. Read fresh flags after every
+               preceding callback; failure preserves the original callback. */
+            if(host_scene_filter_objects((unsigned int)object_header_data,
+                (unsigned int)&scratch,1,2,(unsigned int)&kept,
+                (unsigned int)ios_datum_layout) && !kept) continue;
+        }
+#endif
+        render_object(data);
+    }
 
 	return;
 }

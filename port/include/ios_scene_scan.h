@@ -11,13 +11,9 @@ struct halo_scene_scan_packet { uint32_t kind,a[13]; };
 extern const unsigned int ios_datum_layout[13];
 void host_scene_scan(unsigned int packet);
 int host_scene_datum(unsigned int kind,unsigned int data,unsigned int index,unsigned int result,unsigned int layout);
-/* M2.6.26: compact rendered-object index list.
- * header_data = object_header_data data_array*
- * indices_va  = array of long object indices (in/out)
- * count       = number of indices
- * filter_mask = bit0 invisible, bit1 shadowless
- * layout      = same 13-word datum layout table
- * Returns 1 and writes the kept count into *result_va on success. */
+/* Shadow-only eligibility query: filter_mask 2 drops shadowless entries;
+ * mask 0 keeps all. Other masks fall back. Input/count remain unchanged on
+ * failure. Engine queries one scratch entry at a time, never a shared list. */
 int host_scene_filter_objects(unsigned int header_data, unsigned int indices_va,
     unsigned int count, unsigned int filter_mask, unsigned int result_va,
     unsigned int layout);
