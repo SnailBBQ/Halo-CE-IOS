@@ -523,6 +523,9 @@ boolean game_state_read_header_from_persistent_storage(
 	long remaining_size;
 	long read_size;
 	boolean result;
+#ifdef HALO_IOS_GUEST
+    boolean complete = TRUE;
+#endif
 
 	file = game_state_open_persistent_storage(NULL);
 	result = FALSE;
@@ -556,16 +559,30 @@ boolean game_state_read_header_from_persistent_storage(
 			while (remaining_size>0)
 			{
 				read_size = MIN(sizeof(buffer), remaining_size);
+#ifdef HALO_IOS_GUEST
+                bytes_read = 0;
+#endif
 				if (ReadFile(file, buffer, read_size, &bytes_read, NULL) &&
 					bytes_read == read_size)
 				{
 					crc_checksum_buffer(&checksum, buffer, read_size);
 				}
+#ifdef HALO_IOS_GUEST
+                else {
+                    complete = FALSE;
+                    printf("persistent storage read incomplete: wanted=%ld received=%lu\n", read_size, bytes_read);
+                    break;
+                }
+#endif
 				sound_idle();
 				remaining_size -= read_size;
 			}
 
-			if (checksum == stored_checksum)
+			if (checksum == stored_checksum
+#ifdef HALO_IOS_GUEST
+                && complete
+#endif
+            )
 			{
 				result = TRUE;
 			}
@@ -574,6 +591,9 @@ boolean game_state_read_header_from_persistent_storage(
 				if (corrupted && stored_checksum)
 					*corrupted = TRUE;
 				error(_error_silent, "checksum failed on persistent storage");
+#ifdef HALO_IOS_GUEST
+                printf("persistent storage CRC: stored=%08lx computed=%08lx bytes=%ld\n", stored_checksum, checksum, buffer_size);
+#endif
 			}
 		}
 		CloseHandle(file);

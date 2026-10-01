@@ -23,6 +23,8 @@
 #include <strings.h>
 #include <zlib.h>
 #include "halo_dxt_decode.h"
+#include "halo_crc_native.h"
+#include "halo_texel_native.h"
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
@@ -257,6 +259,96 @@ static double loading_seconds(void)
     clock_gettime(CLOCK_MONOTONIC, &t);
     return (double)t.tv_sec + (double)t.tv_nsec / 1e9;
 }
+
+static _Atomic uint64_t g_crc_calls, g_crc_bytes, g_crc_ns, g_texel_calls, g_texel_bytes, g_texel_ns, g_texel_fallbacks;
+static _Atomic uint64_t g_phase_ns[4], g_phase_calls[4];
+static double g_phase_started[4];
+static _Atomic int g_waiting_frame, g_frame_present_ok;
+static _Atomic uint32_t g_frame_draws;
+static double g_last_candidate_report;
+static pthread_mutex_t g_timing_lock = PTHREAD_MUTEX_INITIALIZER;
+static double g_first_frame_started;
+static void ios_crc_checksum(uint32_t crc_va, uint32_t buffer_va, int32_t size)
+{
+    uint32_t *crc = gp(crc_va, 4);
+    const uint8_t *buffer = size > 0 ? gp(buffer_va, (uint32_t)size) : NULL;
+    if (!crc || size < 0 || (size && !buffer)) {
+        say("native CRC: invalid guest span size=%d", size);
+        halo_guest_exec_abort(HALO_GUEST_ABORT_HOST);
+        return;
+    }
+    double started = loading_seconds();
+    *crc = halo_crc_native(*crc, buffer, (uint32_t)size);
+    atomic_fetch_add(&g_crc_calls, 1);
+    atomic_fetch_add(&g_crc_bytes, size);
+    atomic_fetch_add(&g_crc_ns, (uint64_t)((loading_seconds() - started) * 1e9));
+}
+static int ios_texel_fallback(void)
+{
+    uint64_t count=atomic_fetch_add(&g_texel_fallbacks,1);
+    if (count<3) say("native texels: layout not handled; using existing guest converter");
+    return 0;
+}
+static int ios_texture_decode_texels(uint32_t packet_va)
+{
+    const uint32_t *packet = gp(packet_va, 40);
+    if (!packet) return ios_texel_fallback();
+    uint32_t p[10]; memcpy(p, packet, sizeof(p));
+    uint32_t kind=p[0], bytes=p[1], linear=p[2], w=p[3], h=p[4], d=p[5], pitch=p[6];
+    if (!w || !h || !d || w>16384 || h>16384 || d>2048 || linear>1 || kind<1 || kind>_texel_d16) return ios_texel_fallback();
+    uint32_t expected = 4;
+    switch (kind) {
+    case _texel_l8: case _texel_al8: case _texel_a8: case _texel_p8: expected=1; break;
+    case _texel_r5g6b5: case _texel_a1r5g5b5: case _texel_x1r5g5b5: case _texel_a4r4g4b4:
+    case _texel_a8l8: case _texel_g8b8: case _texel_r8b8: case _texel_r6g5b5: case _texel_l16:
+    case _texel_r5g5b5a1: case _texel_r4g4b4a4: case _texel_yuy2: case _texel_uyvy: case _texel_d16: expected=2; break;
+    }
+    if (bytes != expected) return ios_texel_fallback();
+    int yuv = kind==_texel_yuy2 || kind==_texel_uyvy;
+    uint64_t row=(uint64_t)(yuv ? ((w+1)&~1u) : w)*bytes;
+    if (linear && (d!=1 || pitch<row)) return ios_texel_fallback();
+    if (!linear && (yuv || (w&(w-1)) || (h&(h-1)) || (d&(d-1)))) return ios_texel_fallback();
+    uint64_t input = linear ? (uint64_t)(h-1)*pitch+row : (uint64_t)w*h*d*bytes;
+    uint64_t output = (uint64_t)w*h*d*4;
+    if (input>UINT32_MAX || output>UINT32_MAX) return ios_texel_fallback();
+    const uint8_t *src=gp(p[7], (size_t)input);
+    uint32_t *dst=gp(p[8], (size_t)output);
+    const uint32_t *palette=p[9] ? gp(p[9], 1024) : NULL;
+    if (!src || !dst || (p[9] && !palette)) {
+        say("native texels: invalid guest span");
+        halo_guest_exec_abort(HALO_GUEST_ABORT_HOST); return ios_texel_fallback();
+    }
+    double started=loading_seconds();
+    int result=halo_texel_native(kind,bytes,linear,w,h,d,pitch,src,palette,dst);
+    atomic_fetch_add(&g_texel_calls, 1);
+    atomic_fetch_add(&g_texel_bytes, output);
+    atomic_fetch_add(&g_texel_ns, (uint64_t)((loading_seconds()-started)*1e9));
+    return result;
+}
+static void ios_frame_counts(uint32_t draws, uint32_t skipped, uint32_t clears, uint32_t targets)
+{
+    g_frame_draws=draws;
+    if (g_waiting_frame && loading_seconds()-g_last_candidate_report>=5) {
+        g_last_candidate_report=loading_seconds();
+        say("first frame candidate: %u draws, %u skipped, %u clears, %u target changes", draws, skipped, clears, targets);
+    }
+}
+static void ios_frame_phase(int phase, int done)
+{
+    if (phase<0 || phase>=4) return;
+    if (!done) { g_phase_started[phase]=loading_seconds(); if (phase==2) g_frame_present_ok=0; }
+    else {
+        pthread_mutex_lock(&g_timing_lock);
+        atomic_fetch_add(&g_phase_ns[phase], (uint64_t)((loading_seconds()-g_phase_started[phase])*1e9));
+        atomic_fetch_add(&g_phase_calls[phase],1);
+        pthread_mutex_unlock(&g_timing_lock);
+        if (phase==2 && g_waiting_frame && g_frame_draws && g_frame_present_ok) {
+            say("[loading] done: First game frame (%.3f s; draw calls submitted and drawable presented; visual correctness unverified)", loading_seconds()-g_first_frame_started);
+            g_waiting_frame=0;
+        }
+    }
+}
+
 static void ios_loading_stage(uint32_t name_va, int done)
 {
     /* These calls are sequential on the game thread; no nested stages. */
@@ -265,6 +357,7 @@ static void ios_loading_stage(uint32_t name_va, int done)
     if (!name) return;
     if (!done) {
         started = loading_seconds();
+        if (!strcmp(name, "First game frame")) { g_frame_draws=0; g_frame_present_ok=0; g_first_frame_started=started; g_last_candidate_report=0; g_waiting_frame=1; }
         say("[loading] begin: %s", name);
     } else {
         say("[loading] done: %s (%.3f s)", name, loading_seconds() - started);
@@ -1394,7 +1487,9 @@ static int ios_sdl_gl_set_swap_interval(int interval)
 
 static int ios_sdl_gl_swap_window(uint32_t window)
 {
-    return halo_ios_gl_swap_window(window);
+    int ok=halo_ios_gl_swap_window(window);
+    g_frame_present_ok=ok;
+    return ok;
 }
 
 static int ios_sdl_poll_event(uint32_t event)
@@ -1815,6 +1910,10 @@ static void *resolve_host_import(const char *name)
     MAP("host_memory_copy", ios_memory_copy);
     MAP("host_memory_fill", ios_memory_fill);
     MAP("host_loading_stage", ios_loading_stage);
+    MAP("host_crc_checksum", ios_crc_checksum);
+    MAP("host_texture_decode_texels", ios_texture_decode_texels);
+    MAP("host_frame_phase", ios_frame_phase);
+    MAP("host_frame_counts", ios_frame_counts);
     MAP("host_cache_inflate", ios_cache_inflate_step);
     MAP("host_cache_inflate_end", ios_cache_inflate_end);
     MAP("host_guest_pointer", ios_host_guest_pointer);
@@ -2113,7 +2212,7 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.17 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.18 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);
@@ -2243,6 +2342,16 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                 say("native bulk memory: %llu calls, %llu MiB total",
                     (unsigned long long)atomic_load(&g_bulk_calls),
                     (unsigned long long)(atomic_load(&g_bulk_bytes) / (1024 * 1024)));
+                say("native CRC: %llu calls, %llu MiB, %.1f ms total; texels: %llu levels, %llu MiB, %.1f ms total, %llu guest fallbacks",
+                    (unsigned long long)atomic_load(&g_crc_calls), (unsigned long long)(atomic_load(&g_crc_bytes)/1048576), atomic_load(&g_crc_ns)/1e6,
+                    (unsigned long long)atomic_load(&g_texel_calls), (unsigned long long)(atomic_load(&g_texel_bytes)/1048576), atomic_load(&g_texel_ns)/1e6, (unsigned long long)atomic_load(&g_texel_fallbacks));
+                for (int phase=0; phase<4; phase++) {
+                    pthread_mutex_lock(&g_timing_lock);
+                    uint64_t calls=atomic_exchange(&g_phase_calls[phase],0), ns=atomic_exchange(&g_phase_ns[phase],0);
+                    pthread_mutex_unlock(&g_timing_lock);
+                    static const char *names[]={"update", "render CPU (includes conversion/upload)", "present CPU", "GL upload CPU"};
+                    if (calls) say("timing %s: %llu calls, %.1f ms average (overlapping categories)", names[phase], (unsigned long long)calls, ns/1e6/calls);
+                }
                 previous_upgrades = stats.pointer_upgrades;
             }
         }

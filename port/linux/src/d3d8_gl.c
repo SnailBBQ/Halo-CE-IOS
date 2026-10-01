@@ -3835,6 +3835,18 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		device.index_offset = INDEX_BUFFER_SIZE;
 #endif
 	}
+#ifdef HALO_IOS_GUEST
+    {
+        extern void host_frame_counts(unsigned int, unsigned int, unsigned int, unsigned int);
+        static unsigned long previous_draws, previous_skipped, previous_clears, previous_targets;
+        unsigned long draws=stats.draws+stats.immediate_draws;
+        unsigned long skipped=stats.skipped_no_program+stats.skipped_no_target+stats.skipped_link;
+        host_frame_counts(draws-previous_draws, skipped-previous_skipped, stats.clears-previous_clears, stats.target_changes-previous_targets);
+        previous_draws=draws; previous_skipped=skipped; previous_clears=stats.clears; previous_targets=stats.target_changes;
+        if (debug_settings.statistics && (device.frame+1)%60==0)
+            previous_draws=previous_skipped=previous_clears=previous_targets=0;
+    }
+#endif
 	device.frame++;
 	stats.presents++;
 	if (debug_settings.statistics && device.frame % 60 == 0)

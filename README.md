@@ -12,7 +12,7 @@ That project is a fork of [punpckhdq/halo](https://github.com/punpckhdq/halo).
 
 ## iOS development status
 
-**M2.6.17 is awaiting device testing.** The main menu and readable text are confirmed on device. M2.6.14 touch menu controls worked in the latest test, and the game log reached precaching of `a10`. Campaign gameplay is still unconfirmed. M2.6.16 improved menu startup in the user test, but frame rates remain low and `a10` stayed black despite completing map initialization. M2.6.17 adds the colored original Xbox A/B/X/Y/Black/White touch buttons alongside the left D-pad. Boot log and Game log retain important messages.
+**M2.6.18 is awaiting device testing.** The main menu and readable text are confirmed on device. M2.6.14 touch menu controls worked in the latest test, and the game log reached precaching of `a10`. Campaign gameplay is still unconfirmed. M2.6.16 improved menu startup in the user test, but frame rates remain low and `a10` stayed black despite completing map initialization. M2.6.17 adds the colored original Xbox A/B/X/Y/Black/White touch buttons alongside the left D-pad. M2.6.18 targets checksum and texture-conversion delays and keeps loading status visible through first presentation. Boot log and Game log retain important messages.
 
 See [iOS port status](IOS_PORT_STATUS.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
 
@@ -171,3 +171,11 @@ Bulk guest memory copies, moves, and fills of at least 256 bytes now use native 
 Map cache preparation, scenario/assets loading, and major initialization steps report elapsed times in Boot log. A loading label displays the current instrumented stage and elapsed seconds, including when Show game is open. It is stage information, not a percentage or proof that loading has completed. Menu navigation uses a left D-pad with Select and Back on the right. Audio remains muted and Bink movies remain skipped.
 
 Awaiting device testing: compare menu startup time and try `a10`. If loading appears stalled, share logs while the loading stage is still visible. Campaign gameplay remains unconfirmed.
+
+## M2.6.18 performance test bundle
+
+CRC buffers of at least 256 bytes use a native, raw incremental CRC matching the Xbox implementation. Validation remains enabled; persistent-storage mismatches report stored and computed values, and incomplete reads are rejected. Uncompressed texture conversion uses fixed-width native routines for supported linear, palettized and swizzled formats, with guest fallback for unsupported layouts. DXT decoding remains native.
+
+Loading status now continues through local player creation, initial update, persistent storage checks, and the first game frame with submitted draw calls and a successful drawable presentation. This is not proof of a visually correct campaign frame. Ten-second diagnostics report native CRC/conversion totals and CPU timings for game-time update, rendering, presentation and GL uploads. Render timing includes conversion/uploads; categories overlap and are not GPU timings.
+
+Device test: compare menu startup and responsiveness, load `a10`, and record the loading stage and first visible campaign frame. Share all logs if the screen stays black. Audio, movies, sticks and triggers remain future work; the M2.6.17 colored Xbox buttons are retained.

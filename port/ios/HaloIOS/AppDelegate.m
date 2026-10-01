@@ -34,7 +34,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
         self.loadingStarted = [NSDate date];
         self.loadingStatus.hidden = NO;
         [self updateLoadingStatus];
-    } else if ([line hasPrefix:@"[loading] done: Map initialized "] ||
+    } else if ([line hasPrefix:@"[loading] done: First game frame "] ||
                [line containsString:@"FULL GUEST STOPPED"] ||
                [line containsString:@"FULL GUEST BLOCKED"]) {
         self.loadingStatus.hidden = YES;
@@ -232,7 +232,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"HALO iOS — M2.6.17 Startup";
+    title.text = @"HALO iOS — M2.6.18 Startup";
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:18];
 

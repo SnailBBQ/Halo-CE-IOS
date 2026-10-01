@@ -47,6 +47,10 @@ struct crc_globals crc_globals;
 #pragma bss_seg()
 #endif
 
+#ifdef HALO_IOS_GUEST
+extern void host_crc_checksum(unsigned int, unsigned int, int);
+#endif
+
 /* ---------- public code */
 
 void crc_new(
@@ -96,6 +100,12 @@ void crc_checksum_buffer(
 	unsigned long table_index;
 
 	match_assert("c:\\halo\\SOURCE\\memory\\crc.c", 42, buffer_size>=0);
+#ifdef HALO_IOS_GUEST
+    if (buffer_size >= 256) {
+        host_crc_checksum((unsigned int)crc_reference, (unsigned int)buffer, buffer_size);
+        return;
+    }
+#endif
 
 	if (!crc_globals.initialized)
 	{

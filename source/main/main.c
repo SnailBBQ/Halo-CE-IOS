@@ -1177,13 +1177,25 @@ void set_window_camera_values(
 	return;
 }
 
+#ifdef HALO_IOS_GUEST
+extern void host_loading_stage(const char *, int);
+extern void host_frame_phase(int, int);
+#define IOS_LOAD(name, done) host_loading_stage(name, done)
+#define IOS_PHASE(phase, done) host_frame_phase(phase, done)
+#else
+#define IOS_LOAD(name, done) ((void)0)
+#define IOS_PHASE(phase, done) ((void)0)
+#endif
+
 void main_present_frame(
 	void)
 {
 	struct file_reference reference;
 	char path[512];
 
+	IOS_PHASE(2, 0);
 	render_frame_present(NULL, main_globals.movie);
+	IOS_PHASE(2, 1);
 	if (global_screenshot_count.count <= 0 && main_globals.movie)
 	{
 		_snprintf(
@@ -1425,14 +1437,18 @@ static void main_new_map(
 
 	if (!errors_handle())
 	{
+		IOS_LOAD("Local players", 0);
 		create_local_players();
+		IOS_LOAD("Local players", 1);
 		game_time_start();
 	}
 	else
 	{
 		error(_error_immediate, "main_new_map() failed.");
 	}
+	IOS_LOAD("Initial game update", 0);
 	game_initial_pulse();
+	IOS_LOAD("Initial game update", 1);
 
 	main_globals.reset_map = FALSE;
 	main_globals.defer_map_change = FALSE;
@@ -1448,8 +1464,13 @@ static void main_new_map(
 	main_globals.load_core_at_startup = FALSE;
 
 	if (main_globals.allow_persistent_storage)
+	{
+		IOS_LOAD("Persistent storage checks", 0);
 		game_state_try_and_load_from_persistent_storage();
+		IOS_LOAD("Persistent storage checks", 1);
+	}
 	ui_widgets_disable_pause_game(30);
+	IOS_LOAD("First game frame", 0);
 
 	return;
 }
@@ -2996,6 +3017,7 @@ void main_game_render(
 	long window_count;
 	short last_local_player_index;
 
+	IOS_PHASE(1, 0);
 	lock_global_random_seed();
 	collision_log_continue_period(TRUE);
 	sound_render();
@@ -3081,6 +3103,7 @@ void main_game_render(
 
 	collision_log_end_period();
 	unlock_global_random_seed();
+	IOS_PHASE(1, 1);
 	return;
 }
 
@@ -3273,7 +3296,9 @@ void main_loop(
 						network_game_abort();
 					}
 
+					IOS_PHASE(0, 0);
 					game_time_update((real)main_globals.halt_time_scale*main_globals.seconds_elapsed);
+					IOS_PHASE(0, 1);
 
 					render_frame = main_globals.main_menu_scenario_loaded ||
 						(main_globals.halt_time_scale &&

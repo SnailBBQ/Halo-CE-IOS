@@ -30,6 +30,11 @@ memory_watch.c detects that by write-protecting the pages.
 #define GL_COMPRESSED_RGBA_S3TC_DXT5_EXT 0x83f3
 #endif
 
+#ifdef HALO_IOS_GUEST
+extern int host_texture_decode_texels(unsigned int);
+extern void host_frame_phase(int, int);
+#endif
+
 /* ---------- formats */
 
 enum texel_kind
@@ -357,6 +362,13 @@ static void decode_level(const struct xgpu_texture_description *description, uns
 	unsigned long height = level_dimension(description->height, level);
 	unsigned long depth = level_dimension(description->depth, level);
 	unsigned long x, y, z;
+#ifdef HALO_IOS_GUEST
+    /* Fixed-width packet avoids register/stack differences across the ABI. */
+    unsigned int packet[10] = { information.kind, information.bytes, description->linear,
+        width, height, depth, description->pitch, (unsigned int)source,
+        (unsigned int)destination, (unsigned int)palette };
+    if (host_texture_decode_texels((unsigned int)packet)) return;
+#endif
 
 	if (description->linear)
 	{
@@ -625,12 +637,18 @@ static void upload(GLuint texture, GLenum target, const struct xgpu_texture_desc
 
 			if (description->compressed && !decode_compressed)
 			{
+#ifdef HALO_IOS_GUEST
+                host_frame_phase(3, 0);
+#endif
 				if (target == GL_TEXTURE_3D)
 					glCompressedTexImage3D(image_target, (GLint)level, compressed_format(information.kind), width, height, depth, 0,
 						(GLsizei)level_bytes(description, level), source);
 				else
 					glCompressedTexImage2D(image_target, (GLint)level, compressed_format(information.kind), width, height, 0,
 						(GLsizei)level_bytes(description, level), source);
+#ifdef HALO_IOS_GUEST
+                host_frame_phase(3, 1);
+#endif
 			}
 			else
 			{
@@ -641,10 +659,16 @@ static void upload(GLuint texture, GLenum target, const struct xgpu_texture_desc
 				else
 #endif
 				decode_level(description, level, source, palette, converted);
+#ifdef HALO_IOS_GUEST
+                host_frame_phase(3, 0);
+#endif
 				if (target == GL_TEXTURE_3D)
 					glTexImage3D(image_target, (GLint)level, GL_RGBA8, width, height, depth, 0, GL_BGRA, GL_UNSIGNED_BYTE, converted);
 				else
 					glTexImage2D(image_target, (GLint)level, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, converted);
+#ifdef HALO_IOS_GUEST
+                host_frame_phase(3, 1);
+#endif
 			}
 		}
 	}
