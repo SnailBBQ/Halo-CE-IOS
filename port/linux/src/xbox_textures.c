@@ -25,7 +25,7 @@ memory_watch.c detects that by write-protecting the pages.
 #include <string.h>
 #include <stddef.h>
 #ifdef HALO_IOS_GUEST
-#include "ios_render_scan.h"
+#include "../../include/ios_render_scan.h"
 #endif
 
 #ifndef GL_COMPRESSED_RGBA_S3TC_DXT1_EXT

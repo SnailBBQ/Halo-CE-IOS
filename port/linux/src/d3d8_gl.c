@@ -32,7 +32,7 @@ Conventions carried over from the Xbox:
 #include <string.h>
 #include <stddef.h>
 #ifdef HALO_IOS_GUEST
-#include "ios_render_scan.h"
+#include "../../include/ios_render_scan.h"
 #endif
 #include <time.h>
 
