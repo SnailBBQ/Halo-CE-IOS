@@ -30,6 +30,8 @@
 #include <OpenGLES/ES3/gl.h>
 #include "halo_attribute_native.h"
 #include "halo_render_scan_native.h"
+#include "halo_scene_scan_native.h"
+#include "../../include/ios_scene_scan.h"
 #include "../../include/ios_render_scan.h"
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -267,10 +269,10 @@ static double loading_seconds(void)
 }
 
 static _Atomic uint64_t g_crc_calls, g_crc_bytes, g_crc_ns, g_texel_calls, g_texel_bytes, g_texel_ns, g_texel_fallbacks;
-static _Atomic uint64_t g_phase_ns[18], g_phase_calls[18], g_phase_upgrades[18];
+static _Atomic uint64_t g_phase_ns[20], g_phase_calls[20], g_phase_upgrades[20];
 static _Atomic uint64_t g_vertex_calls, g_vertex_bytes, g_vertex_ns, g_vertex_fallbacks;
-static double g_phase_started[18];
-static uint64_t g_phase_upgrade_start[18];
+static double g_phase_started[20];
+static uint64_t g_phase_upgrade_start[20];
 static _Atomic int g_waiting_frame, g_frame_present_ok;
 static _Atomic uint64_t g_presented_frames;
 static _Atomic uint32_t g_frame_draws;
@@ -399,6 +401,114 @@ invalid:
     halo_guest_exec_abort(HALO_GUEST_ABORT_HOST);
 }
 
+static _Atomic uint64_t g_scene_calls[6],g_scene_items[6],g_scene_ns[6],g_scene_invalid,g_datum_fallbacks;
+static const void *ios_scene_resolve(uint32_t va,size_t size) { return gp(va,size); }
+static int ios_scene_datum(uint32_t kind,uint32_t data,uint32_t index,uint32_t result_va,uint32_t layout_va)
+{
+    double started=loading_seconds();
+    uint64_t upgrades=halo_guest_exec_thread_pointer_upgrades(),visited=0;
+    uint32_t l[13],out[3];
+    const void *layout=gp(layout_va,sizeof(l));
+    void *result=(result_va&3u)?NULL:gp(result_va,4);
+    if (!layout || !result || (layout_va&3u)) goto fallback;
+    memcpy(l,layout,sizeof(l));
+    if (!halo_scene_datum(ios_scene_resolve,kind,data,index,l,out,&visited)) goto fallback;
+    if(kind==2) {
+        void *iterator=gp(data,16);
+        if(!iterator)goto fallback;
+        /* Only update the two fields the original iterator writes. */
+        int16_t absolute=(int16_t)out[1];
+        memcpy((unsigned char *)iterator+4,&absolute,2);
+        memcpy((unsigned char *)iterator+8,&out[2],4);
+    }
+    memcpy(result,out,4);
+    atomic_fetch_add(&g_scene_calls[0],1);
+    atomic_fetch_add(&g_scene_items[0],visited);
+    atomic_fetch_add(&g_scene_ns[0],(uint64_t)((loading_seconds()-started)*1e9));
+    atomic_fetch_add(&g_native_loop_upgrades,halo_guest_exec_thread_pointer_upgrades()-upgrades);
+    return 1;
+    fallback:
+    atomic_fetch_add(&g_datum_fallbacks,1);
+    return 0;
+}
+static int ios_scene_overlap(uint32_t a,size_t an,uint32_t b,size_t bn)
+{ return an && bn && (uint64_t)a<(uint64_t)b+bn && (uint64_t)b<(uint64_t)a+an; }
+static void ios_scene_scan(uint32_t packet_va)
+{
+    double started=loading_seconds();
+    uint64_t upgrades=halo_guest_exec_thread_pointer_upgrades(),visited=0;
+    struct halo_scene_scan_packet p;
+    const void *packet=(packet_va&3u)?NULL:gp(packet_va,sizeof(p));
+    if (!packet) goto invalid;
+    memcpy(&p,packet,sizeof(p));
+    uint32_t *a=p.a,result=0;
+    void *output=NULL;
+    if(p.kind==HALO_SCENE_TRIANGLES || p.kind==HALO_SCENE_BIT_TRIANGLES) {
+        /* a: surfaces,total,indices,capacity,triangles,index-output,flags */
+        if(a[1]>UINT32_MAX/6u || a[3]>32767)goto invalid;
+        const void *surfaces=a[1]?gp(a[0],(size_t)a[1]*6):NULL;
+        void *triangles=a[3]?gp(a[4],(size_t)a[3]*6):NULL;
+        if((a[1]&&!surfaces)||(a[3]&&!triangles) ||
+        ios_scene_overlap(a[4],(size_t)a[3]*6,a[0],(size_t)a[1]*6))goto invalid;
+        if(p.kind==HALO_SCENE_TRIANGLES) {
+            void *indices=a[3]?gp(a[2],(size_t)a[3]*4):NULL;
+            if((a[3]&&!indices) || ios_scene_overlap(a[4],(size_t)a[3]*6,a[2],(size_t)a[3]*4))goto invalid;
+            if(!halo_scene_sorted_triangles(surfaces,a[1],indices,a[3],triangles))goto invalid;
+            visited=a[3];
+        } else {
+            const void *flags=a[1]?gp(a[6],(size_t)((a[1]+31u)/32u)*4):NULL;
+            void *indices=a[3]?gp(a[5],(size_t)a[3]*4):NULL;
+            if((a[1]&&!flags)||(a[3]&&!indices) ||
+            ios_scene_overlap(a[5],(size_t)a[3]*4,a[0],(size_t)a[1]*6) ||
+            ios_scene_overlap(a[5],(size_t)a[3]*4,a[6],(size_t)((a[1]+31u)/32u)*4) ||
+            ios_scene_overlap(a[4],(size_t)a[3]*6,a[6],(size_t)((a[1]+31u)/32u)*4) ||
+            ios_scene_overlap(a[4],(size_t)a[3]*6,a[5],(size_t)a[3]*4))goto invalid;
+            if(!halo_scene_bit_triangles(surfaces,a[1],flags,a[3],indices,triangles,&result))goto invalid;
+            visited=a[1];
+        }
+    } else if(p.kind==HALO_SCENE_MATERIAL_RUN) {
+        /* a: remaining indices,count,signed material end,result-count */
+        if(!a[1] || a[1]>32767)goto invalid;
+        const void *indices=gp(a[0],(size_t)a[1]*4);output=gp(a[3],4);
+        if(!indices || !output)goto invalid;
+        result=halo_scene_material_run(indices,a[1],(int32_t)a[2]);visited=result;
+    } else if(p.kind==HALO_SCENE_MARK_SURFACES) {
+        /* a: indices,count,total,flags,current,maximum,result-count */
+        if(a[1]>32767 || a[2]>UINT32_MAX/4u || a[4]>a[5])goto invalid;
+        const void *indices=a[1]?gp(a[0],(size_t)a[1]*4):NULL;
+        void *flags=a[2]?gp(a[3],(size_t)((a[2]+31u)/32u)*4):NULL;output=gp(a[6],4);
+        if(!output || (a[1]&&!indices)||(a[2]&&!flags) ||
+        ios_scene_overlap(a[0],(size_t)a[1]*4,a[3],(size_t)((a[2]+31u)/32u)*4))goto invalid;
+        if(!halo_scene_mark(indices,a[1],a[2],flags,a[4],a[5],&result,&visited))goto invalid;
+    } else if(p.kind==HALO_SCENE_LEAF_REFERENCES) {
+        /* a: ref-base,total-refs,first,count,stride,surface-offset,total-surfaces,
+           allowed-bits,seen-bits,index-output,maximum,result-count */
+        if(!a[4] || a[4]>4096 || a[5]>a[4] || a[4]-a[5]<4 || a[2]>a[1] || a[3]>a[1]-a[2] ||
+        a[6]>UINT32_MAX/4u || a[10]>32767 || (uint64_t)a[1]*a[4]>UINT32_MAX)goto invalid;
+        const unsigned char *refs=a[1]?gp(a[0],(size_t)a[1]*a[4]):NULL;
+        size_t words=(size_t)((a[6]+31u)/32u)*4;
+        const void *allowed=a[6]?gp(a[7],words):NULL;
+        void *seen=a[6]?gp(a[8],words):NULL;
+        void *indices=a[10]?gp(a[9],(size_t)a[10]*4):NULL;output=gp(a[11],4);
+        if(!output ||(a[1]&&!refs)||(a[6]&&(!allowed||!seen))||(a[10]&&!indices) ||
+        ios_scene_overlap(a[8],words,a[0],(size_t)a[1]*a[4]) ||
+        ios_scene_overlap(a[9],(size_t)a[10]*4,a[0],(size_t)a[1]*a[4]) ||
+        ios_scene_overlap(a[9],(size_t)a[10]*4,a[7],words) ||
+        ios_scene_overlap(a[9],(size_t)a[10]*4,a[8],words))goto invalid;
+        if(!halo_scene_leaf(refs?refs+(size_t)a[2]*a[4]:NULL,a[3],a[4],a[5],a[6],allowed,seen,indices,a[10],&result,&visited))goto invalid;
+    } else goto invalid;
+    if(output)memcpy(output,&result,4);
+    atomic_fetch_add(&g_scene_calls[p.kind],1);
+    atomic_fetch_add(&g_scene_items[p.kind],visited);
+    atomic_fetch_add(&g_scene_ns[p.kind],(uint64_t)((loading_seconds()-started)*1e9));
+    atomic_fetch_add(&g_native_loop_upgrades,halo_guest_exec_thread_pointer_upgrades()-upgrades);
+    return;
+    invalid:
+    atomic_fetch_add(&g_scene_invalid,1);
+    say("native scene scan: invalid packet/span/index at 0x%08x",packet_va);
+    halo_guest_exec_abort(HALO_GUEST_ABORT_HOST);
+}
+
 static int ios_vertex_color_swizzle(uint32_t dst, uint32_t src, uint32_t size,
     uint32_t stride, uint32_t offsets_va, uint32_t count)
 {
@@ -482,7 +592,7 @@ static void ios_frame_counts(uint32_t draws, uint32_t skipped, uint32_t clears, 
 }
 static void ios_frame_phase(int phase, int done)
 {
-    if (phase<0 || phase>=18) return;
+    if (phase<0 || phase>=20) return;
     if (!done) { g_phase_started[phase]=loading_seconds(); g_phase_upgrade_start[phase]=halo_guest_exec_thread_pointer_upgrades(); if (phase==2) g_frame_present_ok=0; }
     else {
         pthread_mutex_lock(&g_timing_lock);
@@ -2103,6 +2213,8 @@ static void *resolve_host_import(const char *name)
     MAP("host_vertex_state_invalidate", ios_vertex_state_invalidate);
     MAP("host_render_scan", ios_render_scan);
     MAP("host_uniform_apply", ios_uniform_apply);
+    MAP("host_scene_scan", ios_scene_scan);
+    MAP("host_scene_datum", ios_scene_datum);
     MAP("host_memory_copy", ios_memory_copy);
     MAP("host_memory_fill", ios_memory_fill);
     MAP("host_loading_stage", ios_loading_stage);
@@ -2408,9 +2520,9 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.24 recovery: experimental direct pointer conversion disabled; original signal bridge restored.");
+    say("M2.6.25 recovery: experimental direct pointer conversion disabled; original signal bridge restored.");
     say("Performance defaults: interpolation off; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.24 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.25 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
 
     sigjmp_buf *env=halo_guest_exec_guard_buffer();
     int reason=sigsetjmp(*env,1);
@@ -2569,11 +2681,15 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                     (unsigned long long)atomic_load(&g_uniform_calls),(unsigned long long)atomic_load(&g_uniform_uploads),
                     (unsigned long long)(atomic_load(&g_uniform_bytes)/1024),atomic_load(&g_uniform_ns)/1e6,(unsigned long long)atomic_load(&g_scan_invalid));
                 say("native renderer helper thread upgrades: %llu",(unsigned long long)atomic_load(&g_native_loop_upgrades));
-                for (int phase=0; phase<18; phase++) {
+                static const char *scene_names[]={"datum lookup/iteration","BSP index triangles","BSP bit triangles","material ranges","visibility surface lists","visibility leaf references"};
+                for(unsigned kind=0;kind<6;kind++)say("native scene %s: %llu calls, %llu items, %.1f ms total",scene_names[kind],
+                    (unsigned long long)atomic_load(&g_scene_calls[kind]),(unsigned long long)atomic_load(&g_scene_items[kind]),atomic_load(&g_scene_ns[kind])/1e6);
+                say("native scene invalid inputs: %llu; datum diagnostic fallbacks: %llu",(unsigned long long)atomic_load(&g_scene_invalid),(unsigned long long)atomic_load(&g_datum_fallbacks));
+                for (int phase=0; phase<20; phase++) {
                     pthread_mutex_lock(&g_timing_lock);
                     uint64_t calls=atomic_exchange(&g_phase_calls[phase],0), ns=atomic_exchange(&g_phase_ns[phase],0), upgrades=atomic_exchange(&g_phase_upgrades[phase],0);
                     pthread_mutex_unlock(&g_timing_lock);
-                    static const char *names[]={"update", "render CPU (includes conversion/upload)", "present CPU", "GL upload CPU", "draw setup total", "texture binding/cache", "shader lookup/link", "vertex preparation", "uniform/state setup", "vertex color conversion/upload", "index bounds/cache", "texture lookup/upload", "scene visibility", "scene objects/shadows", "scene structure passes", "scene particles/transparency", "scene lights", "scene interface"};
+                    static const char *names[]={"update", "render CPU (includes conversion/upload)", "present CPU", "GL upload CPU", "draw setup total", "texture binding/cache", "shader lookup/link", "vertex preparation", "uniform/state setup", "vertex color conversion/upload", "index bounds/cache", "texture lookup/upload", "scene visibility", "scene objects/shadows", "scene structure passes", "scene particles/transparency", "scene lights", "scene interface", "object discovery", "object render callbacks"};
                     if (calls) say("timing %s: %llu calls, %.1f ms average, %.0f thread pointer upgrades/call (overlapping categories)", names[phase], (unsigned long long)calls, ns/1e6/calls, (double)upgrades/calls);
                 }
                 previous_upgrades = stats.pointer_upgrades;

@@ -64,6 +64,16 @@ symbols in this file:
 
 #include "cseries.h"
 #include "data.h"
+#ifdef HALO_IOS_GUEST
+#include <stddef.h>
+#include "../../port/include/ios_scene_scan.h"
+typedef char ios_data_iterator_layout[(sizeof(void *)==4 && sizeof(long)==4 && sizeof(struct data_iterator)==16 &&
+    offsetof(struct data_iterator,absolute_index)==4 && offsetof(struct data_iterator,datum_index)==8 && offsetof(struct data_iterator,signature)==12)?1:-1];
+static const unsigned int ios_datum_layout[13]={sizeof(struct data_array),offsetof(struct data_array,maximum_count),
+    offsetof(struct data_array,size),offsetof(struct data_array,valid),offsetof(struct data_array,identifier_zero_invalid),
+    offsetof(struct data_array,signature),offsetof(struct data_array,first_free_absolute_index),offsetof(struct data_array,count),
+    offsetof(struct data_array,actual_count),offsetof(struct data_array,data),offsetof(struct data_array,next_identifier),'d@t@','iter'};
+#endif
 
 /* ---------- constants */
 
@@ -112,6 +122,11 @@ void *datum_try_and_get(
 	struct data_array *data,
 	long index)
 {
+#ifdef HALO_IOS_GUEST
+    unsigned int native_result;
+    if(host_scene_datum(4,(unsigned int)data,(unsigned int)index,(unsigned int)&native_result,(unsigned int)ios_datum_layout)) { return (void *)native_result; }
+#endif
+
 	struct datum_header *header = NULL;
 	short identifier;
 	short absolute_index;
@@ -144,6 +159,11 @@ void *datum_get(
 	struct data_array *data,
 	long index)
 {
+#ifdef HALO_IOS_GUEST
+    unsigned int native_result;
+    if(host_scene_datum(3,(unsigned int)data,(unsigned int)index,(unsigned int)&native_result,(unsigned int)ios_datum_layout)) { return (void *)native_result; }
+#endif
+
 	struct datum_header *header;
 	short identifier;
 	short absolute_index;
@@ -383,6 +403,11 @@ void data_iterator_new(
 void *data_iterator_next(
 	struct data_iterator *iterator)
 {
+#ifdef HALO_IOS_GUEST
+    unsigned int native_result;
+    if(host_scene_datum(2,(unsigned int)iterator,0,(unsigned int)&native_result,(unsigned int)ios_datum_layout)) { return (void *)native_result; }
+#endif
+
 	struct datum_header *header;
 	short absolute_index;
 	long datum_index;
@@ -422,6 +447,11 @@ long data_next_index(
 	struct data_array *data,
 	long index)
 {
+#ifdef HALO_IOS_GUEST
+    unsigned int native_result;
+    if(host_scene_datum(1,(unsigned int)data,(unsigned int)index,(unsigned int)&native_result,(unsigned int)ios_datum_layout)) { return (long)native_result; }
+#endif
+
 	struct datum_header *header;
 	long result = NONE;
 	short absolute_index = index+1;

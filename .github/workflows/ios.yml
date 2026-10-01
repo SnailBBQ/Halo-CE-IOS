@@ -21,6 +21,8 @@ on:
       - 'tools/tests/test_ios_vertex_attributes.c'
       - 'tools/tests/test_ios_render_scans.c'
       - 'tools/tests/test_ios_render_adapters.py'
+      - 'tools/tests/test_ios_scene_scans.c'
+      - 'tools/tests/test_ios_scene_adapters.py'
       - 'configure.py'
 
 jobs:
@@ -55,6 +57,9 @@ jobs:
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_render_scans.c -o "$RUNNER_TEMP/halo-render-scan-test"
           "$RUNNER_TEMP/halo-render-scan-test"
           python3 tools/tests/test_ios_render_adapters.py
+          cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_scene_scans.c -o "$RUNNER_TEMP/halo-scene-scan-test"
+          "$RUNNER_TEMP/halo-scene-scan-test"
+          python3 tools/tests/test_ios_scene_adapters.py
           python3 -m venv "$RUNNER_TEMP/halo-arm-test"
           "$RUNNER_TEMP/halo-arm-test/bin/python" -m pip install unicorn==2.1.4 keystone-engine==0.9.2
           "$RUNNER_TEMP/halo-arm-test/bin/python" tools/tests/test_ios_pointer_fastpath.py

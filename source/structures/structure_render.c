@@ -85,6 +85,10 @@ symbols in this file:
 
 #include "cseries.h"
 #include "structure_render.h"
+#ifdef HALO_IOS_GUEST
+#include <stddef.h>
+#include "../../port/include/ios_scene_scan.h"
+#endif
 
 #include "bitmaps/bitmap_group_runtime.h"
 #include "cseries/errors.h"
@@ -268,6 +272,14 @@ static void structure_render_dynamic_triangles_from_bitvector(
 	unsigned long *surface_flags,
 	short *triangles)
 {
+#ifdef HALO_IOS_GUEST
+    struct structure_bsp *native_structure=global_structure_bsp_get();
+    struct halo_scene_scan_packet p={HALO_SCENE_BIT_TRIANGLES,{0}};
+    p.a[0]=(unsigned int)native_structure->surfaces.address;p.a[1]=native_structure->surfaces.count;
+    p.a[3]=(unsigned int)surface_count;p.a[4]=(unsigned int)triangles;p.a[5]=(unsigned int)surface_indices;p.a[6]=(unsigned int)surface_flags;
+    host_scene_scan((unsigned int)&p);return;
+#endif
+
 	struct structure_bsp *structure_bsp = global_structure_bsp_get();
 	short surface_index_index = 0;
 	long surface_index = 0;
@@ -330,6 +342,15 @@ static void structure_render_dynamic_triangles_from_indices(
 	long *surface_indices,
 	short *triangles)
 {
+#ifdef HALO_IOS_GUEST
+    struct structure_bsp *native_structure=global_structure_bsp_get();
+    struct halo_scene_scan_packet p={HALO_SCENE_TRIANGLES,{0}};
+    /* Native sorting reproduces the pure compare_surface_indices ordering. */
+    p.a[0]=(unsigned int)native_structure->surfaces.address;p.a[1]=native_structure->surfaces.count;
+    p.a[2]=(unsigned int)surface_indices;p.a[3]=(unsigned int)surface_count;p.a[4]=(unsigned int)triangles;
+    host_scene_scan((unsigned int)&p);return;
+#endif
+
 	struct structure_bsp *structure_bsp = global_structure_bsp_get();
 	short surface_index_index;
 
@@ -508,12 +529,20 @@ static void structure_render_pass(
 			chunk_start = surface_index_cursor;
 			shader = shader_definition_get(material->shader.index);
 
+#ifdef HALO_IOS_GUEST
+            unsigned int consumed;
+            struct halo_scene_scan_packet p={HALO_SCENE_MATERIAL_RUN,{0}};
+            p.a[0]=(unsigned int)surface_index_cursor;p.a[1]=(unsigned int)(surface_index_end-surface_index_cursor);
+            p.a[2]=(unsigned int)(material->first_surface_index+material->surface_count);p.a[3]=(unsigned int)&consumed;
+            host_scene_scan((unsigned int)&p);surface_index_cursor+=consumed;
+#else
 			do
 			{
 				surface_index_cursor++;
 			}
 			while (surface_index_cursor < surface_index_end
 				&& *surface_index_cursor < material->first_surface_index + material->surface_count);
+#endif
 
 			chunk_count = (short)(surface_index_cursor - chunk_start);
 

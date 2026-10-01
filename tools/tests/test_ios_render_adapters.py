@@ -2,7 +2,7 @@ from pathlib import Path
 import os,subprocess,tempfile
 r=Path(__file__).resolve().parents[2]
 runner=(r/'port/ios/HaloIOS/halo_guest_runner.m').read_text(encoding='utf-8')
-adapter=runner.split('/* No persistent cache:',1)[1].split('static int ios_vertex_color_swizzle',1)[0].split('*/',1)[1]
+adapter=runner.split('/* No persistent cache:',1)[1].split('static _Atomic uint64_t g_scene_calls',1)[0].split('*/',1)[1]
 prefix=r"""#include <assert.h>
 #include <stdint.h>
 #include <stddef.h>

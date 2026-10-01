@@ -2,7 +2,7 @@
 
 Experimental Halo: Combat Evolved port for physical iPhone and iPad devices running iOS/iPadOS 15 or later. A native `arm64` app hosts the recovered `arm64_32` engine and presents graphics through EAGL/OpenGL ES 3.
 
-**Current version: M2.6.24 native renderer scans, awaiting device testing.** M2.6.19 reached the `a10` intro cutscene and initial campaign gameplay on the test iPhone, with improved menu response but very low frame rates. M2.6.21 restored campaign boot. M2.6.22 accelerates streamed vertex-color conversion natively and adds finer renderer measurements while retaining the working pointer bridge. Audio remains muted; full movement/aim controls and multiplayer remain pending. See [port status](../../IOS_PORT_STATUS.md).
+**Current version: M2.6.25 native scene traversal, awaiting device testing.** M2.6.19 reached the `a10` intro cutscene and initial campaign gameplay on the test iPhone, with improved menu response but very low frame rates. M2.6.21 restored campaign boot. M2.6.22 accelerates streamed vertex-color conversion natively and adds finer renderer measurements while retaining the working pointer bridge. Audio remains muted; full movement/aim controls and multiplayer remain pending. See [port status](../../IOS_PORT_STATUS.md).
 
 ## Build with GitHub Actions
 
@@ -150,3 +150,7 @@ The workflow checks cache transitions, each descriptor field, buffer side effect
 ## M2.6.24 native renderer scans
 
 Index bounds, shader/texture cache searches and uniform comparisons now run in bounded native helpers. No native cache or static pointer rewrite is introduced; the working signal bridge, page protection behavior and resolution remain unchanged. New scene categories cover visibility, objects, structure passes, particles, lights and UI. Device correctness and performance remain to be tested; no FPS gain is claimed yet. See the [implementation, exact functions, rebuild checklist and log acceptance criteria](RENDER_PERFORMANCE_M2624.md).
+
+## M2.6.25 native scene traversal
+
+The M2.6.24 device test confirms working native renderer helpers and better menu performance, but very slow a10 gameplay. M2.6.25 adds bounded native datum lookup/iteration, BSP surface sorting/triangle gathering/material runs and visibility marking/reference scans. Object callbacks and portal recursion retain their existing guest behavior. No new native cache or pointer rewrite is introduced. See the [exact loops, safety properties, tests and device checklist](SCENE_PERFORMANCE_M2625.md).

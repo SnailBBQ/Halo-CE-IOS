@@ -107,6 +107,10 @@ symbols in this file:
 #include "cseries/profile.h"
 #include "ai/ai_debug.h"
 #include "structures/structure_visibility.h"
+#ifdef HALO_IOS_GUEST
+#include <stddef.h>
+#include "../../port/include/ios_scene_scan.h"
+#endif
 #include "math/geometry.h"
 #include "physics/bsp3d.h"
 #include "physics/collision_bsp_definitions.h"
@@ -451,6 +455,15 @@ static void structure_visibility_traverse_subclusters(
 			}
 
 			surface_index_buffer = TAG_BLOCK_GET_ELEMENT(&subcluster->surface_indices, 0, long);
+#ifdef HALO_IOS_GUEST
+            unsigned int updated;
+            struct halo_scene_scan_packet p={HALO_SCENE_MARK_SURFACES,{0}};
+            p.a[0]=(unsigned int)surface_index_buffer;p.a[1]=subcluster->surface_indices.count;p.a[2]=structure->surfaces.count;
+            p.a[3]=(unsigned int)render.environment_surface_flags;p.a[4]=render.environment_surface_count;
+            p.a[5]=MAXIMUM_RENDERED_ENVIRONMENT_SURFACES;p.a[6]=(unsigned int)&updated;
+            host_scene_scan((unsigned int)&p);render.environment_surface_count=(short)updated;
+            (void)surface_list_index;
+#else
 			for (surface_list_index = 0;
 				(short)surface_list_index < subcluster->surface_indices.count;
 				surface_index_buffer++, surface_list_index++)
@@ -466,6 +479,7 @@ static void structure_visibility_traverse_subclusters(
 					render.environment_surface_count++;
 				}
 			}
+#endif
 		}
 	}
 	profile_exit(render_structure_visibility_subcluster_traversal);
@@ -1216,6 +1230,16 @@ static short structure_visibility_build_surfaces_traverse_leaf(
 	{
 		long reference_index;
 
+#ifdef HALO_IOS_GUEST
+        unsigned int native_count;
+        struct halo_scene_scan_packet p={HALO_SCENE_LEAF_REFERENCES,{0}};
+        p.a[0]=(unsigned int)structure->surface_references.address;p.a[1]=structure->surface_references.count;
+        p.a[2]=leaf->first_surface_reference_index;p.a[3]=(unsigned int)leaf->surface_reference_count;
+        p.a[4]=sizeof(struct structure_visibility_surface_reference);p.a[5]=offsetof(struct structure_visibility_surface_reference,surface_index);
+        p.a[6]=structure->surfaces.count;p.a[7]=(unsigned int)render.environment_surface_flags;p.a[8]=(unsigned int)surface_flags;
+        p.a[9]=(unsigned int)surface_indices;p.a[10]=(unsigned int)maximum_count;p.a[11]=(unsigned int)&native_count;
+        host_scene_scan((unsigned int)&p);found_count=(short)native_count;(void)reference_index;
+#else
 		for (reference_index = leaf->first_surface_reference_index;
 			reference_index < leaf->surface_reference_count + leaf->first_surface_reference_index;
 			reference_index++)
@@ -1238,6 +1262,7 @@ static short structure_visibility_build_surfaces_traverse_leaf(
 				surface_indices[found_count++] = surface_index;
 			}
 		}
+#endif
 	}
 
 	(void)cull_sphere_radius;

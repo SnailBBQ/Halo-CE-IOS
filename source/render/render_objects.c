@@ -454,6 +454,9 @@ static boolean object_is_first_person_camera(
 		scripted_camera_object_is_first_person_camera(object_index);
 }
 
+#ifdef HALO_IOS_GUEST
+#define find_rendered_objects find_rendered_objects_profiled
+#endif
 static void find_rendered_objects(
 	void)
 {
@@ -489,6 +492,15 @@ static void find_rendered_objects(
 
 	return;
 }
+#ifdef HALO_IOS_GUEST
+#undef find_rendered_objects
+static void find_rendered_objects(void)
+{
+    extern void host_frame_phase(int,int);
+    host_frame_phase(18,0);find_rendered_objects_profiled();host_frame_phase(18,1);
+}
+#endif
+
 
 static real object_get_level_of_detail_pixels(
 	long object_index)
@@ -1246,6 +1258,9 @@ static void render_object(
 	return;
 }
 
+#ifdef HALO_IOS_GUEST
+#define process_rendered_objects process_rendered_objects_profiled
+#endif
 static void process_rendered_objects(
 	struct object_render_data *data)
 {
@@ -1262,3 +1277,11 @@ static void process_rendered_objects(
 
 	return;
 }
+#ifdef HALO_IOS_GUEST
+#undef process_rendered_objects
+static void process_rendered_objects(struct object_render_data *data)
+{
+    extern void host_frame_phase(int,int);
+    host_frame_phase(19,0);process_rendered_objects_profiled(data);host_frame_phase(19,1);
+}
+#endif
