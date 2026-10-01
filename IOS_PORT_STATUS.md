@@ -1,6 +1,6 @@
 # Halo CE iOS — Port Status
 
-Updated September 30, 2026. Current development milestone: **M2.6.16**.
+Updated September 30, 2026. Current development milestone: **M2.6.17**.
 
 Halo's real main menu rendered on a physical iPhone with **M2.6.12**. The test ran for more than ten minutes and showed the Halo background and Campaign, Multiplayer, and Settings. Startup and frame rendering were very slow, and blocks covered portions of the menu text. This confirms engine execution and menu rendering; playable campaign and multiplayer are not yet confirmed.
 
@@ -10,7 +10,9 @@ Halo's real main menu rendered on a physical iPhone with **M2.6.12**. The test r
 
 **M2.6.15 added log improvements:** it removes the cyan presentation marker and its log description, and adds separate Boot log and Game log views with a persistent explanation of skipped Bink videos and muted audio. Important terminal messages remain accessible in `debug.txt` and shared logs.
 
-**M2.6.16 is awaiting device testing:** native bulk memory operations, timed loading stages, and a split menu-control layout. Campaign loading and performance still require device verification.
+**M2.6.16 device evidence:** The M2.6.16 device test reached the main menu quickly but still had low frame rates. For `a10`, scripts finished in 16.886 seconds and object placement in 2.330 seconds. Map initialization completed; later heartbeats repeatedly sampled CRC processing for roughly 90 seconds, then texture conversion and drawing. The screen remained black during the user test. `debug.txt` also reports a persistent-storage checksum failure. These logs show continued execution, not confirmed campaign gameplay or a diagnosed rendering failure.
+
+**M2.6.17 is awaiting device testing:** original Xbox face-button colors and controller mappings. This update does not claim to fix campaign loading.
 
 ## Current capabilities
 
@@ -27,7 +29,7 @@ Halo's real main menu rendered on a physical iPhone with **M2.6.12**. The test r
 
 ## Remaining work
 
-- Test M2.6.16 log views, menu rendering, and campaign loading on the device.
+- Test M2.6.17 controller buttons. Investigate slow CRC/texture processing, persistent-storage checksums, and the campaign black screen.
 - Investigate remaining rendering artifacts and guest/host bridge overhead.
 - Validate menu input and campaign loading before claiming playable gameplay.
 - Add and validate audio and networking support. Bink movies are currently skipped.
@@ -59,3 +61,7 @@ Bulk guest memory copies, moves, and fills of at least 256 bytes now use native 
 Map cache preparation, scenario/assets loading, and major initialization steps report elapsed times in Boot log. A loading label displays the current instrumented stage and elapsed seconds, including when Show game is open. It is stage information, not a percentage or proof that loading has completed. Menu navigation uses a left D-pad with Select and Back on the right. Audio remains muted and Bink movies remain skipped.
 
 Awaiting device testing: compare menu startup time and try `a10`. If loading appears stalled, share logs while the loading stage is still visible. Campaign gameplay remains unconfirmed.
+
+## M2.6.17 Xbox touch buttons
+
+A (green), B (red), X (blue), Y (yellow), Black, and White replace Select/Back. A/B/X/Y form a diamond on the right; Black and White flank A. The left D-pad remains. Buttons feed the existing guest controller: A confirms menus, B cancels, and Black/White use the right/left shoulder mappings in the Xbox input adapter. This adds buttons, not a complete gameplay controller; sticks and triggers remain unimplemented.

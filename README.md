@@ -12,7 +12,7 @@ That project is a fork of [punpckhdq/halo](https://github.com/punpckhdq/halo).
 
 ## iOS development status
 
-**M2.6.16 is awaiting device testing.** The main menu and readable text are confirmed on device. M2.6.14 touch menu controls worked in the latest test, and the game log reached precaching of `a10`. Campaign gameplay is still unconfirmed. M2.6.16 adds native bulk memory operations, timed loading-stage diagnostics, and a left D-pad with Select/Back on the right. Boot log and Game log retain important messages.
+**M2.6.17 is awaiting device testing.** The main menu and readable text are confirmed on device. M2.6.14 touch menu controls worked in the latest test, and the game log reached precaching of `a10`. Campaign gameplay is still unconfirmed. M2.6.16 improved menu startup in the user test, but frame rates remain low and `a10` stayed black despite completing map initialization. M2.6.17 adds the colored original Xbox A/B/X/Y/Black/White touch buttons alongside the left D-pad. Boot log and Game log retain important messages.
 
 See [iOS port status](IOS_PORT_STATUS.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
 

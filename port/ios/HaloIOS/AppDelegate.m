@@ -232,7 +232,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"HALO iOS — M2.6.16 Startup";
+    title.text = @"HALO iOS — M2.6.17 Startup";
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:18];
 
@@ -270,9 +270,16 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     UIView *menu = [UIView new];
     menu.translatesAutoresizingMaskIntoConstraints = NO;
     menu.hidden = YES;
-    NSArray<NSString *> *labels = @[@"←", @"↑", @"↓", @"→", @"Select", @"Back"];
-    NSArray<NSNumber *> *buttons = @[@13, @11, @12, @14, @0, @1];
-    NSArray<NSString *> *accessibility = @[@"Left", @"Up", @"Down", @"Right", @"Select", @"Back"];
+    NSArray<NSString *> *labels = @[@"←", @"↑", @"↓", @"→", @"A", @"B", @"X", @"Y", @"Black", @"White"];
+    NSArray<NSNumber *> *buttons = @[@13, @11, @12, @14, @0, @1, @2, @3, @10, @9];
+    NSArray<NSString *> *accessibility = @[@"Left", @"Up", @"Down", @"Right", @"A", @"B", @"X", @"Y", @"Black", @"White"];
+    NSArray<UIColor *> *faceColors = @[
+        [UIColor colorWithRed:0.10 green:0.65 blue:0.22 alpha:0.95],
+        [UIColor colorWithRed:0.85 green:0.13 blue:0.16 alpha:0.95],
+        [UIColor colorWithRed:0.12 green:0.38 blue:0.90 alpha:0.95],
+        [UIColor colorWithRed:0.97 green:0.78 blue:0.10 alpha:0.95],
+        UIColor.blackColor, UIColor.whiteColor
+    ];
     for (NSUInteger i = 0; i < labels.count; ++i) {
         UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
         button.translatesAutoresizingMaskIntoConstraints = NO;
@@ -280,9 +287,17 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
         [button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
         button.accessibilityLabel = accessibility[i];
         button.backgroundColor = [UIColor colorWithWhite:0.12 alpha:0.8];
-        button.layer.cornerRadius = 12;
+        button.layer.cornerRadius = i < 4 ? 12 : 24;
+        if (i >= 4) {
+            button.backgroundColor = faceColors[i - 4];
+            [button setTitleColor:(i == 7 || i == 9) ? UIColor.blackColor : UIColor.whiteColor
+                         forState:UIControlStateNormal];
+            button.titleLabel.font = [UIFont boldSystemFontOfSize:i >= 8 ? 11 : 20];
+            button.layer.borderWidth = 1;
+            button.layer.borderColor = [UIColor colorWithWhite:0.65 alpha:0.8].CGColor;
+        }
         button.tag = buttons[i].integerValue;
-        [button.widthAnchor constraintEqualToConstant:i < 4 ? 48 : 80].active = YES;
+        [button.widthAnchor constraintEqualToConstant:48].active = YES;
         [button.heightAnchor constraintEqualToConstant:48].active = YES;
         [button addTarget:self action:@selector(menuPress:) forControlEvents:UIControlEventTouchDown];
         [button addTarget:self action:@selector(menuRelease:)
@@ -294,8 +309,11 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
             [button.leadingAnchor constraintEqualToAnchor:menu.leadingAnchor constant:x[i]].active = YES;
             [button.topAnchor constraintEqualToAnchor:menu.topAnchor constant:y[i]].active = YES;
         } else {
-            [button.trailingAnchor constraintEqualToAnchor:menu.trailingAnchor].active = YES;
-            [button.bottomAnchor constraintEqualToAnchor:menu.bottomAnchor constant:i == 4 ? 0 : -60].active = YES;
+            /* A/B/X/Y diamond, with Black and White flanking A. */
+            CGFloat x[] = {52, 104, 0, 52, 104, 0};
+            CGFloat y[] = {104, 52, 52, 0, 104, 104};
+            [button.trailingAnchor constraintEqualToAnchor:menu.trailingAnchor constant:x[i - 4] - 104].active = YES;
+            [button.topAnchor constraintEqualToAnchor:menu.topAnchor constant:y[i - 4]].active = YES;
         }
     }
     [vc.view addSubview:menu];

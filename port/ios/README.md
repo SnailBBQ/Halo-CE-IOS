@@ -2,7 +2,7 @@
 
 Experimental Halo: Combat Evolved port for physical iPhone and iPad devices running iOS/iPadOS 15 or later. A native `arm64` app hosts the recovered `arm64_32` engine and presents graphics through EAGL/OpenGL ES 3.
 
-**Current version: M2.6.16, awaiting device testing.** The real main menu and readable text are confirmed. M2.6.14 touch controls worked and the latest game log reached precaching of the first campaign map, `a10`; completed campaign loading and gameplay remain unconfirmed. M2.6.16 adds native bulk memory operations, visible loading-stage timings, and a split control layout. See [port status](../../IOS_PORT_STATUS.md).
+**Current version: M2.6.17, awaiting device testing.** The real main menu and readable text are confirmed. M2.6.14 touch controls worked and the latest game log reached precaching of the first campaign map, `a10`; completed campaign loading and gameplay remain unconfirmed. M2.6.16 adds native bulk memory operations, visible loading-stage timings, and a split control layout. See [port status](../../IOS_PORT_STATUS.md).
 
 ## Build with GitHub Actions
 
@@ -40,9 +40,9 @@ Import supports multiple files and keeps existing maps instead of replacing them
 
 ## Menu controls
 
-M2.6.16 arranges the on-screen menu controls as a left D-pad with Select and Back on the right. M2.6.14 introduced on-screen **Left, Up, Down, Right, Select, and Back** buttons when the game view is shown. They feed the guest's first controller slot; Select maps to A and Back to B. A quick tap is retained until it is polled, so slow frames do not simply discard it. Showing the log or leaving the app clears held/pending buttons.
+M2.6.17 uses a left D-pad and a right-side **A (green), B (red), X (blue), Y (yellow), Black, and White** cluster. A/B/X/Y form a diamond; Black and White flank A. A confirms menus and B returns/cancels. Black and White map to the Xbox adapter's right and left shoulder inputs respectively. All buttons feed the guest's first controller slot. Quick taps remain pending until polled; showing the log or leaving the app clears held/pending inputs.
 
-These controls are for menu testing. Full gameplay controls and physical controller support are not implemented by this change. Test moving the highlight, opening Campaign with Select, and returning with Back before attempting a level.
+These controls are for menu testing. Full gameplay controls and physical controller support are not implemented by this change. Test moving the highlight, opening Campaign with A, and returning with B before attempting a level.
 
 ## Testing and logs
 
@@ -92,3 +92,7 @@ Bulk guest memory copies, moves, and fills of at least 256 bytes now use native 
 Map cache preparation, scenario/assets loading, and major initialization steps report elapsed times in Boot log. A loading label displays the current instrumented stage and elapsed seconds, including when Show game is open. It is stage information, not a percentage or proof that loading has completed. Menu navigation uses a left D-pad with Select and Back on the right. Audio remains muted and Bink movies remain skipped.
 
 Awaiting device testing: compare menu startup time and try `a10`. If loading appears stalled, share logs while the loading stage is still visible. Campaign gameplay remains unconfirmed.
+
+## Latest device evidence
+
+The M2.6.16 device test reached the main menu quickly but still had low frame rates. For `a10`, scripts finished in 16.886 seconds and object placement in 2.330 seconds. Map initialization completed; later heartbeats repeatedly sampled CRC processing for roughly 90 seconds, then texture conversion and drawing. The screen remained black during the user test. `debug.txt` also reports a persistent-storage checksum failure. These logs show continued execution, not confirmed campaign gameplay or a diagnosed rendering failure.
