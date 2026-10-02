@@ -1,6 +1,6 @@
 # Halo CE iOS — Port Status
 
-Updated October 1, 2026. Current development milestone: **M2.6.31**.
+Updated October 1, 2026. Current development milestone: **M2.6.32**.
 
 Halo's real main menu rendered on a physical iPhone with **M2.6.12**. The test ran for more than ten minutes and showed the Halo background and Campaign, Multiplayer, and Settings. Startup and frame rendering were very slow, and blocks covered portions of the menu text. This was the first menu milestone; later campaign evidence is recorded below.
 
@@ -138,3 +138,10 @@ Device logs show the remaining cost is signal-handled pointer faults (about 640,
 ## M2.6.31 controls and fault hot spots
 
 M2.6.30 device test: boot is near-instant and render CPU fell from about 2,000 ms to 10-200 ms per frame (menu around 30 FPS, a10 tutorial 5-7 FPS). The remaining cost is still pointer faults in code the rewrite skipped. M2.6.31 adds the full Xbox on-screen layout (both sticks, LT/RT, LS/RS, Back/Start, White/Black, D-pad), Xbox/PlayStation/MFi controller support, and a per-function fault hot-spot report in the boot log. See [the details](port/ios/CONTROLS_M2631.md).
+
+## M2.6.32 game first, audio, touch-look, schemes, multiplayer
+
+M2.6.31 device test: render CPU 9-60 ms per frame, remaining pointer faults in malloc/mutex atomics. M2.6.32 covers those atomics,
+adds a sampling profiler, shows the game first with a readable four-tab log, adds touch-look, floating sticks, five named control schemes
+with a layout editor, real audio (Core Audio) and a working network layer for invite-link multiplayer. See [the details](port/ios/UPDATE_M2632.md).
+Untested on a device: touch-look, audio, multiplayer, the settings and log screens.

@@ -328,7 +328,13 @@ ARENA_MASK = '0xffffffff00000000'
 ARENA_SKIP_PATHS = ('/guest/runtime/guest_start.', '/guest/runtime/guest_thread.')
 ARENA_MEM_OPS = (r'ldrsb|ldrsh|ldrsw|ldrb|ldrh|ldr|ldursb|ldursh|ldursw|ldurb|ldurh|ldur|'
                  r'ldpsw|ldnp|ldp|strb|strh|str|sturb|sturh|stur|stnp|stp|'
-                 r'ld1r|ld2r|ld3r|ld4r|ld1|ld2|ld3|ld4|st1|st2|st3|st4')
+                 r'ld1r|ld2r|ld3r|ld4r|ld1|ld2|ld3|ld4|st1|st2|st3|st4|'
+                 # exclusive / acquire-release forms (mutexes, malloc locks): the inserted
+                 # instructions are plain ALU, which is allowed inside an exclusive sequence
+                 r'ldaxrb|ldaxrh|ldaxr|ldxrb|ldxrh|ldxr|ldaxp|ldxp|stlxrb|stlxrh|stlxr|stxrb|stxrh|stxr|'
+                 r'stlxp|stxp|ldarb|ldarh|ldar|stlrb|stlrh|stlr')
+ARENA_ATOMIC_OPS = frozenset('ldaxrb ldaxrh ldaxr ldxrb ldxrh ldxr ldaxp ldxp stlxrb stlxrh stlxr stxrb stxrh stxr '
+                             'stlxp stxp ldarb ldarh ldar stlrb stlrh stlr'.split())
 ARENA_NEON_OPS = frozenset('ld1r ld2r ld3r ld4r ld1 ld2 ld3 ld4 st1 st2 st3 st4'.split())
 ARENA_MEM_RE = re.compile(
     r'^(?P<ind>\s*)(?P<op>' + ARENA_MEM_OPS + r')\s+(?P<regs>(?:[^\[\]]|\[\d+\])+?)\s*,\s*'
@@ -403,6 +409,8 @@ def arena_rewrite_line(line, label):
                 return None
         if m['op'] in ARENA_NEON_OPS and (wb or off):
             return None  # NEON accesses take [xN] or [xN], post-increment only
+        if m['op'] in ARENA_ATOMIC_OPS and (wb or post or off not in ('', '#0')):
+            return None  # exclusive and acquire/release accesses take a bare [xN]
         out = []
         if wb:
             adj = _arena_adjust(rn, imm)

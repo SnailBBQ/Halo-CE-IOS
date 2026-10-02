@@ -171,6 +171,9 @@ for rn in [r for r in range(29) if r != 15]:
         f'\tstp w3, w4, [x{rn}, #-8]', f'\tldpsw x3, x4, [x{rn}, #8]',
         f'\tldr w0, [x{rn}, w2, uxtw #2]', f'\tldrb w0, [x{rn}, w2, sxtw]',
         f'\tstr x0, [x{rn}, x2, lsl #3]',
+        f'\tldaxr w0, [x{rn}]', f'\tldxr x3, [x{rn}]', f'\tstlxr w5, w0, [x{rn}]', f'\tstxr w5, x3, [x{rn}]',
+        f'\tldar w0, [x{rn}]', f'\tstlr w1, [x{rn}]', f'\tldaxrb w0, [x{rn}]', f'\tstlxrh w5, w1, [x{rn}]',
+        f'\tldaxp x3, x4, [x{rn}]', f'\tstlxp w5, x3, x4, [x{rn}]',
     ]
     if rn not in (0, 1, 3, 4):
         forms += [f'\tldr w0, [x{rn}], #8', f'\tstr w1, [x{rn}], #-4', f'\tldr w0, [x{rn}, #8]!',
@@ -180,6 +183,13 @@ for rn in [r for r in range(29) if r != 15]:
         check_memory(form, narrow + wide + [0])
         checks += 1
 
+# A compare-and-swap loop keeps working: the inserted ALU instructions sit inside the exclusive pair.
+loop = '\n'.join(['\tmov w9, #1', '.Lspin:', '\tldaxr w8, [x0]', '\tcbnz w8, .Lspin', '\tstlxr w10, w9, [x0]', '\tcbnz w10, .Lspin', '\tret'])
+rewritten = m.ios_arena_fastpath(loop + '\n', 'x/source/lock.o.darwin.s')
+assert rewritten.count('adr x15, .') == 2 and 'ldaxr w8, [x15]' in rewritten and 'stlxr w10, w9, [x15]' in rewritten
+between = rewritten.split('ldaxr w8, [x15]')[1].split('stlxr w10, w9, [x15]')[0]
+assert not any(w in between for w in ('ldr', 'str', 'ldp', 'stp', 'ld1', 'st1', 'bl ')), 'only ALU/branch between exclusives'
+
 # Sites that must stay on the signal bridge.
 keep = [
     '\tldr w0, [sp, #16]', '\tstp x29, x30, [sp, #-16]!', '\tldr w0, [x29, #-8]', '\tldr x0, [x30]',
@@ -187,8 +197,7 @@ keep = [
     '\tldr w0, [x1, x2, lsl #0]', '\tldr w0, [x1, x2, sxtx #2]', '\tldr w0, [x1, w2, lsl #2]',
     '\tldr w0, [x1, #sym]', '\tldr w0, [x1], x2', '\tld1 { v0.4s }, [x1, #16]', '\tld1 { v0.4s }, [x1]!',
     '\tld1 { v0.4s }, [x1], x15', '\tld1 { v0.4s }, [x1], x1',
-    '\tprfm pldl1keep, [x1, #64]', '\tldxr w0, [x1]', '\tstxr w2, w0, [x1]', '\tldar w0, [x1]',
-    '\tstlr w0, [x1]', '\tldr w0, =lit', '\tldr w0, Lpool', '\tldr w0, [x1, #8]!!', '\tbr x8',
+    '\tprfm pldl1keep, [x1, #64]', '\tldaxr w0, [x1, #4]', '\tstlxr w2, w0, [x1], #4', '\tldr w0, =lit', '\tldr w0, Lpool', '\tldr w0, [x1, #8]!!', '\tbr x8',
     '\tblr x30', '\tblr x15', '\tadd x0, x1, x2', '\tstr w0, [x1, #8], #4',
 ]
 for line in keep:

@@ -43,6 +43,7 @@ typedef struct {
     int color;
     const char *label;
     const char *sub;  /* small second line, or "" */
+    int hidden;       /* the player chose to hide it */
 } HcControl;
 
 static inline HcRect hc_rect(float x, float y, float w, float h) { HcRect r = { x, y, w, h }; return r; }
@@ -64,7 +65,7 @@ static inline void hc_set(HcControl *c, int kind, HcRect r, int button, int axis
                           const char *label, const char *sub)
 {
     c->kind = kind; c->r = r; c->button = button; c->axis = axis; c->color = color;
-    c->label = label; c->sub = sub;
+    c->label = label; c->sub = sub; c->hidden = 0;
 }
 
 /* Lays every control out inside the safe rectangle; returns the scale used. */
@@ -134,6 +135,8 @@ static inline int hc_contains(const HcControl *c, float x, float y, float s)
 {
     float pad = (c->kind == HC_KIND_STICK ? 18.0f : 7.0f) * s;
     HcRect r = c->r;
+    if (c->hidden)
+        return 0;
     if (c->kind == HC_KIND_CIRCLE || c->kind == HC_KIND_STICK) {
         float dx = x - hc_cx(r), dy = y - hc_cy(r), rad = r.w * 0.5f + pad;
         return dx * dx + dy * dy <= rad * rad;
@@ -156,21 +159,47 @@ static inline int hc_hit(const HcControl *controls, float x, float y, float s)
 }
 
 /* Stick position: knob offset (clamped to the base radius) and SDL axis values.
- * SDL's Y axis grows downwards like the screen, so no flip is needed. */
-static inline void hc_stick(HcRect base, float x, float y, float *knob_dx, float *knob_dy, int *axis_x, int *axis_y)
+ * SDL's Y axis grows downwards like the screen, so no flip is needed.
+ * `dead` is the dead zone as a fraction of the radius (0...0.4) and `curve` the response
+ * exponent: 1 is linear, above 1 gives finer control near the centre. Full deflection is
+ * reached at 90% of the radius so a thumb never has to reach the very edge. */
+static inline void hc_stick_ex(HcRect base, float x, float y, float dead, float curve,
+                               float *knob_dx, float *knob_dy, int *axis_x, int *axis_y)
 {
     float radius = base.w * 0.5f;
     float dx = x - hc_cx(base), dy = y - hc_cy(base);
     float d = sqrtf(dx * dx + dy * dy);
     if (d > radius && d > 0.0f) { dx *= radius / d; dy *= radius / d; d = radius; }
-    float n = radius > 0.0f ? d / radius : 0.0f;
-    const float dead = 0.08f;
+    float n = radius > 0.0f ? d / (radius * 0.9f) : 0.0f;
+    if (n > 1.0f) n = 1.0f;
+    if (dead < 0.0f) dead = 0.0f;
+    if (dead > 0.4f) dead = 0.4f;
+    if (curve < 1.0f) curve = 1.0f;
+    if (curve > 3.0f) curve = 3.0f;
     float m = n < dead ? 0.0f : (n - dead) / (1.0f - dead);
+    if (m > 0.0f && curve != 1.0f) m = powf(m, curve);
     if (knob_dx) *knob_dx = dx;
     if (knob_dy) *knob_dy = dy;
     if (d <= 0.0f || m <= 0.0f) { *axis_x = 0; *axis_y = 0; return; }
     *axis_x = (int)lroundf(dx / d * m * 32767.0f);
     *axis_y = (int)lroundf(dy / d * m * 32767.0f);
+}
+
+static inline void hc_stick(HcRect base, float x, float y, float *knob_dx, float *knob_dy, int *axis_x, int *axis_y)
+{
+    hc_stick_ex(base, x, y, 0.08f, 1.0f, knob_dx, knob_dy, axis_x, axis_y);
+}
+
+/* A floating stick re-centres where the thumb lands; the ring is kept inside the safe area. */
+static inline HcRect hc_floating_base(HcRect base, float x, float y, float left, float top, float right, float bottom)
+{
+    float half = base.w * 0.5f;
+    float cx = x, cy = y;
+    if (cx < left + half) cx = left + half;
+    if (cx > right - half) cx = right - half;
+    if (cy < top + half) cy = top + half;
+    if (cy > bottom - half) cy = bottom - half;
+    return hc_circle(cx, cy, base.w);
 }
 
 /* D-pad directions as a bit mask over SDL button indices (bit = button - 11). */

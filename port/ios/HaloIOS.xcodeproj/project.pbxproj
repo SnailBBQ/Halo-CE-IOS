@@ -5,7 +5,7 @@
  objectVersion = 56;
  objects = {
   A1 = {isa = PBXProject; buildConfigurationList = A2; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; mainGroup = A3; productRefGroup = A4; projectDirPath = ""; projectRoot = ""; targets = (A5,); };
-  A3 = {isa = PBXGroup; children = (B1,B2,B3,B6,B7,B8,B13,B14,B20,B21,B22,B23,B24,B25,B26,B27,B28,B29,B30,B31,B32,B15,); sourceTree = "<group>"; };
+  A3 = {isa = PBXGroup; children = (B1,B2,B3,B6,B7,B8,B13,B14,B20,B21,B22,B23,B24,B25,B26,B27,B28,B29,B30,B31,B32,B33,B34,B35,B36,B37,B38,B39,B40,B41,B42,B43,B44,B45,B46,B47,B48,B15,); sourceTree = "<group>"; };
   A4 = {isa = PBXGroup; children = (C1,); name = Products; sourceTree = "<group>"; };
 
   B1 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HaloIOS/main.m; sourceTree = "<group>"; };
@@ -28,6 +28,22 @@
   B30 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HaloIOS/halo_ios_controls.m; sourceTree = "<group>"; };
   B31 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/halo_ios_controls.h; sourceTree = "<group>"; };
   B32 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/halo_controls_layout.h; sourceTree = "<group>"; };
+  B33 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = HaloIOS/halo_ios_net.c; sourceTree = "<group>"; };
+  B34 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HaloIOS/halo_ios_audio.m; sourceTree = "<group>"; };
+  B35 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HaloIOS/halo_ios_platform.m; sourceTree = "<group>"; };
+  B36 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HaloIOS/HaloSettingsStore.m; sourceTree = "<group>"; };
+  B37 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HaloIOS/HaloSettingsViewController.m; sourceTree = "<group>"; };
+  B38 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HaloIOS/HaloLogViewController.m; sourceTree = "<group>"; };
+  B39 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/halo_ios_net.h; sourceTree = "<group>"; };
+  B40 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/halo_sdl_events.h; sourceTree = "<group>"; };
+  B41 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/halo_audio_ring.h; sourceTree = "<group>"; };
+  B42 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/halo_ios_platform.h; sourceTree = "<group>"; };
+  B43 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/halo_settings_core.h; sourceTree = "<group>"; };
+  B44 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/halo_log_classify.h; sourceTree = "<group>"; };
+  B45 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/HaloSettingsStore.h; sourceTree = "<group>"; };
+  B46 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/HaloSettingsViewController.h; sourceTree = "<group>"; };
+  B47 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/HaloLogViewController.h; sourceTree = "<group>"; };
+  B48 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HaloIOS/halo_ios_audio.h; sourceTree = "<group>"; };
   B29 = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HaloIOS/halo_ios_gl_host.m; sourceTree = "<group>"; };
 
   B15 = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = HaloIOS/Assets.xcassets; sourceTree = "<group>"; };
@@ -49,6 +65,12 @@
   D21 = {isa = PBXBuildFile; fileRef = E4; };
   D22 = {isa = PBXBuildFile; fileRef = E5; };
   D23 = {isa = PBXBuildFile; fileRef = B30; };
+  D24 = {isa = PBXBuildFile; fileRef = B33; };
+  D25 = {isa = PBXBuildFile; fileRef = B34; };
+  D26 = {isa = PBXBuildFile; fileRef = B35; };
+  D27 = {isa = PBXBuildFile; fileRef = B36; };
+  D28 = {isa = PBXBuildFile; fileRef = B37; };
+  D29 = {isa = PBXBuildFile; fileRef = B38; };
   D11 = {isa = PBXBuildFile; fileRef = B15; };
 
   E1 = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
@@ -58,7 +80,7 @@
   E5 = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 
   A5 = {isa = PBXNativeTarget; buildConfigurationList = A6; buildPhases = (F1,F2,F3,); buildRules = (); dependencies = (); name = HaloIOS; productName = HaloIOS; productReference = C1; productType = "com.apple.product-type.application"; };
-  F1 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (D1,D2,D7,D10,D16,D17,D18,D19,D20,D23,); runOnlyForDeploymentPostprocessing = 0; };
+  F1 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (D1,D2,D7,D10,D16,D17,D18,D19,D20,D23,D24,D25,D26,D27,D28,D29,); runOnlyForDeploymentPostprocessing = 0; };
   F2 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (D4,D5,D6,D21,D22,); runOnlyForDeploymentPostprocessing = 0; };
   F3 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (D11,); runOnlyForDeploymentPostprocessing = 0; };
 
@@ -66,8 +88,8 @@
   A6 = {isa = XCConfigurationList; buildConfigurations = (H1,H2,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
   G1 = {isa = XCBuildConfiguration; buildSettings = {}; name = Debug; };
   G2 = {isa = XCBuildConfiguration; buildSettings = {}; name = Release; };
-  H1 = {isa = XCBuildConfiguration; buildSettings = { ARCHS = arm64; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CLANG_ENABLE_OBJC_ARC = YES; OTHER_LDFLAGS = "-lz -framework UniformTypeIdentifiers -framework GameController"; CODE_SIGN_ENTITLEMENTS = HaloIOS/HaloIOS.entitlements; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HaloIOS/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.haloceuniversal.ios.m0; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; ALWAYS_SEARCH_USER_PATHS = NO; }; name = Debug; };
-  H2 = {isa = XCBuildConfiguration; buildSettings = { ARCHS = arm64; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CLANG_ENABLE_OBJC_ARC = YES; OTHER_LDFLAGS = "-lz -framework UniformTypeIdentifiers -framework GameController"; CODE_SIGN_ENTITLEMENTS = HaloIOS/HaloIOS.entitlements; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HaloIOS/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.haloceuniversal.ios.m0; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; ALWAYS_SEARCH_USER_PATHS = NO; }; name = Release; };
+  H1 = {isa = XCBuildConfiguration; buildSettings = { ARCHS = arm64; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CLANG_ENABLE_OBJC_ARC = YES; OTHER_LDFLAGS = "-lz -framework UniformTypeIdentifiers -framework GameController -framework AVFoundation"; CODE_SIGN_ENTITLEMENTS = HaloIOS/HaloIOS.entitlements; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HaloIOS/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.haloceuniversal.ios.m0; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; ALWAYS_SEARCH_USER_PATHS = NO; }; name = Debug; };
+  H2 = {isa = XCBuildConfiguration; buildSettings = { ARCHS = arm64; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CLANG_ENABLE_OBJC_ARC = YES; OTHER_LDFLAGS = "-lz -framework UniformTypeIdentifiers -framework GameController -framework AVFoundation"; CODE_SIGN_ENTITLEMENTS = HaloIOS/HaloIOS.entitlements; CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = HaloIOS/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 15.0; PRODUCT_BUNDLE_IDENTIFIER = com.haloceuniversal.ios.m0; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = "1,2"; ALWAYS_SEARCH_USER_PATHS = NO; }; name = Release; };
  };
  rootObject = A1;
 }

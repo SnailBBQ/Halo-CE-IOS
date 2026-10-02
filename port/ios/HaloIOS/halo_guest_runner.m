@@ -19,6 +19,13 @@
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
+#include <mach/mach.h>
+#include <dlfcn.h>
+#include "halo_ios_net.h"
+#include "halo_sdl_events.h"
+#include "halo_ios_audio.h"
+#include "halo_ios_platform.h"
 #include <string.h>
 #include <strings.h>
 #include <zlib.h>
@@ -652,6 +659,21 @@ static void ios_silent_advance(uint32_t packet_va)
     memcpy(packet,&cursor,8);
     atomic_fetch_add(&g_silent_calls,1);
     atomic_fetch_add(&g_silent_ns,(uint64_t)((loading_seconds()-started)*1e9));
+}
+static int ios_audio_open(uint32_t rate, uint32_t channels)
+{
+    return halo_ios_audio_open(rate, channels);
+}
+static uint32_t ios_audio_fill(void)
+{
+    return halo_ios_audio_fill();
+}
+static uint32_t ios_audio_push(uint32_t buffer_va, uint32_t frames)
+{
+    if (!frames || frames > 48000) return 0;
+    const float *samples = gp(buffer_va, (size_t)frames * 2 * sizeof(float));
+    if (!samples) { halo_guest_exec_abort(HALO_GUEST_ABORT_HOST); return 0; }
+    return halo_ios_audio_push(samples, frames);
 }
 static void ios_debug_state(int kind, uint32_t packet_va)
 {
@@ -1818,28 +1840,69 @@ static int ios_sdl_gl_swap_window(uint32_t window)
     return ok;
 }
 
+static pthread_mutex_t g_event_lock = PTHREAD_MUTEX_INITIALIZER;
+static HaloLookAccumulator g_look;
+static int g_focus_event_pending;
+
+uint64_t halo_ios_presented_frames(void)
+{
+    return atomic_load_explicit(&g_presented_frames, memory_order_relaxed);
+}
+
+void halo_ios_touch_look(float dx, float dy)
+{
+    pthread_mutex_lock(&g_event_lock);
+    halo_look_add(&g_look, dx, dy);
+    pthread_mutex_unlock(&g_event_lock);
+}
+
+/* The game looks at the clipboard (for an invite link) when its window gains focus. */
+void halo_ios_post_focus_event(void)
+{
+    pthread_mutex_lock(&g_event_lock);
+    g_focus_event_pending = 1;
+    pthread_mutex_unlock(&g_event_lock);
+}
+
 static int ios_sdl_poll_event(uint32_t event)
 {
-    (void)event;
+    uint8_t *out = gp(event, HALO_SDL_EVENT_SIZE);
+    float dx = 0, dy = 0;
+    int have_motion = 0, have_focus = 0;
+
+    if (!out)
+        return 0;
+    pthread_mutex_lock(&g_event_lock);
+    if (g_focus_event_pending) { g_focus_event_pending = 0; have_focus = 1; }
+    else have_motion = halo_look_take(&g_look, &dx, &dy);
+    pthread_mutex_unlock(&g_event_lock);
+    uint64_t now = (uint64_t)(loading_seconds() * 1e9);
+    if (have_focus) { halo_sdl_event_focus_gained(out, now); return 1; }
+    if (have_motion) { halo_sdl_event_mouse_motion(out, dx, dy, now); return 1; }
     return 0;
 }
 
 static int ios_sdl_set_clipboard_text(uint32_t text)
 {
-    (void)text;
+    const char *string = gp(text, 1);
+    if (string) halo_ios_clipboard_set(string);
     return 1;
 }
 
 static void ios_sdl_get_clipboard_text(uint32_t buffer_va, uint32_t size)
 {
     char *buffer = gp(buffer_va, size);
-    if (buffer && size)
+    if (buffer && size) {
         buffer[0] = 0;
+        halo_ios_clipboard_get(buffer, size);
+    }
 }
 
 static int ios_sdl_show_toast(uint32_t message, int duration, int gravity, int x, int y)
 {
-    (void)message; (void)duration; (void)gravity; (void)x; (void)y;
+    (void)duration; (void)gravity; (void)x; (void)y;
+    const char *text = gp(message, 1);
+    if (text) halo_ios_toast(text);
     return 1;
 }
 
@@ -2174,8 +2237,18 @@ static int ios_posix_command_line(int index,uint32_t buffer_va,uint32_t size)
 
 static uint32_t ios_posix_process_id(void){return (uint32_t)getpid();}
 static int ios_posix_register_url(uint32_t s,uint32_t d){(void)s;(void)d;return 0;}
-static int ios_posix_socket_last_error(void){return ENETDOWN;}
-static int ios_posix_socket_fail(void){errno=ENETDOWN;return -1;}
+static void *ios_net_resolver(uint32_t va, size_t size) { return gp(va, size); }
+static int ios_posix_socket_last_error(void){return halo_net_last_error();}
+static int ios_posix_minus_one(void){return -1;}
+static int ios_posix_zero_int(void){return 0;}
+/* UPnP needs a router library the iOS build does not carry; internet play falls back to STUN. */
+static int ios_posix_upnp_forward(uint32_t port, uint32_t external_address, uint32_t external_port, uint32_t error_va, int32_t error_size)
+{
+    (void)port; (void)external_address; (void)external_port;
+    char *error = gp(error_va, error_size > 0 ? (size_t)error_size : 1);
+    if (error && error_size > 0) snprintf(error, (size_t)error_size, "UPnP is not available on iOS");
+    return 0;
+}
 static uint32_t ios_posix_zero_u32(void){return 0;}
 static void ios_posix_random(uint32_t buffer_va,uint32_t size){void*b=gp(buffer_va,size);if(b)arc4random_buf(b,size);}
 
@@ -2279,6 +2352,9 @@ static void *resolve_host_import(const char *name)
     MAP("host_frame_phase", ios_frame_phase);
     MAP("host_frame_counts", ios_frame_counts);
     MAP("host_silent_advance", ios_silent_advance);
+    MAP("host_audio_open", ios_audio_open);
+    MAP("host_audio_fill", ios_audio_fill);
+    MAP("host_audio_push", ios_audio_push);
     MAP("host_debug_state", ios_debug_state);
     MAP("host_cache_inflate", ios_cache_inflate_step);
     MAP("host_cache_inflate_end", ios_cache_inflate_end);
@@ -2354,12 +2430,37 @@ static void *resolve_host_import(const char *name)
         PMAP("process_id", ios_posix_process_id);
         PMAP("register_url_scheme", ios_posix_register_url);
         PMAP("socket_last_error", ios_posix_socket_last_error);
-        PMAP("local_ipv4_address", ios_posix_zero_u32);
-        PMAP("resolve_ipv4", ios_posix_zero_u32);
+        PMAP("local_ipv4_address", halo_net_local_ipv4);
+        PMAP("resolve_ipv4", halo_net_resolve_ipv4);
+        PMAP("socket", halo_net_socket);
+        PMAP("socket_close", halo_net_close);
+        PMAP("socket_bind", halo_net_bind);
+        PMAP("socket_connect", halo_net_connect);
+        PMAP("socket_listen", halo_net_listen);
+        PMAP("socket_accept", halo_net_accept);
+        PMAP("socket_send", halo_net_send);
+        PMAP("socket_sendto", halo_net_sendto);
+        PMAP("socket_recv", halo_net_recv);
+        PMAP("socket_recvfrom", halo_net_recvfrom);
+        PMAP("socket_shutdown", halo_net_shutdown);
+        PMAP("socket_set_nonblocking", halo_net_set_nonblocking);
+        PMAP("socket_bytes_available", halo_net_bytes_available);
+        PMAP("socket_set_nodelay", halo_net_set_nodelay);
+        PMAP("socket_setsockopt", halo_net_setsockopt);
+        PMAP("socket_getsockopt", halo_net_getsockopt);
+        PMAP("socket_getsockname", halo_net_getsockname);
+        PMAP("socket_getpeername", halo_net_getpeername);
+        PMAP("socket_select", halo_net_select);
+        PMAP("upnp_forward_udp", ios_posix_upnp_forward);
+        PMAP("upnp_stop_forwarding_udp", ios_posix_zero_int);
+        PMAP("discord_connect", ios_posix_minus_one);
+        PMAP("discord_write", ios_posix_minus_one);
+        PMAP("discord_read", ios_posix_minus_one);
+        PMAP("discord_close", ios_posix_zero_int);
         PMAP("random_bytes", ios_posix_random);
 #undef PMAP
         if(!strncmp(n,"socket",6) || !strncmp(n,"discord",7) || !strncmp(n,"upnp",4))
-            return (void *)ios_posix_socket_fail;
+            return (void *)ios_posix_minus_one;
     }
 #undef MAP
     return (void *)missing_import;
@@ -2566,6 +2667,137 @@ static uint32_t build_boot(void)
     return base;
 }
 
+
+/* ---------- sampling profiler for the thread that runs the game ----------
+ * Every 2 ms a helper thread suspends the guest main thread, reads its program counter and
+ * resumes it. Each 10-second heartbeat then reports where the time went: guest functions by
+ * name, and the iOS graphics driver and system libraries by module. The helper touches only
+ * static memory while the target is suspended, so it cannot deadlock on a lock the target holds. */
+#define PROFILE_SAMPLES 16384
+static mach_port_t g_profile_target;
+static _Atomic int g_profiler_enabled = 1;
+void halo_ios_set_profiler_enabled(int enabled) { atomic_store_explicit(&g_profiler_enabled, enabled ? 1 : 0, memory_order_relaxed); }
+static pthread_mutex_t g_profile_lock = PTHREAD_MUTEX_INITIALIZER;
+static uint64_t g_profile_pc[PROFILE_SAMPLES];
+static uint32_t g_profile_count;
+
+static void *profiler_thread(void *unused)
+{
+    (void)unused;
+    pthread_setname_np("halo-profiler");
+    for (;;)
+    {
+        usleep(2000);
+        mach_port_t target = g_profile_target;
+        if (!target || !atomic_load_explicit(&g_profiler_enabled, memory_order_relaxed)) continue;
+        pthread_mutex_lock(&g_profile_lock);
+        if (g_profile_count < PROFILE_SAMPLES && thread_suspend(target) == KERN_SUCCESS)
+        {
+            arm_thread_state64_t state;
+            mach_msg_type_number_t count = ARM_THREAD_STATE64_COUNT;
+            kern_return_t result = thread_get_state(target, ARM_THREAD_STATE64, (thread_state_t)&state, &count);
+            thread_resume(target);
+            if (result == KERN_SUCCESS)
+                g_profile_pc[g_profile_count++] = (uint64_t)arm_thread_state64_get_pc(state);
+        }
+        pthread_mutex_unlock(&g_profile_lock);
+    }
+    return NULL;
+}
+
+static void profiler_start_for_current_thread(void)
+{
+    static dispatch_once_t once;
+    g_profile_target = mach_thread_self();
+    dispatch_once(&once, ^{
+        pthread_t thread;
+        if (pthread_create(&thread, NULL, profiler_thread, NULL) == 0) pthread_detach(thread);
+    });
+}
+
+static int compare_u64(const void *a, const void *b)
+{
+    uint64_t x = *(const uint64_t *)a, y = *(const uint64_t *)b;
+    return x < y ? -1 : (x > y);
+}
+
+struct profile_row { char name[120]; uint32_t samples; };
+
+static void profile_add(struct profile_row *rows, unsigned *count, unsigned capacity, const char *name, uint32_t samples)
+{
+    for (unsigned i = 0; i < *count; i++)
+        if (!strcmp(rows[i].name, name)) { rows[i].samples += samples; return; }
+    if (*count < capacity) { snprintf(rows[*count].name, sizeof(rows[0].name), "%s", name); rows[(*count)++].samples = samples; }
+}
+
+static int compare_rows(const void *a, const void *b)
+{
+    uint32_t x = ((const struct profile_row *)a)->samples, y = ((const struct profile_row *)b)->samples;
+    return x < y ? 1 : (x > y ? -1 : 0);
+}
+
+static void report_profile(void)
+{
+    static uint64_t pcs[PROFILE_SAMPLES];
+    static struct profile_row guest[512], host[512], modules[64];
+    unsigned guest_count = 0, host_count = 0, module_count = 0;
+    uint32_t total, guest_samples = 0;
+
+    pthread_mutex_lock(&g_profile_lock);
+    total = g_profile_count;
+    memcpy(pcs, g_profile_pc, (size_t)total * sizeof(pcs[0]));
+    g_profile_count = 0;
+    pthread_mutex_unlock(&g_profile_lock);
+    if (total < 20) return;
+
+    qsort(pcs, total, sizeof(pcs[0]), compare_u64);
+    uint64_t base = (uint64_t)(uintptr_t)halo_guest_base_address();
+    for (uint32_t i = 0; i < total; )
+    {
+        uint32_t j = i;
+        while (j < total && pcs[j] == pcs[i]) j++;
+        uint32_t samples = j - i;
+        uint64_t pc = pcs[i];
+        char name[120];
+
+        if (base && pc >= base && pc - base < FOUR_GB)
+        {
+            uint32_t symbol_va = 0;
+            const char *symbol = symbol_name_nearest((uint32_t)(pc - base), &symbol_va);
+            snprintf(name, sizeof(name), "%s", symbol ? symbol : "unknown guest code");
+            profile_add(guest, &guest_count, 512, name, samples);
+            guest_samples += samples;
+        }
+        else
+        {
+            Dl_info info;
+            const char *module = "unknown";
+            const char *symbol = NULL;
+            if (dladdr((void *)(uintptr_t)pc, &info))
+            {
+                if (info.dli_fname) { const char *slash = strrchr(info.dli_fname, '/'); module = slash ? slash + 1 : info.dli_fname; }
+                symbol = info.dli_sname;
+            }
+            snprintf(name, sizeof(name), "%s  %s", module, symbol ? symbol : "?");
+            profile_add(host, &host_count, 512, name, samples);
+            profile_add(modules, &module_count, 64, module, samples);
+        }
+        i = j;
+    }
+    qsort(guest, guest_count, sizeof(guest[0]), compare_rows);
+    qsort(host, host_count, sizeof(host[0]), compare_rows);
+    qsort(modules, module_count, sizeof(modules[0]), compare_rows);
+
+    say("profile: %u samples of the game thread (every 2 ms): %.0f%% in game code, %.0f%% in iOS libraries",
+        total, 100.0 * guest_samples / total, 100.0 * (total - guest_samples) / total);
+    for (unsigned i = 0; i < module_count && i < 6; i++)
+        say("  profile library %5.1f%%  %s", 100.0 * modules[i].samples / total, modules[i].name);
+    for (unsigned i = 0; i < guest_count && i < 12; i++)
+        say("  profile game    %5.1f%%  %s", 100.0 * guest[i].samples / total, guest[i].name);
+    for (unsigned i = 0; i < host_count && i < 10; i++)
+        say("  profile host    %5.1f%%  %s", 100.0 * host[i].samples / total, host[i].name);
+}
+
 static void *main_guest_thread(void *opaque)
 {
     struct main_guest_context context=*(struct main_guest_context *)opaque;
@@ -2573,13 +2805,16 @@ static void *main_guest_thread(void *opaque)
 
     g_main_host_thread = pthread_self();
     g_main_host_thread_valid = 1;
+    profiler_start_for_current_thread();
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.31: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
+    halo_ios_net_set_resolver(ios_net_resolver);
+    signal(SIGPIPE, SIG_IGN); /* a peer closing a socket must not kill the app */
+    say("M2.6.32: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
     say("Performance defaults: interpolation off; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.31 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
-    say("M2.6.31 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
+    say("M2.6.32 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.32 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
         g_header ? g_header->start : 0u,
         context.boot_va,
         halo_guest_base_is_4gb_aligned() ? "YES" : "NO");
@@ -2601,7 +2836,7 @@ static void *main_guest_thread(void *opaque)
         halo_guest_exec_guard_set_active(0);
         halo_guest_exec_stats st;
         halo_guest_exec_stats_get(&st);
-        say("M2.6.31 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
+        say("M2.6.32 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
             reason,
             (unsigned long long)st.pointer_upgrades,
             (unsigned long long)st.handled_faults,
@@ -2759,6 +2994,9 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                         say("  fault hot spot: %8llu  %s (0x%08x)", (unsigned long long)top[a].faults, name ? name : "unknown", top[a].symbol);
                     }
                 }
+                report_profile();
+                say("audio: %s; %u buffer underruns so far (an underrun is a tiny gap in the sound)",
+                    halo_ios_audio_is_open() ? "playing through the speaker" : "not playing (off or unavailable)", halo_ios_audio_underruns());
                 say("native bulk memory: %llu calls, %llu MiB total",
                     (unsigned long long)atomic_load(&g_bulk_calls),
                     (unsigned long long)(atomic_load(&g_bulk_bytes) / (1024 * 1024)));
@@ -2791,7 +3029,7 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                     uint64_t calls=atomic_exchange(&g_phase_calls[phase],0), ns=atomic_exchange(&g_phase_ns[phase],0), upgrades=atomic_exchange(&g_phase_upgrades[phase],0);
                     pthread_mutex_unlock(&g_timing_lock);
                     static const char *names[]={"update", "render CPU (includes conversion/upload)", "present CPU", "GL upload CPU", "draw setup total", "texture binding/cache", "shader lookup/link", "vertex preparation", "uniform/state setup", "vertex color conversion/upload", "index bounds/cache", "texture lookup/upload", "scene visibility", "scene objects/shadows", "scene structure passes", "scene particles/transparency", "scene lights", "scene interface", "object discovery", "object render callbacks", "object lighting/cache", "object lighting refresh", "object model/widget traversal", "object simulation update"};
-                    if (calls) say("timing %s: %llu calls, %.1f ms average, %.0f thread pointer upgrades/call (overlapping categories)", names[phase], (unsigned long long)calls, ns/1e6/calls, (double)upgrades/calls);
+                    if (calls) say("timing %s: %llu calls, avg %.0f us, %.0f ms total, %.0f thread pointer upgrades/call (overlapping categories)", names[phase], (unsigned long long)calls, ns/1e3/calls, ns/1e6, (double)upgrades/calls);
                 }
                 previous_upgrades = stats.pointer_upgrades;
             }

@@ -481,6 +481,47 @@ static void silent_advance(unsigned long frames)
 }
 #endif
 
+#ifdef HALO_IOS_GUEST
+extern int host_audio_open(unsigned int rate, unsigned int channels);
+extern unsigned int host_audio_fill(void);
+extern unsigned int host_audio_push(const float *frames, unsigned int count);
+
+/* Real playback on iOS: the game's voices are mixed here, in the guest, a little ahead of the
+speaker, and the frames go to the host's output ring (which Core Audio drains). It is the same
+mixer every platform uses, so voices and their completion callbacks behave exactly as they do with
+an SDL audio device. */
+static void *ios_audio_thread(void *parameter)
+{
+	float buffer[480 * OUTPUT_CHANNELS];
+	const unsigned int target_frames = 2400; /* 50 ms queued */
+	struct timespec nap;
+
+	(void)parameter;
+	nap.tv_sec = 0;
+	nap.tv_nsec = 3000000L;
+	for (;;)
+	{
+		unsigned int pushed = 0;
+
+		if (host_audio_fill() >= target_frames)
+		{
+			nanosleep(&nap, NULL);
+			continue;
+		}
+		mix(buffer, 480);
+		while (pushed < 480)
+		{
+			unsigned int taken = host_audio_push(buffer + pushed * OUTPUT_CHANNELS, 480 - pushed);
+
+			if (!taken)
+				nanosleep(&nap, NULL);
+			pushed += taken;
+		}
+	}
+	return NULL;
+}
+#endif
+
 /* without a device, drain voices in real time */
 static void *silent_clock_thread(void *parameter)
 {
@@ -518,6 +559,16 @@ static void audio_start(void)
 	audio_started = TRUE;
 	master_volume = (float)config_real("audio.volume");
 
+#ifdef HALO_IOS_GUEST
+	if (config_boolean("audio.enabled") && host_audio_open(OUTPUT_RATE, OUTPUT_CHANNELS))
+	{
+		pthread_t audio_thread;
+
+		pthread_create(&audio_thread, NULL, ios_audio_thread, NULL);
+		pthread_detach(audio_thread);
+		return;
+	}
+#endif
 	if (config_boolean("audio.enabled") && platform_sdl_initialize())
 	{
 		spec.format = SDL_AUDIO_F32;

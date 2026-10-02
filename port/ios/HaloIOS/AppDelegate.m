@@ -3,6 +3,11 @@
 #import "halo_ios_gl_host.h"
 #import "halo_guest_runner.h"
 #import "halo_ios_controls.h"
+#import "HaloSettingsViewController.h"
+#import "HaloLogViewController.h"
+#import "HaloSettingsStore.h"
+#import "halo_ios_audio.h"
+#import "halo_ios_platform.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 extern NSString * const HaloIOSFirstFramePresentedNotification;
@@ -35,17 +40,21 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 @property(nonatomic) BOOL importing;
 @property(nonatomic) BOOL foldersReady;
 @property(nonatomic) BOOL physicalPadConnected;
+@property(nonatomic, strong) UIButton *settingsButton;
+@property(nonatomic, strong) UILabel *fpsLabel;
+@property(nonatomic, strong) NSTimer *fpsTimer;
+@property(nonatomic) uint64_t fpsLastFrames;
+@property(nonatomic) CFTimeInterval fpsLastTime;
 @end
 
 @implementation AppDelegate
 
 - (void)loadingLine:(NSString *)line
 {
+    /* The "Loading: step" box used to appear here. Loading is fast now, so it stays hidden. */
     if ([line hasPrefix:@"[loading] begin: "]) {
         self.loadingName = [line substringFromIndex:17];
         self.loadingStarted = [NSDate date];
-        self.loadingStatus.hidden = NO;
-        [self updateLoadingStatus];
     } else if ([line hasPrefix:@"[loading] done: First game frame "] ||
                [line containsString:@"FULL GUEST STOPPED"] ||
                [line containsString:@"FULL GUEST BLOCKED"]) {
@@ -53,7 +62,6 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     } else if ([line hasPrefix:@"[loading] done: "]) {
         self.loadingName = @"Next initialization step";
         self.loadingStarted = [NSDate date];
-        [self updateLoadingStatus];
     }
 }
 
@@ -94,6 +102,8 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     self.logSource.hidden = NO;
     self.importButton.hidden = YES;
     self.startButton.hidden = YES;
+    self.bootOverlay.hidden = YES;   /* the game is what you see first */
+    [self updateControlsVisibility];
     if (self.startBoot) self.startBoot();
     self.startBoot = nil;
 }
@@ -177,6 +187,8 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 - (void)applicationDidBecomeActive:(UIApplication *)application {
     (void)application;
     [self refreshSetup];
+    halo_ios_audio_resume();
+    halo_ios_post_focus_event(); /* lets the game look for an invite */
 }
 
 - (NSString *)gameLogTail {
@@ -217,7 +229,8 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 - (void)menuRelease:(UIButton *)sender { halo_ios_menu_button((int)sender.tag, 0); }
 - (void)updateControlsVisibility {
     /* On-screen controls only while the game is showing and no physical controller is connected. */
-    BOOL show = self.bootOverlay.hidden && !self.physicalPadConnected;
+    BOOL editing = [(HaloControlsView *)self.menuControls editing];
+    BOOL show = self.bootOverlay.hidden && (!self.physicalPadConnected || editing);
     self.menuControls.hidden = !show;
     if (!show) [(HaloControlsView *)self.menuControls releaseAll];
 }
@@ -226,13 +239,67 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     halo_ios_menu_reset();
     [(HaloControlsView *)self.menuControls releaseAll];
 }
-- (void)toggleBootLog:(UIButton *)sender {
-    self.bootOverlay.hidden = !self.bootOverlay.hidden;
-    [self updateControlsVisibility];
-    halo_ios_menu_reset();
-    if (!self.bootOverlay.hidden && self.engineStarted) [self refreshLogView];
-    [sender setTitle:self.bootOverlay.hidden ? @"Show log" : @"Show game"
-           forState:UIControlStateNormal];
+- (UIViewController *)topPresenter {
+    UIViewController *top = self.window.rootViewController;
+    while (top.presentedViewController) top = top.presentedViewController;
+    return top;
+}
+- (void)showLog:(UIButton *)sender {
+    (void)sender;
+    UIViewController *top = [self topPresenter];
+    if ([top isKindOfClass:HaloLogViewController.class]) return;
+    HaloLogViewController *log = [[HaloLogViewController alloc] init];
+    __weak AppDelegate *weakSelf = self;
+    log.bootLogProvider = ^NSString *{ return weakSelf.bootText ?: @""; };
+    log.gameLogProvider = ^NSString *{ return [weakSelf gameLogTail]; };
+    log.onShare = ^(UIView *source) { [weakSelf shareLogs:(UIButton *)source]; };
+    log.modalPresentationStyle = UIModalPresentationFullScreen;
+    [(HaloControlsView *)self.menuControls releaseAll];
+    [top presentViewController:log animated:YES completion:nil];
+}
+- (void)showSettings:(UIButton *)sender {
+    (void)sender;
+    UIViewController *top = [self topPresenter];
+    if ([top isKindOfClass:HaloSettingsViewController.class]) return;
+    HaloSettingsViewController *settings = [[HaloSettingsViewController alloc] init];
+    __weak AppDelegate *weakSelf = self;
+    settings.onEditLayout = ^{
+        AppDelegate *owner = weakSelf;
+        if (!owner) return;
+        HaloControlsView *controls = (HaloControlsView *)owner.menuControls;
+        owner.settingsButton.hidden = YES;
+        owner.logToggle.hidden = YES;
+        controls.onEditFinished = ^{
+            owner.settingsButton.hidden = NO;
+            owner.logToggle.hidden = NO;
+            [owner updateControlsVisibility];
+        };
+        owner.menuControls.hidden = NO;
+        [controls beginEditing];
+    };
+    settings.onShowLog = ^{ [weakSelf showLog:nil]; };
+    settings.onShareLogs = ^(UIView *source) { [weakSelf shareLogs:(UIButton *)source]; };
+    settings.modalPresentationStyle = UIModalPresentationFullScreen;
+    [(HaloControlsView *)self.menuControls releaseAll];
+    [top presentViewController:settings animated:YES completion:nil];
+}
+- (void)updateFPS {
+    HsSettings settings = [[HaloSettingsStore shared] snapshot];
+    self.fpsLabel.hidden = !settings.show_fps || !self.bootOverlay.hidden;
+    if (self.fpsLabel.hidden) { self.fpsLastTime = 0; return; }
+    uint64_t frames = halo_ios_presented_frames();
+    CFTimeInterval now = CACurrentMediaTime();
+    if (self.fpsLastTime > 0 && now > self.fpsLastTime)
+        self.fpsLabel.text = [NSString stringWithFormat:@" %.0f FPS ", (double)(frames - self.fpsLastFrames) / (now - self.fpsLastTime)];
+    self.fpsLastFrames = frames;
+    self.fpsLastTime = now;
+}
+- (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey, id> *)options {
+    (void)app; (void)options;
+    if ([url.scheme caseInsensitiveCompare:@"halo"] != NSOrderedSame) return NO;
+    HaloSetPendingInvite(url.absoluteString);
+    halo_ios_toast("Joining the invite…");
+    return YES;
 }
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
@@ -251,7 +318,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"HALO iOS — M2.6.31 Startup";
+    title.text = @"HALO iOS — M2.6.32 · add your maps";
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:18];
 
@@ -278,11 +345,22 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     UIButton *toggle = [UIButton buttonWithType:UIButtonTypeSystem];
     toggle.translatesAutoresizingMaskIntoConstraints = NO;
     toggle.backgroundColor = [UIColor colorWithWhite:0.15 alpha:0.9];
-    [toggle setTitle:@"Starting…" forState:UIControlStateNormal];
+    toggle.layer.cornerRadius = 8;
+    [toggle setTitle:@"Log" forState:UIControlStateNormal];
     [toggle setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
-    toggle.enabled = NO;
-    [toggle addTarget:self action:@selector(toggleBootLog:)
+    [toggle addTarget:self action:@selector(showLog:)
        forControlEvents:UIControlEventTouchUpInside];
+    UIButton *gear = [UIButton buttonWithType:UIButtonTypeSystem];
+    gear.translatesAutoresizingMaskIntoConstraints = NO;
+    gear.backgroundColor = [UIColor colorWithWhite:0.15 alpha:0.9];
+    gear.layer.cornerRadius = 8;
+    [gear setTitle:@"⚙︎" forState:UIControlStateNormal];
+    gear.titleLabel.font = [UIFont systemFontOfSize:20];
+    [gear setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+    gear.accessibilityLabel = @"Settings";
+    [gear addTarget:self action:@selector(showSettings:) forControlEvents:UIControlEventTouchUpInside];
+    [vc.view addSubview:gear];
+    self.settingsButton = gear;
     [vc.view addSubview:toggle];
     self.logToggle = toggle;
     self.bootLog = log;
@@ -305,18 +383,23 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     loading.numberOfLines = 2;
     loading.font = [UIFont systemFontOfSize:15];
     loading.hidden = YES;
-    [vc.view addSubview:loading];
-    self.loadingStatus = loading;
+    self.loadingStatus = loading;  /* kept hidden: loading takes a moment, not a progress box */
+
+    UILabel *fps = [UILabel new];
+    fps.translatesAutoresizingMaskIntoConstraints = NO;
+    fps.font = [UIFont monospacedDigitSystemFontOfSize:13 weight:UIFontWeightBold];
+    fps.textColor = UIColor.greenColor;
+    fps.backgroundColor = [UIColor colorWithWhite:0 alpha:0.55];
+    fps.layer.cornerRadius = 5;
+    fps.clipsToBounds = YES;
+    fps.hidden = YES;
+    [vc.view addSubview:fps];
+    self.fpsLabel = fps;
     [NSLayoutConstraint activateConstraints:@[
-        [loading.centerXAnchor constraintEqualToAnchor:vc.view.centerXAnchor],
-        [loading.topAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.topAnchor constant:68],
-        [loading.widthAnchor constraintEqualToConstant:300],
-        [loading.heightAnchor constraintEqualToConstant:48]
-    ]];
-    __weak AppDelegate *loadingOwner = self;
-    self.loadingTimer = [NSTimer scheduledTimerWithTimeInterval:1 repeats:YES block:^(NSTimer *timer) {
-        [loadingOwner updateLoadingStatus];
-    }];
+        [fps.centerXAnchor constraintEqualToAnchor:vc.view.centerXAnchor],
+        [fps.topAnchor constraintEqualToAnchor:toggle.bottomAnchor constant:4]]];
+    __weak AppDelegate *fpsOwner = self;
+    self.fpsTimer = [NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer *timer) { [fpsOwner updateFPS]; }];
     UIButton *import = [UIButton buttonWithType:UIButtonTypeSystem];
     [import setTitle:@"Import maps" forState:UIControlStateNormal];
     [import addTarget:self action:@selector(importMaps:) forControlEvents:UIControlEventTouchUpInside];
@@ -355,9 +438,13 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
         [title.leadingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.leadingAnchor constant:14],
         [title.trailingAnchor constraintLessThanOrEqualToAnchor:toggle.leadingAnchor constant:-8],
-        [toggle.centerXAnchor constraintEqualToAnchor:vc.view.centerXAnchor],
+        [toggle.leadingAnchor constraintEqualToAnchor:vc.view.centerXAnchor constant:4],
+        [gear.trailingAnchor constraintEqualToAnchor:vc.view.centerXAnchor constant:-4],
+        [gear.topAnchor constraintEqualToAnchor:toggle.topAnchor],
+        [gear.widthAnchor constraintEqualToConstant:44],
+        [gear.heightAnchor constraintEqualToConstant:36],
         [toggle.topAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.topAnchor constant:4],
-        [toggle.widthAnchor constraintEqualToConstant:100],
+        [toggle.widthAnchor constraintEqualToConstant:64],
         [toggle.heightAnchor constraintEqualToConstant:36],
         [title.topAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.topAnchor constant:8],
         [log.leadingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.leadingAnchor constant:12],
@@ -398,9 +485,6 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
                     usingBlock:^(NSNotification *note) {
         (void)note;
         toggle.enabled = YES;
-        [toggle setTitle:@"Show game" forState:UIControlStateNormal];
-        // A successful presentation can contain only black pixels.
-        // Keep diagnostics visible until the user chooses the game surface.
 
         if (firstFrameObserver) {
             [[NSNotificationCenter defaultCenter] removeObserver:firstFrameObserver];
@@ -440,18 +524,16 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
             dispatch_async(dispatch_get_main_queue(), ^{
                 if ([line hasPrefix:@"FULL GUEST STOPPED:"] ||
                     [line hasPrefix:@"FULL GUEST BLOCKED:"]) {
-                    bootOverlay.hidden = NO;
-                    menu.hidden = YES;
                     halo_ios_menu_reset();
-                    [toggle setTitle:@"Show game" forState:UIControlStateNormal];
+                    [weakSelf showLog:nil];
                 }
                 [text appendFormat:@"%@\n", line];
-                if (text.length > 50000)
-                    [text deleteCharactersInRange:NSMakeRange(0, text.length - 40000)];
+                if (text.length > 300000)
+                    [text deleteCharactersInRange:NSMakeRange(0, text.length - 240000)];
                 AppDelegate *owner = weakSelf;
                 [owner loadingLine:line];
                 owner.bootText = [text copy];
-                if (!bootOverlay.hidden) [owner refreshLogView];
+                if (!bootOverlay.hidden && owner.engineStarted) [owner refreshLogView];
             });
         });
     });
@@ -464,7 +546,6 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     } else if ([self hasStartupMap]) {
         [self startHalo:nil];
     } else {
-        [toggle setTitle:@"Add maps" forState:UIControlStateNormal];
         [self refreshSetup];
     }
     return YES;
