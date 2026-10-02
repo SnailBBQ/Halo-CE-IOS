@@ -31,7 +31,6 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 @property(nonatomic, copy) NSString *loadingName;
 @property(nonatomic, strong) NSDate *loadingStarted;
 @property(nonatomic, strong) NSTimer *loadingTimer;
-@property(nonatomic, strong) UIButton *logToggle;
 @property(nonatomic, strong) UITextView *bootLog;
 @property(nonatomic, copy) NSString *bootText;
 @property(nonatomic, strong) UISegmentedControl *logSource;
@@ -248,7 +247,9 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 - (void)updateControlsVisibility {
     /* On-screen controls only while the game is showing and no physical controller is connected. */
     BOOL editing = [(HaloControlsView *)self.menuControls editing];
-    BOOL show = self.bootOverlay.hidden && (!self.physicalPadConnected || editing);
+    int mode = [[HaloSettingsStore shared] snapshot].controls_mode;   /* 0 auto, 1 always, 2 hidden */
+    BOOL wanted = mode == 1 || (mode == 0 && !self.physicalPadConnected);
+    BOOL show = self.bootOverlay.hidden && (wanted || editing);
     self.menuControls.hidden = !show;
     if (!show) [(HaloControlsView *)self.menuControls releaseAll];
 }
@@ -286,10 +287,8 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
         if (!owner) return;
         HaloControlsView *controls = (HaloControlsView *)owner.menuControls;
         owner.settingsButton.hidden = YES;
-        owner.logToggle.hidden = YES;
         controls.onEditFinished = ^{
             owner.settingsButton.hidden = NO;
-            owner.logToggle.hidden = NO;
             [owner updateControlsVisibility];
         };
         owner.menuControls.hidden = NO;
@@ -335,6 +334,8 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
         NSString *kept = [NSString stringWithFormat:@"last step: %s\n%s", phase, crash];
         [kept writeToFile:[folder stringByAppendingPathComponent:@"last-crash.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];
     }
+    [[NSNotificationCenter defaultCenter] addObserverForName:HaloSettingsChangedNotification object:nil queue:NSOperationQueue.mainQueue
+                                                  usingBlock:^(NSNotification *note) { (void)note; [self updateControlsVisibility]; }];
     halo_ios_set_safe_level(level);
     halo_ios_set_launch_notes(note, hadCrash ? crash : "");
     halo_crash_install(folder.fileSystemRepresentation);   /* before the PAGEZERO bridge exists */
@@ -363,7 +364,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"HALO iOS — M2.6.36 · add your maps";
+    title.text = @"HALO iOS — M2.6.37 · add your maps";
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:18];
 
@@ -387,14 +388,6 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     [vc.view addSubview:bootOverlay];
     self.bootOverlay = bootOverlay;
 
-    UIButton *toggle = [UIButton buttonWithType:UIButtonTypeSystem];
-    toggle.translatesAutoresizingMaskIntoConstraints = NO;
-    toggle.backgroundColor = [UIColor colorWithWhite:0.15 alpha:0.9];
-    toggle.layer.cornerRadius = 8;
-    [toggle setTitle:@"Log" forState:UIControlStateNormal];
-    [toggle setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
-    [toggle addTarget:self action:@selector(showLog:)
-       forControlEvents:UIControlEventTouchUpInside];
     UIButton *gear = [UIButton buttonWithType:UIButtonTypeSystem];
     gear.translatesAutoresizingMaskIntoConstraints = NO;
     gear.backgroundColor = [UIColor colorWithWhite:0.15 alpha:0.9];
@@ -406,8 +399,6 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     [gear addTarget:self action:@selector(showSettings:) forControlEvents:UIControlEventTouchUpInside];
     [vc.view addSubview:gear];
     self.settingsButton = gear;
-    [vc.view addSubview:toggle];
-    self.logToggle = toggle;
     self.bootLog = log;
     HaloControlsView *menu = [[HaloControlsView alloc] initWithFrame:CGRectZero];
     menu.translatesAutoresizingMaskIntoConstraints = NO;
@@ -442,7 +433,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     self.fpsLabel = fps;
     [NSLayoutConstraint activateConstraints:@[
         [fps.centerXAnchor constraintEqualToAnchor:vc.view.centerXAnchor],
-        [fps.topAnchor constraintEqualToAnchor:toggle.bottomAnchor constant:4]]];
+        [fps.topAnchor constraintEqualToAnchor:gear.bottomAnchor constant:4]]];
     __weak AppDelegate *fpsOwner = self;
     self.fpsTimer = [NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer *timer) { [fpsOwner updateFPS]; }];
     UIButton *import = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -482,15 +473,11 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
         [bootOverlay.bottomAnchor constraintEqualToAnchor:vc.view.bottomAnchor],
 
         [title.leadingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.leadingAnchor constant:14],
-        [title.trailingAnchor constraintLessThanOrEqualToAnchor:toggle.leadingAnchor constant:-8],
-        [toggle.leadingAnchor constraintEqualToAnchor:vc.view.centerXAnchor constant:4],
-        [gear.trailingAnchor constraintEqualToAnchor:vc.view.centerXAnchor constant:-4],
-        [gear.topAnchor constraintEqualToAnchor:toggle.topAnchor],
-        [gear.widthAnchor constraintEqualToConstant:44],
+        [title.trailingAnchor constraintLessThanOrEqualToAnchor:gear.leadingAnchor constant:-8],
+        [gear.centerXAnchor constraintEqualToAnchor:vc.view.centerXAnchor],
+        [gear.topAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.topAnchor constant:4],
+        [gear.widthAnchor constraintEqualToConstant:48],
         [gear.heightAnchor constraintEqualToConstant:36],
-        [toggle.topAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.topAnchor constant:4],
-        [toggle.widthAnchor constraintEqualToConstant:64],
-        [toggle.heightAnchor constraintEqualToConstant:36],
         [title.topAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.topAnchor constant:8],
         [log.leadingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.leadingAnchor constant:12],
         [log.trailingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.trailingAnchor constant:-12],
@@ -529,7 +516,6 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
                          queue:NSOperationQueue.mainQueue
                     usingBlock:^(NSNotification *note) {
         (void)note;
-        toggle.enabled = YES;
 
         if (firstFrameObserver) {
             [[NSNotificationCenter defaultCenter] removeObserver:firstFrameObserver];

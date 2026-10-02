@@ -229,8 +229,10 @@ struct program_entry
 	consecutive locations, a changed range is uploaded by itself */
 	unsigned long constant_count;
 	BOOL constants_consecutive;
-	/* constants_serial at the program's last constant upload (constants_store) */
-	unsigned long constants_serial;
+	/* constants_serial at the program's last constant upload (constants_store); 64-bit: a 32-bit one
+	wrapped within minutes to an hour of play, after which programs kept stale registers (another
+	object's bone matrices) for a frame */
+	unsigned long long constants_serial;
 	/* draw_uniforms_serial when the uniforms below were brought up to date */
 	unsigned long uniforms_serial;
 	/* what the program's other uniforms hold (all ones: unknown) */
@@ -1016,8 +1018,8 @@ void WINAPI Direct3D_SetPushBufferSize(DWORD push_buffer_size, DWORD segment_cou
 /* each vertex constant register's serial is the value constants_serial took
 when the register last changed; a program's registers are current up to
 the serial it recorded when it last uploaded them */
-static unsigned long constant_serials[XGPU_VERTEX_CONSTANT_COUNT];
-static unsigned long constants_serial;
+static unsigned long long constant_serials[XGPU_VERTEX_CONSTANT_COUNT];
+static unsigned long long constants_serial;
 /* the register each of the latest serials changed, so a program that is
 only a little behind finds its changed registers without a full scan */
 #define CONSTANT_LOG_SIZE 1024
@@ -2731,7 +2733,7 @@ static struct program_entry *prepare_draw(BOOL immediate)
 
 		if (constants_serial - entry->constants_serial <= XGPU_VERTEX_CONSTANT_COUNT)
 		{
-			unsigned long serial;
+			unsigned long long serial;
 
 			for (serial = entry->constants_serial + 1; serial <= constants_serial; serial++)
 			{

@@ -1,0 +1,397 @@
+Halo iOS - M2.6.15 Visible Renderer Startup
+
+Guest arena: base=0x300000000 span=0x100000000 page=16384 aligned4G=YES
+
+VALID CACHE FILES: 24/24
+[3/3] Launching the full recovered arm64_32 Halo guest image...
+FULL GUEST IMAGE: 0x88000000-0x892ea038, start=0x883d11a0
+M2.6.36: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.
+M2.6.36 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge
+M2.6.36 breadcrumb: header start=0x883d11a0 boot_va=0xe0000000 arena_aligned=YES
+ENTERING REAL arm64_32 __guest_start()... (PC host=0x3883d11a0 guest VA=0x883d11a0)
+audio: output opened (48000 Hz, 2 channels) - playing through the speaker
+FULL GUEST STATUS: STILL RUNNING AFTER 5 SECONDS
+presentation rate: 53.25 FPS (549 successful drawable presents in 10.31 s; loading durations reported separately)
+profile: 6074 samples of the game thread (every 2 ms): 5% in game code, 95% in iOS libraries
+  profile library  81.1%  libsystem_kernel.dylib
+  profile library   5.9%  HaloIOS
+  profile library   1.9%  libsystem_platform.dylib
+  profile library   1.4%  AGXMetalG14
+  profile library   1.3%  GLEngine
+  profile library   0.9%  libsystem_c.dylib
+  profile game      0.5%  memcmp
+  profile game      0.3%  prepare_draw
+  profile game      0.3%  DirectSoundDoWork
+  profile game      0.2%  field_multiply
+  profile game      0.1%  update_channels
+  profile game      0.1%  D3DDevice_SetVertexData2f
+  profile game      0.1%  observer_update
+  profile game      0.1%  D3DDevice_DrawIndexedVertices
+  profile game      0.1%  xgpu_texture_get_profiled
+  profile game      0.1%  render_target_get
+  profile game      0.1%  rasterizer_draw_character_with_dropshadow
+  profile game      0.0%  draw_unicode_string
+  profile host     61.3%  libsystem_kernel.dylib  semaphore_timedwait_trap
+  profile host      7.9%  libsystem_kernel.dylib  __semwait_signal
+  profile host      5.8%  libsystem_kernel.dylib  __psynch_cvwait
+  profile host      3.6%  HaloIOS  ios_texture_hash
+  profile host      2.7%  libsystem_kernel.dylib  __ulock_wait
+  profile host      1.4%  libsystem_kernel.dylib  mach_absolute_time
+  profile host      1.4%  AGXMetalG14  ?
+  profile host      1.3%  GLEngine  <redacted>
+  profile host      0.9%  libsystem_kernel.dylib  mach_msg2_trap
+  profile host      0.9%  libsystem_platform.dylib  <redacted>
+audio: playing through the speaker; 0 buffer underruns so far (an underrun is a tiny gap in the sound)
+timing render CPU (includes conversion/upload): 764 calls, avg 3330 us, 2544 ms total, 2 thread pointer upgrades/call (overlapping categories)
+presentation rate: 50.88 FPS (525 successful drawable presents in 10.32 s; loading durations reported separately)
+profile: 4076 samples of the game thread (every 2 ms): 4% in game code, 96% in iOS libraries
+  profile library  80.6%  libsystem_kernel.dylib
+  profile library   8.1%  HaloIOS
+  profile library   2.1%  libsystem_platform.dylib
+  profile library   1.5%  AGXMetalG14
+  profile library   1.0%  libsystem_c.dylib
+  profile library   0.7%  GLEngine
+  profile game      0.2%  memcmp
+  profile game      0.2%  render_interpolation_tick
+  profile game      0.1%  guest_glBeginQuery
+  profile game      0.1%  prepare_draw
+  profile game      0.1%  __libc_malloc_impl
+  profile game      0.1%  tag_loaded
+  profile game      0.1%  object_get_and_verify_type
+  profile game      0.1%  rasterizer_transparent_geometry_group_draw
+  profile game      0.1%  tag_block_get_element_with_size
+  profile game      0.1%  cache_get_tag_instance
+  profile game      0.1%  stream_process
+  profile game      0.0%  player_control_update
+  profile host     57.9%  libsystem_kernel.dylib  semaphore_timedwait_trap
+  profile host      6.0%  libsystem_kernel.dylib  write
+  profile host      4.0%  HaloIOS  ios_texture_hash
+  profile host      3.2%  libsystem_kernel.dylib  __semwait_signal
+  profile host      2.7%  libsystem_kernel.dylib  __ulock_wait
+  profile host      2.4%  libsystem_kernel.dylib  swtch_pri
+  profile host      2.4%  libsystem_kernel.dylib  __psynch_cvwait
+  profile host      2.4%  libsystem_kernel.dylib  mach_absolute_time
+  profile host      2.1%  libsystem_kernel.dylib  mach_msg2_trap
+  profile host      1.6%  HaloIOS  ios_scene_datum
+audio: playing through the speaker; 0 buffer underruns so far (an underrun is a tiny gap in the sound)
+timing render CPU (includes conversion/upload): 508 calls, avg 4298 us, 2183 ms total, 2 thread pointer upgrades/call (overlapping categories)
+presentation rate: 59.08 FPS (606 successful drawable presents in 10.26 s; loading durations reported separately)
+profile: 4066 samples of the game thread (every 2 ms): 3% in game code, 97% in iOS libraries
+  profile library  74.1%  libsystem_kernel.dylib
+  profile library  16.2%  HaloIOS
+  profile library   1.8%  libsystem_platform.dylib
+  profile library   1.0%  AGXMetalG14
+  profile library   0.7%  AppleMetalGLRenderer
+  profile library   0.7%  libsystem_c.dylib
+  profile game      0.4%  memcmp
+  profile game      0.2%  guest_glBeginQuery
+  profile game      0.2%  prepare_draw
+  profile game      0.1%  tag_block_get_element_with_size
+  profile game      0.1%  stream_process
+  profile game      0.1%  collision_bsp_test_vector_recursive
+  profile game      0.1%  D3DDevice_DrawIndexedVertices
+  profile game      0.1%  rasterizer_lens_flare_submit
+  profile game      0.1%  cache_get_tag_instance
+  profile game      0.1%  object_get_and_verify_type
+  profile game      0.1%  object_iterator_next
+  profile game      0.0%  game_sound_update
+  profile host     64.4%  libsystem_kernel.dylib  semaphore_timedwait_trap
+  profile host     13.3%  HaloIOS  ios_texture_hash
+  profile host      4.4%  libsystem_kernel.dylib  mach_absolute_time
+  profile host      2.1%  libsystem_kernel.dylib  __ulock_wait
+  profile host      1.8%  libsystem_kernel.dylib  mach_msg2_trap
+  profile host      1.3%  HaloIOS  ios_scene_datum
+  profile host      1.1%  libsystem_platform.dylib  <redacted>
+  profile host      1.0%  AGXMetalG14  ?
+  profile host      0.7%  AppleMetalGLRenderer  <redacted>
+  profile host      0.6%  GLEngine  <redacted>
+audio: playing through the speaker; 0 buffer underruns so far (an underrun is a tiny gap in the sound)
+timing render CPU (includes conversion/upload): 606 calls, avg 4869 us, 2950 ms total, 2 thread pointer upgrades/call (overlapping categories)
+presentation rate: 59.93 FPS (612 successful drawable presents in 10.21 s; loading durations reported separately)
+profile: 4069 samples of the game thread (every 2 ms): 5% in game code, 95% in iOS libraries
+  profile library  62.6%  libsystem_kernel.dylib
+  profile library  22.8%  HaloIOS
+  profile library   3.5%  libsystem_platform.dylib
+  profile library   1.6%  AGXMetalG14
+  profile library   1.5%  AppleMetalGLRenderer
+  profile library   0.9%  libsystem_c.dylib
+  profile game      0.6%  memcmp
+  profile game      0.5%  guest_glBeginQuery
+  profile game      0.3%  prepare_draw
+  profile game      0.3%  tag_block_get_element_with_size
+  profile game      0.2%  bsp3d_test_point
+  profile game      0.1%  collision_bsp_test_vector_recursive
+  profile game      0.1%  setup_streams
+  profile game      0.1%  D3DDevice_SetVertexShaderConstant
+  profile game      0.1%  halo_atan
+  profile game      0.1%  D3DDevice_DrawIndexedVertices
+  profile game      0.1%  cache_get_tag_instance
+  profile game      0.1%  rasterizer_lens_flare_submit
+  profile host     35.2%  libsystem_kernel.dylib  semaphore_timedwait_trap
+  profile host     20.7%  HaloIOS  ios_texture_hash
+  profile host     14.9%  libsystem_kernel.dylib  mach_msg2_trap
+  profile host      7.7%  libsystem_kernel.dylib  mach_absolute_time
+  profile host      4.0%  libsystem_kernel.dylib  __ulock_wait
+  profile host      2.2%  libsystem_platform.dylib  <redacted>
+  profile host      1.6%  AGXMetalG14  ?
+  profile host      1.2%  AppleMetalGLRenderer  <redacted>
+  profile host      0.7%  HaloIOS  ios_render_scan
+  profile host      0.6%  GLEngine  <redacted>
+audio: playing through the speaker; 0 buffer underruns so far (an underrun is a tiny gap in the sound)
+timing render CPU (includes conversion/upload): 612 calls, avg 10155 us, 6215 ms total, 2 thread pointer upgrades/call (overlapping categories)
+presentation rate: 59.89 FPS (613 successful drawable presents in 10.24 s; loading durations reported separately)
+profile: 4080 samples of the game thread (every 2 ms): 4% in game code, 96% in iOS libraries
+  profile library  63.2%  libsystem_kernel.dylib
+  profile library  22.5%  HaloIOS
+  profile library   3.8%  libsystem_platform.dylib
+  profile library   1.7%  AGXMetalG14
+  profile library   1.0%  AppleMetalGLRenderer
+  profile library   0.9%  libsystem_c.dylib
+  profile game      0.4%  memcmp
+  profile game      0.4%  prepare_draw
+  profile game      0.4%  guest_glBeginQuery
+  profile game      0.2%  tag_block_get_element_with_size
+  profile game      0.1%  collision_bsp_test_vector_recursive
+  profile game      0.1%  setup_streams
+  profile game      0.1%  bsp3d_test_point
+  profile game      0.1%  D3DDevice_DrawIndexedVertices
+  profile game      0.1%  xgpu_texture_describe
+  profile game      0.1%  xgpu_texture_get_profiled
+  profile game      0.1%  fast_vector_intersects_sphere
+  profile game      0.1%  host_frame_phase
+  profile host     36.1%  libsystem_kernel.dylib  semaphore_timedwait_trap
+  profile host     20.2%  HaloIOS  ios_texture_hash
+  profile host     14.6%  libsystem_kernel.dylib  mach_msg2_trap
+  profile host      8.7%  libsystem_kernel.dylib  mach_absolute_time
+  profile host      3.1%  libsystem_kernel.dylib  __ulock_wait
+  profile host      2.0%  libsystem_platform.dylib  <redacted>
+  profile host      1.7%  AGXMetalG14  ?
+  profile host      0.8%  AppleMetalGLRenderer  <redacted>
+  profile host      0.8%  HaloIOS  ios_render_scan
+  profile host      0.8%  libsystem_platform.dylib  _platform_memset
+audio: playing through the speaker; 0 buffer underruns so far (an underrun is a tiny gap in the sound)
+timing render CPU (includes conversion/upload): 613 calls, avg 9996 us, 6127 ms total, 2 thread pointer upgrades/call (overlapping categories)
+presentation rate: 59.90 FPS (613 successful drawable presents in 10.23 s; loading durations reported separately)
+profile: 4082 samples of the game thread (every 2 ms): 5% in game code, 95% in iOS libraries
+  profile library  63.6%  libsystem_kernel.dylib
+  profile library  23.1%  HaloIOS
+  profile library   3.5%  libsystem_platform.dylib
+  profile library   1.3%  AGXMetalG14
+  profile library   1.2%  AppleMetalGLRenderer
+  profile library   0.8%  libsystem_c.dylib
+  profile game      0.7%  memcmp
+  profile game      0.5%  guest_glBeginQuery
+  profile game      0.3%  prepare_draw
+  profile game      0.3%  tag_block_get_element_with_size
+  profile game      0.2%  bsp3d_test_point
+  profile game      0.1%  setup_streams
+  profile game      0.1%  structure_visibility_build_surfaces_traverse_node
+  profile game      0.1%  collision_bsp_test_vector_recursive
+  profile game      0.1%  sphere_intersects_cluster_portal
+  profile game      0.1%  xgpu_texture_get_profiled
+  profile game      0.1%  D3DDevice_DrawIndexedVertices
+  profile game      0.1%  D3DDevice_SetVertexShaderConstant
+  profile host     36.6%  libsystem_kernel.dylib  semaphore_timedwait_trap
+  profile host     20.7%  HaloIOS  ios_texture_hash
+  profile host     14.2%  libsystem_kernel.dylib  mach_msg2_trap
+  profile host      8.6%  libsystem_kernel.dylib  mach_absolute_time
+  profile host      3.5%  libsystem_kernel.dylib  __ulock_wait
+  profile host      2.3%  libsystem_platform.dylib  <redacted>
+  profile host      1.3%  AGXMetalG14  ?
+  profile host      1.0%  AppleMetalGLRenderer  <redacted>
+  profile host      0.7%  HaloIOS  ios_render_scan
+  profile host      0.7%  libsystem_platform.dylib  _platform_memset
+audio: playing through the speaker; 0 buffer underruns so far (an underrun is a tiny gap in the sound)
+timing render CPU (includes conversion/upload): 613 calls, avg 9935 us, 6090 ms total, 3 thread pointer upgrades/call (overlapping categories)
+presentation rate: 59.94 FPS (612 successful drawable presents in 10.21 s; loading durations reported separately)
+profile: 4071 samples of the game thread (every 2 ms): 4% in game code, 96% in iOS libraries
+  profile library  66.1%  libsystem_kernel.dylib
+  profile library  21.0%  HaloIOS
+  profile library   3.5%  libsystem_platform.dylib
+  profile library   1.2%  AppleMetalGLRenderer
+  profile library   1.1%  AGXMetalG14
+  profile library   0.9%  libsystem_c.dylib
+  profile game      0.5%  memcmp
+  profile game      0.5%  guest_glBeginQuery
+  profile game      0.5%  prepare_draw
+  profile game      0.3%  tag_block_get_element_with_size
+  profile game      0.1%  cache_get_tag_instance
+  profile game      0.1%  collision_bsp_test_vector_recursive
+  profile game      0.1%  rasterizer_lens_flares_draw
+  profile game      0.1%  bsp3d_test_point
+  profile game      0.1%  D3DDevice_SetVertexShaderConstant
+  profile game      0.1%  setup_streams
+  profile game      0.1%  D3DDevice_DrawIndexedVertices
+  profile game      0.1%  xgpu_texture_get_profiled
+  profile host     43.7%  libsystem_kernel.dylib  semaphore_timedwait_trap
+  profile host     19.2%  HaloIOS  ios_texture_hash
+  profile host     10.1%  libsystem_kernel.dylib  mach_msg2_trap
+  profile host      9.0%  libsystem_kernel.dylib  mach_absolute_time
+  profile host      2.6%  libsystem_kernel.dylib  __ulock_wait
+  profile host      2.3%  libsystem_platform.dylib  <redacted>
+  profile host      1.1%  AppleMetalGLRenderer  <redacted>
+  profile host      1.1%  AGXMetalG14  ?
+  profile host      0.6%  HaloIOS  ios_render_scan
+  profile host      0.6%  GLEngine  <redacted>
+audio: playing through the speaker; 0 buffer underruns so far (an underrun is a tiny gap in the sound)
+timing render CPU (includes conversion/upload): 611 calls, avg 8693 us, 5312 ms total, 2 thread pointer upgrades/call (overlapping categories)
+presentation rate: 100.61 FPS (1032 successful drawable presents in 10.26 s; loading durations reported separately)
+profile: 4097 samples of the game thread (every 2 ms): 7% in game code, 93% in iOS libraries
+  profile library  40.0%  libsystem_kernel.dylib
+  profile library  37.8%  HaloIOS
+  profile library   5.8%  libsystem_platform.dylib
+  profile library   2.1%  AGXMetalG14
+  profile library   1.7%  AppleMetalGLRenderer
+  profile library   1.5%  libsystem_c.dylib
+  profile game      1.4%  memcmp
+  profile game      0.9%  guest_glBeginQuery
+  profile game      0.8%  prepare_draw
+  profile game      0.4%  tag_block_get_element_with_size
+  profile game      0.2%  bsp3d_test_point
+  profile game      0.2%  setup_streams
+  profile game      0.1%  cache_get_tag_instance
+  profile game      0.1%  planes_intersect_rectangle
+  profile game      0.1%  bind_targets
+  profile game      0.1%  tag_loaded
+  profile game      0.1%  D3DDevice_SetVertexData4f
+  profile game      0.1%  render_target_get
+  profile host     34.3%  HaloIOS  ios_texture_hash
+  profile host     17.3%  libsystem_kernel.dylib  mach_msg2_trap
+  profile host     13.5%  libsystem_kernel.dylib  mach_absolute_time
+  profile host      5.6%  libsystem_kernel.dylib  __ulock_wait
+  profile host      3.7%  libsystem_platform.dylib  <redacted>
+  profile host      3.0%  libsystem_kernel.dylib  semaphore_timedwait_trap
+  profile host      2.1%  AGXMetalG14  ?
+  profile host      1.4%  AppleMetalGLRenderer  <redacted>
+  profile host      1.3%  GLEngine  <redacted>
+  profile host      1.0%  HaloIOS  ios_render_scan
+audio: playing through the speaker; 0 buffer underruns so far (an underrun is a tiny gap in the sound)
+timing render CPU (includes conversion/upload): 1033 calls, avg 9200 us, 9504 ms total, 2 thread pointer upgrades/call (overlapping categories)
+presentation rate: 62.03 FPS (633 successful drawable presents in 10.20 s; loading durations reported separately)
+profile: 4063 samples of the game thread (every 2 ms): 5% in game code, 95% in iOS libraries
+  profile library  69.1%  libsystem_kernel.dylib
+  profile library  17.8%  HaloIOS
+  profile library   3.5%  libsystem_platform.dylib
+  profile library   1.2%  libsystem_c.dylib
+  profile library   1.1%  AGXMetalG14
+  profile library   1.0%  AppleMetalGLRenderer
+  profile game      0.6%  memcmp
+  profile game      0.4%  guest_glBeginQuery
+  profile game      0.3%  prepare_draw
+  profile game      0.3%  bsp3d_test_point
+  profile game      0.2%  tag_block_get_element_with_size
+  profile game      0.1%  collision_bsp_test_vector_recursive
+  profile game      0.1%  render_interpolation_tick
+  profile game      0.1%  D3DDevice_DrawIndexedVertices
+  profile game      0.1%  point_physics_update
+  profile game      0.1%  cache_get_tag_instance
+  profile game      0.1%  setup_streams
+  profile game      0.1%  rasterizer_lens_flares_draw
+  profile host     52.5%  libsystem_kernel.dylib  semaphore_timedwait_trap
+  profile host     15.5%  HaloIOS  ios_texture_hash
+  profile host      8.3%  libsystem_kernel.dylib  mach_absolute_time
+  profile host      5.3%  libsystem_kernel.dylib  mach_msg2_trap
+  profile host      2.6%  libsystem_platform.dylib  <redacted>
+  profile host      2.3%  libsystem_kernel.dylib  __ulock_wait
+  profile host      1.1%  AGXMetalG14  ?
+  profile host      0.9%  AppleMetalGLRenderer  <redacted>
+  profile host      0.7%  HaloIOS  ios_render_scan
+  profile host      0.6%  GLEngine  <redacted>
+audio: playing through the speaker; 0 buffer underruns so far (an underrun is a tiny gap in the sound)
+timing render CPU (includes conversion/upload): 633 calls, avg 6760 us, 4279 ms total, 2 thread pointer upgrades/call (overlapping categories)
+presentation rate: 59.97 FPS (614 successful drawable presents in 10.24 s; loading durations reported separately)
+profile: 4074 samples of the game thread (every 2 ms): 5% in game code, 95% in iOS libraries
+  profile library  73.8%  libsystem_kernel.dylib
+  profile library  14.2%  HaloIOS
+  profile library   3.4%  libsystem_platform.dylib
+  profile library   0.8%  libsystem_c.dylib
+  profile library   0.8%  AppleMetalGLRenderer
+  profile library   0.6%  AGXMetalG14
+  profile game      0.6%  guest_glBeginQuery
+  profile game      0.6%  memcmp
+  profile game      0.5%  prepare_draw
+  profile game      0.2%  bsp3d_test_point
+  profile game      0.2%  collision_bsp_test_vector_recursive
+  profile game      0.2%  tag_block_get_element_with_size
+  profile game      0.1%  bsp2d_test_sphere_recursive
+  profile game      0.1%  rasterizer_lens_flares_draw
+  profile game      0.1%  D3DDevice_DrawIndexedVertices
+  profile game      0.1%  stream_process
+  profile game      0.1%  datum_get
+  profile game      0.1%  setup_streams
+  profile host     63.5%  libsystem_kernel.dylib  semaphore_timedwait_trap
+  profile host     11.8%  HaloIOS  ios_texture_hash
+  profile host      7.7%  libsystem_kernel.dylib  mach_absolute_time
+  profile host      2.8%  libsystem_platform.dylib  <redacted>
+  profile host      1.7%  libsystem_kernel.dylib  __ulock_wait
+  profile host      0.7%  AppleMetalGLRenderer  <redacted>
+  profile host      0.6%  HaloIOS  ios_render_scan
+  profile host      0.6%  AGXMetalG14  ?
+  profile host      0.5%  HaloIOS  halo_scene_bit_triangles
+  profile host      0.5%  GLEngine  <redacted>
+audio: playing through the speaker; 0 buffer underruns so far (an underrun is a tiny gap in the sound)
+timing render CPU (includes conversion/upload): 614 calls, avg 4868 us, 2989 ms total, 2 thread pointer upgrades/call (overlapping categories)
+presentation rate: 59.81 FPS (612 successful drawable presents in 10.23 s; loading durations reported separately)
+profile: 4067 samples of the game thread (every 2 ms): 4% in game code, 96% in iOS libraries
+  profile library  73.4%  libsystem_kernel.dylib
+  profile library  16.0%  HaloIOS
+  profile library   2.6%  libsystem_platform.dylib
+  profile library   1.0%  libsystem_c.dylib
+  profile library   0.7%  AGXMetalG14
+  profile library   0.6%  GLEngine
+  profile game      0.4%  memcmp
+  profile game      0.4%  prepare_draw
+  profile game      0.3%  guest_glBeginQuery
+  profile game      0.2%  bsp3d_test_point
+  profile game      0.2%  tag_block_get_element_with_size
+  profile game      0.1%  collision_bsp_test_vector_recursive
+  profile game      0.1%  setup_streams
+  profile game      0.1%  cache_get_tag_instance
+  profile game      0.1%  rasterizer_lens_flare_submit
+  profile game      0.1%  bsp2d_test_sphere_recursive
+  profile game      0.1%  _stricmp
+  profile game      0.1%  D3DDevice_DrawIndexedVertices
+  profile host     63.3%  libsystem_kernel.dylib  semaphore_timedwait_trap
+  profile host     13.3%  HaloIOS  ios_texture_hash
+  profile host      8.0%  libsystem_kernel.dylib  mach_absolute_time
+  profile host      2.1%  libsystem_platform.dylib  <redacted>
+  profile host      1.3%  libsystem_kernel.dylib  __ulock_wait
+  profile host      0.8%  HaloIOS  ios_render_scan
+  profile host      0.7%  AGXMetalG14  ?
+  profile host      0.6%  GLEngine  <redacted>
+  profile host      0.5%  libsystem_c.dylib  <redacted>
+  profile host      0.5%  HaloIOS  halo_scene_bit_triangles
+audio: playing through the speaker; 0 buffer underruns so far (an underrun is a tiny gap in the sound)
+timing render CPU (includes conversion/upload): 612 calls, avg 4951 us, 3030 ms total, 2 thread pointer upgrades/call (overlapping categories)
+presentation rate: 213.03 FPS (2195 successful drawable presents in 10.30 s; loading durations reported separately)
+profile: 4070 samples of the game thread (every 2 ms): 11% in game code, 89% in iOS libraries
+  profile library  44.4%  libsystem_kernel.dylib
+  profile library  24.8%  HaloIOS
+  profile library   8.6%  libsystem_platform.dylib
+  profile library   2.9%  AppleMetalGLRenderer
+  profile library   2.3%  GLEngine
+  profile library   2.0%  AGXMetalG14
+  profile game      1.3%  guest_glBeginQuery
+  profile game      1.1%  memcmp
+  profile game      0.6%  D3DDevice_GetVisibilityTestResult
+  profile game      0.5%  prepare_draw
+  profile game      0.5%  bsp3d_test_point
+  profile game      0.4%  collision_bsp_test_vector_recursive
+  profile game      0.4%  tag_block_get_element_with_size
+  profile game      0.3%  tag_loaded
+  profile game      0.3%  cache_get_tag_instance
+  profile game      0.2%  D3DDevice_SetVertexData4f
+  profile game      0.1%  rasterizer_lights_begin_for_new_frame
+  profile game      0.1%  D3DDevice_DrawIndexedVertices
+  profile host     26.3%  libsystem_kernel.dylib  semaphore_timedwait_trap
+  profile host     20.6%  HaloIOS  ios_texture_hash
+  profile host     11.8%  libsystem_kernel.dylib  mach_absolute_time
+  profile host      7.3%  libsystem_platform.dylib  <redacted>
+  profile host      4.5%  libsystem_kernel.dylib  __ulock_wait
+  profile host      2.4%  AppleMetalGLRenderer  <redacted>
+  profile host      2.3%  GLEngine  <redacted>
+  profile host      2.0%  AGXMetalG14  ?
+  profile host      0.9%  HaloIOS  ios_scene_datum
+  profile host      0.9%  HaloIOS  halo_scene_datum
+audio: playing through the speaker; 0 buffer underruns so far (an underrun is a tiny gap in the sound)
+timing render CPU (includes conversion/upload): 2196 calls, avg 2890 us, 6346 ms total, 2 thread pointer upgrades/call (overlapping categories)

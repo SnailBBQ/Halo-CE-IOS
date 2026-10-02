@@ -29,6 +29,10 @@ on:
       - 'tools/tests/test_ios_source_structure.py'
       - 'tools/tests/test_ios_launch_state.c'
       - 'tools/tests/test_ios_image_load.c'
+      - 'tools/tests/test_ios_log_report.c'
+      - 'tools/tests/test_ios_frame_pacer.c'
+      - 'tools/tests/fixtures/**'
+      - 'port/linux/game/**'
       - 'source/**'
       - 'port/linux/**'
       - 'tools/tests/test_ios_controls_layout.c'
@@ -99,6 +103,10 @@ jobs:
           "$RUNNER_TEMP/halo-launch-test"
           cc -std=gnu11 -Wall -Wextra -Wno-unused-function tools/tests/test_ios_image_load.c -o "$RUNNER_TEMP/halo-image-test"
           "$RUNNER_TEMP/halo-image-test"
+          cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_log_report.c -o "$RUNNER_TEMP/halo-report-test" -lm
+          "$RUNNER_TEMP/halo-report-test"
+          cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_frame_pacer.c -o "$RUNNER_TEMP/halo-pacer-test"
+          "$RUNNER_TEMP/halo-pacer-test"
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_vertex_colors.c -o "$RUNNER_TEMP/halo-vertex-test"
           "$RUNNER_TEMP/halo-vertex-test"
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_vertex_attributes.c -o "$RUNNER_TEMP/halo-attribute-test"

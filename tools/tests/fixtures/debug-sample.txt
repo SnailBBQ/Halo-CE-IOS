@@ -1,0 +1,28 @@
+
+
+10.02.26 21:59:59  halobeta xbox 01.01.14.2342(CACHE) ----------------------------------------------
+10.02.26 21:59:59  reference function: write_to_error_file
+10.02.26 21:59:59  reference address: 880ff770
+10.02.26 21:59:59  Couldn't read map file 'd:\cachebeta.map'
+10.02.26 21:59:59  file_open('z:\last_language.dat') error 0x00000002
+10.02.26 21:59:59  xbox ethernet link is connected at 100 Mbps in full-duplex mode
+10.02.26 21:59:59  starting precaching of map 'ui'
+10.02.26 21:59:59  the old loading progress screen has been replaced with glowy halo gravy
+10.02.26 21:59:59  loading.tga unavailable; using neutral loading texture
+10.02.26 22:00:00  unable to locate any movie for movie #3 (checked for all possible language variations)
+10.02.26 22:00:00  ### ERROR no DirectSound for bink
+10.02.26 22:00:00  ### ERROR failed to open bink file ''
+10.02.26 22:00:00  begining filesystem checks & saved game file enumeration...
+10.02.26 22:00:00  starting main menu music
+10.02.26 22:00:00  file_open('z:\lastprof.txt') error 0x00000002
+10.02.26 22:00:00  failed to open 'z:\lastprof.txt'
+10.02.26 22:00:00  local player 0, weapon (0x0), deleted unexpectedly
+10.02.26 22:00:06  event handler function failed
+10.02.26 22:00:07  ### DEBUG unlocking all solo levels for newly created profile
+10.02.26 22:00:12  stopping main menu music
+10.02.26 22:00:13  starting precaching of map 'a10'
+10.02.26 22:00:13  the old loading progress screen has been replaced with glowy halo gravy
+10.02.26 22:00:13  loading.tga unavailable; using neutral loading texture
+10.02.26 22:00:15  checksum failed on persistent storage
+10.02.26 22:00:35  WARNING: object_create - 'cryotube_1' already exists
+10.02.26 22:00:35  WARNING: object_create - 'crossfire_door_2' already exists

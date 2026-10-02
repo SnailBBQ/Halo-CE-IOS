@@ -1,7 +1,7 @@
 #import <UIKit/UIKit.h>
 
-/* The log, made readable: a plain-language summary, problems only, the full log with
- * colours and a filter, and the game's own debug.txt. */
+/* Diagnostics: two tabs. Summary says how the game is doing; Problems lists what went wrong, in plain words.
+ * Closing returns to the game. */
 @interface HaloLogViewController : UIViewController
 @property(nonatomic, copy) NSString *(^bootLogProvider)(void);
 @property(nonatomic, copy) NSString *(^gameLogProvider)(void);

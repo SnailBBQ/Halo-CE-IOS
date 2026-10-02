@@ -13,7 +13,7 @@ int main(void)
     /* defaults: five named presets, sensible values */
     hs_defaults(&s);
     CHECK(!strcmp(s.presets[0].name, "Classic Xbox") && !strcmp(s.presets[4].name, "Preset 5"), "default names");
-    CHECK(s.active == 0 && s.volume == 1.0f && s.audio_enabled && !s.join_from_clipboard && s.profiler == 1 && s.smooth_fps == 1 && s.hires_hud == 0 && s.hires_text == 0, "default globals");
+    CHECK(s.active == 0 && s.volume == 1.0f && s.audio_enabled && !s.join_from_clipboard && s.profiler == 1 && s.fps_mode == 1 && s.hires_hud == 0 && s.hires_text == 0 && s.controls_mode == 0 && hs_cheat_mask(&s) == 0, "default globals (cheats off)");
     CHECK(s.presets[2].touch_look && s.presets[2].floating_sticks && near(s.presets[2].look_curve, 1.5f), "default aim");
 
     /* round trip, including a renamed preset with accents, moved/scaled/hidden controls */
@@ -23,7 +23,10 @@ int main(void)
     s.audio_enabled = 0;
     s.join_from_clipboard = 1;
     s.profiler = 0;
-    s.smooth_fps = 0;
+    s.fps_mode = 2;
+    s.controls_mode = 1;
+    s.cheat_god = 1;
+    s.cheat_grenades = 1;
     s.hires_hud = 1;
     s.hires_text = 1;
     s.presets[1].opacity = 0.5f;
@@ -35,7 +38,7 @@ int main(void)
     int written = hs_serialize(&s, text, sizeof(text));
     CHECK(written > 0 && written < (int)sizeof(text), "serialize wrote %d", written);
     CHECK(hs_parse(&t, text) == 1, "parse header");
-    CHECK(t.active == 3 && near(t.volume, 0.35f) && !t.audio_enabled && t.join_from_clipboard && t.profiler == 0 && t.smooth_fps == 0 && t.hires_hud == 1 && t.hires_text == 1, "globals round trip");
+    CHECK(t.active == 3 && near(t.volume, 0.35f) && !t.audio_enabled && t.join_from_clipboard && t.profiler == 0 && t.fps_mode == 2 && t.hires_hud == 1 && t.hires_text == 1 && t.controls_mode == 1 && t.cheat_god == 1 && !t.cheat_ammo && t.cheat_grenades == 1 && !t.cheat_reload, "globals round trip");
     CHECK(!strcmp(t.presets[1].name, "Thumbs ñ ☃ wide"), "name round trip got '%s'", t.presets[1].name);
     CHECK(near(t.presets[1].opacity, 0.5f) && near(t.presets[1].look_sensitivity, 2.25f) && t.presets[1].invert_look_y, "aim round trip");
     CHECK(t.presets[1].place[HC_A].placed && near(t.presets[1].place[HC_A].fx, 0.9f) && near(t.presets[1].place[HC_A].fy, 0.4f) &&
@@ -43,6 +46,26 @@ int main(void)
     CHECK(t.presets[1].place[HC_DPAD].hidden && !t.presets[1].place[HC_B].placed, "hidden round trip, untouched stays default");
     CHECK(near(t.presets[4].place[HC_RT].scale, 0.8f) && t.presets[4].place[HC_RT].placed, "second preset round trip");
     CHECK(!strcmp(t.presets[0].name, "Classic Xbox"), "other names stay");
+
+    /* cheat mask, frame cap and files written by M2.6.33-35 (which had "smooth=" and no cheats) */
+    {
+        HsSettings m; hs_defaults(&m);
+        CHECK(hs_cheat_mask(&m) == 0, "no cheats by default");
+        m.cheat_god = 1; m.cheat_reload = 1;
+        CHECK(hs_cheat_mask(&m) == 9u, "god + no reload = 1 + 8, got %u", hs_cheat_mask(&m));
+        m.cheat_ammo = 1; m.cheat_grenades = 1;
+        CHECK(hs_cheat_mask(&m) == 15u, "all four = 15");
+        m.fps_mode = 0; CHECK(hs_frame_cap(&m) == 0, "original 30 is paced by the game, no host cap");
+        m.fps_mode = 1; CHECK(hs_frame_cap(&m) == 60, "smooth 60 caps presentation at 60");
+        m.fps_mode = 2; CHECK(hs_frame_cap(&m) == 0, "uncapped has no cap");
+        HsSettings old;
+        hs_parse(&old, "HALO1\nactive=1\nsmooth=0\nhireshud=1\n");
+        CHECK(old.fps_mode == 0 && old.hires_hud == 1 && old.active == 1 && hs_cheat_mask(&old) == 0, "an M2.6.35 file with smooth=0 reads as the original 30");
+        hs_parse(&old, "HALO1\nsmooth=1\n");
+        CHECK(old.fps_mode == 1, "smooth=1 reads as smooth 60");
+        hs_parse(&old, "HALO1\nfpsmode=9\ncontrols=-4\ncheatgod=7\n");
+        CHECK(old.fps_mode == 2 && old.controls_mode == 0 && old.cheat_god == 1, "out of range values are clamped");
+    }
 
     /* names: control characters, newlines (which would break the file format), length, UTF-8 safety */
     char name[HS_NAME_MAX + 1];

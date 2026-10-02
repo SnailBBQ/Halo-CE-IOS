@@ -692,6 +692,15 @@ symbols in this file:
 #include "sound/game_sound.h"
 #include "vehicles.h"
 
+#ifdef HALO_IOS_GUEST
+/* iOS Settings > Cheats > Infinite grenades (source/game/cheats.c); campaign only */
+extern boolean ios_cheat_infinite_grenades;
+#define IOS_INFINITE_GRENADES() (ios_cheat_infinite_grenades)
+#else
+#define IOS_INFINITE_GRENADES() (0)
+#endif
+
+
 /* ---------- constants */
 
 enum
@@ -7586,7 +7595,7 @@ static void unit_throw_grenade_move_to_hand(
 
 	if ((
 		unit->unit.player_index==NONE ||
-		!cheat.infinite_ammo && !game_engine_infinite_grenades(unit->unit.player_index)) &&
+		!cheat.infinite_ammo && !IOS_INFINITE_GRENADES() && !game_engine_infinite_grenades(unit->unit.player_index)) &&
 		(unit->unit.actor_index==NONE ||
 		!actor_has_unlimited_grenades(unit->unit.actor_index)))
 	{

@@ -6,6 +6,8 @@
 #import <QuartzCore/CAEAGLLayer.h>
 
 #include <dlfcn.h>
+#include <time.h>
+#include "halo_frame_pacer.h"
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdio.h>
@@ -263,11 +265,32 @@ int halo_ios_gl_set_swap_interval(int interval)
     return 1;
 }
 
+/* Settings > Display: 60 holds the presented rate there; 0 lets the display's refresh decide. */
+static _Atomic int g_frame_cap;
+static HaloFramePacer g_pacer;
+
+void halo_ios_gl_set_frame_cap(int fps)
+{
+    atomic_store_explicit(&g_frame_cap, fps < 0 ? 0 : fps, memory_order_relaxed);
+}
+
+static void pace_present(void)
+{
+    int cap = atomic_load_explicit(&g_frame_cap, memory_order_relaxed);
+    uint64_t wait = halo_pacer_wait(&g_pacer, clock_gettime_nsec_np(CLOCK_UPTIME_RAW), cap);
+
+    if (wait) {
+        struct timespec nap = { (time_t)(wait / 1000000000ull), (long)(wait % 1000000000ull) };
+        nanosleep(&nap, NULL);
+    }
+}
+
 int halo_ios_gl_swap_window(uint32_t window)
 {
     (void)window;
     if (!g_context)
         return 0;
+    pace_present();
 
     if ([EAGLContext currentContext] != g_context &&
         ![EAGLContext setCurrentContext:g_context])

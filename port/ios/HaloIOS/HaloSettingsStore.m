@@ -1,6 +1,7 @@
 #import "HaloSettingsStore.h"
 #import "halo_ios_audio.h"
 #import "halo_guest_runner.h"
+#import "halo_ios_gl_host.h"
 
 NSString *const HaloSettingsChangedNotification = @"HaloSettingsChanged";
 static NSString *const kSettingsKey = @"HaloSettingsV1";
@@ -27,6 +28,8 @@ static NSString *const kSettingsKey = @"HaloSettingsV1";
         hs_parse(&_settings, text.UTF8String); /* defaults when nothing or garbage is saved */
         halo_ios_audio_set_volume(_settings.audio_enabled ? _settings.volume : 0.0f);
         halo_ios_set_profiler_enabled(_settings.profiler);
+        halo_ios_gl_set_frame_cap(hs_frame_cap(&_settings));
+        halo_ios_set_cheat_flags(hs_cheat_mask(&_settings));
     }
     return self;
 }
@@ -60,6 +63,8 @@ static NSString *const kSettingsKey = @"HaloSettingsV1";
 
     halo_ios_audio_set_volume(next.audio_enabled ? next.volume : 0.0f);
     halo_ios_set_profiler_enabled(next.profiler);
+    halo_ios_gl_set_frame_cap(hs_frame_cap(&next));
+    halo_ios_set_cheat_flags(hs_cheat_mask(&next));
     dispatch_async(dispatch_get_main_queue(), ^{
         [[NSNotificationCenter defaultCenter] postNotificationName:HaloSettingsChangedNotification object:nil];
     });

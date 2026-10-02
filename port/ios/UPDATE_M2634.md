@@ -98,3 +98,46 @@ last step was "guest bridge installed", which is the loading of the game image.
   back; the old behaviour hangs the same test.
 - **Black screen.** The game is shown first, so a game that never draws left a black screen with no explanation. After 25 seconds without a frame the app opens
   the log, whose Summary now has a "Game image" section with the segment layout.
+
+
+## M2.6.37 — Settings and Diagnostics redesign, cheats, frame rate modes, rendering fixes
+
+### The warped plasma pistol
+
+The first-person plasma pistol drew as huge dark triangles across the screen (your screenshot). Upstream has three open pull requests dated 2 October 2026 for
+this symptom, which it calls "vertex explosions"; none is in build 73:
+
+- **#53 — snap poses that changed too much in a tick.** Frame interpolation blended the first-person pose with whatever was drawn last. After a weapon switch that
+  can be another weapon's skeleton with the same number of nodes, which stretches every vertex across the screen for a tick. Ported into
+  `port/linux/game/render_interpolation.c`: the first-person pose blends only from the tick just before, and not when any node moved more than 0.25 units in the
+  camera's frame; an object snaps when any node moved more than 0.4 units in its root node's frame.
+- **#52 — keep vertex constant serials from wrapping.** The serials were 32-bit and a skinned model changes up to 132 registers a draw, so they wrap within
+  minutes to an hour at a high frame rate; afterwards programs keep stale registers (another object's bone matrices). Now 64-bit in `port/linux/src/d3d8_gl.c`.
+- **#51 — clip-space position** is already in our build: the iOS guest compiles with the Android path, which has it.
+
+These touch drawing only, never the network protocol, so crossplay with a stock build 73 is unaffected. They were ported by hand from the pull requests' diffs and
+descriptions; the game code cannot be compiled outside CI. Whether they cure the pistol on a device is not yet known.
+
+### Settings
+
+A category list on the left (Multiplayer, Controls, Display, Audio, Cheats, Advanced) with the chosen category's cards on the right and **Logs** pinned at the bottom;
+tapping Logs closes Settings and shows Diagnostics, like the old Log button, which is gone. The top bar is only the gear.
+
+- **Controls:** on-screen controls are Auto (hidden while a controller is connected, back when it disconnects), Always or Hidden.
+- **Display > Frame rate:** 30 original, 60 smooth (held at 60 by a frame pacer), or Uncapped. Uncapped lets the screen decide: iOS never shows more frames than
+  the display refreshes, so it means up to 120 on ProMotion screens (`CADisableMinimumFrameDurationOnPhone` is now set) and 60 elsewhere, at a cost in battery
+  and heat. 60 and Uncapped switch live; 30 versus the others applies at the next launch because the game reads it at start-up.
+- **Cheats:** God mode, infinite ammo, infinite grenades, no reloading. They drive the game's own cheat flags (`source/game/cheats.c`; the grenade one is a small
+  extra term in `source/units/units.c`) and apply only in the campaign: a multiplayer game of the game engine, or any network game, turns them off.
+- Settings saved by M2.6.33-36 (`smooth=` and no cheats) still load; `smooth=0` becomes 30 and `smooth=1` becomes 60.
+
+### Diagnostics
+
+Two tabs. **Summary:** status (running, stopped, starting), game build, app version, map, maps found, how the last start went, frame rate (the median of the last
+five reports, so a loading-screen spike of 100 or 213 FPS does not show), drawing time, how much of the time the game thread waits for the screen, the busiest game
+functions, sound, multiplayer. **Problems:** each real problem once with a plain explanation and a count; messages that are normal on iOS are counted, not listed.
+The report is built by `halo_log_report.h` and tested on lines from your real logs (`tools/tests/fixtures`): a healthy session shows three problems, all warnings.
+
+### Tests added
+
+`test_ios_log_report.c` (real device logs), `test_ios_frame_pacer.c`, and settings tests for the new fields and migration.

@@ -1,229 +1,168 @@
 #import "HaloSettingsViewController.h"
 #import "HaloSettingsStore.h"
+#import "HaloUI.h"
 #import "halo_ios_platform.h"
 #import "halo_guest_runner.h"
 
-@interface HaloSettingsViewController ()
-@property(nonatomic, strong) UIScrollView *scroll;
+typedef NS_ENUM(NSInteger, HaloCategory) {
+    HaloCategoryMultiplayer = 0, HaloCategoryControls, HaloCategoryDisplay, HaloCategoryAudio, HaloCategoryCheats, HaloCategoryAdvanced,
+    HaloCategoryLogs, HaloCategoryCount
+};
+
+@interface HaloSettingsViewController () <UITextFieldDelegate>
+@property(nonatomic, strong) UIView *detail;
 @property(nonatomic, strong) UIStackView *stack;
+@property(nonatomic, strong) NSArray<UIButton *> *sidebar;
+@property(nonatomic) HaloCategory selected;
 @end
 
 @implementation HaloSettingsViewController
 
+static NSString *HaloCategoryTitle(HaloCategory c)
+{
+    switch (c) {
+        case HaloCategoryMultiplayer: return @"Multiplayer";
+        case HaloCategoryControls: return @"Controls";
+        case HaloCategoryDisplay: return @"Display";
+        case HaloCategoryAudio: return @"Audio";
+        case HaloCategoryCheats: return @"Cheats";
+        case HaloCategoryAdvanced: return @"Advanced";
+        default: return @"Logs";
+    }
+}
+
+static NSString *HaloCategorySymbol(HaloCategory c)
+{
+    switch (c) {
+        case HaloCategoryMultiplayer: return @"person.2.fill";
+        case HaloCategoryControls: return @"gamecontroller.fill";
+        case HaloCategoryDisplay: return @"display";
+        case HaloCategoryAudio: return @"speaker.wave.2.fill";
+        case HaloCategoryCheats: return @"sparkles";
+        case HaloCategoryAdvanced: return @"wrench.and.screwdriver.fill";
+        default: return @"doc.text.magnifyingglass";
+    }
+}
+
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    self.view.backgroundColor = [UIColor colorWithWhite:0.07 alpha:1.0];
-
-    UILabel *title = [[UILabel alloc] init];
-    title.text = @"Settings";
-    title.textColor = UIColor.whiteColor;
-    title.font = [UIFont boldSystemFontOfSize:22];
+    self.view.backgroundColor = HaloUIBackground();
+    UILabel *title = HaloUILabel(@"Settings", 22, UIFontWeightBold, nil);
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    UIButton *done = [UIButton buttonWithType:UIButtonTypeSystem];
-    [done setTitle:@"Done" forState:UIControlStateNormal];
-    done.titleLabel.font = [UIFont boldSystemFontOfSize:18];
+    UIButton *done = HaloUIButton(@"Back to game", 1, ^(UIButton *b) { [self dismissViewControllerAnimated:YES completion:nil]; });
     done.translatesAutoresizingMaskIntoConstraints = NO;
-    [done addTarget:self action:@selector(close) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:title];
     [self.view addSubview:done];
 
-    self.scroll = [[UIScrollView alloc] init];
-    self.scroll.translatesAutoresizingMaskIntoConstraints = NO;
-    self.scroll.alwaysBounceVertical = YES;
-    [self.view addSubview:self.scroll];
-    self.stack = [[UIStackView alloc] init];
-    self.stack.axis = UILayoutConstraintAxisVertical;
-    self.stack.spacing = 10;
-    self.stack.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.scroll addSubview:self.stack];
+    /* the category list: the first six in order, Logs pinned to the bottom */
+    UIStackView *list = [[UIStackView alloc] init];
+    list.axis = UILayoutConstraintAxisVertical;
+    list.spacing = 6;
+    list.translatesAutoresizingMaskIntoConstraints = NO;
+    NSMutableArray<UIButton *> *buttons = [NSMutableArray array];
+    for (NSInteger i = 0; i < HaloCategoryCount; i++) {
+        UIButton *row = [UIButton buttonWithType:UIButtonTypeSystem];
+        UIImage *icon = [UIImage systemImageNamed:HaloCategorySymbol((HaloCategory)i)];
+        [row setImage:icon forState:UIControlStateNormal];
+        [row setTitle:[@"  " stringByAppendingString:HaloCategoryTitle((HaloCategory)i)] forState:UIControlStateNormal];
+        row.titleLabel.font = [UIFont systemFontOfSize:15.5 weight:UIFontWeightSemibold];
+        row.tintColor = UIColor.whiteColor;
+        [row setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+        row.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeading;
+        row.contentEdgeInsets = UIEdgeInsetsMake(10, 12, 10, 12);
+        row.layer.cornerRadius = 10;
+        [row.heightAnchor constraintGreaterThanOrEqualToConstant:44].active = YES;
+        NSInteger index = i;
+        [row addAction:[UIAction actionWithHandler:^(UIAction *action) { [self choose:(HaloCategory)index]; }] forControlEvents:UIControlEventTouchUpInside];
+        [buttons addObject:row];
+        if (i == HaloCategoryLogs) {
+            UIView *spacer = [[UIView alloc] init];
+            [spacer setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisVertical];
+            [list addArrangedSubview:spacer];
+        }
+        [list addArrangedSubview:row];
+    }
+    self.sidebar = buttons;
+    [self.view addSubview:list];
 
+    self.detail = [[UIView alloc] init];
+    self.detail.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:self.detail];
     UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
     [NSLayoutConstraint activateConstraints:@[
         [title.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:20],
-        [title.topAnchor constraintEqualToAnchor:safe.topAnchor constant:10],
+        [title.topAnchor constraintEqualToAnchor:safe.topAnchor constant:12],
         [done.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-20],
         [done.centerYAnchor constraintEqualToAnchor:title.centerYAnchor],
-        [self.scroll.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:10],
-        [self.scroll.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor],
-        [self.scroll.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor],
-        [self.scroll.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
-        [self.stack.topAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.topAnchor constant:4],
-        [self.stack.bottomAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.bottomAnchor constant:-40],
-        [self.stack.leadingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.leadingAnchor constant:20],
-        [self.stack.trailingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.trailingAnchor constant:-20]]];
-    [self rebuild];
+        [done.widthAnchor constraintEqualToConstant:130],
+        [list.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:14],
+        [list.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
+        [list.widthAnchor constraintEqualToConstant:176],
+        [list.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor constant:-10],
+        [self.detail.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:10],
+        [self.detail.leadingAnchor constraintEqualToAnchor:list.trailingAnchor constant:16],
+        [self.detail.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
+        [self.detail.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor]]];
+    self.stack = HaloUIScrollingStack(self.detail, 12);
+    self.selected = HaloCategoryMultiplayer;
+    [self renderDetail];
 }
 
-- (void)close { [self dismissViewControllerAnimated:YES completion:nil]; }
-
-#pragma mark - form helpers
-
-- (UILabel *)labelWithText:(NSString *)text size:(CGFloat)size bold:(BOOL)bold color:(UIColor *)color
+- (void)choose:(HaloCategory)category
 {
-    UILabel *label = [[UILabel alloc] init];
-    label.text = text;
-    label.numberOfLines = 0;
-    label.textColor = color;
-    label.font = bold ? [UIFont boldSystemFontOfSize:size] : [UIFont systemFontOfSize:size];
-    return label;
+    if (category == HaloCategoryLogs) {
+        void (^go)(void) = self.onShowLog;
+        [self dismissViewControllerAnimated:YES completion:^{ if (go) go(); }];
+        return;
+    }
+    self.selected = category;
+    [(UIScrollView *)self.stack.superview setContentOffset:CGPointZero animated:NO];
+    [self renderDetail];
 }
 
-- (void)addSection:(NSString *)title
+/* Rebuild after an action finishes, never from inside the control that triggered it. */
+- (void)renderSoon
 {
-    UILabel *label = [self labelWithText:title.uppercaseString size:13 bold:YES color:[UIColor colorWithWhite:0.6 alpha:1]];
-    [self.stack setCustomSpacing:18 afterView:self.stack.arrangedSubviews.lastObject ?: label];
-    [self.stack addArrangedSubview:label];
+    dispatch_async(dispatch_get_main_queue(), ^{ [self renderDetail]; });
 }
 
-- (void)addNote:(NSString *)text
+- (void)renderDetail
 {
-    [self.stack addArrangedSubview:[self labelWithText:text size:13 bold:NO color:[UIColor colorWithWhite:0.62 alpha:1]]];
-}
-
-- (UIView *)card:(NSArray<UIView *> *)views
-{
-    UIStackView *inner = [[UIStackView alloc] initWithArrangedSubviews:views];
-    inner.axis = UILayoutConstraintAxisHorizontal;
-    inner.spacing = 12;
-    inner.alignment = UIStackViewAlignmentCenter;
-    inner.layoutMargins = UIEdgeInsetsMake(10, 14, 10, 14);
-    inner.layoutMarginsRelativeArrangement = YES;
-    inner.backgroundColor = [UIColor colorWithWhite:0.14 alpha:1];
-    inner.layer.cornerRadius = 10;
-    return inner;
-}
-
-- (void)addSwitch:(NSString *)title value:(BOOL)value change:(void (^)(HsSettings *s, BOOL on))change
-{
-    UILabel *label = [self labelWithText:title size:16 bold:NO color:UIColor.whiteColor];
-    UISwitch *toggle = [[UISwitch alloc] init];
-    toggle.on = value;
-    [toggle addAction:[UIAction actionWithHandler:^(UIAction *action) {
-        BOOL on = toggle.on;
-        [[HaloSettingsStore shared] update:^(HsSettings *s) { change(s, on); }];
-    }] forControlEvents:UIControlEventValueChanged];
-    [label setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
-    [self.stack addArrangedSubview:[self card:@[label, toggle]]];
-}
-
-- (void)addSlider:(NSString *)title min:(float)min max:(float)max value:(float)value
-           format:(NSString *)format change:(void (^)(HsSettings *s, float v))change
-{
-    UILabel *label = [self labelWithText:[NSString stringWithFormat:format, value] size:15 bold:NO color:UIColor.whiteColor];
-    UILabel *name = [self labelWithText:title size:16 bold:NO color:UIColor.whiteColor];
-    UISlider *slider = [[UISlider alloc] init];
-    slider.minimumValue = min;
-    slider.maximumValue = max;
-    slider.value = value;
-    __weak UILabel *weakLabel = label;
-    [slider addAction:[UIAction actionWithHandler:^(UIAction *action) {
-        float v = slider.value;
-        weakLabel.text = [NSString stringWithFormat:format, v];
-        [[HaloSettingsStore shared] update:^(HsSettings *s) { change(s, v); }];
-    }] forControlEvents:UIControlEventValueChanged];
-    UIStackView *top = [[UIStackView alloc] initWithArrangedSubviews:@[name, label]];
-    top.distribution = UIStackViewDistributionEqualSpacing;
-    UIStackView *column = [[UIStackView alloc] initWithArrangedSubviews:@[top, slider]];
-    column.axis = UILayoutConstraintAxisVertical;
-    column.spacing = 4;
-    UIStackView *wrap = (UIStackView *)[self card:@[column]];
-    [column.widthAnchor constraintEqualToAnchor:wrap.widthAnchor constant:-28].active = YES;
-    [self.stack addArrangedSubview:wrap];
-}
-
-- (UIButton *)pillButton:(NSString *)title
-{
-    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
-    [button setTitle:title forState:UIControlStateNormal];
-    button.titleLabel.font = [UIFont boldSystemFontOfSize:15];
-    button.contentEdgeInsets = UIEdgeInsetsMake(8, 14, 8, 14);
-    button.backgroundColor = [UIColor colorWithWhite:0.22 alpha:1];
-    button.layer.cornerRadius = 8;
-    return button;
-}
-
-- (void)addButton:(NSString *)title enabled:(BOOL)enabled action:(void (^)(UIButton *sender))action
-{
-    UIButton *button = [self pillButton:title];
-    button.enabled = enabled;
-    __weak UIButton *weak = button;
-    [button addAction:[UIAction actionWithHandler:^(UIAction *a) { if (weak) action(weak); }] forControlEvents:UIControlEventTouchUpInside];
-    [button setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
-    UIStackView *row = (UIStackView *)[self card:@[button]];
-    [button.widthAnchor constraintEqualToAnchor:row.widthAnchor constant:-28].active = YES;
-    [self.stack addArrangedSubview:row];
-}
-
-#pragma mark - content
-
-- (void)rebuild
-{
+    for (NSInteger i = 0; i < (NSInteger)self.sidebar.count; i++) {
+        BOOL on = i == (NSInteger)self.selected;
+        self.sidebar[i].backgroundColor = on ? HaloUIAccent() : (i == HaloCategoryLogs ? [UIColor colorWithWhite:0.14 alpha:1] : UIColor.clearColor);
+    }
     for (UIView *view in self.stack.arrangedSubviews) { [self.stack removeArrangedSubview:view]; [view removeFromSuperview]; }
     HsSettings settings = [[HaloSettingsStore shared] snapshot];
-    HsPreset preset = settings.presets[settings.active];
-
-    [self addSection:@"Control schemes"];
-    [self addNote:@"Five schemes you can rename. Each remembers where every button sits, its size, and the aim settings below."];
-    for (int i = 0; i < HS_PRESET_COUNT; i++) {
-        BOOL active = i == settings.active;
-        UIButton *choose = [self pillButton:[NSString stringWithFormat:@"%@  %s", active ? @"●" : @"○", settings.presets[i].name]];
-        choose.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
-        choose.backgroundColor = active ? [UIColor colorWithRed:0.12 green:0.38 blue:0.7 alpha:1] : [UIColor colorWithWhite:0.22 alpha:1];
-        [choose addAction:[UIAction actionWithHandler:^(UIAction *a) {
-            [[HaloSettingsStore shared] update:^(HsSettings *s) { s->active = i; }];
-            [self rebuild];
-        }] forControlEvents:UIControlEventTouchUpInside];
-        UIButton *rename = [self pillButton:@"Rename"];
-        [rename addAction:[UIAction actionWithHandler:^(UIAction *a) { [self renamePreset:i]; }] forControlEvents:UIControlEventTouchUpInside];
-        [choose setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
-        UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:@[choose, rename]];
-        row.spacing = 8;
-        [self.stack addArrangedSubview:row];
+    switch (self.selected) {
+        case HaloCategoryMultiplayer: [self buildMultiplayer:&settings]; break;
+        case HaloCategoryControls: [self buildControls:&settings]; break;
+        case HaloCategoryDisplay: [self buildDisplay:&settings]; break;
+        case HaloCategoryAudio: [self buildAudio:&settings]; break;
+        case HaloCategoryCheats: [self buildCheats:&settings]; break;
+        default: [self buildAdvanced:&settings]; break;
     }
-    [self addButton:@"Edit button layout…" enabled:YES action:^(UIButton *sender) {
-        void (^go)(void) = self.onEditLayout;
-        [self dismissViewControllerAnimated:YES completion:^{ if (go) go(); }];
-    }];
-    [self addButton:@"Reset this scheme to the Xbox layout" enabled:YES action:^(UIButton *sender) {
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Reset layout?"
-            message:@"Buttons return to their standard places and sizes in this scheme." preferredStyle:UIAlertControllerStyleAlert];
-        [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-        [alert addAction:[UIAlertAction actionWithTitle:@"Reset" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a) {
-            [[HaloSettingsStore shared] update:^(HsSettings *s) { hs_reset_layout(&s->presets[s->active]); }];
-        }]];
-        [self presentViewController:alert animated:YES completion:nil];
-    }];
+}
 
-    [self addSection:@"Aim and sticks (this scheme)"];
-    [self addSwitch:@"Drag to look (touch-look)" value:preset.touch_look change:^(HsSettings *s, BOOL on) { s->presets[s->active].touch_look = on; }];
-    [self addSlider:@"Look speed" min:0.25f max:3.0f value:preset.look_sensitivity format:@"%.2f×"
-             change:^(HsSettings *s, float v) { s->presets[s->active].look_sensitivity = v; }];
-    [self addSwitch:@"Invert look (up looks down)" value:preset.invert_look_y change:^(HsSettings *s, BOOL on) { s->presets[s->active].invert_look_y = on; }];
-    [self addSlider:@"Look acceleration" min:1.0f max:3.0f value:preset.look_curve format:@"%.1f"
-             change:^(HsSettings *s, float v) { s->presets[s->active].look_curve = v; }];
-    [self addSwitch:@"Floating sticks (stick starts where your thumb lands)" value:preset.floating_sticks
-            change:^(HsSettings *s, BOOL on) { s->presets[s->active].floating_sticks = on; }];
-    [self addSlider:@"Stick dead zone" min:0.0f max:0.4f value:preset.stick_dead_zone format:@"%.0f%%"
-             change:^(HsSettings *s, float v) { s->presets[s->active].stick_dead_zone = v; }];
-    [self addSlider:@"Move stick response" min:1.0f max:3.0f value:preset.move_curve format:@"%.1f"
-             change:^(HsSettings *s, float v) { s->presets[s->active].move_curve = v; }];
-    [self addSlider:@"Button opacity" min:0.25f max:1.0f value:preset.opacity format:@"%.2f"
-             change:^(HsSettings *s, float v) { s->presets[s->active].opacity = v; }];
-    [self addSwitch:@"Haptic feedback" value:preset.haptics change:^(HsSettings *s, BOOL on) { s->presets[s->active].haptics = on; }];
-    [self addNote:@"Dead zone shows as a fraction of the stick; response above 1.0 gives finer control near the centre."];
+- (void)add:(UIView *)view { [self.stack addArrangedSubview:view]; }
 
-    [self addSection:@"Audio"];
-    [self addSwitch:@"Sound" value:settings.audio_enabled change:^(HsSettings *s, BOOL on) { s->audio_enabled = on; }];
-    [self addSlider:@"Volume" min:0.0f max:1.0f value:settings.volume format:@"%.2f"
-             change:^(HsSettings *s, float v) { s->volume = v; }];
+#pragma mark - small helpers
 
-    [self addSection:@"Multiplayer"];
-    [self addNote:@"Host from Multiplayer → System Link. The invite link is copied for you; send it to friends. Opening it on their device (or tapping Join below) puts them in your game. Works across iPhone, iPad, Android, Windows and Linux."];
+- (void)update:(void (^)(HsSettings *s))block
+{
+    [[HaloSettingsStore shared] update:block];
+}
+
+#pragma mark - Multiplayer
+
+- (void)buildMultiplayer:(const HsSettings *)settings
+{
     UITextField *paste = [[UITextField alloc] init];
-    paste.placeholder = @"Paste an invite link here (halo://join/…)";
+    paste.placeholder = @"halo://join/…";
+    paste.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"halo://join/…" attributes:@{ NSForegroundColorAttributeName: HaloUISecondaryText() }];
     paste.textColor = UIColor.whiteColor;
-    paste.backgroundColor = [UIColor colorWithWhite:0.14 alpha:1];
+    paste.backgroundColor = [UIColor colorWithWhite:0.18 alpha:1];
     paste.layer.cornerRadius = 10;
     paste.leftView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 12, 10)];
     paste.leftViewMode = UITextFieldViewModeAlways;
@@ -231,52 +170,103 @@
     paste.autocorrectionType = UITextAutocorrectionTypeNo;
     paste.autocapitalizationType = UITextAutocapitalizationTypeNone;
     paste.keyboardType = UIKeyboardTypeURL;
+    paste.returnKeyType = UIReturnKeyDone;
+    paste.delegate = self;
     [paste.heightAnchor constraintEqualToConstant:44].active = YES;
-    [self.stack addArrangedSubview:paste];
-    [self addButton:@"Join this invite" enabled:YES action:^(UIButton *sender) {
+    UIButton *join = HaloUIButton(@"Join this invite", 1, ^(UIButton *b) {
         [paste resignFirstResponder];
         if (HaloJoinInviteText(paste.text)) [self dismissViewControllerAnimated:YES completion:nil];
-    }];
-    [self addButton:@"Join invite from clipboard" enabled:YES action:^(UIButton *sender) {
+    });
+    UIButton *fromClipboard = HaloUIButton(@"Join the invite on the clipboard", 0, ^(UIButton *b) {
         if (HaloJoinInviteFromClipboard()) [self dismissViewControllerAnimated:YES completion:nil];
-    }];
+    });
+    [self add:HaloUICardView(@"Join a game", @[
+        HaloUINote(@"Paste the invite link a friend sent you. It works across iPhone, iPad, Android, Windows and Linux, as long as everyone is on the same Halo CE Universal build."),
+        paste, join, fromClipboard])];
+
     NSString *invite = HaloLastHostedInvite();
-    [self addButton:invite ? @"Share my invite link…" : @"Share my invite link (host a game first)" enabled:invite != nil action:^(UIButton *sender) {
-        UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:@[invite] applicationActivities:nil];
-        share.popoverPresentationController.sourceView = sender;
-        share.popoverPresentationController.sourceRect = sender.bounds;
-        [self presentViewController:share animated:YES completion:nil];
-    }];
-    [self addSwitch:@"Join links on the clipboard automatically" value:settings.join_from_clipboard
-             change:^(HsSettings *s, BOOL on) { s->join_from_clipboard = on; }];
-    [self addNote:@"Off by default: reading the clipboard makes iOS ask for permission to paste. Opening a halo:// link joins without it."];
+    UIButton *share = HaloUIButton(invite ? @"Share my invite link" : @"Share my invite link", 1, ^(UIButton *b) {
+        NSString *link = HaloLastHostedInvite();
+        if (!link) return;
+        UIActivityViewController *sheet = [[UIActivityViewController alloc] initWithActivityItems:@[link] applicationActivities:nil];
+        sheet.popoverPresentationController.sourceView = b;
+        sheet.popoverPresentationController.sourceRect = b.bounds;
+        [self presentViewController:sheet animated:YES completion:nil];
+    });
+    share.enabled = invite != nil;
+    [self add:HaloUICardView(@"Host a game", @[
+        HaloUINote(invite ? @"Your game is ready to share." : @"In the game, choose Multiplayer > System Link and start a game. The invite link is made and copied for you; it then appears here."),
+        share])];
 
-    [self addSection:@"Frame rate"];
-    [self addSwitch:@"Smooth 60 FPS (the original game runs at 30)" value:settings.smooth_fps
-            change:^(HsSettings *s, BOOL on) { s->smooth_fps = on; }];
-    [self addNote:@"Takes effect the next time you open the app. Turn it off if the game stutters or the phone gets hot."];
-    [self addSwitch:@"High-res HUD (sharper meters, radar and reticles)" value:settings.hires_hud
-            change:^(HsSettings *s, BOOL on) { s->hires_hud = on; }];
-    [self addSwitch:@"High-res text (menus and HUD)" value:settings.hires_text
-            change:^(HsSettings *s, BOOL on) { s->hires_text = on; }];
-    [self addNote:@"New in Halo Universal build 73 and off until you try them: switch on, reopen the app, and turn them off again if the menus or HUD stutter."];
+    [self add:HaloUICardView(@"Options", @[
+        HaloUISwitchRow(@"Join links on the clipboard automatically", @"Off by default: reading the clipboard makes iOS ask for permission each time. Opening a halo:// link joins without it.",
+                        settings->join_from_clipboard, ^(BOOL on) { [self update:^(HsSettings *s) { s->join_from_clipboard = on; }]; })])];
+    [self add:HaloUICardView(@"Finding games on your Wi-Fi", @[
+        HaloUINote(@"If games on the same network are not found, check iOS Settings > Privacy & Security > Local Network > Halo CE is on, and that both devices are on the same Wi-Fi.")])];
+}
 
-    [self addSection:@"Diagnostics"];
-    [self addSwitch:@"Show frame rate on screen" value:settings.show_fps change:^(HsSettings *s, BOOL on) { s->show_fps = on; }];
-    [self addSwitch:@"Performance profiler (adds a Where the time goes report to the log)" value:settings.profiler
-             change:^(HsSettings *s, BOOL on) { s->profiler = on; }];
-    if (halo_ios_safe_level()) {
-        [self addNote:@"Safe start is on: the last start did not finish, so sound, internet play, smooth 60 FPS, hi-res HUD and text and the profiler are off for now. A start that runs for 15 seconds turns it off by itself."];
-        [self addButton:@"Leave safe mode (next start is normal)" enabled:YES action:^(UIButton *sender) {
-            halo_ios_leave_safe_mode();
-            halo_ios_toast("The next start will be a normal one");
-        }];
+- (BOOL)textFieldShouldReturn:(UITextField *)field { [field resignFirstResponder]; return YES; }
+
+#pragma mark - Controls
+
+- (void)buildControls:(const HsSettings *)settings
+{
+    HsPreset preset = settings->presets[settings->active];
+
+    [self add:HaloUICardView(@"On-screen controls", @[
+        HaloUISegmentRow(nil, @[@"Auto", @"Always show", @"Hide"], settings->controls_mode, ^(NSInteger i) {
+            [self update:^(HsSettings *s) { s->controls_mode = (int)i; }];
+            [self renderSoon];
+        }),
+        HaloUINote(settings->controls_mode == 0 ? @"Auto hides them while a controller is connected and brings them back when it disconnects."
+                   : settings->controls_mode == 1 ? @"Shown even with a controller connected; touch and controller work together."
+                   : @"Hidden: use a controller.")])];
+
+    NSMutableArray<UIView *> *schemes = [NSMutableArray array];
+    [schemes addObject:HaloUINote(@"Five schemes you can rename. Each remembers where every button sits, how big it is, and the aim settings below.")];
+    for (int i = 0; i < HS_PRESET_COUNT; i++) {
+        BOOL active = i == settings->active;
+        UIButton *choose = HaloUIButton([NSString stringWithUTF8String:settings->presets[i].name], active ? 1 : 0, ^(UIButton *b) {
+            [self update:^(HsSettings *s) { s->active = i; }];
+            [self renderSoon];
+        });
+        choose.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeading;
+        choose.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 14);
+        UIButton *rename = HaloUIButton(@"Rename", 0, ^(UIButton *b) { [self renamePreset:i]; });
+        [rename.widthAnchor constraintEqualToConstant:90].active = YES;
+        UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:@[choose, rename]];
+        row.spacing = 8;
+        [schemes addObject:row];
     }
-    [self addButton:@"View log…" enabled:YES action:^(UIButton *sender) {
-        void (^go)(void) = self.onShowLog;
+    [schemes addObject:HaloUIButton(@"Edit button layout…", 0, ^(UIButton *b) {
+        void (^go)(void) = self.onEditLayout;
         [self dismissViewControllerAnimated:YES completion:^{ if (go) go(); }];
-    }];
-    [self addButton:@"Share log files…" enabled:YES action:^(UIButton *sender) { if (self.onShareLogs) self.onShareLogs(sender); }];
+    })];
+    [schemes addObject:HaloUIButton(@"Reset this scheme to the Xbox layout", 2, ^(UIButton *b) {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Reset layout?" message:@"Buttons return to their standard places and sizes in this scheme." preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Reset" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a) {
+            [self update:^(HsSettings *s) { hs_reset_layout(&s->presets[s->active]); }];
+        }]];
+        [self presentViewController:alert animated:YES completion:nil];
+    })];
+    [self add:HaloUICardView(@"Control scheme", schemes)];
+
+    [self add:HaloUICardView(@"Looking", @[
+        HaloUISwitchRow(@"Drag to look", @"Drag a finger anywhere on the right of the screen.", preset.touch_look, ^(BOOL on) { [self update:^(HsSettings *s) { s->presets[s->active].touch_look = on; }]; }),
+        HaloUISliderRow(@"Look speed", 0.25f, 3.0f, preset.look_sensitivity, @"%.2f×", ^(float v) { [self update:^(HsSettings *s) { s->presets[s->active].look_sensitivity = v; }]; }),
+        HaloUISliderRow(@"Look acceleration", 1.0f, 3.0f, preset.look_curve, @"%.1f", ^(float v) { [self update:^(HsSettings *s) { s->presets[s->active].look_curve = v; }]; }),
+        HaloUISwitchRow(@"Invert look", @"Up on the screen looks down.", preset.invert_look_y, ^(BOOL on) { [self update:^(HsSettings *s) { s->presets[s->active].invert_look_y = on; }]; })])];
+
+    [self add:HaloUICardView(@"Sticks", @[
+        HaloUISwitchRow(@"Floating sticks", @"The stick starts where your thumb lands.", preset.floating_sticks, ^(BOOL on) { [self update:^(HsSettings *s) { s->presets[s->active].floating_sticks = on; }]; }),
+        HaloUISliderRow(@"Dead zone", 0.0f, 0.4f, preset.stick_dead_zone, @"%.2f", ^(float v) { [self update:^(HsSettings *s) { s->presets[s->active].stick_dead_zone = v; }]; }),
+        HaloUISliderRow(@"Move stick response", 1.0f, 3.0f, preset.move_curve, @"%.1f", ^(float v) { [self update:^(HsSettings *s) { s->presets[s->active].move_curve = v; }]; }),
+        HaloUINote(@"Response above 1.0 gives finer control near the centre.")])];
+
+    [self add:HaloUICardView(@"Buttons", @[
+        HaloUISliderRow(@"Opacity", 0.25f, 1.0f, preset.opacity, @"%.2f", ^(float v) { [self update:^(HsSettings *s) { s->presets[s->active].opacity = v; }]; }),
+        HaloUISwitchRow(@"Haptic feedback", nil, preset.haptics, ^(BOOL on) { [self update:^(HsSettings *s) { s->presets[s->active].haptics = on; }]; })])];
 }
 
 - (void)renamePreset:(int)index
@@ -292,13 +282,86 @@
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Save" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
         NSString *text = alert.textFields.firstObject.text ?: @"";
-        [[HaloSettingsStore shared] update:^(HsSettings *s) {
+        [self update:^(HsSettings *s) {
             hs_set_name(s->presets[index].name, text.UTF8String);
             if (!s->presets[index].name[0]) hs_set_name(s->presets[index].name, [NSString stringWithFormat:@"Preset %d", index + 1].UTF8String);
         }];
-        [self rebuild];
+        [self renderSoon];
     }]];
     [self presentViewController:alert animated:YES completion:nil];
+}
+
+#pragma mark - Display
+
+- (void)buildDisplay:(const HsSettings *)settings
+{
+    NSString *note = settings->fps_mode == 0 ? @"The original game's 30 frames a second."
+        : settings->fps_mode == 1 ? @"A frame for every screen refresh, held at 60. Smooth and easy on the battery."
+        : @"Draws as fast as the screen can show: up to 120 on ProMotion iPhones and iPads, 60 on other screens. Uses more battery and gets warmer.";
+    [self add:HaloUICardView(@"Frame rate", @[
+        HaloUISegmentRow(nil, @[@"30 · Original", @"60 · Smooth", @"Uncapped"], settings->fps_mode, ^(NSInteger i) {
+            [self update:^(HsSettings *s) { s->fps_mode = (int)i; }];
+            [self renderSoon];
+        }),
+        HaloUINote(note),
+        HaloUINote(@"Switching between 30 and the other two takes effect the next time you open the app. Switching between 60 and Uncapped takes effect now.")])];
+
+    [self add:HaloUICardView(@"HUD and text", @[
+        HaloUISwitchRow(@"High-res HUD", @"Sharper meters, radar and reticles.", settings->hires_hud, ^(BOOL on) { [self update:^(HsSettings *s) { s->hires_hud = on; }]; }),
+        HaloUISwitchRow(@"High-res text", @"Menus and HUD text at the screen's resolution.", settings->hires_text, ^(BOOL on) { [self update:^(HsSettings *s) { s->hires_text = on; }]; }),
+        HaloUINote(@"New in Halo CE Universal build 73 and off until you try them. They apply the next time you open the app; turn them off again if menus or the HUD stutter.")])];
+
+    [self add:HaloUICardView(@"On screen", @[
+        HaloUISwitchRow(@"Show frame rate", @"A small counter under the Settings button.", settings->show_fps, ^(BOOL on) { [self update:^(HsSettings *s) { s->show_fps = on; }]; })])];
+}
+
+#pragma mark - Audio
+
+- (void)buildAudio:(const HsSettings *)settings
+{
+    [self add:HaloUICardView(@"Sound", @[
+        HaloUISwitchRow(@"Sound", nil, settings->audio_enabled, ^(BOOL on) { [self update:^(HsSettings *s) { s->audio_enabled = on; }]; }),
+        HaloUISliderRow(@"Volume", 0.0f, 1.0f, settings->volume, @"%.2f", ^(float v) { [self update:^(HsSettings *s) { s->volume = v; }]; }),
+        HaloUINote(@"Halo plays even when the ring/silent switch is on, like a game console.")])];
+}
+
+#pragma mark - Cheats
+
+- (void)buildCheats:(const HsSettings *)settings
+{
+    [self add:HaloUICardView(@"Campaign cheats", @[
+        HaloUINote(@"These use the game's own cheat flags. They work only in the campaign and switch off by themselves in multiplayer and network games, so nobody cheats where others play."),
+        HaloUISwitchRow(@"God mode", @"You cannot die.", settings->cheat_god, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_god = on; }]; }),
+        HaloUISwitchRow(@"Infinite ammo", @"Weapons never run out; plasma weapons never need a new battery.", settings->cheat_ammo, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_ammo = on; }]; }),
+        HaloUISwitchRow(@"Infinite grenades", @"Throw as many as you like.", settings->cheat_grenades, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_grenades = on; }]; }),
+        HaloUISwitchRow(@"No reloading", @"A magazine never empties.", settings->cheat_reload, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_reload = on; }]; })])];
+    [self add:HaloUICardView(nil, @[HaloUINote(@"Changes apply within a moment, also in the middle of a mission.")])];
+}
+
+#pragma mark - Advanced
+
+- (void)buildAdvanced:(const HsSettings *)settings
+{
+    NSMutableArray<UIView *> *diag = [NSMutableArray array];
+    [diag addObject:HaloUISwitchRow(@"Performance profiler", @"Samples the game thread so Diagnostics can show where the time goes. About 1% of one CPU core.", settings->profiler, ^(BOOL on) { [self update:^(HsSettings *s) { s->profiler = on; }]; })];
+    [diag addObject:HaloUIButton(@"Share log files", 0, ^(UIButton *b) { if (self.onShareLogs) self.onShareLogs(b); })];
+    [self add:HaloUICardView(@"Diagnostics", diag)];
+
+    if (halo_ios_safe_level()) {
+        [self add:HaloUICardView(@"Safe start is on", @[
+            HaloUINote(@"The last start did not finish, so sound, internet play, smooth 60 FPS, hi-res HUD and text and the profiler are off for now. A start that runs for 15 seconds turns safe start off by itself."),
+            HaloUIButton(@"Leave safe mode (the next start is normal)", 1, ^(UIButton *b) {
+                halo_ios_leave_safe_mode();
+                halo_ios_toast("The next start will be a normal one");
+                [self renderSoon];
+            })])];
+    }
+
+    NSString *version = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?";
+    [self add:HaloUICardView(@"About", @[
+        HaloUIValueRow(@"App version", version, nil),
+        HaloUIValueRow(@"Game", @"Halo CE Universal build 73", nil),
+        HaloUINote(@"Everyone in a multiplayer game must be on the same game build.")])];
 }
 
 @end

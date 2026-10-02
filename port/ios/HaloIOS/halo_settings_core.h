@@ -53,7 +53,12 @@ typedef struct
     int audio_enabled;
     int join_from_clipboard;  /* look at the clipboard for an invite when returning to the game */
     int show_fps;
-    int smooth_fps;           /* draw a frame per display refresh (60) instead of the original 30; applies at launch */
+    int fps_mode;             /* 0 original 30, 1 smooth 60, 2 uncapped (the display's maximum); 0 vs the others applies at launch */
+    int controls_mode;        /* on-screen controls: 0 auto (hidden while a controller is connected), 1 always, 2 never */
+    int cheat_god;            /* campaign only: the game's deathless-player cheat */
+    int cheat_ammo;           /* ... infinite ammo */
+    int cheat_grenades;       /* ... infinite grenades */
+    int cheat_reload;         /* ... no reloading (bottomless clip) */
     int hires_hud;            /* build 73: the HUD from the high-res assets; applies at launch */
     int hires_text;           /* build 73: menu and HUD text from the Overpass fonts at display resolution; applies at launch */
     int profiler;             /* sample the game thread for the log (about 1% of one core) */
@@ -109,6 +114,18 @@ static inline void hs_default_preset(HsPreset *p, int index)
     p->haptics = 1;
 }
 
+/* The mask the game reads (host_cheat_flags): 1 god mode, 2 infinite ammo, 4 infinite grenades, 8 no reloading. */
+static inline unsigned hs_cheat_mask(const HsSettings *s)
+{
+    return (s->cheat_god ? 1u : 0u) | (s->cheat_ammo ? 2u : 0u) | (s->cheat_grenades ? 4u : 0u) | (s->cheat_reload ? 8u : 0u);
+}
+
+/* Frame cap the host paces presentation to: 0 means none (the display's own refresh limits it). */
+static inline int hs_frame_cap(const HsSettings *s)
+{
+    return s->fps_mode == 1 ? 60 : 0;
+}
+
 static inline void hs_defaults(HsSettings *s)
 {
     memset(s, 0, sizeof(*s));
@@ -119,7 +136,7 @@ static inline void hs_defaults(HsSettings *s)
     s->join_from_clipboard = 0; /* reading the clipboard shows an iOS paste prompt */
     s->show_fps = 0;
     s->profiler = 1;
-    s->smooth_fps = 1;
+    s->fps_mode = 1;
     s->hires_hud = 0; /* off until the new code has run on a device; switches in Settings */
     s->hires_text = 0;
 }
@@ -158,7 +175,12 @@ static inline void hs_sanitize(HsSettings *s)
     s->join_from_clipboard = s->join_from_clipboard ? 1 : 0;
     s->show_fps = s->show_fps ? 1 : 0;
     s->profiler = s->profiler ? 1 : 0;
-    s->smooth_fps = s->smooth_fps ? 1 : 0;
+    s->fps_mode = hs_clampi(s->fps_mode, 0, 2);
+    s->controls_mode = hs_clampi(s->controls_mode, 0, 2);
+    s->cheat_god = s->cheat_god ? 1 : 0;
+    s->cheat_ammo = s->cheat_ammo ? 1 : 0;
+    s->cheat_grenades = s->cheat_grenades ? 1 : 0;
+    s->cheat_reload = s->cheat_reload ? 1 : 0;
     s->hires_hud = s->hires_hud ? 1 : 0;
     s->hires_text = s->hires_text ? 1 : 0;
 }
@@ -232,8 +254,9 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
     size_t n = 0;
 #define EMIT(...) do { int w = snprintf(out + n, n < size ? size - n : 0, __VA_ARGS__); if (w < 0) return -1; n += (size_t)w; } while (0)
     EMIT("HALO1\n");
-    EMIT("active=%d\nvolume=%.3f\naudio=%d\nclipboard=%d\nfps=%d\nprofiler=%d\nsmooth=%d\nhireshud=%d\nhirestext=%d\n", s->active, s->volume, s->audio_enabled,
-         s->join_from_clipboard, s->show_fps, s->profiler, s->smooth_fps, s->hires_hud, s->hires_text);
+    EMIT("active=%d\nvolume=%.3f\naudio=%d\nclipboard=%d\nfps=%d\nprofiler=%d\nfpsmode=%d\nhireshud=%d\nhirestext=%d\ncontrols=%d\ncheatgod=%d\ncheatammo=%d\ncheatgrenades=%d\ncheatreload=%d\n", s->active, s->volume, s->audio_enabled,
+         s->join_from_clipboard, s->show_fps, s->profiler, s->fps_mode, s->hires_hud, s->hires_text, s->controls_mode,
+         s->cheat_god, s->cheat_ammo, s->cheat_grenades, s->cheat_reload);
     for (int i = 0; i < HS_PRESET_COUNT; i++)
     {
         const HsPreset *p = &s->presets[i];
@@ -288,7 +311,13 @@ static inline int hs_parse(HsSettings *s, const char *text)
                 else if (!strcmp(key, "clipboard")) s->join_from_clipboard = atoi(value);
                 else if (!strcmp(key, "fps")) s->show_fps = atoi(value);
                 else if (!strcmp(key, "profiler")) s->profiler = atoi(value);
-                else if (!strcmp(key, "smooth")) s->smooth_fps = atoi(value);
+                else if (!strcmp(key, "smooth")) s->fps_mode = atoi(value) ? 1 : 0; /* M2.6.33-35 files */
+                else if (!strcmp(key, "fpsmode")) s->fps_mode = atoi(value);
+                else if (!strcmp(key, "controls")) s->controls_mode = atoi(value);
+                else if (!strcmp(key, "cheatgod")) s->cheat_god = atoi(value);
+                else if (!strcmp(key, "cheatammo")) s->cheat_ammo = atoi(value);
+                else if (!strcmp(key, "cheatgrenades")) s->cheat_grenades = atoi(value);
+                else if (!strcmp(key, "cheatreload")) s->cheat_reload = atoi(value);
                 else if (!strcmp(key, "hireshud")) s->hires_hud = atoi(value);
                 else if (!strcmp(key, "hirestext")) s->hires_text = atoi(value);
                 else if (key[0] == 'p' && key[1] >= '0' && key[1] < '0' + HS_PRESET_COUNT && key[2] == '.')

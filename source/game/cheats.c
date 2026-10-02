@@ -195,9 +195,49 @@ void cheats_network_client_enforce(
 	return;
 }
 
+#ifdef HALO_IOS_GUEST
+/* iOS Settings > Cheats. The host passes a bit mask: 1 god mode, 2 infinite ammo, 4 infinite grenades,
+8 no reloading. They drive the game's own cheat flags (cheats.h), and only in the campaign: never in a
+multiplayer game of the game engine and never in a network game, so nobody cheats where others play.
+What this turned on is turned off again when the setting goes off or the game is not the campaign. */
+extern unsigned int host_cheat_flags(void);
+extern boolean game_in_progress(void);
+extern boolean game_engine_running(void);
+extern boolean network_game_is_active(void);
+boolean ios_cheat_infinite_grenades;
+static unsigned int ios_cheats_set;
+
+static void ios_cheats_apply(void)
+{
+	unsigned int wanted = 0, released;
+
+	if (game_in_progress() && !game_engine_running() && !network_game_is_active())
+		wanted = host_cheat_flags() & 15u;
+	released = ios_cheats_set & ~wanted;
+	/* set again every tick while wanted (nothing else may put them back), cleared once when let go */
+	if (wanted & 1u)
+		cheat.deathless_player = TRUE;
+	if (wanted & 2u)
+		cheat.infinite_ammo = TRUE;
+	if (wanted & 8u)
+		cheat.bottomless_clip = TRUE;
+	if (released & 1u)
+		cheat.deathless_player = FALSE;
+	if (released & 2u)
+		cheat.infinite_ammo = FALSE;
+	if (released & 8u)
+		cheat.bottomless_clip = FALSE;
+	ios_cheat_infinite_grenades = (wanted & 4u) != 0;
+	ios_cheats_set = wanted;
+}
+#endif
+
 void cheats_update(
 	void)
 {
+#ifdef HALO_IOS_GUEST
+	ios_cheats_apply();
+#endif
 	cheats_network_client_enforce();
 	if (cheat.controller_enabled)
 	{

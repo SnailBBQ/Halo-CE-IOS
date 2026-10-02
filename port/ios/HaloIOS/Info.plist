@@ -6,8 +6,8 @@
 <key>CFBundleName</key><string>Halo CE</string>
 <key>CFBundleExecutable</key><string>HaloIOS</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.2.36</string>
-<key>CFBundleVersion</key><string>2636</string>
+<key>CFBundleShortVersionString</key><string>0.2.37</string>
+<key>CFBundleVersion</key><string>2637</string>
 <key>UIFileSharingEnabled</key><true/>
 <key>LSSupportsOpeningDocumentsInPlace</key><true/>
 <key>UILaunchScreen</key><dict/>
@@ -17,6 +17,7 @@
     <string>UIInterfaceOrientationLandscapeRight</string>
 </array>
 <key>UIRequiresFullScreen</key><true/>
+<key>CADisableMinimumFrameDurationOnPhone</key><true/>
 <key>CFBundleURLTypes</key>
 <array><dict>
     <key>CFBundleURLName</key><string>com.haloceuniversal.ios.invite</string>

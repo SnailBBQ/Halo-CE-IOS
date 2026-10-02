@@ -24,6 +24,10 @@ void halo_ios_leave_safe_mode(void);
 /* Back in the foreground: re-marks a running game as running. */
 void halo_ios_phase_foreground(void);
 
+/* Cheats from Settings: 1 god mode, 2 infinite ammo, 4 infinite grenades, 8 no reloading. The game applies
+ * them only in the campaign (source/game/cheats.c). */
+void halo_ios_set_cheat_flags(uint32_t flags);
+
 /* The sampling profiler (log reports "Where the time goes"); costs about 1% of one core. */
 void halo_ios_set_profiler_enabled(int enabled);
 

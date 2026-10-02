@@ -1,6 +1,6 @@
 # Halo CE iOS — Port Status
 
-Updated October 1, 2026. Current development milestone: **M2.6.36**.
+Updated October 1, 2026. Current development milestone: **M2.6.37**.
 
 Halo's real main menu rendered on a physical iPhone with **M2.6.12**. The test ran for more than ten minutes and showed the Halo background and Campaign, Multiplayer, and Settings. Startup and frame rendering were very slow, and blocks covered portions of the menu text. This was the first menu milestone; later campaign evidence is recorded below.
 
@@ -169,3 +169,10 @@ After the build 73 update the app stopped silently while starting the guest. Thi
 The crash report from the device pinned the stop to image loading: the loader invalidated the instruction cache across unmapped pages between the image's
 segments. The span is now mapped whole and invalidation is per executable segment; the crash handler no longer loops. See
 [the notes](port/ios/UPDATE_M2634.md#m2636--the-start-up-crash-found).
+
+## M2.6.37 settings, diagnostics, cheats, frame rate modes
+
+Device test of M2.6.36: smooth 60 FPS and multiplayer work. This milestone adds a category-based Settings screen, a two-tab Diagnostics screen (the Log button is
+replaced by Settings > Logs), campaign cheats, frame rate modes (30 / 60 / Uncapped) and the two upstream rendering fixes that most likely explain the warped
+first-person plasma pistol. See [the notes](port/ios/UPDATE_M2634.md#m2637--settings-and-diagnostics-redesign-cheats-frame-rate-modes-rendering-fixes).
+Not compiled or run on a device yet.

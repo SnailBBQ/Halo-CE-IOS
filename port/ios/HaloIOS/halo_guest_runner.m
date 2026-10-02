@@ -664,6 +664,10 @@ static void ios_silent_advance(uint32_t packet_va)
     atomic_fetch_add(&g_silent_calls,1);
     atomic_fetch_add(&g_silent_ns,(uint64_t)((loading_seconds()-started)*1e9));
 }
+static _Atomic uint32_t g_cheat_flags;
+void halo_ios_set_cheat_flags(uint32_t flags) { atomic_store_explicit(&g_cheat_flags, flags & 15u, memory_order_relaxed); }
+static uint32_t ios_cheat_flags(void) { return atomic_load_explicit(&g_cheat_flags, memory_order_relaxed); }
+
 static int ios_audio_open(uint32_t rate, uint32_t channels)
 {
     int ok = halo_ios_audio_open(rate, channels);
@@ -2365,6 +2369,7 @@ static void *resolve_host_import(const char *name)
     MAP("host_audio_open", ios_audio_open);
     MAP("host_audio_fill", ios_audio_fill);
     MAP("host_audio_push", ios_audio_push);
+    MAP("host_cheat_flags", ios_cheat_flags);
     MAP("host_debug_state", ios_debug_state);
     MAP("host_cache_inflate", ios_cache_inflate_step);
     MAP("host_cache_inflate_end", ios_cache_inflate_end);
@@ -2744,7 +2749,7 @@ static uint32_t build_boot(void)
        Smooth 60 FPS is a setting; it is read once at launch. UPnP is not available on iOS. */
     HsSettings launch_settings=[[HaloSettingsStore shared] snapshot];
     char interpolation[40];
-    snprintf(interpolation,sizeof(interpolation),"HALO_INTERPOLATION=%s",launch_settings.smooth_fps?"true":"false");
+    snprintf(interpolation,sizeof(interpolation),"HALO_INTERPOLATION=%s",launch_settings.fps_mode!=0?"true":"false");
     char hires_hud[32], hires_text[32];
     snprintf(hires_hud,sizeof(hires_hud),"HALO_HIGH_RES_HUD=%s",launch_settings.hires_hud?"true":"false");
     snprintf(hires_text,sizeof(hires_text),"HALO_HIGH_RES_TEXT=%s",launch_settings.hires_text?"true":"false");
@@ -2921,10 +2926,10 @@ static void *main_guest_thread(void *opaque)
     halo_ios_net_set_resolver(ios_net_resolver);
     halo_ios_net_set_logger(ios_net_log);
     signal(SIGPIPE, SIG_IGN); /* a peer closing a socket must not kill the app */
-    say("M2.6.36: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
+    say("M2.6.37: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
     say("Performance defaults: smooth 60 FPS follows the Settings switch; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.36 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
-    say("M2.6.36 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
+    say("M2.6.37 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.37 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
         g_header ? g_header->start : 0u,
         context.boot_va,
         halo_guest_base_is_4gb_aligned() ? "YES" : "NO");
@@ -2947,7 +2952,7 @@ static void *main_guest_thread(void *opaque)
         halo_guest_exec_guard_set_active(0);
         halo_guest_exec_stats st;
         halo_guest_exec_stats_get(&st);
-        say("M2.6.36 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
+        say("M2.6.37 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
             reason,
             (unsigned long long)st.pointer_upgrades,
             (unsigned long long)st.handled_faults,
