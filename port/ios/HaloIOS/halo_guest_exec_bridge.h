@@ -37,6 +37,12 @@ void halo_guest_exec_abort(int reason);
 /* Current calling thread only; excludes background audio-worker faults. */
 uint64_t halo_guest_exec_thread_pointer_upgrades(void);
 
+/* Pointer-upgrade faults by guest PC (async-signal-safe, lock-free). */
+#define HALO_FAULT_HIST_SLOTS 8192
+typedef struct halo_fault_hist_entry { uint32_t pc; uint32_t count; } halo_fault_hist_entry;
+/* Copies and clears the non-empty slots; returns how many were copied. */
+unsigned halo_guest_fault_hist_take(halo_fault_hist_entry *out, unsigned capacity);
+
 void halo_guest_exec_stats_get(halo_guest_exec_stats *stats);
 void halo_guest_exec_stats_reset(void);
 

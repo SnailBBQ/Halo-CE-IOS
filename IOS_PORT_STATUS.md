@@ -1,6 +1,6 @@
 # Halo CE iOS — Port Status
 
-Updated October 1, 2026. Current development milestone: **M2.6.30**.
+Updated October 1, 2026. Current development milestone: **M2.6.31**.
 
 Halo's real main menu rendered on a physical iPhone with **M2.6.12**. The test ran for more than ten minutes and showed the Halo background and Campaign, Multiplayer, and Settings. Startup and frame rendering were very slow, and blocks covered portions of the menu text. This was the first menu milestone; later campaign evidence is recorded below.
 
@@ -134,3 +134,7 @@ The current test build preserves shared object lists, invisible parents and widg
 ## M2.6.30 arena fast path
 
 Device logs show the remaining cost is signal-handled pointer faults (about 640,000 per render call), not any one renderer loop. M2.6.30 rewrites guest loads/stores at build time so they use an arena base derived from the program counter, with `x15` reserved as scratch, instead of faulting. The signal bridge remains as the fallback. The workflow has an `arena_fastpath` input for A/B builds. No FPS gain is claimed until device-tested. See [the design, safety conditions and test checklist](port/ios/ARENA_FASTPATH_M2630.md).
+
+## M2.6.31 controls and fault hot spots
+
+M2.6.30 device test: boot is near-instant and render CPU fell from about 2,000 ms to 10-200 ms per frame (menu around 30 FPS, a10 tutorial 5-7 FPS). The remaining cost is still pointer faults in code the rewrite skipped. M2.6.31 adds the full Xbox on-screen layout (both sticks, LT/RT, LS/RS, Back/Start, White/Black, D-pad), Xbox/PlayStation/MFi controller support, and a per-function fault hot-spot report in the boot log. See [the details](port/ios/CONTROLS_M2631.md).

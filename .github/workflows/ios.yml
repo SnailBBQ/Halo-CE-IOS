@@ -22,6 +22,8 @@ on:
       - 'tools/android_asm_convert.py'
       - 'tools/tests/test_ios_pointer_fastpath.py'
       - 'tools/tests/test_ios_arena_fastpath.py'
+      - 'tools/tests/test_ios_controls_layout.c'
+      - 'tools/tests/test_ios_fault_histogram.c'
       - 'tools/tests/test_ios_workflow_configuration.py'
       - 'tools/tests/test_ios_vertex_colors.c'
       - 'tools/tests/test_ios_vertex_attributes.c'
@@ -57,6 +59,10 @@ jobs:
           set -euxo pipefail
           python3 tools/tests/test_ios_workflow_configuration.py
           python3 tools/tests/test_ios_arena_fastpath.py
+          cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_controls_layout.c -o "$RUNNER_TEMP/halo-controls-test" -lm
+          "$RUNNER_TEMP/halo-controls-test"
+          cc -std=c11 -Wall -Wextra -Wno-unused-function -pthread -D_GNU_SOURCE tools/tests/test_ios_fault_histogram.c -o "$RUNNER_TEMP/halo-hist-test"
+          "$RUNNER_TEMP/halo-hist-test"
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_vertex_colors.c -o "$RUNNER_TEMP/halo-vertex-test"
           "$RUNNER_TEMP/halo-vertex-test"
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_vertex_attributes.c -o "$RUNNER_TEMP/halo-attribute-test"
@@ -101,9 +107,35 @@ jobs:
               target = "--target=arm64_32-apple-watchos"
               if converter not in s or target not in s:
                   raise SystemExit("converter invocation or guest target not found in build.ninja")
+              import shutil, subprocess
+              sample = (b"int f(int x){switch(x){case 1:return 3;case 2:return 5;case 3:return 9;"
+                        b"case 4:return 1;case 7:return 6;case 9:return 2;}return 0;}\n")
+              def probe(*flags):
+                  # True/False for clang's verdict, None when clang is not installed (unit tests).
+                  if shutil.which("clang") is None:
+                      return None
+                  try:
+                      run = subprocess.run(["clang", target, *flags, "-O2", "-S", "-x", "c", "-", "-o", os.devnull],
+                                           input=sample, capture_output=True, timeout=120)
+                  except (OSError, subprocess.SubprocessError):
+                      return False
+                  return run.returncode == 0
+              if probe("-ffixed-x15") is False:
+                  raise SystemExit("clang rejects -ffixed-x15 for the guest target")
               # x15 is the rewrite's scratch register and must never be live in compiled code.
+              extra = " -ffixed-x15"
+              # Compressed jump tables could overflow once instructions are inserted, so the
+              # rewrite skips functions that use them. Turn them off where clang can.
+              for flag in ("-aarch64-enable-compress-jump-tables=false",):
+                  if probe("-mllvm", flag) is True:
+                      extra += " -mllvm " + flag
+                      print("guest build: compressed jump tables disabled via " + flag)
+                      break
+              else:
+                  print("guest build: clang has no known switch for compressed jump tables; "
+                        "functions that use them stay on the signal bridge")
               s = s.replace(converter, "tools/android_asm_convert.py --ios-arena-fastpath $out.darwin.s $out.s")
-              s = s.replace(target, target + " -ffixed-x15")
+              s = s.replace(target, target + extra)
           linker = "ld.lld -m aarch64linux -static"
           if linker not in s:
               raise SystemExit("guest link rule not found in build.ninja")

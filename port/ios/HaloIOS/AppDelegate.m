@@ -2,9 +2,20 @@
 #import "halo_boot_integration.h"
 #import "halo_ios_gl_host.h"
 #import "halo_guest_runner.h"
+#import "halo_ios_controls.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 extern NSString * const HaloIOSFirstFramePresentedNotification;
+
+/* Keeps the screen edges for the game: no home-indicator swipe or status bar while playing. */
+@interface HaloViewController : UIViewController
+@end
+
+@implementation HaloViewController
+- (BOOL)prefersHomeIndicatorAutoHidden { return YES; }
+- (UIRectEdge)preferredScreenEdgesDeferringSystemGestures { return UIRectEdgeAll; }
+- (BOOL)prefersStatusBarHidden { return YES; }
+@end
 
 @interface AppDelegate () <UIDocumentPickerDelegate>
 @property(nonatomic, strong) UIView *bootOverlay;
@@ -23,6 +34,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 @property(nonatomic) BOOL engineStarted;
 @property(nonatomic) BOOL importing;
 @property(nonatomic) BOOL foldersReady;
+@property(nonatomic) BOOL physicalPadConnected;
 @end
 
 @implementation AppDelegate
@@ -203,13 +215,20 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 }
 - (void)menuPress:(UIButton *)sender { halo_ios_menu_button((int)sender.tag, 1); }
 - (void)menuRelease:(UIButton *)sender { halo_ios_menu_button((int)sender.tag, 0); }
+- (void)updateControlsVisibility {
+    /* On-screen controls only while the game is showing and no physical controller is connected. */
+    BOOL show = self.bootOverlay.hidden && !self.physicalPadConnected;
+    self.menuControls.hidden = !show;
+    if (!show) [(HaloControlsView *)self.menuControls releaseAll];
+}
 - (void)applicationWillResignActive:(UIApplication *)application {
     (void)application;
     halo_ios_menu_reset();
+    [(HaloControlsView *)self.menuControls releaseAll];
 }
 - (void)toggleBootLog:(UIButton *)sender {
     self.bootOverlay.hidden = !self.bootOverlay.hidden;
-    self.menuControls.hidden = !self.bootOverlay.hidden;
+    [self updateControlsVisibility];
     halo_ios_menu_reset();
     if (!self.bootOverlay.hidden && self.engineStarted) [self refreshLogView];
     [sender setTitle:self.bootOverlay.hidden ? @"Show log" : @"Show game"
@@ -219,7 +238,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
 
-    UIViewController *vc = [UIViewController new];
+    UIViewController *vc = [HaloViewController new];
     vc.view.backgroundColor = UIColor.blackColor;
 
     UIView *gameView = halo_ios_gl_create_view();
@@ -232,7 +251,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"HALO iOS — M2.6.30 Startup";
+    title.text = @"HALO iOS — M2.6.31 Startup";
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:18];
 
@@ -267,62 +286,16 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     [vc.view addSubview:toggle];
     self.logToggle = toggle;
     self.bootLog = log;
-    UIView *menu = [UIView new];
+    HaloControlsView *menu = [[HaloControlsView alloc] initWithFrame:CGRectZero];
     menu.translatesAutoresizingMaskIntoConstraints = NO;
     menu.hidden = YES;
-    NSArray<NSString *> *labels = @[@"←", @"↑", @"↓", @"→", @"A", @"B", @"X", @"Y", @"Black", @"White"];
-    NSArray<NSNumber *> *buttons = @[@13, @11, @12, @14, @0, @1, @2, @3, @10, @9];
-    NSArray<NSString *> *accessibility = @[@"Left", @"Up", @"Down", @"Right", @"A", @"B", @"X", @"Y", @"Black", @"White"];
-    NSArray<UIColor *> *faceColors = @[
-        [UIColor colorWithRed:0.10 green:0.65 blue:0.22 alpha:0.95],
-        [UIColor colorWithRed:0.85 green:0.13 blue:0.16 alpha:0.95],
-        [UIColor colorWithRed:0.12 green:0.38 blue:0.90 alpha:0.95],
-        [UIColor colorWithRed:0.97 green:0.78 blue:0.10 alpha:0.95],
-        UIColor.blackColor, UIColor.whiteColor
-    ];
-    for (NSUInteger i = 0; i < labels.count; ++i) {
-        UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
-        button.translatesAutoresizingMaskIntoConstraints = NO;
-        [button setTitle:labels[i] forState:UIControlStateNormal];
-        [button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
-        button.accessibilityLabel = accessibility[i];
-        button.backgroundColor = [UIColor colorWithWhite:0.12 alpha:0.8];
-        button.layer.cornerRadius = i < 4 ? 12 : 24;
-        if (i >= 4) {
-            button.backgroundColor = faceColors[i - 4];
-            [button setTitleColor:(i == 7 || i == 9) ? UIColor.blackColor : UIColor.whiteColor
-                         forState:UIControlStateNormal];
-            button.titleLabel.font = [UIFont boldSystemFontOfSize:i >= 8 ? 11 : 20];
-            button.layer.borderWidth = 1;
-            button.layer.borderColor = [UIColor colorWithWhite:0.65 alpha:0.8].CGColor;
-        }
-        button.tag = buttons[i].integerValue;
-        [button.widthAnchor constraintEqualToConstant:48].active = YES;
-        [button.heightAnchor constraintEqualToConstant:48].active = YES;
-        [button addTarget:self action:@selector(menuPress:) forControlEvents:UIControlEventTouchDown];
-        [button addTarget:self action:@selector(menuRelease:)
-            forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
-        [menu addSubview:button];
-        if (i < 4) {
-            CGFloat x[] = {0, 52, 52, 104};
-            CGFloat y[] = {52, 0, 104, 52};
-            [button.leadingAnchor constraintEqualToAnchor:menu.leadingAnchor constant:x[i]].active = YES;
-            [button.topAnchor constraintEqualToAnchor:menu.topAnchor constant:y[i]].active = YES;
-        } else {
-            /* A/B/X/Y diamond, with Black and White flanking A. */
-            CGFloat x[] = {52, 104, 0, 52, 104, 0};
-            CGFloat y[] = {104, 52, 52, 0, 104, 104};
-            [button.trailingAnchor constraintEqualToAnchor:menu.trailingAnchor constant:x[i - 4] - 104].active = YES;
-            [button.topAnchor constraintEqualToAnchor:menu.topAnchor constant:y[i - 4]].active = YES;
-        }
-    }
     [vc.view addSubview:menu];
     self.menuControls = menu;
     [NSLayoutConstraint activateConstraints:@[
-        [menu.leadingAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.leadingAnchor constant:16],
-        [menu.trailingAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.trailingAnchor constant:-16],
-        [menu.heightAnchor constraintEqualToConstant:152],
-        [menu.bottomAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.bottomAnchor constant:-12]
+        [menu.leadingAnchor constraintEqualToAnchor:vc.view.leadingAnchor],
+        [menu.trailingAnchor constraintEqualToAnchor:vc.view.trailingAnchor],
+        [menu.topAnchor constraintEqualToAnchor:vc.view.topAnchor],
+        [menu.bottomAnchor constraintEqualToAnchor:vc.view.bottomAnchor]
     ]];
     UILabel *loading = [UILabel new];
     loading.translatesAutoresizingMaskIntoConstraints = NO;
@@ -382,7 +355,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
         [title.leadingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.leadingAnchor constant:14],
         [title.trailingAnchor constraintLessThanOrEqualToAnchor:toggle.leadingAnchor constant:-8],
-        [toggle.trailingAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.trailingAnchor constant:-12],
+        [toggle.centerXAnchor constraintEqualToAnchor:vc.view.centerXAnchor],
         [toggle.topAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.topAnchor constant:4],
         [toggle.widthAnchor constraintEqualToConstant:100],
         [toggle.heightAnchor constraintEqualToConstant:36],
@@ -405,6 +378,16 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     self.window.rootViewController = vc;
     [self.window makeKeyAndVisible];
+
+    /* Controller-only play sends no touches, so the screen must not dim. */
+    application.idleTimerDisabled = YES;
+    __weak AppDelegate *padOwner = self;
+    halo_ios_controllers_start(^(BOOL connected) {
+        AppDelegate *owner = padOwner;
+        if (!owner) return;
+        owner.physicalPadConnected = connected;
+        [owner updateControlsVisibility];
+    });
 
     __block id firstFrameObserver = nil;
     firstFrameObserver =

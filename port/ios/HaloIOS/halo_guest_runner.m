@@ -1851,6 +1851,17 @@ static int ios_sdl_show_simple_message_box(uint32_t flags, uint32_t title, uint3
 
 static _Atomic(uint32_t) g_menu_held;
 static _Atomic(uint32_t) g_menu_pending;
+static _Atomic(uint32_t) g_phys_held;
+static _Atomic(int32_t) g_touch_axis[6];
+static _Atomic(int32_t) g_phys_axis[6];
+
+static int32_t clamp_axis(int32_t value, int axis)
+{
+    int32_t low = axis >= 4 ? 0 : -32768;
+    if (value < low) return low;
+    if (value > 32767) return 32767;
+    return value;
+}
 
 void halo_ios_menu_button(int button, int pressed)
 {
@@ -1862,10 +1873,24 @@ void halo_ios_menu_button(int button, int pressed)
     } else atomic_fetch_and(&g_menu_held, ~bit);
 }
 
+void halo_ios_pad_axis(int axis, int value)
+{
+    if (axis < 0 || axis >= 6) return;
+    atomic_store(&g_touch_axis[axis], clamp_axis(value, axis));
+}
+
 void halo_ios_menu_reset(void)
 {
     atomic_store(&g_menu_held, 0);
     atomic_store(&g_menu_pending, 0);
+    for (int i = 0; i < 6; i++) atomic_store(&g_touch_axis[i], 0);
+}
+
+void halo_ios_physical_pad_state(uint32_t buttons, const int32_t axes[6])
+{
+    atomic_store(&g_phys_held, buttons);
+    for (int i = 0; i < 6; i++)
+        atomic_store(&g_phys_axis[i], axes ? clamp_axis(axes[i], i) : 0);
 }
 
 static int ios_sdl_get_gamepads(uint32_t ids, int capacity)
@@ -1884,8 +1909,12 @@ static uint32_t ios_sdl_open_gamepad(uint32_t id)
 
 static int ios_sdl_gamepad_axis(uint32_t gamepad, int axis)
 {
-    (void)gamepad; (void)axis;
-    return 0;
+    if (gamepad != 1 || axis < 0 || axis >= 6) return 0;
+    /* Touch and a physical controller are merged: the larger deflection wins. */
+    int32_t touch = atomic_load(&g_touch_axis[axis]);
+    int32_t physical = atomic_load(&g_phys_axis[axis]);
+    int32_t value = abs(touch) >= abs(physical) ? touch : physical;
+    return (int)clamp_axis(value, axis);
 }
 
 static int ios_sdl_gamepad_button(uint32_t gamepad, int button)
@@ -1894,7 +1923,7 @@ static int ios_sdl_gamepad_button(uint32_t gamepad, int button)
     uint32_t bit = UINT32_C(1) << button;
     /* A quick tap is delivered at least once even between slow frames. */
     uint32_t pending = atomic_fetch_and(&g_menu_pending, ~bit);
-    return ((atomic_load(&g_menu_held) | pending) & bit) != 0;
+    return ((atomic_load(&g_menu_held) | pending | atomic_load(&g_phys_held)) & bit) != 0;
 }
 
 static int ios_sdl_gamepad_type(uint32_t gamepad)
@@ -2547,10 +2576,10 @@ static void *main_guest_thread(void *opaque)
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
 
-    say("M2.6.30: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
+    say("M2.6.31: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
     say("Performance defaults: interpolation off; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.30 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
-    say("M2.6.30 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
+    say("M2.6.31 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.31 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
         g_header ? g_header->start : 0u,
         context.boot_va,
         halo_guest_base_is_4gb_aligned() ? "YES" : "NO");
@@ -2572,7 +2601,7 @@ static void *main_guest_thread(void *opaque)
         halo_guest_exec_guard_set_active(0);
         halo_guest_exec_stats st;
         halo_guest_exec_stats_get(&st);
-        say("M2.6.30 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
+        say("M2.6.31 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
             reason,
             (unsigned long long)st.pointer_upgrades,
             (unsigned long long)st.handled_faults,
@@ -2703,6 +2732,33 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                     (unsigned long long)(stats.pointer_upgrades - previous_upgrades),
                     stats.last_guest_pc, symbol ? symbol : "unknown",
                     symbol ? stats.last_guest_pc - symbol_va : 0);
+                {
+                    /* Where the remaining pointer faults come from, by function. */
+                    enum { HIST_MAX = 4096, TOP = 16 };
+                    static halo_fault_hist_entry hist[HIST_MAX];
+                    unsigned count = halo_guest_fault_hist_take(hist, HIST_MAX);
+                    struct { uint32_t symbol; uint64_t faults; uint32_t sample_pc; } top[TOP];
+                    unsigned top_count = 0; uint64_t total = 0;
+                    for (unsigned i = 0; i < count; i++) {
+                        uint32_t va = 0;
+                        const char *name = symbol_name_nearest(hist[i].pc, &va);
+                        uint32_t key = name ? va : hist[i].pc;
+                        total += hist[i].count;
+                        unsigned j = 0;
+                        while (j < top_count && top[j].symbol != key) j++;
+                        if (j == top_count && top_count < TOP) { top[j].symbol = key; top[j].faults = 0; top[j].sample_pc = hist[i].pc; top_count++; }
+                        if (j < top_count) top[j].faults += hist[i].count;
+                    }
+                    for (unsigned a = 0; a < top_count; a++)
+                        for (unsigned b = a + 1; b < top_count; b++)
+                            if (top[b].faults > top[a].faults) { __typeof__(top[0]) t = top[a]; top[a] = top[b]; top[b] = t; }
+                    say("pointer faults this interval by function (top %u of %llu total):", top_count, (unsigned long long)total);
+                    for (unsigned a = 0; a < top_count; a++) {
+                        uint32_t va = 0;
+                        const char *name = symbol_name_nearest(top[a].sample_pc, &va);
+                        say("  fault hot spot: %8llu  %s (0x%08x)", (unsigned long long)top[a].faults, name ? name : "unknown", top[a].symbol);
+                    }
+                }
                 say("native bulk memory: %llu calls, %llu MiB total",
                     (unsigned long long)atomic_load(&g_bulk_calls),
                     (unsigned long long)(atomic_load(&g_bulk_bytes) / (1024 * 1024)));

@@ -324,13 +324,16 @@ def ios_pointer_fastpath(assembly: str, input_path: str) -> str:
 
 ARENA_SCRATCH = 15
 ARENA_MASK = '0xffffffff00000000'
-ARENA_SKIP_PATHS = ('/port/android/guest/',)
+# Early start-up and thread entry code stays on the signal bridge; everything else is rewritten.
+ARENA_SKIP_PATHS = ('/guest/runtime/guest_start.', '/guest/runtime/guest_thread.')
 ARENA_MEM_OPS = (r'ldrsb|ldrsh|ldrsw|ldrb|ldrh|ldr|ldursb|ldursh|ldursw|ldurb|ldurh|ldur|'
-                 r'ldpsw|ldnp|ldp|strb|strh|str|sturb|sturh|stur|stnp|stp')
+                 r'ldpsw|ldnp|ldp|strb|strh|str|sturb|sturh|stur|stnp|stp|'
+                 r'ld1r|ld2r|ld3r|ld4r|ld1|ld2|ld3|ld4|st1|st2|st3|st4')
+ARENA_NEON_OPS = frozenset('ld1r ld2r ld3r ld4r ld1 ld2 ld3 ld4 st1 st2 st3 st4'.split())
 ARENA_MEM_RE = re.compile(
-    r'^(?P<ind>\s*)(?P<op>' + ARENA_MEM_OPS + r')\s+(?P<regs>[^\[\]]+?)\s*,\s*'
+    r'^(?P<ind>\s*)(?P<op>' + ARENA_MEM_OPS + r')\s+(?P<regs>(?:[^\[\]]|\[\d+\])+?)\s*,\s*'
     r'\[\s*x(?P<rn>\d+)\s*(?:,\s*(?P<off>[^\]]*?))?\s*\](?P<wb>!)?'
-    r'(?:\s*,\s*(?P<post>#\s*-?(?:0x[0-9a-fA-F]+|\d+)))?\s*$')
+    r'(?:\s*,\s*(?P<post>#\s*-?(?:0x[0-9a-fA-F]+|\d+)|x\d+))?\s*$')
 ARENA_IMM_RE = re.compile(r'^#\s*(-?(?:0x[0-9a-fA-F]+|\d+))$')
 ARENA_REGOFF_RE = re.compile(
     r'^(?P<r>[xw])(?P<n>\d+)\s*(?:,\s*(?P<ext>[a-z]+)\s*(?:#\s*(?P<amt>\d+))?)?$')
@@ -390,6 +393,16 @@ def arena_rewrite_line(line, label):
             return None
         if post and off:
             return None
+        post_register = None
+        if post and not post.startswith('#'):
+            # register post-increment exists only for NEON structure loads/stores
+            if m['op'] not in ARENA_NEON_OPS:
+                return None
+            post_register = int(post[1:])
+            if post_register in (ARENA_SCRATCH, rn):
+                return None
+        if m['op'] in ARENA_NEON_OPS and (wb or off):
+            return None  # NEON accesses take [xN] or [xN], post-increment only
         out = []
         if wb:
             adj = _arena_adjust(rn, imm)
@@ -401,7 +414,9 @@ def arena_rewrite_line(line, label):
             access_off = f', {off}' if off else ''
         out += _arena_address(rn)
         out.append(f"{m['ind']}{m['op']} {m['regs'].strip()}, [x{ARENA_SCRATCH}{access_off}]")
-        if post:
+        if post_register is not None:
+            out.append(f'\tadd x{rn}, x{rn}, x{post_register}')
+        elif post:
             adj = _arena_adjust(rn, int(ARENA_IMM_RE.match(post.strip())[1], 0))
             if adj is None:
                 return None

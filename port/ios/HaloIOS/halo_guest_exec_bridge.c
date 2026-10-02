@@ -27,6 +27,50 @@ static struct sigaction g_old_segv;
 static struct sigaction g_old_bus;
 static halo_guest_exec_stats g_stats;
 
+/* Open-addressed table keyed by guest PC; claimed with a CAS, counted with
+ * relaxed adds, so it is safe to update from the fault handler. */
+static _Atomic uint32_t g_hist_pc[HALO_FAULT_HIST_SLOTS];
+static _Atomic uint32_t g_hist_count[HALO_FAULT_HIST_SLOTS];
+
+static void fault_hist_add(uint32_t pc)
+{
+    uint32_t slot = (pc * 2654435761u) >> 19; /* 13 bits */
+    for (unsigned probe = 0; probe < 32; ++probe, slot = (slot + 1) & (HALO_FAULT_HIST_SLOTS - 1))
+    {
+        uint32_t seen = atomic_load_explicit(&g_hist_pc[slot], memory_order_relaxed);
+        if (seen == 0)
+        {
+            uint32_t expected = 0;
+            if (atomic_compare_exchange_strong_explicit(&g_hist_pc[slot], &expected, pc,
+                    memory_order_relaxed, memory_order_relaxed))
+                seen = pc;
+            else
+                seen = expected;
+        }
+        if (seen == pc)
+        {
+            atomic_fetch_add_explicit(&g_hist_count[slot], 1, memory_order_relaxed);
+            return;
+        }
+    }
+}
+
+unsigned halo_guest_fault_hist_take(halo_fault_hist_entry *out, unsigned capacity)
+{
+    unsigned n = 0;
+    for (unsigned i = 0; i < HALO_FAULT_HIST_SLOTS && n < capacity; ++i)
+    {
+        uint32_t count = atomic_exchange_explicit(&g_hist_count[i], 0, memory_order_relaxed);
+        if (count)
+        {
+            out[n].pc = atomic_load_explicit(&g_hist_pc[i], memory_order_relaxed);
+            out[n].count = count;
+            ++n;
+        }
+    }
+    return n;
+}
+
 static _Thread_local sigjmp_buf g_guard;
 static _Thread_local int g_guard_active;
 /* Arm64 lock-free atomics are safe to increment in the fault handler. */
@@ -164,6 +208,7 @@ static void bridge_signal(int signal_number, siginfo_t *info, void *opaque)
         {
             set_register(context, rn, base + (uint32_t)value);
             g_stats.pointer_upgrades++;
+            fault_hist_add(guest_pc);
             atomic_fetch_add_explicit(&g_thread_pointer_upgrades,1,memory_order_relaxed);
             g_stats.handled_faults++;
             g_stats.last_fault_address = fault;

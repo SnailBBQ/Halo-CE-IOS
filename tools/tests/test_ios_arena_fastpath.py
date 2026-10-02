@@ -93,8 +93,9 @@ def execute(lines, regs):
             assert args[0] == args[1] == 'x15' and args[3] == 'uxtw'
             regs[15] = (regs[15] + (regs[int(args[2][1:])] & 0xffffffff)) & M64
         elif op in ('add', 'sub'):
-            d, s_, imm = int(args[0][1:]), int(args[1][1:]), int(args[2][1:])
+            d, s_ = int(args[0][1:]), int(args[1][1:])
             assert d == s_
+            imm = regs[int(args[2][1:])] if args[2].startswith('x') else int(args[2][1:])
             regs[d] = (regs[d] + (imm if op == 'add' else -imm)) & M64
         elif op == 'lsr':
             regs[15] = regs[int(args[1][1:])] >> int(args[2][1:])
@@ -184,13 +185,34 @@ keep = [
     '\tldr w0, [sp, #16]', '\tstp x29, x30, [sp, #-16]!', '\tldr w0, [x29, #-8]', '\tldr x0, [x30]',
     '\tldr w0, [x15, #4]', '\tldr w8, [x8, :lo12:g_value]', '\tldr w0, [x1, x2]',
     '\tldr w0, [x1, x2, lsl #0]', '\tldr w0, [x1, x2, sxtx #2]', '\tldr w0, [x1, w2, lsl #2]',
-    '\tldr w0, [x1, #sym]', '\tldr w0, [x1], x2', '\tld1 { v0.4s }, [x1]', '\tst1 { v0.4s }, [x1]',
+    '\tldr w0, [x1, #sym]', '\tldr w0, [x1], x2', '\tld1 { v0.4s }, [x1, #16]', '\tld1 { v0.4s }, [x1]!',
+    '\tld1 { v0.4s }, [x1], x15', '\tld1 { v0.4s }, [x1], x1',
     '\tprfm pldl1keep, [x1, #64]', '\tldxr w0, [x1]', '\tstxr w2, w0, [x1]', '\tldar w0, [x1]',
     '\tstlr w0, [x1]', '\tldr w0, =lit', '\tldr w0, Lpool', '\tldr w0, [x1, #8]!!', '\tbr x8',
     '\tblr x30', '\tblr x15', '\tadd x0, x1, x2', '\tstr w0, [x1, #8], #4',
 ]
 for line in keep:
     assert m.arena_rewrite_line(line, '.Lx') is None, line
+
+# NEON structure loads/stores: plain, lane, post-increment by immediate and by register.
+neon = ['\tld1 { v0.4s }, [x{rn}]', '\tld1 { v0.4s, v1.4s }, [x{rn}]', '\tld1 { v0.s }[1], [x{rn}]',
+        '\tst1 { v0.16b }, [x{rn}]', '\tld1r { v0.4s }, [x{rn}]', '\tst2 { v0.4s, v1.4s }, [x{rn}]',
+        '\tld1 { v0.4s }, [x{rn}], #16', '\tst1 { v0.4s }, [x{rn}], #16', '\tld1 { v0.4s }, [x{rn}], x9']
+for rn in [r for r in range(29) if r not in (9, 15)]:
+    for template in neon:
+        line = template.replace('{rn}', str(rn))
+        lines = m.arena_rewrite_line(line, '.Lx')
+        assert lines, line
+        for v in narrow + wide:
+            regs = [1] * 31
+            regs[9] = 48
+            regs[rn] = v
+            ea, after, _ = execute(lines, regs)
+            assert ea == bridge_upgrade(v), (line, hex(ea))
+            expected = v + (16 if '#16' in line else 48 if ', x9' in line else 0)
+            assert after[rn] == expected, (line, hex(after[rn]))
+            assert after[9] == 48
+        checks += 1
 
 # Indirect calls: narrow function pointers are translated, wide ones are unchanged.
 for rn in range(0, 30):
@@ -229,7 +251,12 @@ labels = re.findall(r'^(\.Lhalo_ios_arena_\d+_[we]):', out, re.M)
 assert len(labels) == len(set(labels)) == 2, labels
 assert m.ios_arena_fastpath(sample + '\tmov x15, #1\n', 'x/source/a.o.darwin.s') == sample + '\tmov x15, #1\n'
 assert m.ios_arena_fastpath(sample + '\tmov w15, #1\n', 'x/source/a.o.darwin.s') == sample + '\tmov w15, #1\n'
-assert m.ios_arena_fastpath(sample, 'build/android/guest/obj/port/android/guest/libc/a.o.darwin.s') == sample
+for skipped in ['build/android/guest/obj/port/android/guest/runtime/guest_start.o.darwin.s',
+                'build/android/guest/obj/port/android/guest/runtime/guest_thread.o.darwin.s']:
+    assert m.ios_arena_fastpath(sample, skipped) == sample, skipped
+for instrumented in ['build/android/guest/obj/port/android/guest/runtime/guest_misc.o.darwin.s',
+                     'build/android/guest/obj/musl/build/android/third_party/musl-1.2.5/src/string/strlen.o.darwin.s']:
+    assert m.ios_arena_fastpath(sample, instrumented) != sample, instrumented
 assert m.ios_arena_fastpath('\tldr w0, [x1]\n\tldr w2, [x3_x15]\n', 'x/a.o.darwin.s').count('adr x15') == 1
 
 # Compressed jump tables: the function that owns one is left alone, others are not.

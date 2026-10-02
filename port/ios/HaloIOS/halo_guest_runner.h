@@ -3,8 +3,16 @@
 
 int halo_ios_run_full_guest(void (^line)(const char *text));
 
-/* SDL gamepad button index; called by the native menu controls. */
+#include <stdint.h>
+
+/* SDL gamepad button index; called by the on-screen controls. */
 void halo_ios_menu_button(int button, int pressed);
+/* SDL gamepad axis index (0..3 sticks, 4/5 triggers); value -32768..32767
+ * (triggers 0..32767). On-screen controls. */
+void halo_ios_pad_axis(int axis, int value);
+/* Clears every on-screen button and axis (physical controller untouched). */
 void halo_ios_menu_reset(void);
+/* A physical controller's whole state: SDL button bit mask and six axes. */
+void halo_ios_physical_pad_state(uint32_t buttons, const int32_t axes[6]);
 
 #endif
