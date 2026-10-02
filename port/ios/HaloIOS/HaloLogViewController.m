@@ -216,6 +216,14 @@ static UIColor *HaloLineColor(int category, BOOL expected)
         for (NSString *line in startNotes) [self appendBody:line color:warn to:out];
     }
 
+    NSMutableArray<NSString *> *imageNotes = [NSMutableArray array];
+    for (NSString *line in boot)
+        if ([line hasPrefix:@"guest image:"] || [line hasPrefix:@"FULL GUEST:"]) [imageNotes addObject:line];
+    if (imageNotes.count) {
+        [self appendHeading:@"Game image" to:out];
+        for (NSString *line in imageNotes) [self appendMono:line color:HaloLineColor(halo_log_category(line.UTF8String), NO) to:out];
+    }
+
     [self appendHeading:@"Speed" to:out];
     if (fps < 0) [self appendBody:@"No frame rate measured yet (it is reported every 10 seconds)." color:normal to:out];
     else {

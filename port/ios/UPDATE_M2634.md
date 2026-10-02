@@ -78,3 +78,23 @@ Run **Halo CE iOS — Build IPA** by hand (Actions → Run workflow) and change 
 1. Defaults (PGO off). If this starts, PGO was the problem.
 2. `arena_fastpath` = false. If this starts, the rewrite breaks something in the build 73 code.
 3. If neither starts, the cause is in the build 73 merge or the M2.6.33 runtime changes; send `crash.txt` and `launch-phase.txt` from Share logs.
+
+
+## M2.6.36 — the start-up crash, found
+
+M2.6.35's crash report did its job: `crash.txt` and `launch-phase.txt` from the device say a bus error (signal 10) at guest address `0x88848000` while the
+last step was "guest bridge installed", which is the loading of the game image.
+
+- **Cause (very likely).** `guest.ld` aligns `.data` to 64 KiB, so whole 16 KiB pages can lie between the read-only and the writable segment. The loader
+  mapped each segment on its own and then ran the instruction-cache invalidation over the whole image, first byte to last, gap included. The first gap page
+  is unmapped, hence the bus error exactly on a page boundary. The old, smaller image happened to have no such gap; build 73's is larger and does.
+  The failing address is the evidence; the layout itself was not inspected on a device.
+- **Fix.** The whole image span is mapped as one range before anything is copied, and the instruction cache is invalidated for each executable segment over its
+  own bytes only. The loader also says what it found (`guest image: segment N at ... rwx`) and no longer fails without a message.
+  `tools/tests/test_ios_image_load.c` runs this plan against the real guest memory manager: the old plan faults on the first gap page, the new one does not.
+- **The 111 MB `crash.txt` and the hang.** The M2.6.35 handler returned after writing its report, the faulting instruction ran again, and it was logged again
+  without end: the app hung on a black screen instead of closing. The handler now writes one report, restores the default action (so the system writes its own
+  crash log) and ends the process itself if it is ever entered a third time. Two tests reproduce the bridge handing a fault back and a handler that keeps coming
+  back; the old behaviour hangs the same test.
+- **Black screen.** The game is shown first, so a game that never draws left a black screen with no explanation. After 25 seconds without a frame the app opens
+  the log, whose Summary now has a "Game image" section with the segment layout.

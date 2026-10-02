@@ -102,6 +102,16 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     if (self.engineStarted || self.importing || !self.foldersReady || ![self hasStartupMap]) return;
     self.engineStarted = YES;
     halo_crash_phase("engine boot");
+    /* The game is shown first. If it has drawn nothing after 25 seconds the screen is just black, so open the log
+       (its Summary says how far the start got) instead of leaving a black screen with no explanation. */
+    __weak AppDelegate *watchdogOwner = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(25 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        AppDelegate *owner = watchdogOwner;
+        if (!owner || halo_ios_presented_frames() > 0) return;
+        if ([[owner topPresenter] isKindOfClass:HaloLogViewController.class]) return;
+        halo_ios_toast("The game has not drawn anything yet - opening the log");
+        [owner showLog:nil];
+    });
     self.logSource.hidden = NO;
     self.importButton.hidden = YES;
     self.startButton.hidden = YES;
@@ -353,7 +363,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"HALO iOS — M2.6.35 · add your maps";
+    title.text = @"HALO iOS — M2.6.36 · add your maps";
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:18];
 

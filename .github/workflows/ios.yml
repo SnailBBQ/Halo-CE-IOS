@@ -28,6 +28,7 @@ on:
       - 'tools/tests/test_ios_arena_fastpath.py'
       - 'tools/tests/test_ios_source_structure.py'
       - 'tools/tests/test_ios_launch_state.c'
+      - 'tools/tests/test_ios_image_load.c'
       - 'source/**'
       - 'port/linux/**'
       - 'tools/tests/test_ios_controls_layout.c'
@@ -96,6 +97,8 @@ jobs:
           "$RUNNER_TEMP/halo-hash-test"
           cc -std=gnu11 -Wall -Wextra -Wno-unused-function -Iport/ios/HaloIOS tools/tests/test_ios_launch_state.c -o "$RUNNER_TEMP/halo-launch-test"
           "$RUNNER_TEMP/halo-launch-test"
+          cc -std=gnu11 -Wall -Wextra -Wno-unused-function tools/tests/test_ios_image_load.c -o "$RUNNER_TEMP/halo-image-test"
+          "$RUNNER_TEMP/halo-image-test"
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_vertex_colors.c -o "$RUNNER_TEMP/halo-vertex-test"
           "$RUNNER_TEMP/halo-vertex-test"
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_vertex_attributes.c -o "$RUNNER_TEMP/halo-attribute-test"

@@ -37,6 +37,8 @@ int main(void)
     CAT("network (system link): broadcast search failed: No route to host (errno 65). LOCAL NETWORK access may be off", HALO_LOG_ERROR);
     CAT("previous start: the app crashed (last step: guest image)", HALO_LOG_ERROR);
     CAT("  previous crash: signal=11", HALO_LOG_ERROR);
+    CAT("FULL GUEST: could not map the guest image (0x88000000..0x88a00000, 10 MiB).", HALO_LOG_ERROR);
+    CAT("guest image: segment 1 at 0x88850000, 0x100000 bytes in memory, 0x200 from the file, rw-", HALO_LOG_INFO);
     CAT("", HALO_LOG_INFO);
     CAT("starting main menu music", HALO_LOG_INFO);
 

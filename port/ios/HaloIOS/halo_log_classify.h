@@ -49,7 +49,7 @@ static inline int halo_log_category(const char *line)
     if (!strncmp(line, "[guest] ", 8) || !strncmp(line, "final back buffer", 17) || !strncmp(line, "screen fade", 11) ||
         !strncmp(line, "scene: tick=", 12))
         return HALO_LOG_NOISE;
-    if (halo_log_contains(line, "ERROR") || halo_log_contains(line, "BLOCKED") || halo_log_contains(line, "STOPPED") ||
+    if (halo_log_contains(line, "ERROR") || !strncmp(line, "FULL GUEST", 10) || halo_log_contains(line, "BLOCKED") || halo_log_contains(line, "STOPPED") ||
         halo_log_contains_nocase(line, "failed") || halo_log_contains_nocase(line, "cannot ") ||
         halo_log_contains_nocase(line, "unable to") || halo_log_contains_nocase(line, "could not") ||
         halo_log_contains_nocase(line, "would not") || halo_log_contains_nocase(line, "crash"))

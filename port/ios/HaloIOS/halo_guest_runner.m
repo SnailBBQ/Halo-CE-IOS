@@ -2488,7 +2488,7 @@ static int load_guest_image(NSString *path)
             error.localizedDescription.UTF8String ?: "unknown");
         return 0;
     }
-    if(g_elf.length < sizeof(Elf64_Ehdr)) return 0;
+    if(g_elf.length < sizeof(Elf64_Ehdr)){ say("FULL GUEST: halo_guest.elf is too small (%lu bytes).",(unsigned long)g_elf.length); return 0; }
 
     g_ehdr=(const Elf64_Ehdr *)g_elf.bytes;
     if(g_ehdr->e_ident[0]!=0x7F || g_ehdr->e_ident[1]!='E' ||
@@ -2500,26 +2500,54 @@ static int load_guest_image(NSString *path)
         return 0;
     }
 
-    if(g_ehdr->e_phoff + (uint64_t)g_ehdr->e_phnum*sizeof(Elf64_Phdr) > g_elf.length)
-        return 0;
+    if(g_ehdr->e_phoff + (uint64_t)g_ehdr->e_phnum*sizeof(Elf64_Phdr) > g_elf.length){ say("FULL GUEST: the ELF program headers run past the end of the file."); return 0; }
 
     const uint8_t *file=g_elf.bytes;
     const Elf64_Phdr *ph=(const Elf64_Phdr *)(file+g_ehdr->e_phoff);
 
     halo_guest_exec_bridge_reset_ranges();
 
-    uint32_t low=UINT32_MAX, high=0;
+    /* The linker script (port/android/guest/guest.ld) aligns .data to 64 KiB, so a gap of whole 16 KiB pages can
+       sit between the read-only and writable segments. Those pages belong to no segment; if they stay unmapped,
+       anything that sweeps the image from its first byte to its last (the instruction-cache maintenance below did)
+       takes a bus error on the first gap page. The image span is therefore mapped as one range first. */
+    uint32_t span_low=UINT32_MAX, span_high=0;
+    unsigned segments=0;
     for(uint16_t i=0;i<g_ehdr->e_phnum;i++)
     {
         if(ph[i].p_type!=PT_LOAD) continue;
         if(ph[i].p_vaddr>=FOUR_GB || ph[i].p_vaddr+ph[i].p_memsz>FOUR_GB ||
-           ph[i].p_offset+ph[i].p_filesz>g_elf.length)
+           ph[i].p_offset+ph[i].p_filesz>g_elf.length || ph[i].p_filesz>ph[i].p_memsz)
+        {
+            say("FULL GUEST: segment %u of halo_guest.elf is outside the 4 GiB guest space or the file (va=0x%llx mem=0x%llx file=0x%llx).",
+                (unsigned)i,(unsigned long long)ph[i].p_vaddr,(unsigned long long)ph[i].p_memsz,(unsigned long long)ph[i].p_filesz);
             return 0;
+        }
+        uint32_t va=(uint32_t)ph[i].p_vaddr, mem=(uint32_t)ph[i].p_memsz;
+        if(va<span_low) span_low=va;
+        if((uint64_t)va+mem>span_high) span_high=va+mem;
+        say("guest image: segment %u at 0x%08x, 0x%x bytes in memory, 0x%llx from the file, %c%c%c",
+            segments++,va,mem,(unsigned long long)ph[i].p_filesz,
+            (ph[i].p_flags&PF_R)?'r':'-',(ph[i].p_flags&PF_W)?'w':'-',(ph[i].p_flags&PF_X)?'x':'-');
+    }
+    if(!segments || span_high<=span_low){ say("FULL GUEST: halo_guest.elf has nothing to load."); return 0; }
+    halo_crash_phase("guest image: mapping the image span");
+    if(!halo_guest_commit(span_low,span_high-span_low))
+    {
+        say("FULL GUEST: could not map the guest image (0x%08x..0x%08x, %u MiB).",span_low,span_high,(span_high-span_low)>>20);
+        return 0;
+    }
+
+    uint32_t low=UINT32_MAX, high=0;
+    for(uint16_t i=0;i<g_ehdr->e_phnum;i++)
+    {
+        if(ph[i].p_type!=PT_LOAD) continue;
 
         uint32_t va=(uint32_t)ph[i].p_vaddr;
         uint32_t mem=(uint32_t)ph[i].p_memsz;
-        if(!halo_guest_commit(va,mem)) return 0;
         void *dst=halo_guest_ptr(va,mem);
+        if(!dst){ say("FULL GUEST: segment %u has no host address.",(unsigned)i); return 0; }
+        halo_crash_phase("guest image: copying segments");
         memset(dst,0,mem);
         memcpy(dst,file+ph[i].p_offset,(size_t)ph[i].p_filesz);
 
@@ -2527,11 +2555,14 @@ static int load_guest_image(NSString *path)
         if((uint64_t)va+mem>high)high=va+mem;
     }
 
-    void *code_start = halo_guest_ptr(low, 1);
-    size_t code_size = (size_t)((uint64_t)high - low);
-    if (!code_start || !code_size)
-        return 0;
-    sys_icache_invalidate(code_start, code_size);
+    /* Only the executable segments need it, each over its own bytes. */
+    halo_crash_phase("guest image: instruction cache");
+    for(uint16_t i=0;i<g_ehdr->e_phnum;i++)
+    {
+        if(ph[i].p_type!=PT_LOAD || !(ph[i].p_flags&PF_X)) continue;
+        void *code=halo_guest_ptr((uint32_t)ph[i].p_vaddr,(size_t)ph[i].p_memsz);
+        if(code && ph[i].p_memsz) sys_icache_invalidate(code,(size_t)ph[i].p_memsz);
+    }
 
     g_guest_writable_start = UINT32_MAX;
 
@@ -2577,8 +2608,12 @@ static int load_guest_image(NSString *path)
         }
 
         if(prot && !halo_guest_protect((uint32_t)page,(size_t)page_size,prot))
+        {
+            say("FULL GUEST: could not set the memory protection of the page at 0x%08x.",(uint32_t)page);
             return 0;
+        }
     }
+    halo_crash_phase("guest image: protected");
 
     g_header=(struct halo_guest_header *)halo_guest_ptr(HALO_GUEST_IMAGE_BASE,sizeof(*g_header));
     if(!g_header || g_header->magic!=HALO_GUEST_MAGIC || g_header->abi_version!=HALO_GUEST_ABI_VERSION){
@@ -2589,7 +2624,8 @@ static int load_guest_image(NSString *path)
     uint32_t *countp=gp(g_header->import_count,4);
     uint64_t *table=gp(g_header->import_table,(*countp)*sizeof(uint64_t));
     const char *name=gp(g_header->import_names,1);
-    if(!countp||!table||!name)return 0;
+    if(!countp||!table||!name){ say("FULL GUEST: the import table is outside the image."); return 0; }
+    halo_crash_phase("guest image: resolving imports");
 
     uint32_t count=*countp;
     uint32_t resolved=0, fallback=0;
@@ -2885,10 +2921,10 @@ static void *main_guest_thread(void *opaque)
     halo_ios_net_set_resolver(ios_net_resolver);
     halo_ios_net_set_logger(ios_net_log);
     signal(SIGPIPE, SIG_IGN); /* a peer closing a socket must not kill the app */
-    say("M2.6.35: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
+    say("M2.6.36: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
     say("Performance defaults: smooth 60 FPS follows the Settings switch; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.35 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
-    say("M2.6.35 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
+    say("M2.6.36 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.36 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
         g_header ? g_header->start : 0u,
         context.boot_va,
         halo_guest_base_is_4gb_aligned() ? "YES" : "NO");
@@ -2911,7 +2947,7 @@ static void *main_guest_thread(void *opaque)
         halo_guest_exec_guard_set_active(0);
         halo_guest_exec_stats st;
         halo_guest_exec_stats_get(&st);
-        say("M2.6.35 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
+        say("M2.6.36 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
             reason,
             (unsigned long long)st.pointer_upgrades,
             (unsigned long long)st.handled_faults,

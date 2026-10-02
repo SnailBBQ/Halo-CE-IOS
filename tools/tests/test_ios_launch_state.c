@@ -9,6 +9,31 @@
 static int failures;
 #define CHECK(cond, ...) do { if (!(cond)) { printf("FAIL line %d: ", __LINE__); printf(__VA_ARGS__); printf("\n"); failures++; } } while (0)
 
+
+/* ---- helpers for the M2.6.35 regression tests */
+static struct sigaction g_front_old;
+static void front_handler(int sig, siginfo_t *info, void *context)
+{
+    (void)info; (void)context;
+    sigaction(sig, &g_front_old, NULL);      /* what the PAGEZERO bridge does with a fault that is not the guest's */
+}
+static void looping_handler(int sig, siginfo_t *info, void *context)
+{
+    struct sigaction again;
+    crash_handler(sig, info, context);
+    memset(&again, 0, sizeof(again));
+    again.sa_sigaction = looping_handler;    /* a handler that keeps coming back */
+    sigemptyset(&again.sa_mask);
+    again.sa_flags = SA_SIGINFO | SA_NODEFER;
+    sigaction(sig, &again, NULL);
+}
+static int count_text(const char *haystack, const char *needle)
+{
+    int n = 0;
+    for (const char *p = haystack; (p = strstr(p, needle)) != NULL; p += strlen(needle)) n++;
+    return n;
+}
+
 int main(void)
 {
     /* ---- decision logic */
@@ -81,6 +106,65 @@ int main(void)
     halo_crash_clear(folder);
     had = halo_crash_read_previous(folder, phase, sizeof(phase), crash, sizeof(crash));
     CHECK(!had, "clearing removes the report");
+
+    /* ---- M2.6.35's failure: a handler in front hands the fault back and returns. One small report, then the
+       process dies from the signal. (A hang ends in SIGALRM and fails the test.) */
+    {
+        char dir[] = "/tmp/halo-crash-chain-XXXXXX";
+        struct stat st;
+        char path[300], phase2[200], crash2[700];
+        CHECK(mkdtemp(dir) != NULL, "temp folder 2");
+        child = fork();
+        if (child == 0)
+        {
+            struct sigaction front;
+            alarm(10);
+            halo_crash_install(dir);
+            halo_crash_phase("guest image");
+            memset(&front, 0, sizeof(front));
+            front.sa_sigaction = front_handler;
+            sigemptyset(&front.sa_mask);
+            front.sa_flags = SA_SIGINFO | SA_NODEFER;
+            sigaction(SIGSEGV, &front, &g_front_old);
+            *(volatile int *)(uintptr_t)0x20 = 1;
+            _exit(99);
+        }
+        waitpid(child, &status, 0);
+        CHECK(WIFSIGNALED(status) && WTERMSIG(status) == SIGSEGV, "chained fault ends in SIGSEGV, not a hang or a clean exit (status %d)", status);
+        snprintf(path, sizeof(path), "%s/crash.txt", dir);
+        CHECK(stat(path, &st) == 0 && st.st_size > 0 && st.st_size < 1024, "crash.txt is one small report, %lld bytes", (long long)st.st_size);
+        halo_crash_read_previous(dir, phase2, sizeof(phase2), crash2, sizeof(crash2));
+        CHECK(count_text(crash2, "signal=") == 1 && strstr(crash2, "last_step=guest image"), "exactly one report: %s", crash2);
+    }
+
+    /* ---- a handler that is entered again and again ends the process itself after three entries */
+    {
+        char dir[] = "/tmp/halo-crash-loop-XXXXXX";
+        struct stat st;
+        char path[300], phase2[200], crash2[700];
+        CHECK(mkdtemp(dir) != NULL, "temp folder 3");
+        child = fork();
+        if (child == 0)
+        {
+            struct sigaction loop;
+            alarm(10);
+            halo_crash_install(dir);
+            halo_crash_phase("guest bridge installed");
+            memset(&loop, 0, sizeof(loop));
+            loop.sa_sigaction = looping_handler;
+            sigemptyset(&loop.sa_mask);
+            loop.sa_flags = SA_SIGINFO | SA_NODEFER;
+            sigaction(SIGSEGV, &loop, NULL);
+            *(volatile int *)(uintptr_t)0x30 = 1;
+            _exit(99);
+        }
+        waitpid(child, &status, 0);
+        CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 128 + SIGSEGV, "a looping handler ends the process with status %d (got %d)", 128 + SIGSEGV, status);
+        snprintf(path, sizeof(path), "%s/crash.txt", dir);
+        CHECK(stat(path, &st) == 0 && st.st_size > 0 && st.st_size < 1024, "still one small report, %lld bytes", (long long)st.st_size);
+        halo_crash_read_previous(dir, phase2, sizeof(phase2), crash2, sizeof(crash2));
+        CHECK(count_text(crash2, "signal=") == 1, "looping handler wrote one report: %s", crash2);
+    }
 
     if (!failures) printf("PASS: launch-state decisions, report formatting and the real crash handler (SIGSEGV and abort, reported then still fatal)\n");
     return failures ? 1 : 0;

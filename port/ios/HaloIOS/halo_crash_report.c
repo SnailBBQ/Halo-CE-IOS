@@ -134,24 +134,31 @@ size_t halo_crash_format(char *out, size_t size, int signal_number, uint64_t fau
     return at;
 }
 
+static volatile sig_atomic_t g_hits;
+
 static void crash_handler(int signal_number, siginfo_t *info, void *opaque)
 {
     char report[640];
     const ucontext_t *context = (const ucontext_t *)opaque;
-    size_t length;
+    int hits = ++g_hits;
 
-    length = halo_crash_format(report, sizeof(report), signal_number,
-                               info ? (uint64_t)(uintptr_t)info->si_addr : 0, info ? info->si_code : 0,
-                               context ? context_pc(context) : 0, context ? context_lr(context) : 0,
-                               HALO_CRASH_BASE(), g_phase);
-    if (g_crash_fd >= 0)
+    /* Only the first fault is written: a fault that returns into the same instruction repeats, and
+       M2.6.35 filled crash.txt with 111 MB of the same report and left the app hung. */
+    if (hits == 1 && g_crash_fd >= 0)
     {
-        if (write(g_crash_fd, report, length) < 0)
-            length = 0;
-        fsync(g_crash_fd);
+        size_t length = halo_crash_format(report, sizeof(report), signal_number,
+                                          info ? (uint64_t)(uintptr_t)info->si_addr : 0, info ? info->si_code : 0,
+                                          context ? context_pc(context) : 0, context ? context_lr(context) : 0,
+                                          HALO_CRASH_BASE(), g_phase);
+        if (write(g_crash_fd, report, length) >= 0)
+            fsync(g_crash_fd);
     }
-    /* SA_RESETHAND restored the default action: returning re-runs a faulting instruction into it, and
-       abort() carries on into its own raise. */
+    /* Put the default action back so the re-run of the faulting instruction ends the process (and the system
+       writes its own crash log); whatever handler comes back after this one, a handler entered again and again
+       ends the process itself. */
+    signal(signal_number, SIG_DFL);
+    if (hits >= 3)
+        _exit(128 + signal_number);
 }
 
 void halo_crash_phase(const char *phase)
@@ -227,7 +234,7 @@ void halo_crash_install(const char *folder)
     memset(&action, 0, sizeof(action));
     action.sa_sigaction = crash_handler;
     sigemptyset(&action.sa_mask);
-    action.sa_flags = SA_SIGINFO | SA_RESETHAND | SA_NODEFER;
+    action.sa_flags = SA_SIGINFO | SA_NODEFER;
     for (unsigned i = 0; i < sizeof(g_signals) / sizeof(g_signals[0]); i++)
         sigaction(g_signals[i], &action, NULL);
 }
