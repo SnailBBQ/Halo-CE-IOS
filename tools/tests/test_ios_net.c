@@ -65,6 +65,37 @@ int main(void)
     CHECK(halo_net_bytes_available(a, OPT) == 0 && get_i32(OPT) == 4, "bytes available %d", get_i32(OPT));
     CHECK(halo_net_recv(a, OUT, 16, 2 /* MSG_PEEK */) == 4 && halo_net_recv(a, OUT, 16, 0) == 4, "peek then read");
 
+    /* a datagram larger than the buffer is WSAEMSGSIZE (10040), not a short datagram */
+    memcpy(memory + DATA, "0123456789", 10);
+    CHECK(halo_net_sendto(b, DATA, 10, 0, ADDR2, 16) == 10, "send 10 bytes");
+    set_i32(LEN2, 16);
+    CHECK(halo_net_recvfrom(a, OUT, 4, 0, ADDR, LEN2) == -1 && halo_net_last_error() == 10040, "truncated datagram gives WSAEMSGSIZE, got %d", halo_net_last_error());
+
+    /* select keeps the ready descriptors in the order given, whatever their numbers */
+    {
+        int s1 = halo_net_socket(2, 2, 17), s2 = halo_net_socket(2, 2, 17), s3 = halo_net_socket(2, 2, 17);
+        uint32_t cursor = 0x900;
+        put_addr(ADDR, 0x7f000001, 0);
+        halo_net_bind(s1, ADDR, 16); halo_net_bind(s2, ADDR, 16); halo_net_bind(s3, ADDR, 16);
+        set_i32(LEN, 16); halo_net_getsockname(s2, ADDR2, LEN);
+        memcpy(memory + DATA, "z", 1);
+        halo_net_sendto(b, DATA, 1, 0, ADDR2, 16);                 /* only s2 has data */
+        set_i32(cursor, s3); set_i32(cursor + 4, s2); set_i32(cursor + 8, s1); set_i32(CNT_R, 3);
+        CHECK(halo_net_select(cursor, CNT_R, 0, 0, 0, 0, 1, 0, 0) == 1 && get_i32(CNT_R) == 1 && get_i32(cursor) == s2, "select keeps only the ready descriptor");
+        /* a descriptor that is not open fails the whole call, as select does */
+        set_i32(cursor, 4000); set_i32(CNT_R, 1);
+        CHECK(halo_net_select(cursor, CNT_R, 0, 0, 0, 0, 0, 0, 0) == -1 && halo_net_last_error() == 10009, "closed descriptor gives WSAEBADF, got %d", halo_net_last_error());
+        /* poll takes descriptors above FD_SETSIZE; fake one by duplicating a socket high up */
+        int high = fcntl(s1, F_DUPFD, 1100);
+        if (high >= 1024) {
+            set_i32(cursor, high); set_i32(CNT_R, 1);
+            int ready_now = halo_net_select(cursor, CNT_R, 0, 0, 0, 0, 0, 0, 0);
+            CHECK(ready_now == 0, "a descriptor numbered %d does not fail select", high);
+            close(high);
+        }
+        halo_net_close(s1); halo_net_close(s2); halo_net_close(s3);
+    }
+
     /* TCP: non-blocking connect is WSAEWOULDBLOCK, then writeable; accept reports the peer */
     int listener = halo_net_socket(2, 1, 6), client = halo_net_socket(2, 1, 6);
     put_addr(ADDR, 0x7f000001, 0);
@@ -149,7 +180,7 @@ int main(void)
     CHECK(halo_net_resolve_ipv4(NAME) == htonl(0x7f000001), "resolve dotted quad");
     strcpy((char *)memory + NAME, "no-such-host.invalid");
     CHECK(halo_net_resolve_ipv4(NAME) == 0, "unresolvable name gives 0");
-    (void)halo_net_local_ipv4();
+    { uint32_t local = halo_net_local_ipv4(); CHECK((ntohl(local) >> 24) != 127, "local address is never loopback"); }
 
     if (!failures) printf("PASS: iOS socket layer: UDP/TCP over loopback, Winsock addresses, errors and options, select, non-blocking connect\n");
     return failures ? 1 : 0;

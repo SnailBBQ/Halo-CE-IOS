@@ -30,8 +30,8 @@ Conventions carried over from the Xbox:
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stddef.h>
 #ifdef HALO_IOS_GUEST
+#include <stddef.h>
 #include "../../include/ios_render_scan.h"
 #endif
 #include <time.h>
@@ -131,6 +131,13 @@ long halo_screen_width(void)
 			screen_width * screen_scale[0], SCREEN_HEIGHT * screen_scale[1]);
 	}
 	return screen_width;
+}
+
+/* the display's pixels for each of the 480 lines (text_hires.c) */
+float halo_screen_pixel_scale(void)
+{
+	halo_screen_width();
+	return screen_scale[1];
 }
 
 void halo_screen_ui_offset(unsigned char centered)
@@ -307,7 +314,6 @@ struct gl_device
 	D3DSHADERCONSTANTMODE shader_constant_mode;
 
 	struct vertex_shader_object *vertex_shader;
-	BOOL fixed_vertex_mode;
 	struct vertex_shader_object *program_slots[VERTEX_PROGRAM_SLOTS];
 	unsigned long program_address;
 	float constants[XGPU_VERTEX_CONSTANT_COUNT][4];
@@ -682,7 +688,6 @@ static void vertical_blank_start(void)
 		{
 			pthread_detach(thread);
 			vertical_blank_thread_started = TRUE;
-			platform_log("vertical blank worker started before frame queue wait");
 		}
 		else
 		{
@@ -1746,17 +1751,10 @@ void WINAPI D3DDevice_DeleteVertexShader(DWORD handle)
 
 void WINAPI D3DDevice_SetVertexShader(DWORD handle)
 {
-	struct vertex_shader_object *object;
+	struct vertex_shader_object *object = vertex_shader_from_handle(handle);
 
-	if (!handle)
-	{
-		device.fixed_vertex_mode = TRUE;
-		return;
-	}
-	object = vertex_shader_from_handle(handle);
 	if (object)
 	{
-		device.fixed_vertex_mode = FALSE;
 		device.vertex_shader = object;
 		device.program_address = 0;
 		device.program_slots[0] = object;
@@ -1776,15 +1774,7 @@ void WINAPI D3DDevice_SelectVertexShader(DWORD handle, DWORD address)
 	if (object)
 		device.vertex_shader = object;
 	if (address < VERTEX_PROGRAM_SLOTS)
-	{
 		device.program_address = address;
-		if (device.program_slots[address]) device.fixed_vertex_mode = FALSE;
-		/* A zero handle selects an already-loaded program. Bootstrap its
-		 * declaration if none is active, retaining an explicit declaration
-		 * once one has been set. */
-		if (!handle && !device.vertex_shader && device.program_slots[address])
-			device.vertex_shader = device.program_slots[address];
-	}
 }
 
 void WINAPI D3DDevice_GetVertexShaderSize(DWORD handle, UINT *size)
@@ -1832,61 +1822,6 @@ static unsigned long hash_words(const void *data, unsigned long size)
 		hash = (hash ^ *words++) * 16777619UL;
 	return hash;
 #endif
-}
-
-static GLuint fixed_vertex_shader_get(void)
-{
-	static GLuint shader;
-	static BOOL attempted;
-	if (!attempted)
-	{
-		struct xgpu_text text = {0};
-		attempted = TRUE;
-#ifdef HALO_ANDROID
-		xgpu_text_append(&text, "#version %s\n", xgpu_capabilities.shading_language);
-#else
-		xgpu_text_append(&text, "#version 450 core\n");
-#endif
-		xgpu_text_append(&text, "%s",
-		"#ifdef GL_ES\n"
-		"precision highp float;\n"
-		"precision highp int;\n"
-		"#endif\n"
-		"layout(location=0) in vec4 position;\n"
-		"layout(location=3) in vec4 diffuse;\n"
-		"layout(location=4) in vec4 specular;\n"
-		"layout(location=9) in vec4 tex0;\n"
-		"layout(location=10) in vec4 tex1;\n"
-		"layout(location=11) in vec4 tex2;\n"
-		"layout(location=12) in vec4 tex3;\n"
-		"uniform vec4 fixed_world[4];\n"
-		"uniform vec4 fixed_view[4];\n"
-		"uniform vec4 fixed_projection[4];\n"
-		"out vec4 xD0; out vec4 xD1; out vec4 xB0; out vec4 xB1;\n"
-		"out vec4 xT0; out vec4 xT1; out vec4 xT2; out vec4 xT3;\n"
-		"out float xFog;\n"
-		"invariant gl_Position;\n"
-		"void main() {\n"
-		"	// D3D uses row vectors. Raw matrix rows become GLSL columns.\n"
-		"	mat4 world = mat4(fixed_world[0],fixed_world[1],fixed_world[2],fixed_world[3]);\n"
-		"	mat4 view = mat4(fixed_view[0],fixed_view[1],fixed_view[2],fixed_view[3]);\n"
-		"	mat4 projection = mat4(fixed_projection[0],fixed_projection[1],fixed_projection[2],fixed_projection[3]);\n"
-		"	gl_Position = projection * view * world * position;\n"
-		"#ifdef GL_ES\n"
-		"	gl_Position.y = -gl_Position.y;\n"
-		"	gl_Position.z = 2.0 * gl_Position.z - gl_Position.w;\n"
-		"#endif\n"
-		"	gl_PointSize = 1.0;\n"
-		"	xD0 = clamp(diffuse,0.0,1.0); xD1 = clamp(specular,0.0,1.0);\n"
-		"	xB0 = xD0; xB1 = xD1;\n"
-		"	xT0 = tex0; xT1 = tex1; xT2 = tex2; xT3 = tex3;\n"
-		"	xFog = 1.0;\n"
-		"}\n");
-		shader = compile_shader(GL_VERTEX_SHADER, text.buffer, "fixed-function loading vertex");
-		free(text.buffer);
-		platform_log("fixed-function loading vertex shader: %s", shader ? "ready" : "failed; see compiler log");
-	}
-	return shader;
 }
 
 static GLuint vertex_shader_get(struct vertex_shader_object *program, BOOL immediate)
@@ -2117,29 +2052,36 @@ static GLenum address_mode(DWORD mode)
 	}
 }
 
-static void configure_sampler(int stage, BOOL mipmapped)
+/* hires: a high-res HUD texture (hud_hires.h), drawn smaller than it is, so
+filtered and from its mip levels whatever the game asks: the HUD's meters are
+point sampled for one player, to keep the Xbox bitmaps' texels sharp */
+static void configure_sampler(int stage, BOOL mipmapped, BOOL hires)
 {
 	/* the texture stage state each sampler was last configured from */
-	static DWORD configured[D3DTSS_MAXSTAGES][10];
+	static DWORD configured[D3DTSS_MAXSTAGES][11];
 	static BOOL configured_valid[D3DTSS_MAXSTAGES];
 	GLuint sampler = device.samplers[stage];
 	DWORD *state = D3D__TextureState[stage];
-	DWORD min_filter = state[D3DTSS_MINFILTER];
-	DWORD mip_filter = mipmapped ? state[D3DTSS_MIPFILTER] : D3DTEXF_NONE;
+	DWORD min_filter = hires ? D3DTEXF_LINEAR : state[D3DTSS_MINFILTER];
+	DWORD mip_filter = hires ? D3DTEXF_LINEAR : mipmapped ? state[D3DTSS_MIPFILTER] : D3DTEXF_NONE;
+	DWORD mag_filter = hires ? D3DTEXF_LINEAR : state[D3DTSS_MAGFILTER];
+	DWORD maximum_mip_level = hires ? 0 : state[D3DTSS_MAXMIPLEVEL];
+	DWORD lod_bias = hires ? 0 : state[D3DTSS_MIPMAPLODBIAS];
 	GLenum minification;
 	float border[4];
-	DWORD inputs[10];
+	DWORD inputs[11];
 
 	inputs[0] = min_filter;
 	inputs[1] = mip_filter;
-	inputs[2] = state[D3DTSS_MAGFILTER];
+	inputs[2] = mag_filter;
 	inputs[3] = state[D3DTSS_ADDRESSU];
 	inputs[4] = state[D3DTSS_ADDRESSV];
 	inputs[5] = state[D3DTSS_ADDRESSW];
-	inputs[6] = state[D3DTSS_MIPMAPLODBIAS];
-	inputs[7] = state[D3DTSS_MAXMIPLEVEL];
+	inputs[6] = lod_bias;
+	inputs[7] = maximum_mip_level;
 	inputs[8] = state[D3DTSS_MAXANISOTROPY];
 	inputs[9] = state[D3DTSS_BORDERCOLOR];
+	inputs[10] = hires;
 	if (configured_valid[stage] && !memcmp(configured[stage], inputs, sizeof(inputs)))
 		return;
 	memcpy(configured[stage], inputs, sizeof(inputs));
@@ -2152,14 +2094,14 @@ static void configure_sampler(int stage, BOOL mipmapped)
 		minification = mip_filter == D3DTEXF_NONE ? GL_LINEAR :
 			mip_filter == D3DTEXF_POINT ? GL_LINEAR_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_LINEAR;
 	glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, (GLint)minification);
-	glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, state[D3DTSS_MAGFILTER] == D3DTEXF_POINT ? GL_NEAREST : GL_LINEAR);
+	glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, mag_filter == D3DTEXF_POINT ? GL_NEAREST : GL_LINEAR);
 	glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, (GLint)address_mode(state[D3DTSS_ADDRESSU]));
 	glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, (GLint)address_mode(state[D3DTSS_ADDRESSV]));
 	glSamplerParameteri(sampler, GL_TEXTURE_WRAP_R, (GLint)address_mode(state[D3DTSS_ADDRESSW]));
 #ifdef HALO_ANDROID
 	/* ES has no sampler LOD bias; the pixel shader applies it
 	(texture_lod_bias) */
-	glSamplerParameterf(sampler, GL_TEXTURE_MIN_LOD, (float)state[D3DTSS_MAXMIPLEVEL]);
+	glSamplerParameterf(sampler, GL_TEXTURE_MIN_LOD, (float)maximum_mip_level);
 	if (xgpu_capabilities.anisotropy)
 		glSamplerParameterf(sampler, GL_TEXTURE_MAX_ANISOTROPY_EXT,
 			(min_filter == D3DTEXF_ANISOTROPIC && state[D3DTSS_MAXANISOTROPY] > 1) ? (float)state[D3DTSS_MAXANISOTROPY] : 1.0f);
@@ -2169,8 +2111,8 @@ static void configure_sampler(int stage, BOOL mipmapped)
 		glSamplerParameterfv(sampler, GL_TEXTURE_BORDER_COLOR, border);
 	}
 #else
-	glSamplerParameterf(sampler, GL_TEXTURE_LOD_BIAS, dword_to_float(state[D3DTSS_MIPMAPLODBIAS]));
-	glSamplerParameterf(sampler, GL_TEXTURE_MIN_LOD, (float)state[D3DTSS_MAXMIPLEVEL]);
+	glSamplerParameterf(sampler, GL_TEXTURE_LOD_BIAS, dword_to_float(lod_bias));
+	glSamplerParameterf(sampler, GL_TEXTURE_MIN_LOD, (float)maximum_mip_level);
 	glSamplerParameterf(sampler, GL_TEXTURE_MAX_ANISOTROPY,
 		(min_filter == D3DTEXF_ANISOTROPIC && state[D3DTSS_MAXANISOTROPY] > 1) ? (float)state[D3DTSS_MAXANISOTROPY] : 1.0f);
 	color_to_vec4(state[D3DTSS_BORDERCOLOR], border);
@@ -2337,6 +2279,7 @@ static void bind_textures(struct nv2a_pixel_shader_key *key, float texture_scale
     GLenum prepared_targets[D3DTSS_MAXSTAGES];
     GLuint prepared_textures[D3DTSS_MAXSTAGES];
     BOOL prepared_mips[D3DTSS_MAXSTAGES] = {0};
+    BOOL prepared_hires[D3DTSS_MAXSTAGES] = {0};
 #endif
 
 	for (stage = 0; stage < D3DTSS_MAXSTAGES; stage++)
@@ -2349,10 +2292,10 @@ static void bind_textures(struct nv2a_pixel_shader_key *key, float texture_scale
 		if (!texture || !texture->Data || mode == 0 || mode == 0x04 || mode == 0x05 || mode == 0x11)
 		{
 #ifdef HALO_IOS_GUEST
-            prepared_targets[stage] = GL_TEXTURE_2D;
-            prepared_textures[stage] = 0;
+			prepared_targets[stage] = GL_TEXTURE_2D;
+			prepared_textures[stage] = 0;
 #else
-            state_texture(stage, GL_TEXTURE_2D, 0);
+			state_texture(stage, GL_TEXTURE_2D, 0);
 #endif
 			key->sampler_type[stage] = mode == 0x11 ? _xgpu_sampler_2d : _xgpu_sampler_none;
 			continue;
@@ -2396,14 +2339,17 @@ static void bind_textures(struct nv2a_pixel_shader_key *key, float texture_scale
 				}
 			}
 #ifdef HALO_IOS_GUEST
-            prepared_targets[stage] = gl_target;
-            prepared_textures[stage] = gl_texture;
-            prepared_mips[stage] = description.levels > 1;
+			prepared_targets[stage] = gl_target;
+			prepared_textures[stage] = gl_texture;
+			prepared_mips[stage] = description.levels > 1;
+			prepared_hires[stage] = description.hires;
 #else
-            state_texture(stage, gl_target, gl_texture);
-            state_sampler(stage, device.samplers[stage]);
-            configure_sampler(stage, description.levels > 1);
+			state_texture(stage, gl_target, gl_texture);
+			state_sampler(stage, device.samplers[stage]);
+			configure_sampler(stage, description.levels > 1, description.hires);
 #endif
+			if (stage == 0)
+				key->coverage_alpha = description.hires_coverage != FALSE;
 			key->sampler_type[stage] = gl_target == GL_TEXTURE_CUBE_MAP ? _xgpu_sampler_cube :
 				gl_target == GL_TEXTURE_3D ? _xgpu_sampler_3d : _xgpu_sampler_2d;
 		}
@@ -2417,7 +2363,7 @@ static void bind_textures(struct nv2a_pixel_shader_key *key, float texture_scale
         if (key->sampler_type[stage] != _xgpu_sampler_none && prepared_textures[stage])
         {
             state_sampler(stage, device.samplers[stage]);
-            configure_sampler(stage, prepared_mips[stage]);
+            configure_sampler(stage, prepared_mips[stage], prepared_hires[stage]);
         }
     }
 #endif
@@ -2431,7 +2377,6 @@ static void bind_textures(struct nv2a_pixel_shader_key *key, float texture_scale
     host_frame_phase(5,1);
 }
 #endif
-
 
 static GLenum stencil_operation(DWORD operation)
 {
@@ -2699,30 +2644,17 @@ static struct program_entry *prepare_draw(BOOL immediate)
 	struct program_entry *entry;
 	struct draw_uniforms uniforms;
 	BOOL has_depth = FALSE;
-	BOOL fixed = device.fixed_vertex_mode && immediate;
 	int stage;
 
-	if (!device.gl_ready || (!fixed && (!program || !device.vertex_shader || !program->instructions)))
+	if (!device.gl_ready || !program || !device.vertex_shader || !program->instructions)
 	{
-		static unsigned int missing_states_reported;
-		unsigned int missing = (!device.gl_ready ? 1u : 0u) |
-			(!program ? 2u : 0u) | (!device.vertex_shader ? 4u : 0u) |
-			(program && !program->instructions ? 8u : 0u);
-		if (!(missing_states_reported & (1u << missing)))
-		{
-			missing_states_reported |= 1u << missing;
-			platform_log("draw blocked: GL ready=%d program=%lu declaration=%lu instructions=%lu slot=%lu frame=%lu",
-				device.gl_ready, program ? program->id : 0,
-				device.vertex_shader ? device.vertex_shader->id : 0,
-				program ? program->instruction_count : 0, device.program_address, device.frame);
-		}
 		stats.skipped_no_program++;
 		return NULL;
 	}
 	{
 		const char *skip = debug_settings.skip_vertex_shaders;
 
-		while (!fixed && skip && *skip)
+		while (skip && *skip)
 		{
 			if ((unsigned long)atol(skip) == program->id)
 				return NULL;
@@ -2754,6 +2686,10 @@ static struct program_entry *prepare_draw(BOOL immediate)
 		key.alpha_kill[stage] = D3D__TextureState[stage][D3DTSS_ALPHAKILL] == D3DTALPHAKILL_ENABLE;
 		key.color_sign[stage] = (unsigned char)((D3D__TextureState[stage][D3DTSS_COLORSIGN] >> 28) & 0xf);
 	}
+	/* (only with the meter's blend: hud_hires.h, nv2a_pixel_shader_key) */
+	key.coverage_alpha = key.coverage_alpha && D3D__RenderState[D3DRS_ALPHABLENDENABLE] &&
+		D3D__RenderState[D3DRS_SRCBLEND] == D3DBLEND_CONSTANTCOLOR &&
+		D3D__RenderState[D3DRS_DESTBLEND] == D3DBLEND_SRCALPHA;
 	key.alpha_test_function = D3D__RenderState[D3DRS_ALPHATESTENABLE] ? D3D__RenderState[D3DRS_ALPHAFUNC] : 0;
 	key.fog_enable = D3D__RenderState[D3DRS_FOGENABLE] != 0;
 	key.fog_table_mode = (unsigned char)D3D__RenderState[D3DRS_FOGTABLEMODE];
@@ -2762,11 +2698,11 @@ static struct program_entry *prepare_draw(BOOL immediate)
 #endif
 
 #ifdef HALO_IOS_GUEST
-    host_frame_phase(6,0);
+	host_frame_phase(6,0);
 #endif
-	entry = program_get(fixed ? fixed_vertex_shader_get() : vertex_shader_get(program, immediate), fragment_shader_get(&key));
+	entry = program_get(vertex_shader_get(program, immediate), fragment_shader_get(&key));
 #ifdef HALO_IOS_GUEST
-    host_frame_phase(6,1);
+	host_frame_phase(6,1);
 #endif
 	if (!entry)
 	{
@@ -2783,12 +2719,6 @@ static struct program_entry *prepare_draw(BOOL immediate)
     host_frame_phase(8,0);
 #endif
 	state_program(entry->program);
-	if (fixed)
-	{
-		glUniform4fv(glGetUniformLocation(entry->program, "fixed_world"), 4, (const GLfloat *)&device.transforms[D3DTS_WORLD]);
-		glUniform4fv(glGetUniformLocation(entry->program, "fixed_view"), 4, (const GLfloat *)&device.transforms[D3DTS_VIEW]);
-		glUniform4fv(glGetUniformLocation(entry->program, "fixed_projection"), 4, (const GLfloat *)&device.transforms[D3DTS_PROJECTION]);
-	}
 #ifdef HALO_ANDROID
 	if (key.count_samples)
 		glBindBufferRange(GL_ATOMIC_COUNTER_BUFFER, 0, device.visibility_counters,
@@ -2917,10 +2847,10 @@ static struct program_entry *prepare_draw(BOOL immediate)
 	/* and a program that has had them since needs none of them */
 	if (entry->uniforms_serial == draw_uniforms_serial) {
 #ifdef HALO_IOS_GUEST
-        host_frame_phase(8,1);
+		host_frame_phase(8,1);
 #endif
 		return entry;
-    }
+	}
 	entry->uniforms_serial = draw_uniforms_serial;
 	uniform_vec4(entry->viewport_scale, entry->uniforms.viewport_scale, draw_uniforms.viewport_scale, 1);
 	uniform_vec4(entry->viewport_offset, entry->uniforms.viewport_offset, draw_uniforms.viewport_offset, 1);
@@ -2953,7 +2883,6 @@ static struct program_entry * prepare_draw(BOOL immediate)
     return result;
 }
 #endif
-
 
 /* ---------- tracing (debug.gpu_trace_frame) */
 
@@ -3262,6 +3191,7 @@ static struct
 	WORD minimum;
 	WORD maximum;
 } index_ranges[INDEX_RANGE_SLOTS];
+
 static void index_extent(const WORD *indices, unsigned long count, unsigned long generation, BOOL cached,
 	unsigned long *minimum, unsigned long *maximum)
 {
@@ -3564,7 +3494,6 @@ static void setup_streams(unsigned long first, unsigned long count)
     host_frame_phase(7,1);
 }
 #endif
-
 
 static GLenum primitive_mode(D3DPRIMITIVETYPE type)
 {
@@ -3944,11 +3873,6 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 	if (screenshot_every < 0)
 		screenshot_every = config_integer("debug.screenshot_every");
 
-	/* Loading screens can present before the game registers its vblank
-	 * callback. Start the consumer before adding pending flips, otherwise
-	 * the third presentation waits forever on a queue nobody drains. */
-	vertical_blank_start();
-
 	if (device.gl_ready)
 	{
 		struct render_target_entry *back_buffer = render_target_get(&device.back_buffer);
@@ -3976,19 +3900,15 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		}
 		x = (window_width - width) / 2;
 		y = (window_height - height) / 2;
-		gl_check_errors("before window framebuffer");
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-		gl_check_errors("window framebuffer binding");
 		glDisable(GL_SCISSOR_TEST);
 		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
-		gl_check_errors("window clear");
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer_get(back_buffer->target.texture, 0));
 		/* row 0 of the render target is the top of the picture */
 		glBlitFramebuffer(0, 0, (GLint)back_buffer->target.gl_width, (GLint)back_buffer->target.gl_height,
 			x, y + height, x + width, y, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-		gl_check_errors("window blit");
 		platform_video_swap();
 		xgpu_gl_state_invalidate();
 		xgpu_texture_cache_begin_frame();

@@ -3,12 +3,16 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
+#include <poll.h>
+#include <sys/uio.h>
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/select.h>
@@ -37,13 +41,16 @@
 #define WSAEADDRNOTAVAIL 10049
 #define WSAENETDOWN 10050
 #define WSAENETUNREACH 10051
+#define WSAENETRESET 10052
 #define WSAECONNABORTED 10053
 #define WSAECONNRESET 10054
 #define WSAENOBUFS 10055
 #define WSAEISCONN 10056
 #define WSAENOTCONN 10057
+#define WSAESHUTDOWN 10058
 #define WSAETIMEDOUT 10060
 #define WSAECONNREFUSED 10061
+#define WSAEHOSTDOWN 10064
 #define WSAEHOSTUNREACH 10065
 
 /* Winsock option values (winsockx.h) */
@@ -114,7 +121,11 @@ static int fail(void)
     case ENETDOWN: g_last_error = WSAENETDOWN; break;
     case ENETUNREACH: g_last_error = WSAENETUNREACH; break;
     case ECONNABORTED: g_last_error = WSAECONNABORTED; break;
-    case ECONNRESET: g_last_error = WSAECONNRESET; break;
+    /* a send on a connection the other end reset is the game's "connection lost" */
+    case ECONNRESET: case EPIPE: g_last_error = WSAECONNRESET; break;
+    case ENETRESET: g_last_error = WSAENETRESET; break;
+    case ESHUTDOWN: g_last_error = WSAESHUTDOWN; break;
+    case EHOSTDOWN: g_last_error = WSAEHOSTDOWN; break;
     case ENOBUFS: case ENOMEM: g_last_error = WSAENOBUFS; break;
     case EISCONN: g_last_error = WSAEISCONN; break;
     case ENOTCONN: g_last_error = WSAENOTCONN; break;
@@ -403,15 +414,30 @@ int32_t halo_net_recvfrom(int32_t s, uint32_t buffer, int32_t length, int32_t fl
 {
     void *data = resolve(buffer, (size_t)(length > 0 ? length : 1));
     struct sockaddr_storage host;
-    socklen_t host_length = sizeof(host);
+    struct iovec vector;
+    struct msghdr message;
     int result;
 
     if (!data || length < 0)
         return bad_pointer();
     memset(&host, 0, sizeof(host));
-    result = (int)recvfrom(s, data, (size_t)length, flags & 7, (struct sockaddr *)&host, &host_length);
+    vector.iov_base = data;
+    vector.iov_len = (size_t)length;
+    memset(&message, 0, sizeof(message));
+    message.msg_name = &host;
+    message.msg_namelen = sizeof(host);
+    message.msg_iov = &vector;
+    message.msg_iovlen = 1;
+    result = (int)recvmsg(s, &message, flags & 7);
     if (result < 0)
         return fail();
+    /* A datagram larger than the buffer: both give its start, but Winsock fails with
+       WSAEMSGSIZE, which the game takes as an error rather than as the datagram. */
+    if (message.msg_flags & MSG_TRUNC)
+    {
+        g_last_error = WSAEMSGSIZE;
+        return -1;
+    }
     if (store_address(address, address_length, &host) != 0)
         return bad_pointer();
     return succeed(result);
@@ -550,31 +576,6 @@ int32_t halo_net_getpeername(int32_t s, uint32_t address, uint32_t length)
 
 /* ---------- select over explicit descriptor lists */
 
-static int fill_set(fd_set *set, const int32_t *descriptors, int count, int maximum)
-{
-    FD_ZERO(set);
-    for (int index = 0; index < count; index++)
-    {
-        if (descriptors[index] >= 0 && descriptors[index] < FD_SETSIZE)
-        {
-            FD_SET(descriptors[index], set);
-            if (descriptors[index] > maximum)
-                maximum = descriptors[index];
-        }
-    }
-    return maximum;
-}
-
-static void keep_ready(fd_set *set, int32_t *descriptors, int32_t *count)
-{
-    int kept = 0;
-
-    for (int index = 0; index < *count; index++)
-        if (descriptors[index] >= 0 && descriptors[index] < FD_SETSIZE && FD_ISSET(descriptors[index], set))
-            descriptors[kept++] = descriptors[index];
-    *count = kept;
-}
-
 /* one guest list: its descriptor array and its count, both resolved */
 struct guest_list
 {
@@ -589,60 +590,95 @@ static int resolve_list(struct guest_list *list, uint32_t array_va, uint32_t cou
     if (!array_va || !count_va)
         return 0;
     list->count = resolve(count_va, sizeof(int32_t));
-    if (!list->count || *list->count < 0 || *list->count > FD_SETSIZE)
+    if (!list->count || *list->count < 0 || *list->count > 65536)
         return -1;
     list->descriptors = resolve(array_va, (size_t)(*list->count > 0 ? *list->count : 1) * sizeof(int32_t));
     return list->descriptors ? 0 : -1;
 }
 
+/* poll, as port/linux/src/posix_net.c does: any descriptor number, select's readiness (read for data,
+   the end or an error; write for room or an error; error for urgent data or a failed connect). */
 int32_t halo_net_select(uint32_t read_va, uint32_t read_count_va, uint32_t write_va, uint32_t write_count_va,
                         uint32_t error_va, uint32_t error_count_va, int32_t seconds, int32_t microseconds, int32_t infinite)
 {
-    struct guest_list read, write, error;
-    fd_set read_set, write_set, error_set;
-    struct timeval timeout;
-    int maximum = -1;
-    int result;
+    static const short events[3] = { POLLIN, POLLOUT, POLLPRI };
+    static const short ready[3] = { POLLIN | POLLHUP | POLLERR, POLLOUT | POLLERR, POLLPRI | POLLERR };
+    static __thread struct pollfd *buffer;
+    static __thread int buffer_size;
+    struct guest_list lists[3];
+    struct pollfd stack[256];
+    struct pollfd *descriptors = stack;
+    long long milliseconds = (long long)seconds * 1000 + ((long long)microseconds + 999) / 1000;
+    int total = 0, result;
 
-    if (resolve_list(&read, read_va, read_count_va) || resolve_list(&write, write_va, write_count_va) ||
-        resolve_list(&error, error_va, error_count_va))
+    if (resolve_list(&lists[0], read_va, read_count_va) || resolve_list(&lists[1], write_va, write_count_va) ||
+        resolve_list(&lists[2], error_va, error_count_va))
         return bad_pointer();
-    maximum = fill_set(&read_set, read.descriptors, read.descriptors ? *read.count : 0, maximum);
-    maximum = fill_set(&write_set, write.descriptors, write.descriptors ? *write.count : 0, maximum);
-    maximum = fill_set(&error_set, error.descriptors, error.descriptors ? *error.count : 0, maximum);
-    timeout.tv_sec = seconds;
-    timeout.tv_usec = microseconds;
-    result = select(maximum + 1, read.descriptors ? &read_set : NULL, write.descriptors ? &write_set : NULL,
-                    error.descriptors ? &error_set : NULL, infinite ? NULL : &timeout);
+    for (int list = 0; list < 3; list++)
+        if (lists[list].descriptors)
+            total += *lists[list].count;
+    if (total > (int)(sizeof(stack) / sizeof(*stack)))
+    {
+        if (total > buffer_size)
+        {
+            struct pollfd *larger = realloc(buffer, sizeof(*buffer) * (size_t)total);
+
+            if (!larger)
+            {
+                errno = ENOMEM;
+                return fail();
+            }
+            buffer = larger;
+            buffer_size = total;
+        }
+        descriptors = buffer;
+    }
+    total = 0;
+    for (int list = 0; list < 3; list++)
+        for (int index = 0; lists[list].descriptors && index < *lists[list].count; index++, total++)
+        {
+            descriptors[total].fd = lists[list].descriptors[index];
+            descriptors[total].events = events[list];
+            descriptors[total].revents = 0;
+        }
+    result = poll(descriptors, (nfds_t)total, infinite ? -1 : (int)(milliseconds < 0 ? 0 : milliseconds > INT_MAX ? INT_MAX : milliseconds));
     if (result < 0)
         return fail();
-    if (write.descriptors)
-    {
-        /* Winsock reports a socket writeable once its connect has succeeded; one whose
-           connect failed is in the error set. POSIX reports it writeable with the failure
-           in SO_ERROR, so move those out of the writeable set. */
-        for (int index = 0; index < *write.count; index++)
+    for (int index = 0; index < total && result > 0; index++)
+        if (descriptors[index].revents & POLLNVAL) /* as select fails on a descriptor that is not open */
         {
-            int descriptor = write.descriptors[index];
+            errno = EBADF;
+            return fail();
+        }
+    result = 0;
+    total = 0;
+    for (int list = 0; list < 3; list++)
+    {
+        int kept = 0;
+
+        for (int index = 0; lists[list].descriptors && index < *lists[list].count; index++, total++)
+        {
+            int descriptor = lists[list].descriptors[index];
             int pending = 0;
             socklen_t length = sizeof(pending);
 
-            if (descriptor >= 0 && descriptor < FD_SETSIZE && FD_ISSET(descriptor, &write_set) &&
-                getsockopt(descriptor, SOL_SOCKET, SO_ERROR, &pending, &length) == 0 && pending)
+            if (!(descriptors[total].revents & ready[list]))
+                continue;
+            /* Winsock reports a socket writeable once its connect has succeeded; one whose connect
+               failed is not (it is in the error set), where POSIX reports it writeable with the
+               failure in SO_ERROR. The game takes writeable as connected (connect_endpoint). */
+            if (list == 1 && getsockopt(descriptor, SOL_SOCKET, SO_ERROR, &pending, &length) == 0 && pending)
             {
-                FD_CLR(descriptor, &write_set);
-                result--;
                 errno = pending;
                 fail();
+                continue;
             }
+            lists[list].descriptors[kept++] = descriptor;
         }
+        if (lists[list].descriptors)
+            *lists[list].count = kept;
+        result += kept;
     }
-    if (read.descriptors)
-        keep_ready(&read_set, read.descriptors, read.count);
-    if (write.descriptors)
-        keep_ready(&write_set, write.descriptors, write.count);
-    if (error.descriptors)
-        keep_ready(&error_set, error.descriptors, error.count);
     /* like Winsock, a select with nothing ready leaves the last error as it was */
     if (result > 0)
         g_last_error = 0;
@@ -651,27 +687,54 @@ int32_t halo_net_select(uint32_t read_va, uint32_t read_count_va, uint32_t write
 
 /* ---------- addresses of this machine and of names */
 
-uint32_t halo_net_local_ipv4(void)
+/* the first IPv4 address of an interface that is up, running, not loopback and has these flags */
+static uint32_t interface_address(unsigned int flags, const char *only_name)
 {
     struct ifaddrs *addresses, *entry;
-    uint32_t wifi = 0, other = 0;
+    uint32_t result = 0;
 
     if (getifaddrs(&addresses) != 0)
         return 0;
-    for (entry = addresses; entry; entry = entry->ifa_next)
+    for (entry = addresses; entry && !result; entry = entry->ifa_next)
     {
-        if (!entry->ifa_addr || entry->ifa_addr->sa_family != AF_INET || !(entry->ifa_flags & IFF_UP) ||
-            (entry->ifa_flags & IFF_LOOPBACK))
+        if (!entry->ifa_addr || entry->ifa_addr->sa_family != AF_INET ||
+            (entry->ifa_flags & (IFF_UP | IFF_RUNNING | flags)) != (IFF_UP | IFF_RUNNING | flags) ||
+            (entry->ifa_flags & IFF_LOOPBACK) || (only_name && strcmp(entry->ifa_name, only_name)))
             continue;
         uint32_t address = ((struct sockaddr_in *)entry->ifa_addr)->sin_addr.s_addr;
 
-        if (!strcmp(entry->ifa_name, "en0"))
-            wifi = address;
-        else if (!other)
-            other = address;
+        if ((ntohl(address) >> 24) != 127)
+            result = address;
     }
     freeifaddrs(addresses);
-    return wifi ? wifi : other;
+    return result;
+}
+
+uint32_t halo_net_local_ipv4(void)
+{
+    struct sockaddr_in route;
+    socklen_t length = sizeof(route);
+    uint32_t result = interface_address(IFF_BROADCAST, "en0"); /* Wi-Fi: the local network, even with no internet */
+    int probe;
+
+    if (result)
+        return result;
+    /* the address the default route leaves from: a UDP socket "connected" to an internet address
+       (a documentation one; nothing is sent) has it */
+    probe = socket(AF_INET, SOCK_DGRAM, 0);
+    if (probe >= 0)
+    {
+        memset(&route, 0, sizeof(route));
+        route.sin_family = AF_INET;
+        route.sin_port = htons(9);
+        route.sin_addr.s_addr = htonl(0xC6336401);
+        if (connect(probe, (struct sockaddr *)&route, sizeof(route)) == 0 &&
+            getsockname(probe, (struct sockaddr *)&route, &length) == 0 &&
+            route.sin_addr.s_addr != htonl(INADDR_ANY) && (ntohl(route.sin_addr.s_addr) >> 24) != 127)
+            result = route.sin_addr.s_addr;
+        close(probe);
+    }
+    return result ? result : interface_address(0, NULL);
 }
 
 uint32_t halo_net_resolve_ipv4(uint32_t host_va)

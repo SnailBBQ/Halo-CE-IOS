@@ -13,7 +13,7 @@ int main(void)
     /* defaults: five named presets, sensible values */
     hs_defaults(&s);
     CHECK(!strcmp(s.presets[0].name, "Classic Xbox") && !strcmp(s.presets[4].name, "Preset 5"), "default names");
-    CHECK(s.active == 0 && s.volume == 1.0f && s.audio_enabled && !s.join_from_clipboard && s.profiler == 1 && s.smooth_fps == 1, "default globals");
+    CHECK(s.active == 0 && s.volume == 1.0f && s.audio_enabled && !s.join_from_clipboard && s.profiler == 1 && s.smooth_fps == 1 && s.hires_hud == 0 && s.hires_text == 0, "default globals");
     CHECK(s.presets[2].touch_look && s.presets[2].floating_sticks && near(s.presets[2].look_curve, 1.5f), "default aim");
 
     /* round trip, including a renamed preset with accents, moved/scaled/hidden controls */
@@ -24,6 +24,8 @@ int main(void)
     s.join_from_clipboard = 1;
     s.profiler = 0;
     s.smooth_fps = 0;
+    s.hires_hud = 1;
+    s.hires_text = 1;
     s.presets[1].opacity = 0.5f;
     s.presets[1].look_sensitivity = 2.25f;
     s.presets[1].invert_look_y = 1;
@@ -33,7 +35,7 @@ int main(void)
     int written = hs_serialize(&s, text, sizeof(text));
     CHECK(written > 0 && written < (int)sizeof(text), "serialize wrote %d", written);
     CHECK(hs_parse(&t, text) == 1, "parse header");
-    CHECK(t.active == 3 && near(t.volume, 0.35f) && !t.audio_enabled && t.join_from_clipboard && t.profiler == 0 && t.smooth_fps == 0, "globals round trip");
+    CHECK(t.active == 3 && near(t.volume, 0.35f) && !t.audio_enabled && t.join_from_clipboard && t.profiler == 0 && t.smooth_fps == 0 && t.hires_hud == 1 && t.hires_text == 1, "globals round trip");
     CHECK(!strcmp(t.presets[1].name, "Thumbs ñ ☃ wide"), "name round trip got '%s'", t.presets[1].name);
     CHECK(near(t.presets[1].opacity, 0.5f) && near(t.presets[1].look_sensitivity, 2.25f) && t.presets[1].invert_look_y, "aim round trip");
     CHECK(t.presets[1].place[HC_A].placed && near(t.presets[1].place[HC_A].fx, 0.9f) && near(t.presets[1].place[HC_A].fy, 0.4f) &&

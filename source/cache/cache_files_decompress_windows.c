@@ -462,9 +462,6 @@ static void cache_copy_block_on_raw_write(
 	struct simple_decompressor_definition *self);
 static void cache_copy_wait_for_async_io(
 	struct simple_decompressor_definition *self);
-struct cache_copy_read_request *acquire_read_request(
-	struct simple_decompressor_definition *self,
-	short read_sequence_index);
 static void cache_copy_issue_read(
 	struct simple_decompressor_definition *self,
 	void *buffer,
@@ -513,7 +510,7 @@ static void cache_copy_run_decompression(
 	struct simple_decompressor_definition *self);
 static unsigned long __stdcall simple_cache_copy_thread(
 	void *parameter);
-static void CALLBACK cache_copy_FileIOCompletionRoutine(
+void CALLBACK cache_copy_FileIOCompletionRoutine(
 	unsigned long error_code,
 	unsigned long bytes_transferred,
 	OVERLAPPED *overlapped);
@@ -523,8 +520,8 @@ static void CALLBACK cache_copy_FileIOCompletionRoutine(
 static struct decompressor_runtime_globals decompressor_globals;
 static struct simple_decompressor_definition *global_self = &decompressor_globals.self;
 static long performance_frequency = 1;
-
-static boolean decompressor_print_timing;
+/* January PDB: public, module 33 .bss+0xcc0; explicit zero avoids COMMON. */
+boolean decompressor_print_timing = FALSE;
 
 /* ---------- code */
 
@@ -1117,7 +1114,7 @@ void cache_copy_end(
 	return;
 }
 
-static void CALLBACK cache_copy_FileIOCompletionRoutine(
+void CALLBACK cache_copy_FileIOCompletionRoutine(
 	unsigned long error_code,
 	unsigned long bytes_transferred,
 	OVERLAPPED *overlapped)

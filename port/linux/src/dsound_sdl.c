@@ -428,6 +428,9 @@ static void mix(float *output, unsigned long frames)
 /* ---------- output */
 
 static SDL_AudioStream *audio_stream;
+#ifdef HALO_IOS_GUEST
+static BOOL ios_host_audio_playing = FALSE;
+#endif
 static BOOL audio_started = FALSE;
 
 static void SDLCALL audio_callback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount)
@@ -526,7 +529,7 @@ static void *ios_audio_thread(void *parameter)
 static void *silent_clock_thread(void *parameter)
 {
 #ifndef HALO_IOS_GUEST
-    float buffer[480 * OUTPUT_CHANNELS];
+	float buffer[480 * OUTPUT_CHANNELS];
 #endif
 	struct timespec next;
 
@@ -535,9 +538,9 @@ static void *silent_clock_thread(void *parameter)
 	for (;;)
 	{
 #ifdef HALO_IOS_GUEST
-        silent_advance(480);
+		silent_advance(480);
 #else
-        mix(buffer, 480);
+		mix(buffer, 480);
 #endif
 		next.tv_nsec += 10000000L;
 		if (next.tv_nsec >= 1000000000L)
@@ -564,6 +567,7 @@ static void audio_start(void)
 	{
 		pthread_t audio_thread;
 
+		ios_host_audio_playing = TRUE;
 		pthread_create(&audio_thread, NULL, ios_audio_thread, NULL);
 		pthread_detach(audio_thread);
 		return;
@@ -718,19 +722,17 @@ static HRESULT STDMETHODCALLTYPE stream_process(IDirectSoundStream *object, LPCX
 		return E_INVALIDARG;
 	/* decode outside the lock */
 #ifdef HALO_IOS_GUEST
-    if (!audio_stream) {
-        /* No output device: retain durations, not unused PCM samples. */
-        samples = NULL;
-        if (stream->channels)
-            frames = stream->adpcm ? (input->dwMaxSize / (XBOX_ADPCM_BLOCK_BYTES * stream->channels)) * XBOX_ADPCM_BLOCK_SAMPLES :
-                input->dwMaxSize / (2 * stream->channels);
-    } else
+	if (!audio_stream && !ios_host_audio_playing) {
+		/* No output device: retain durations, not unused PCM samples. */
+		samples = NULL;
+		if (stream->channels)
+			frames = stream->adpcm ? (input->dwMaxSize / (XBOX_ADPCM_BLOCK_BYTES * stream->channels)) * XBOX_ADPCM_BLOCK_SAMPLES :
+				input->dwMaxSize / (2 * stream->channels);
+	} else
 #endif
-    {
 	samples = stream->adpcm ?
 		decode_adpcm(input->pvBuffer, input->dwMaxSize, stream->channels, &frames) :
 		decode_pcm(input->pvBuffer, input->dwMaxSize, stream->channels, &frames);
-    }
 	pthread_mutex_lock(&mixer_lock);
 	if (stream->packet_count == MAXIMUM_STREAM_PACKETS)
 	{

@@ -13,7 +13,7 @@ symbols in this file:
 00108C10 00b0:
 	_data_verify (0000)
 00108CC0 0030:
-	_code_00108cc0 (0000)
+	_datum_initialize (0000)
 00108CF0 0050:
 	_data_new (0000)
 00108D40 0030:
@@ -83,7 +83,7 @@ const unsigned int ios_datum_layout[13]={sizeof(struct data_array),offsetof(stru
 
 /* ---------- prototypes */
 
-static void code_00108cc0(struct data_array *data, struct datum_header *header);
+static void datum_initialize(struct data_array *data, struct datum_header *header);
 
 /* ---------- globals */
 
@@ -185,6 +185,24 @@ void *datum_get(
 		}
 	}
 
+#ifdef HALO_RELEASE
+	/* port: a release build's message too, and where it was asked from
+	(debug.txt's reference address places it in the build): the caller
+	goes on with the NULL and crashes, with nothing else to say which
+	array and which caller it was */
+	{
+		char message[128];
+
+		csprintf(
+			message,
+			"%.32s index #%d (0x%x) is unused or changed (asked from %p)",
+			data->name,
+			index&0xFFFF,
+			index,
+			__builtin_return_address(0));
+		release_assert_failed(message, "c:\\halo\\SOURCE\\memory\\data.c", 412, TRUE);
+	}
+#else
 	match_vassert(
 		"c:\\halo\\SOURCE\\memory\\data.c",
 		412,
@@ -195,6 +213,7 @@ void *datum_get(
 			data->name,
 			index&0xFFFF,
 			index));
+#endif
 
 	return NULL;
 }
@@ -281,7 +300,7 @@ long datum_new_at_index(
 				data->count = absolute_index+1;
 			}
 
-			code_00108cc0(data, header);
+			datum_initialize(data, header);
 			header->identifier = identifier;
 			result = identifier<<16 | absolute_index;
 		}
@@ -308,7 +327,7 @@ long datum_new(
 	{
 		if (!header->identifier)
 		{
-			code_00108cc0(data, header);
+			datum_initialize(data, header);
 			data->actual_count++;
 			data->first_free_absolute_index = absolute_index+1;
 			if (data->count<=absolute_index)
@@ -562,7 +581,7 @@ void data_compact(
 
 /* ---------- private code */
 
-static void code_00108cc0(
+static void datum_initialize(
 	struct data_array *data,
 	struct datum_header *header)
 {

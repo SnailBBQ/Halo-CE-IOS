@@ -254,6 +254,11 @@
     [self addSwitch:@"Smooth 60 FPS (the original game runs at 30)" value:settings.smooth_fps
             change:^(HsSettings *s, BOOL on) { s->smooth_fps = on; }];
     [self addNote:@"Takes effect the next time you open the app. Turn it off if the game stutters or the phone gets hot."];
+    [self addSwitch:@"High-res HUD (sharper meters, radar and reticles)" value:settings.hires_hud
+            change:^(HsSettings *s, BOOL on) { s->hires_hud = on; }];
+    [self addSwitch:@"High-res text (menus and HUD)" value:settings.hires_text
+            change:^(HsSettings *s, BOOL on) { s->hires_text = on; }];
+    [self addNote:@"New in Halo Universal build 73 and off until you try them: switch on, reopen the app, and turn them off again if the menus or HUD stutter."];
 
     [self addSection:@"Diagnostics"];
     [self addSwitch:@"Show frame rate on screen" value:settings.show_fps change:^(HsSettings *s, BOOL on) { s->show_fps = on; }];

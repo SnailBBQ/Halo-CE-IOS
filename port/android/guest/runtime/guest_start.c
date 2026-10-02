@@ -29,11 +29,6 @@ void __guest_thread_initialize_main(void);
 
 extern char **__environ;
 
-/* Host writes the 4-GiB-aligned arena base here before __guest_start when
- * the iOS selective pointer fast path is enabled. Uninstrumented builds leave
- * this zero; the signal bridge remains the fallback for all other objects. */
-unsigned long long halo_ios_arena_base;
-
 __attribute__((section("__TEXT,__guest_header"), used))
 const struct halo_guest_header __guest_header =
 {
