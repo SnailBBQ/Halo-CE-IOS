@@ -53,6 +53,7 @@ typedef struct
     int audio_enabled;
     int join_from_clipboard;  /* look at the clipboard for an invite when returning to the game */
     int show_fps;
+    int smooth_fps;           /* draw a frame per display refresh (60) instead of the original 30; applies at launch */
     int profiler;             /* sample the game thread for the log (about 1% of one core) */
 } HsSettings;
 
@@ -116,6 +117,7 @@ static inline void hs_defaults(HsSettings *s)
     s->join_from_clipboard = 0; /* reading the clipboard shows an iOS paste prompt */
     s->show_fps = 0;
     s->profiler = 1;
+    s->smooth_fps = 1;
 }
 
 static inline void hs_sanitize_preset(HsPreset *p)
@@ -152,6 +154,7 @@ static inline void hs_sanitize(HsSettings *s)
     s->join_from_clipboard = s->join_from_clipboard ? 1 : 0;
     s->show_fps = s->show_fps ? 1 : 0;
     s->profiler = s->profiler ? 1 : 0;
+    s->smooth_fps = s->smooth_fps ? 1 : 0;
 }
 
 /* ---------- layout: where the player's presets put the controls on this screen */
@@ -223,8 +226,8 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
     size_t n = 0;
 #define EMIT(...) do { int w = snprintf(out + n, n < size ? size - n : 0, __VA_ARGS__); if (w < 0) return -1; n += (size_t)w; } while (0)
     EMIT("HALO1\n");
-    EMIT("active=%d\nvolume=%.3f\naudio=%d\nclipboard=%d\nfps=%d\nprofiler=%d\n", s->active, s->volume, s->audio_enabled,
-         s->join_from_clipboard, s->show_fps, s->profiler);
+    EMIT("active=%d\nvolume=%.3f\naudio=%d\nclipboard=%d\nfps=%d\nprofiler=%d\nsmooth=%d\n", s->active, s->volume, s->audio_enabled,
+         s->join_from_clipboard, s->show_fps, s->profiler, s->smooth_fps);
     for (int i = 0; i < HS_PRESET_COUNT; i++)
     {
         const HsPreset *p = &s->presets[i];
@@ -279,6 +282,7 @@ static inline int hs_parse(HsSettings *s, const char *text)
                 else if (!strcmp(key, "clipboard")) s->join_from_clipboard = atoi(value);
                 else if (!strcmp(key, "fps")) s->show_fps = atoi(value);
                 else if (!strcmp(key, "profiler")) s->profiler = atoi(value);
+                else if (!strcmp(key, "smooth")) s->smooth_fps = atoi(value);
                 else if (key[0] == 'p' && key[1] >= '0' && key[1] < '0' + HS_PRESET_COUNT && key[2] == '.')
                 {
                     HsPreset *p = &s->presets[key[1] - '0'];

@@ -51,7 +51,8 @@ static inline int halo_log_category(const char *line)
         return HALO_LOG_NOISE;
     if (halo_log_contains(line, "ERROR") || halo_log_contains(line, "BLOCKED") || halo_log_contains(line, "STOPPED") ||
         halo_log_contains_nocase(line, "failed") || halo_log_contains_nocase(line, "cannot ") ||
-        halo_log_contains_nocase(line, "unable to"))
+        halo_log_contains_nocase(line, "unable to") || halo_log_contains_nocase(line, "could not") ||
+        halo_log_contains_nocase(line, "would not"))
         return HALO_LOG_ERROR;
     if (halo_log_contains(line, "WARNING") || halo_log_contains_nocase(line, "unexpectedly") ||
         halo_log_contains_nocase(line, "invalid"))

@@ -219,6 +219,23 @@
 
     [self addSection:@"Multiplayer"];
     [self addNote:@"Host from Multiplayer → System Link. The invite link is copied for you; send it to friends. Opening it on their device (or tapping Join below) puts them in your game. Works across iPhone, iPad, Android, Windows and Linux."];
+    UITextField *paste = [[UITextField alloc] init];
+    paste.placeholder = @"Paste an invite link here (halo://join/…)";
+    paste.textColor = UIColor.whiteColor;
+    paste.backgroundColor = [UIColor colorWithWhite:0.14 alpha:1];
+    paste.layer.cornerRadius = 10;
+    paste.leftView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 12, 10)];
+    paste.leftViewMode = UITextFieldViewModeAlways;
+    paste.clearButtonMode = UITextFieldViewModeWhileEditing;
+    paste.autocorrectionType = UITextAutocorrectionTypeNo;
+    paste.autocapitalizationType = UITextAutocapitalizationTypeNone;
+    paste.keyboardType = UIKeyboardTypeURL;
+    [paste.heightAnchor constraintEqualToConstant:44].active = YES;
+    [self.stack addArrangedSubview:paste];
+    [self addButton:@"Join this invite" enabled:YES action:^(UIButton *sender) {
+        [paste resignFirstResponder];
+        if (HaloJoinInviteText(paste.text)) [self dismissViewControllerAnimated:YES completion:nil];
+    }];
     [self addButton:@"Join invite from clipboard" enabled:YES action:^(UIButton *sender) {
         if (HaloJoinInviteFromClipboard()) [self dismissViewControllerAnimated:YES completion:nil];
     }];
@@ -232,6 +249,11 @@
     [self addSwitch:@"Join links on the clipboard automatically" value:settings.join_from_clipboard
              change:^(HsSettings *s, BOOL on) { s->join_from_clipboard = on; }];
     [self addNote:@"Off by default: reading the clipboard makes iOS ask for permission to paste. Opening a halo:// link joins without it."];
+
+    [self addSection:@"Frame rate"];
+    [self addSwitch:@"Smooth 60 FPS (the original game runs at 30)" value:settings.smooth_fps
+            change:^(HsSettings *s, BOOL on) { s->smooth_fps = on; }];
+    [self addNote:@"Takes effect the next time you open the app. Turn it off if the game stutters or the phone gets hot."];
 
     [self addSection:@"Diagnostics"];
     [self addSwitch:@"Show frame rate on screen" value:settings.show_fps change:^(HsSettings *s, BOOL on) { s->show_fps = on; }];

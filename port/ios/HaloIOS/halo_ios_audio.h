@@ -20,6 +20,8 @@ void halo_ios_audio_set_volume(float volume);
 void halo_ios_audio_resume(void);
 uint32_t halo_ios_audio_underruns(void);
 int halo_ios_audio_is_open(void);
+/* Plain-language state for the log: why sound is or is not playing. */
+const char *halo_ios_audio_status(void);
 
 #ifdef __cplusplus
 }

@@ -8,6 +8,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/select.h>
@@ -62,9 +63,26 @@
 #define GUEST_AF_INET 2
 
 static halo_net_resolver g_resolver;
+static halo_net_logger g_logger;
+static int g_logged_failures;
 static __thread int32_t g_last_error;
 
 void halo_ios_net_set_resolver(halo_net_resolver resolver) { g_resolver = resolver; }
+void halo_ios_net_set_logger(halo_net_logger logger) { g_logger = logger; }
+
+/* The first dozen failures with their errno, so the log shows why a connection or search never worked. */
+static void log_failure(const char *what, int error)
+{
+    char line[200];
+
+    if (!g_logger || g_logged_failures >= 12)
+        return;
+    g_logged_failures++;
+    snprintf(line, sizeof(line), "network (system link): %s failed: %s (errno %d)%s", what, strerror(error), error,
+             (error == EHOSTUNREACH || error == EACCES || error == EPERM || error == ENETUNREACH)
+                 ? ". LOCAL NETWORK access may be off: iOS Settings > Privacy & Security > Local Network > Halo CE" : "");
+    g_logger(line);
+}
 
 static void *resolve(uint32_t va, size_t size)
 {
@@ -223,7 +241,10 @@ int32_t halo_net_bind(int32_t s, uint32_t address, int32_t length)
         return bad_pointer();
     if (address_to_host(guest, length, &host) != 0)
         return fail();
-    return succeed(bind(s, (struct sockaddr *)&host, sizeof(host)));
+    int bound = bind(s, (struct sockaddr *)&host, sizeof(host));
+    if (bound < 0)
+        log_failure("bind", errno);
+    return succeed(bound);
 }
 
 int32_t halo_net_connect(int32_t s, uint32_t address, int32_t length)
@@ -244,6 +265,8 @@ int32_t halo_net_connect(int32_t s, uint32_t address, int32_t length)
         g_last_error = WSAEWOULDBLOCK;
         return -1;
     }
+    if (result < 0)
+        log_failure("connect", errno);
     return succeed(result);
 }
 
@@ -287,6 +310,33 @@ int32_t halo_net_send(int32_t s, uint32_t buffer, int32_t length, int32_t flags)
     return succeed((int)send(s, data, (size_t)length, send_flags(flags)));
 }
 
+int halo_net_directed_broadcasts(const struct ifaddrs *list, uint32_t *out, int capacity)
+{
+    int count = 0;
+
+    for (const struct ifaddrs *entry = list; entry && count < capacity; entry = entry->ifa_next)
+    {
+        if (!entry->ifa_addr || entry->ifa_addr->sa_family != AF_INET || !(entry->ifa_flags & IFF_UP) ||
+            (entry->ifa_flags & IFF_LOOPBACK) || !(entry->ifa_flags & IFF_BROADCAST))
+            continue;
+        uint32_t address = ((const struct sockaddr_in *)entry->ifa_addr)->sin_addr.s_addr;
+        uint32_t target = 0;
+
+        if (entry->ifa_broadaddr && entry->ifa_broadaddr->sa_family == AF_INET)
+            target = ((const struct sockaddr_in *)entry->ifa_broadaddr)->sin_addr.s_addr;
+        else if (entry->ifa_netmask)
+            target = address | ~((const struct sockaddr_in *)entry->ifa_netmask)->sin_addr.s_addr;
+        if (!target || target == htonl(INADDR_BROADCAST))
+            continue;
+        int duplicate = 0;
+        for (int i = 0; i < count; i++)
+            duplicate |= out[i] == target;
+        if (!duplicate)
+            out[count++] = target;
+    }
+    return count;
+}
+
 int32_t halo_net_sendto(int32_t s, uint32_t buffer, int32_t length, int32_t flags, uint32_t address, int32_t address_length)
 {
     const void *data = resolve(buffer, (size_t)(length > 0 ? length : 1));
@@ -297,7 +347,47 @@ int32_t halo_net_sendto(int32_t s, uint32_t buffer, int32_t length, int32_t flag
         return bad_pointer();
     if (address_to_host(guest, address_length, &host) != 0)
         return fail();
-    return succeed((int)sendto(s, data, (size_t)length, send_flags(flags), (struct sockaddr *)&host, sizeof(host)));
+    /* The system link search goes to 255.255.255.255. iOS often refuses that from a socket that is
+       not tied to an interface, so it also goes to each network's own broadcast address (for
+       example 192.168.1.255), which is what reaches the other players on the Wi-Fi. */
+    if (host.sin_addr.s_addr == htonl(INADDR_BROADCAST))
+    {
+        struct ifaddrs *interfaces = NULL;
+        uint32_t targets[8];
+        int count = 0, delivered = 0, last_errno = 0;
+
+        if (getifaddrs(&interfaces) == 0)
+        {
+            count = halo_net_directed_broadcasts(interfaces, targets, 8);
+            freeifaddrs(interfaces);
+        }
+        for (int i = 0; i < count; i++)
+        {
+            struct sockaddr_in directed = host;
+
+            directed.sin_addr.s_addr = targets[i];
+            if (sendto(s, data, (size_t)length, send_flags(flags), (struct sockaddr *)&directed, sizeof(directed)) >= 0)
+                delivered++;
+            else
+                last_errno = errno;
+        }
+        if (sendto(s, data, (size_t)length, send_flags(flags), (struct sockaddr *)&host, sizeof(host)) >= 0)
+            delivered++;
+        else if (!last_errno)
+            last_errno = errno;
+        if (delivered)
+        {
+            g_last_error = 0;
+            return length;
+        }
+        errno = last_errno ? last_errno : ENETUNREACH;
+        log_failure("broadcast search", errno);
+        return fail();
+    }
+    int result = (int)sendto(s, data, (size_t)length, send_flags(flags), (struct sockaddr *)&host, sizeof(host));
+    if (result < 0)
+        log_failure("sendto", errno);
+    return succeed(result);
 }
 
 int32_t halo_net_recv(int32_t s, uint32_t buffer, int32_t length, int32_t flags)

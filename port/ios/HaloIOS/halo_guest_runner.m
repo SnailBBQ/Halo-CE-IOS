@@ -26,6 +26,8 @@
 #include "halo_sdl_events.h"
 #include "halo_ios_audio.h"
 #include "halo_ios_platform.h"
+#include "halo_hash_native.h"
+#import "HaloSettingsStore.h"
 #include <string.h>
 #include <strings.h>
 #include <zlib.h>
@@ -662,7 +664,9 @@ static void ios_silent_advance(uint32_t packet_va)
 }
 static int ios_audio_open(uint32_t rate, uint32_t channels)
 {
-    return halo_ios_audio_open(rate, channels);
+    int ok = halo_ios_audio_open(rate, channels);
+    say("audio: %s (%u Hz, %u channels) - %s", ok ? "output opened" : "could not open output", rate, channels, halo_ios_audio_status());
+    return ok;
 }
 static uint32_t ios_audio_fill(void)
 {
@@ -1045,9 +1049,7 @@ static uint32_t ios_texture_hash(uint32_t source, uint32_t size)
 {
     const unsigned char *bytes = gp(source, size);
     if (!bytes) return 1;
-    uint32_t hash = 2166136261u;
-    for (uint32_t i = 0; i < size; ++i) hash = (hash ^ bytes[i]) * 16777619u;
-    return hash ? hash : 1;
+    return halo_hash_bytes(bytes, size);
 }
 
 static int ios_cache_inflate_init(uint32_t va)
@@ -2238,6 +2240,12 @@ static int ios_posix_command_line(int index,uint32_t buffer_va,uint32_t size)
 static uint32_t ios_posix_process_id(void){return (uint32_t)getpid();}
 static int ios_posix_register_url(uint32_t s,uint32_t d){(void)s;(void)d;return 0;}
 static void *ios_net_resolver(uint32_t va, size_t size) { return gp(va, size); }
+static void ios_net_log(const char *line)
+{
+    say("%s", line);
+    if (strstr(line, "LOCAL NETWORK"))
+        halo_ios_toast("Local Network access is off for Halo CE - turn it on in iOS Settings");
+}
 static int ios_posix_socket_last_error(void){return halo_net_last_error();}
 static int ios_posix_minus_one(void){return -1;}
 static int ios_posix_zero_int(void){return 0;}
@@ -2640,15 +2648,19 @@ static uint32_t build_boot(void)
     snprintf(data,sizeof(data),"HALO_DATA_ROOT=%s",g_data_root.fileSystemRepresentation);
     snprintf(save,sizeof(save),"HALO_SAVE_ROOT=%s",g_save_root.fileSystemRepresentation);
 
+    /* Sound and internet play are on (they used to be switched off here, which is why neither worked).
+       Smooth 60 FPS is a setting; it is read once at launch. UPnP is not available on iOS. */
+    HsSettings launch_settings=[[HaloSettingsStore shared] snapshot];
+    char interpolation[40];
+    snprintf(interpolation,sizeof(interpolation),"HALO_INTERPOLATION=%s",launch_settings.smooth_fps?"true":"false");
     const char *values[]={
         data,
         save,
-        "HALO_NO_AUDIO=1",
         "HALO_GPU_STATS=1",
-        "HALO_NET_ONLINE=false",
+        "HALO_NET_ONLINE=true",
         "HALO_NET_ALLOW_UPNP=false",
         "HALO_UPDATE_AUTO=false",
-        "HALO_INTERPOLATION=false",
+        interpolation,
         "HOME=/tmp",
         "TZ=UTC0",
         NULL
@@ -2810,11 +2822,12 @@ static void *main_guest_thread(void *opaque)
         g_guest_tp = g_main_thread_va;
 
     halo_ios_net_set_resolver(ios_net_resolver);
+    halo_ios_net_set_logger(ios_net_log);
     signal(SIGPIPE, SIG_IGN); /* a peer closing a socket must not kill the app */
-    say("M2.6.32: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
-    say("Performance defaults: interpolation off; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.32 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
-    say("M2.6.32 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
+    say("M2.6.33: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
+    say("Performance defaults: smooth 60 FPS follows the Settings switch; draw tracing and GL polling follow config.toml (off by default).");
+    say("M2.6.33 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.33 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
         g_header ? g_header->start : 0u,
         context.boot_va,
         halo_guest_base_is_4gb_aligned() ? "YES" : "NO");
@@ -2836,7 +2849,7 @@ static void *main_guest_thread(void *opaque)
         halo_guest_exec_guard_set_active(0);
         halo_guest_exec_stats st;
         halo_guest_exec_stats_get(&st);
-        say("M2.6.32 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
+        say("M2.6.33 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
             reason,
             (unsigned long long)st.pointer_upgrades,
             (unsigned long long)st.handled_faults,
@@ -2996,7 +3009,7 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                 }
                 report_profile();
                 say("audio: %s; %u buffer underruns so far (an underrun is a tiny gap in the sound)",
-                    halo_ios_audio_is_open() ? "playing through the speaker" : "not playing (off or unavailable)", halo_ios_audio_underruns());
+                    halo_ios_audio_is_open() ? "playing through the speaker" : halo_ios_audio_status(), halo_ios_audio_underruns());
                 say("native bulk memory: %llu calls, %llu MiB total",
                     (unsigned long long)atomic_load(&g_bulk_calls),
                     (unsigned long long)(atomic_load(&g_bulk_bytes) / (1024 * 1024)));

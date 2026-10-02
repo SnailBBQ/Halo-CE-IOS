@@ -9,6 +9,13 @@ static AVAudioEngine *g_engine;
 static AVAudioSourceNode *g_source;
 static BOOL g_opened;
 static dispatch_once_t g_observers_once;
+static char g_status[200] = "the game has not asked for sound yet";
+
+static void HaloSetStatus(NSString *text, NSError *error)
+{
+    NSString *full = error ? [NSString stringWithFormat:@"%@: %@ (code %ld)", text, error.localizedDescription, (long)error.code] : text;
+    snprintf(g_status, sizeof(g_status), "%s", full.UTF8String);
+}
 
 static void HaloStartEngine(void)
 {
@@ -32,7 +39,7 @@ int halo_ios_audio_open(uint32_t sample_rate, uint32_t channels)
         AVAudioSession *session = [AVAudioSession sharedInstance];
         /* A game: plays with the ring/silent switch on, like the original console. */
         if (![session setCategory:AVAudioSessionCategoryPlayback error:&error]) {
-            NSLog(@"[HaloIOS-Audio] category failed: %@", error);
+            HaloSetStatus(@"audio session category failed", error);
             return;
         }
         [session setPreferredIOBufferDuration:0.010 error:nil];
@@ -66,8 +73,11 @@ int halo_ios_audio_open(uint32_t sample_rate, uint32_t channels)
             }];
         [g_engine attachNode:g_source];
         [g_engine connect:g_source to:g_engine.mainMixerNode format:format];
+        [session setActive:YES error:&error];
+        if (error) HaloSetStatus(@"audio session would not activate", error);
+        error = nil;
         if (![g_engine startAndReturnError:&error]) {
-            NSLog(@"[HaloIOS-Audio] engine start failed: %@", error);
+            HaloSetStatus(@"audio engine would not start", error);
             g_engine = nil;
             g_source = nil;
             return;
@@ -85,6 +95,7 @@ int halo_ios_audio_open(uint32_t sample_rate, uint32_t channels)
                 HaloStartEngine();
             }];
         });
+        HaloSetStatus(@"playing through the speaker", nil);
         ok = 1;
     };
     /* AVAudioEngine setup is happiest on the main thread; the guest thread waits briefly. */
@@ -126,4 +137,9 @@ uint32_t halo_ios_audio_underruns(void)
 int halo_ios_audio_is_open(void)
 {
     return g_opened ? 1 : 0;
+}
+
+const char *halo_ios_audio_status(void)
+{
+    return g_status;
 }

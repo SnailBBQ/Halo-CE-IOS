@@ -3,6 +3,7 @@
  * guest memory stands in for the arena; guest addresses are offsets into it. */
 #define _GNU_SOURCE
 #include "../../port/ios/HaloIOS/halo_ios_net.c"
+#include <ifaddrs.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -110,6 +111,38 @@ int main(void)
     CHECK(halo_net_bind(a, ADDR, 16) == -1 && halo_net_last_error() == 10047, "AF_INET6 gives WSAEAFNOSUPPORT, got %d", halo_net_last_error());
     CHECK(halo_net_bind(a, 0xfffffff0u, 16) == -1 && halo_net_last_error() == 10014, "bad guest pointer gives WSAEFAULT");
     CHECK(halo_net_close(9999) == -1 && halo_net_last_error() == 10009, "bad descriptor gives WSAEBADF");
+
+    /* directed broadcast addresses from an interface list (what the search is sent to on iOS) */
+    {
+        struct sockaddr_in addr[4], mask[4], broad[4];
+        struct ifaddrs chain[4];
+        uint32_t out[8];
+        memset(addr, 0, sizeof addr); memset(mask, 0, sizeof mask); memset(broad, 0, sizeof broad); memset(chain, 0, sizeof chain);
+        for (int i = 0; i < 4; i++) { addr[i].sin_family = mask[i].sin_family = broad[i].sin_family = AF_INET; chain[i].ifa_addr = (struct sockaddr *)&addr[i]; chain[i].ifa_netmask = (struct sockaddr *)&mask[i]; chain[i].ifa_next = i < 3 ? &chain[i + 1] : NULL; }
+        /* 0: Wi-Fi 192.168.1.20/24 with a broadcast address; 1: loopback; 2: cellular, down; 3: another /16 without one */
+        addr[0].sin_addr.s_addr = htonl(0xC0A80114); mask[0].sin_addr.s_addr = htonl(0xFFFFFF00); broad[0].sin_addr.s_addr = htonl(0xC0A801FF);
+        chain[0].ifa_flags = IFF_UP | IFF_BROADCAST; chain[0].ifa_broadaddr = (struct sockaddr *)&broad[0];
+        addr[1].sin_addr.s_addr = htonl(0x7F000001); chain[1].ifa_flags = IFF_UP | IFF_LOOPBACK;
+        addr[2].sin_addr.s_addr = htonl(0x0A000005); chain[2].ifa_flags = IFF_BROADCAST;
+        addr[3].sin_addr.s_addr = htonl(0xAC100505); mask[3].sin_addr.s_addr = htonl(0xFFFF0000); chain[3].ifa_flags = IFF_UP | IFF_BROADCAST;
+        int n = halo_net_directed_broadcasts(chain, out, 8);
+        CHECK(n == 2 && out[0] == htonl(0xC0A801FF) && out[1] == htonl(0xAC10FFFF), "directed broadcasts: %d (%08x %08x)", n, ntohl(out[0]), ntohl(out[1]));
+        chain[3].ifa_flags = 0;
+        CHECK(halo_net_directed_broadcasts(chain, out, 8) == 1, "an interface that is down is skipped");
+        CHECK(halo_net_directed_broadcasts(NULL, out, 8) == 0 && halo_net_directed_broadcasts(chain, out, 0) == 0, "empty list and zero capacity");
+    }
+    /* the limited broadcast never fails the game outright when loopback is all the machine has */
+    {
+        int udp = halo_net_socket(2, 2, 17);
+        set_i32(OPT, 1);
+        halo_net_setsockopt(udp, 0xffff, 0x0020, OPT, 4); /* SO_BROADCAST through Winsock numbers */
+        put_addr(ADDR, 0xFFFFFFFF, 5150);
+        memcpy(memory + DATA, "x", 1);
+        int sent = halo_net_sendto(udp, DATA, 1, 0, ADDR, 16);
+        CHECK(sent == 1 || sent == -1, "broadcast send returns a result without crashing (%d)", sent);
+        if (sent == -1) CHECK(halo_net_last_error() != 0, "a failed broadcast reports a Winsock error");
+        halo_net_close(udp);
+    }
 
     /* names and the local address */
     strcpy((char *)memory + NAME, "127.0.0.1");

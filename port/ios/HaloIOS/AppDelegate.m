@@ -167,22 +167,26 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
         });
     });
 }
-- (void)shareLogs:(UIButton *)sender {
+- (void)shareLogs:(UIView *)sender {
     NSMutableArray<NSURL *> *files = [NSMutableArray array];
     for (NSString *name in @[@"ios-boot.log", @"debug.txt", @"gamestate.txt"]) {
         NSString *path = [[self haloFolder] stringByAppendingPathComponent:name];
         if ([[NSFileManager defaultManager] fileExistsAtPath:path]) [files addObject:[NSURL fileURLWithPath:path]];
     }
+    /* Present from whatever is on top. The log and settings screens cover the root view controller,
+       and UIKit silently ignores a presentation from a controller that is not on top. */
+    UIViewController *presenter = [self topPresenter];
     if (!files.count) {
         UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"No logs yet" message:@"Logs will be available after Halo starts." preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-        [self.window.rootViewController presentViewController:alert animated:YES completion:nil];
+        [presenter presentViewController:alert animated:YES completion:nil];
         return;
     }
     UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:files applicationActivities:nil];
-    share.popoverPresentationController.sourceView = sender;
-    share.popoverPresentationController.sourceRect = sender.bounds;
-    [self.window.rootViewController presentViewController:share animated:YES completion:nil];
+    UIView *anchor = sender ?: presenter.view;
+    share.popoverPresentationController.sourceView = anchor;
+    share.popoverPresentationController.sourceRect = sender ? sender.bounds : CGRectMake(CGRectGetMidX(anchor.bounds), 40, 1, 1);
+    [presenter presentViewController:share animated:YES completion:nil];
 }
 - (void)applicationDidBecomeActive:(UIApplication *)application {
     (void)application;
@@ -252,7 +256,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     __weak AppDelegate *weakSelf = self;
     log.bootLogProvider = ^NSString *{ return weakSelf.bootText ?: @""; };
     log.gameLogProvider = ^NSString *{ return [weakSelf gameLogTail]; };
-    log.onShare = ^(UIView *source) { [weakSelf shareLogs:(UIButton *)source]; };
+    log.onShare = ^(UIView *source) { [weakSelf shareLogs:source]; };
     log.modalPresentationStyle = UIModalPresentationFullScreen;
     [(HaloControlsView *)self.menuControls releaseAll];
     [top presentViewController:log animated:YES completion:nil];
@@ -278,7 +282,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
         [controls beginEditing];
     };
     settings.onShowLog = ^{ [weakSelf showLog:nil]; };
-    settings.onShareLogs = ^(UIView *source) { [weakSelf shareLogs:(UIButton *)source]; };
+    settings.onShareLogs = ^(UIView *source) { [weakSelf shareLogs:source]; };
     settings.modalPresentationStyle = UIModalPresentationFullScreen;
     [(HaloControlsView *)self.menuControls releaseAll];
     [top presentViewController:settings animated:YES completion:nil];
@@ -318,7 +322,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"HALO iOS — M2.6.32 · add your maps";
+    title.text = @"HALO iOS — M2.6.33 · add your maps";
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:18];
 

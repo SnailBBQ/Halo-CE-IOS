@@ -44,6 +44,18 @@ NSString *HaloLastHostedInvite(void)
     return invite;
 }
 
+/* Joins the invite in `text` (typed or pasted into the settings screen by the player). */
+BOOL HaloJoinInviteText(NSString *text)
+{
+    if (!text.length || !HaloLooksLikeInvite(text)) {
+        halo_ios_toast("That is not a Halo invite link (it starts with halo://join/)");
+        return NO;
+    }
+    HaloSetPendingInvite(text);
+    halo_ios_toast("Joining the invite…");
+    return YES;
+}
+
 /* "Join from clipboard": a button press, so reading the pasteboard is expected. */
 BOOL HaloJoinInviteFromClipboard(void)
 {

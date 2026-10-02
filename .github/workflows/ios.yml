@@ -27,6 +27,7 @@ on:
       - 'tools/tests/test_ios_settings_core.c'
       - 'tools/tests/test_ios_log_classify.c'
       - 'tools/tests/test_ios_net.c'
+      - 'tools/tests/test_ios_hash.c'
       - 'tools/tests/test_ios_sdl_events.c'
       - 'tools/tests/test_ios_audio_ring.c'
       - 'tools/tests/test_ios_sdl_event_numbers.c'
@@ -79,6 +80,8 @@ jobs:
           "$RUNNER_TEMP/halo-ring-test"
           cc -std=gnu11 -Wall -Wextra -Wno-unused-function -Iport/ios/HaloIOS tools/tests/test_ios_net.c -o "$RUNNER_TEMP/halo-net-test"
           "$RUNNER_TEMP/halo-net-test"
+          cc -std=c11 -O2 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_hash.c -o "$RUNNER_TEMP/halo-hash-test"
+          "$RUNNER_TEMP/halo-hash-test"
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_vertex_colors.c -o "$RUNNER_TEMP/halo-vertex-test"
           "$RUNNER_TEMP/halo-vertex-test"
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_vertex_attributes.c -o "$RUNNER_TEMP/halo-attribute-test"

@@ -14,8 +14,17 @@
 #include <stddef.h>
 #include <stdint.h>
 
+struct ifaddrs;
+
 typedef void *(*halo_net_resolver)(uint32_t guest_va, size_t size);
 void halo_ios_net_set_resolver(halo_net_resolver resolver);
+
+/* Diagnostics for the boot log (first failures only, so a retrying game cannot flood it). */
+typedef void (*halo_net_logger)(const char *line);
+void halo_ios_net_set_logger(halo_net_logger logger);
+
+/* The directed broadcast address (network byte order) of every up, non-loopback interface in `list`. */
+int halo_net_directed_broadcasts(const struct ifaddrs *list, uint32_t *out, int capacity);
 
 int32_t halo_net_last_error(void);
 int32_t halo_net_socket(int32_t family, int32_t type, int32_t protocol);

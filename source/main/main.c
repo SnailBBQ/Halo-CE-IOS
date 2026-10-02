@@ -2509,14 +2509,21 @@ void main_rasterizer_throttle(
 		{
 			start_milliseconds = system_milliseconds();
 			precache_in_progress = cache_files_precache_in_progress();
+			(void)precache_in_progress;
 			did_throttle = TRUE;
 			profile_idle_start();
 			while ((__int64)rasterizer_globals.frame_and_vertical_blank_index < target_index)
 			{
+#ifdef HALO_LINUX
+				/* waiting for the next frame: sleep, never spin. The spin kept a core at 100% (the iPhone
+				profile showed 97% of the game thread in clock reads), which heats the phone until it slows down. */
+				Sleep(1);
+#else
 				if (precache_in_progress)
 				{
 					Sleep(1);
 				}
+#endif
 				if (system_milliseconds() > start_milliseconds + 1000)
 				{
 					console_warning(

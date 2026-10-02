@@ -25,6 +25,8 @@ void halo_ios_toast(const char *text);
 void HaloSetPendingInvite(NSString *invite);
 /* The invite this copy of the game is hosting, or nil. */
 NSString *HaloLastHostedInvite(void);
+/* Joins an invite typed or pasted by the player; NO (and a message) if it is not an invite. */
+BOOL HaloJoinInviteText(NSString *text);
 /* Reads the pasteboard (a deliberate button press) and joins an invite found there. */
 BOOL HaloJoinInviteFromClipboard(void);
 #endif
