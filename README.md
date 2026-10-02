@@ -12,7 +12,7 @@ That project is a fork of [punpckhdq/halo](https://github.com/punpckhdq/halo).
 
 ## iOS development status
 
-**M2.6.21 confirms menu, intro and initial campaign gameplay on the test iPhone.** Menu presentation is generally 6.5–7.3 FPS; tutorial gameplay is around 0.38–0.48 FPS. **M2.6.22 device logs show about 0.38 FPS in tutorial gameplay. M2.6.23 awaits device testing:** it moves vertex-attribute state comparisons and GL setup into the native host. The working pointer bridge is retained and the assembly experiment remains disabled. Audio remains muted; full movement/aim controls and multiplayer are pending.
+**M2.6.30 adds a build-time arena fast path to remove pointer-fault overhead and awaits device testing (see [details](port/ios/ARENA_FASTPATH_M2630.md)).** **M2.6.21 confirmed menu, intro and initial campaign gameplay on the test iPhone.** Menu presentation is generally 6.5–7.3 FPS; tutorial gameplay is around 0.38–0.48 FPS. **M2.6.22 device logs show about 0.38 FPS in tutorial gameplay. M2.6.23 awaits device testing:** it moves vertex-attribute state comparisons and GL setup into the native host. The working pointer bridge is retained and the assembly experiment remains disabled. Audio remains muted; full movement/aim controls and multiplayer are pending.
 
 See [iOS port status](IOS_PORT_STATUS.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
 

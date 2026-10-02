@@ -16,13 +16,28 @@ assert '--ios-pointer-fastpath' not in wf, 'shipping workflow must not activate 
 body=wf.split("python3 - <<'PY'\n",1)[1].split('\n          PY',1)[0]
 body='\n'.join(line[10:] for line in body.splitlines())
 temporary=tempfile.TemporaryDirectory();scratch=Path(temporary.name)
+import os
 for text in [generated,generated.replace('\n','\r\n')]:
-    (scratch/'build.ninja').write_bytes((text+'\n-DHALO_ANDROID=1\nld.lld -m aarch64linux -static\ntools/android_gl_stubs.py\n').encode())
-    subprocess.run([sys.executable,'-c',body],cwd=scratch,check=True)
-    patched=(scratch/'build.ninja').read_text()
-    assert 'tools/android_asm_convert.py $out.darwin.s $out.s' in patched
-    assert '--ios-pointer-fastpath' not in patched
-    assert '--wrap=memcpy --wrap=memmove --wrap=memset' in patched
-    assert '-DHALO_ANDROID=1 -DHALO_IOS_GUEST=1' in patched
-    assert '$\n' not in patched
-print('PASS: real android_guest_cc command emitted by repository Ninja writer, LF/CRLF continuation matching and full workflow transformation')
+    for mode in ['true','false']:
+        (scratch/'build.ninja').write_bytes((text+'\n-DHALO_ANDROID=1\n--target=arm64_32-apple-watchos\nld.lld -m aarch64linux -static\ntools/android_gl_stubs.py\n').encode())
+        subprocess.run([sys.executable,'-c',body],cwd=scratch,check=True,env={**os.environ,'ARENA_FASTPATH':mode})
+        patched=(scratch/'build.ninja').read_text()
+        assert '--ios-pointer-fastpath' not in patched
+        assert '--wrap=memcpy --wrap=memmove --wrap=memset' in patched
+        assert '-DHALO_ANDROID=1 -DHALO_IOS_GUEST=1' in patched
+        assert '$\n' not in patched
+        if mode=='true':
+            assert 'tools/android_asm_convert.py --ios-arena-fastpath $out.darwin.s $out.s' in patched
+            assert '--target=arm64_32-apple-watchos -ffixed-x15' in patched
+        else:
+            assert 'tools/android_asm_convert.py $out.darwin.s $out.s' in patched
+            assert '--ios-arena-fastpath' not in patched and 'ffixed-x15' not in patched
+# the default (variable unset) must also enable the rewrite
+env={k:v for k,v in os.environ.items() if k!='ARENA_FASTPATH'}
+(scratch/'build.ninja').write_bytes((generated+'\n-DHALO_ANDROID=1\n--target=arm64_32-apple-watchos\nld.lld -m aarch64linux -static\ntools/android_gl_stubs.py\n').encode())
+subprocess.run([sys.executable,'-c',body],cwd=scratch,check=True,env=env)
+assert '--ios-arena-fastpath' in (scratch/'build.ninja').read_text()
+# an unrecognised guest target must fail loudly instead of silently dropping -ffixed-x15
+(scratch/'build.ninja').write_bytes((generated+'\n-DHALO_ANDROID=1\nld.lld -m aarch64linux -static\ntools/android_gl_stubs.py\n').encode())
+assert subprocess.run([sys.executable,'-c',body],cwd=scratch,env=env,capture_output=True).returncode!=0
+print('PASS: real android_guest_cc command emitted by repository Ninja writer, LF/CRLF continuation matching and full workflow transformation (arena fast path on/off/default/missing target)')

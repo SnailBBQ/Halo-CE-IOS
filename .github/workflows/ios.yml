@@ -3,6 +3,11 @@ run-name: Halo CE iOS — ${{ github.ref_name }} (run ${{ github.run_number }})
 
 on:
   workflow_dispatch:
+    inputs:
+      arena_fastpath:
+        description: 'Rewrite guest loads/stores to avoid pointer faults (set false for an A/B baseline build)'
+        type: boolean
+        default: true
   push:
     paths:
       - 'port/ios/**'
@@ -16,6 +21,7 @@ on:
       - 'tools/android_build.py'
       - 'tools/android_asm_convert.py'
       - 'tools/tests/test_ios_pointer_fastpath.py'
+      - 'tools/tests/test_ios_arena_fastpath.py'
       - 'tools/tests/test_ios_workflow_configuration.py'
       - 'tools/tests/test_ios_vertex_colors.c'
       - 'tools/tests/test_ios_vertex_attributes.c'
@@ -50,6 +56,7 @@ jobs:
         run: |
           set -euxo pipefail
           python3 tools/tests/test_ios_workflow_configuration.py
+          python3 tools/tests/test_ios_arena_fastpath.py
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_vertex_colors.c -o "$RUNNER_TEMP/halo-vertex-test"
           "$RUNNER_TEMP/halo-vertex-test"
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_vertex_attributes.c -o "$RUNNER_TEMP/halo-attribute-test"
@@ -71,6 +78,8 @@ jobs:
           key: ios-guest-third-party-${{ hashFiles('tools/android_build.py', 'tools/ios_gl_stubs.py') }}
 
       - name: Configure recovered arm64_32 guest
+        env:
+          ARENA_FASTPATH: ${{ github.event.inputs.arena_fastpath || 'true' }}
         run: |
           set -euxo pipefail
           python3 configure.py --pgo=off
@@ -86,6 +95,15 @@ jobs:
           if "-DHALO_ANDROID=1" not in s:
               raise SystemExit("guest compile flags not found in build.ninja")
           s = s.replace("-DHALO_ANDROID=1", "-DHALO_ANDROID=1 -DHALO_IOS_GUEST=1")
+          import os
+          if os.environ.get("ARENA_FASTPATH", "true").lower() != "false":
+              converter = "tools/android_asm_convert.py $out.darwin.s $out.s"
+              target = "--target=arm64_32-apple-watchos"
+              if converter not in s or target not in s:
+                  raise SystemExit("converter invocation or guest target not found in build.ninja")
+              # x15 is the rewrite's scratch register and must never be live in compiled code.
+              s = s.replace(converter, "tools/android_asm_convert.py --ios-arena-fastpath $out.darwin.s $out.s")
+              s = s.replace(target, target + " -ffixed-x15")
           linker = "ld.lld -m aarch64linux -static"
           if linker not in s:
               raise SystemExit("guest link rule not found in build.ninja")

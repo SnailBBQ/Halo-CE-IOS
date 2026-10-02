@@ -9,7 +9,7 @@ symbol decoration and relocation operators are Darwin-specific. This script
 rewrites them for the ELF assembler, so the objects can be linked by ld.lld
 into an image that the Android loader maps into the low 4 GB of the process.
 
-Usage: android_asm_convert.py [--ios-pointer-fastpath] input.s output.s
+Usage: android_asm_convert.py [--ios-pointer-fastpath] [--ios-arena-fastpath] input.s output.s
 """
 
 import re
@@ -297,11 +297,194 @@ def ios_pointer_fastpath(assembly: str, input_path: str) -> str:
     return '\n'.join(out) + '\n'
 
 
+# ---------------------------------------------------------------------------
+# iOS arena fast path (M2.6.30)
+#
+# Guest code always executes at arena + VA (the signal bridge redirects any
+# low-VA fetch there and the host enters the guest through halo_guest_ptr), and
+# the arena is exactly 4-GiB aligned. Every guest pointer is therefore either a
+# zero-extended 32-bit VA (which faults in PAGEZERO) or already an arena
+# address. Both give the same host address as
+#
+#     (pc & 0xffffffff00000000) + zero_extend(low32(base))
+#
+# so a load/store can be made fault-free with three flag-free ALU instructions
+# and one scratch register, without touching the original base register:
+#
+#     adr  x15, .
+#     and  x15, x15, #0xffffffff00000000
+#     add  x15, x15, wN, uxtw
+#     ldr  w0, [x15, <original offset>]
+#
+# x15 must never be live in the instrumented code: the guest build reserves it
+# (-ffixed-x15) and this pass refuses to touch any object whose assembly names
+# x15/w15 anywhere. Sites it does not understand are left alone and keep using
+# the signal bridge, so a missed site costs speed, never correctness.
+# ---------------------------------------------------------------------------
+
+ARENA_SCRATCH = 15
+ARENA_MASK = '0xffffffff00000000'
+ARENA_SKIP_PATHS = ('/port/android/guest/',)
+ARENA_MEM_OPS = (r'ldrsb|ldrsh|ldrsw|ldrb|ldrh|ldr|ldursb|ldursh|ldursw|ldurb|ldurh|ldur|'
+                 r'ldpsw|ldnp|ldp|strb|strh|str|sturb|sturh|stur|stnp|stp')
+ARENA_MEM_RE = re.compile(
+    r'^(?P<ind>\s*)(?P<op>' + ARENA_MEM_OPS + r')\s+(?P<regs>[^\[\]]+?)\s*,\s*'
+    r'\[\s*x(?P<rn>\d+)\s*(?:,\s*(?P<off>[^\]]*?))?\s*\](?P<wb>!)?'
+    r'(?:\s*,\s*(?P<post>#\s*-?(?:0x[0-9a-fA-F]+|\d+)))?\s*$')
+ARENA_IMM_RE = re.compile(r'^#\s*(-?(?:0x[0-9a-fA-F]+|\d+))$')
+ARENA_REGOFF_RE = re.compile(
+    r'^(?P<r>[xw])(?P<n>\d+)\s*(?:,\s*(?P<ext>[a-z]+)\s*(?:#\s*(?P<amt>\d+))?)?$')
+ARENA_BLR_RE = re.compile(r'^(?P<ind>\s*)blr\s+x(?P<rn>\d+)\s*$')
+ARENA_COMPRESSED_RE = re.compile(
+    r'^\s*\.(?:byte|hword|short|2byte)\s+\(?\s*[\w.$]*?BB(?P<f>\d+)_\d+\s*-\s*[\w.$]*?BB\d+_\d+\s*\)?\s*>>\s*2')
+ARENA_BB_LABEL_RE = re.compile(r'^(?:\.L|L)?[\w.$]*?BB(\d+)_\d+$')
+
+
+def _arena_address(rn):
+    return [
+        f'\tadr x{ARENA_SCRATCH}, .',
+        f'\tand x{ARENA_SCRATCH}, x{ARENA_SCRATCH}, #{ARENA_MASK}',
+        f'\tadd x{ARENA_SCRATCH}, x{ARENA_SCRATCH}, w{rn}, uxtw',
+    ]
+
+
+def _arena_adjust(rn, imm):
+    if imm == 0:
+        return []
+    if abs(imm) > 4095:
+        return None
+    if imm > 0:
+        return [f'\tadd x{rn}, x{rn}, #{imm}']
+    return [f'\tsub x{rn}, x{rn}, #{-imm}']
+
+
+def arena_rewrite_line(line, label):
+    """Return replacement lines for one instruction, or None to keep it."""
+    m = ARENA_MEM_RE.match(line)
+    if m:
+        rn = int(m['rn'])
+        # x15 is the scratch register; x29/x30 hold stack/return addresses
+        # that are always arena-wide already.
+        if rn >= 29 or rn == ARENA_SCRATCH:
+            return None
+        off = (m['off'] or '').strip()
+        wb, post = m['wb'], m['post']
+        imm = None
+        if off:
+            im = ARENA_IMM_RE.match(off)
+            if im:
+                imm = int(im[1], 0)
+            else:
+                # Register offsets only where the roles are unambiguous: the
+                # base register is the pointer, the other one is the index.
+                ro = ARENA_REGOFF_RE.match(off)
+                if not ro or wb or post:
+                    return None
+                ext, amt = ro['ext'], ro['amt']
+                if ro['r'] == 'w':
+                    if ext not in ('uxtw', 'sxtw'):
+                        return None
+                elif not (ext == 'lsl' and amt and int(amt) > 0):
+                    return None
+        if wb and imm is None:
+            return None
+        if post and off:
+            return None
+        out = []
+        if wb:
+            adj = _arena_adjust(rn, imm)
+            if adj is None:
+                return None
+            out += adj
+            access_off = ''
+        else:
+            access_off = f', {off}' if off else ''
+        out += _arena_address(rn)
+        out.append(f"{m['ind']}{m['op']} {m['regs'].strip()}, [x{ARENA_SCRATCH}{access_off}]")
+        if post:
+            adj = _arena_adjust(rn, int(ARENA_IMM_RE.match(post.strip())[1], 0))
+            if adj is None:
+                return None
+            out += adj
+        return out
+    b = ARENA_BLR_RE.match(line)
+    if b:
+        rn = int(b['rn'])
+        if rn >= 30 or rn == ARENA_SCRATCH:
+            return None
+        s = f'x{ARENA_SCRATCH}'
+        # Wide targets (host stubs, arena addresses) are called unchanged.
+        return [
+            f'\tlsr {s}, x{rn}, #32',
+            f'\tcbnz {s}, {label}_w',
+            *_arena_address(rn),
+            f'\tblr {s}',
+            f'\tb {label}_e',
+            f'{label}_w:',
+            f'\tblr x{rn}',
+            f'{label}_e:',
+        ]
+    return None
+
+
+def ios_arena_fastpath(assembly: str, input_path: str) -> str:
+    path = '/' + input_path.replace('\\', '/').lstrip('/')
+    if any(part in path for part in ARENA_SKIP_PATHS):
+        return assembly
+    if re.search(r'\b[xw]15\b', assembly):
+        print(f'iOS arena fast path: {input_path} names x15/w15; left on the signal bridge',
+              file=sys.stderr)
+        return assembly
+    if '.Lhalo_ios_arena_' in assembly:
+        raise ConvertError('iOS arena fast-path label collision')
+    lines = assembly.splitlines()
+    # Compressed (.byte/.hword) jump tables store (target-anchor)>>2 in a fixed
+    # width, and the inserted instructions could overflow it. Leave those
+    # functions untouched; functions are identified by their BB<n>_ numbering.
+    unsafe = set()
+    for line in lines:
+        cm = ARENA_COMPRESSED_RE.match(line)
+        if cm:
+            unsafe.add(int(cm['f']))
+    out, sites, blr_sites, skipping = [], 0, 0, False
+    for line in lines:
+        label_match = re.match(r'^([A-Za-z_.$][\w.$]*):\s*$', line)
+        if label_match:
+            name = label_match.group(1)
+            bb = ARENA_BB_LABEL_RE.match(name)
+            if bb:
+                skipping = int(bb.group(1)) in unsafe
+            elif not name.startswith(('.L', 'L')):
+                skipping = False  # a new function symbol
+        if skipping:
+            out.append(line)
+            continue
+        replacement = arena_rewrite_line(line, f'.Lhalo_ios_arena_{sites + blr_sites}')
+        if replacement is None:
+            out.append(line)
+            continue
+        if ARENA_BLR_RE.match(line):
+            blr_sites += 1
+        else:
+            sites += 1
+        out.extend(replacement)
+    print(f'iOS arena fast path: {sites} memory sites, {blr_sites} indirect calls in {input_path}')
+    return '\n'.join(out) + '\n'
+
+
 def main():
     args = sys.argv[1:]
-    ios_fastpath = bool(args and args[0] == '--ios-pointer-fastpath')
-    if ios_fastpath:
-        args = args[1:]
+    ios_fastpath = False
+    ios_arena = False
+    while args and args[0].startswith("--"):
+        flag = args.pop(0)
+        if flag == "--ios-pointer-fastpath":
+            ios_fastpath = True
+        elif flag == "--ios-arena-fastpath":
+            ios_arena = True
+        else:
+            print(__doc__)
+            sys.exit(2)
     if len(args) != 2:
         print(__doc__)
         sys.exit(2)
@@ -311,6 +494,8 @@ def main():
         result = Converter(lines).run()
         if ios_fastpath:
             result = ios_pointer_fastpath(result, args[0])
+        if ios_arena:
+            result = ios_arena_fastpath(result, args[0])
     except ConvertError as e:
         print(f"{args[0]}: {e}", file=sys.stderr)
         sys.exit(1)
