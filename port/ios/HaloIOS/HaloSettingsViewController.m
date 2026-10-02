@@ -1,6 +1,7 @@
 #import "HaloSettingsViewController.h"
 #import "HaloSettingsStore.h"
 #import "halo_ios_platform.h"
+#import "halo_guest_runner.h"
 
 @interface HaloSettingsViewController ()
 @property(nonatomic, strong) UIScrollView *scroll;
@@ -264,6 +265,13 @@
     [self addSwitch:@"Show frame rate on screen" value:settings.show_fps change:^(HsSettings *s, BOOL on) { s->show_fps = on; }];
     [self addSwitch:@"Performance profiler (adds a Where the time goes report to the log)" value:settings.profiler
              change:^(HsSettings *s, BOOL on) { s->profiler = on; }];
+    if (halo_ios_safe_level()) {
+        [self addNote:@"Safe start is on: the last start did not finish, so sound, internet play, smooth 60 FPS, hi-res HUD and text and the profiler are off for now. A start that runs for 15 seconds turns it off by itself."];
+        [self addButton:@"Leave safe mode (next start is normal)" enabled:YES action:^(UIButton *sender) {
+            halo_ios_leave_safe_mode();
+            halo_ios_toast("The next start will be a normal one");
+        }];
+    }
     [self addButton:@"View log…" enabled:YES action:^(UIButton *sender) {
         void (^go)(void) = self.onShowLog;
         [self dismissViewControllerAnimated:YES completion:^{ if (go) go(); }];

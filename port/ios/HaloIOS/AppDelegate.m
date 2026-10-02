@@ -8,6 +8,8 @@
 #import "HaloSettingsStore.h"
 #import "halo_ios_audio.h"
 #import "halo_ios_platform.h"
+#import "halo_crash_report.h"
+#import "halo_launch_state.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 extern NSString * const HaloIOSFirstFramePresentedNotification;
@@ -99,6 +101,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     (void)sender;
     if (self.engineStarted || self.importing || !self.foldersReady || ![self hasStartupMap]) return;
     self.engineStarted = YES;
+    halo_crash_phase("engine boot");
     self.logSource.hidden = NO;
     self.importButton.hidden = YES;
     self.startButton.hidden = YES;
@@ -169,7 +172,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 }
 - (void)shareLogs:(UIView *)sender {
     NSMutableArray<NSURL *> *files = [NSMutableArray array];
-    for (NSString *name in @[@"ios-boot.log", @"debug.txt", @"gamestate.txt"]) {
+    for (NSString *name in @[@"ios-boot.log", @"debug.txt", @"gamestate.txt", @"crash.txt", @"last-crash.txt", @"launch-phase.txt"]) {
         NSString *path = [[self haloFolder] stringByAppendingPathComponent:name];
         if ([[NSFileManager defaultManager] fileExistsAtPath:path]) [files addObject:[NSURL fileURLWithPath:path]];
     }
@@ -192,6 +195,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     (void)application;
     [self refreshSetup];
     halo_ios_audio_resume();
+    halo_ios_phase_foreground();
     halo_ios_post_focus_event(); /* lets the game look for an invite */
 }
 
@@ -306,7 +310,34 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     return YES;
 }
 
+/* Reads what the last start left behind, installs the crash reporter, and picks the start mode. */
+- (void)prepareLaunchState {
+    NSString *folder = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Halo"];
+    [[NSFileManager defaultManager] createDirectoryAtPath:folder withIntermediateDirectories:YES attributes:nil error:nil];
+    char phase[200] = "", crash[700] = "", note[300] = "";
+    BOOL hadCrash = halo_crash_read_previous(folder.fileSystemRepresentation, phase, sizeof(phase), crash, sizeof(crash)) != 0;
+    NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
+    int level = halo_launch_next_level(phase, hadCrash, (int)[defaults integerForKey:@"HaloSafeLevel"]);
+    [defaults setInteger:level forKey:@"HaloSafeLevel"];
+    halo_launch_describe(phase, hadCrash, note, sizeof(note));
+    if (hadCrash) {
+        /* keep the report where Share logs can find it (crash.txt is cleared by a good run) */
+        NSString *kept = [NSString stringWithFormat:@"last step: %s\n%s", phase, crash];
+        [kept writeToFile:[folder stringByAppendingPathComponent:@"last-crash.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    }
+    halo_ios_set_safe_level(level);
+    halo_ios_set_launch_notes(note, hadCrash ? crash : "");
+    halo_crash_install(folder.fileSystemRepresentation);   /* before the PAGEZERO bridge exists */
+    halo_crash_phase("app launched");
+}
+
+- (void)applicationDidEnterBackground:(UIApplication *)application {
+    (void)application;
+    halo_crash_phase(HALO_PHASE_BACKGROUND);
+}
+
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+    [self prepareLaunchState];
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
 
     UIViewController *vc = [HaloViewController new];
@@ -322,7 +353,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"HALO iOS — M2.6.34 · add your maps";
+    title.text = @"HALO iOS — M2.6.35 · add your maps";
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:18];
 
@@ -550,6 +581,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     } else if ([self hasStartupMap]) {
         [self startHalo:nil];
     } else {
+        halo_crash_phase("waiting for maps");
         [self refreshSetup];
     }
     return YES;

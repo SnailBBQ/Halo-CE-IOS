@@ -15,6 +15,15 @@ void halo_ios_menu_reset(void);
 /* A physical controller's whole state: SDL button bit mask and six axes. */
 void halo_ios_physical_pad_state(uint32_t buttons, const int32_t axes[6]);
 
+/* Safe start (after a start that did not finish): 1 turns off sound, internet play, smooth 60 FPS, hi-res
+ * HUD/text and the profiler. The notes are lines the log shows at the start of the run. */
+void halo_ios_set_safe_level(int level);
+int halo_ios_safe_level(void);
+void halo_ios_set_launch_notes(const char *note, const char *crash_report);
+void halo_ios_leave_safe_mode(void);
+/* Back in the foreground: re-marks a running game as running. */
+void halo_ios_phase_foreground(void);
+
 /* The sampling profiler (log reports "Where the time goes"); costs about 1% of one core. */
 void halo_ios_set_profiler_enabled(int enabled);
 

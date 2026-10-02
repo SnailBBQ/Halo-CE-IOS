@@ -54,3 +54,27 @@ function's closing brace, so with `HALO_IOS_GUEST` defined the function never cl
 cannot see that. Fixed, and `tools/tests/test_ios_source_structure.py` now checks every C file with iOS blocks in both views (same brace depth, no function
 opened inside another block) before the build starts; it fails on the broken file and passes on the fixed one. It is a structure check, not a compile: other
 mistakes could still show up as compiler errors.
+
+## M2.6.35 — start-up crash handling
+
+After the build 73 update the app stopped during the start of the guest. The boot log ends at "Launching the full recovered arm64_32 Halo guest image"
+with no error, which means a hard crash or the system ending the app; the log alone cannot say which, so this build adds three things.
+
+- **Crash report.** A handler for SIGSEGV, SIGBUS, SIGILL, SIGABRT, SIGTRAP and SIGFPE writes `crash.txt` (signal, fault address, program counter, and the last
+  start-up step) and still lets the app die normally. If the crash was in game code the next start's log names the function. Tested here by crashing a real
+  child process and reading the report back.
+- **Start-up steps.** `launch-phase.txt` records each step (app launched, engine boot, guest bridge, guest image, boot environment, guest thread, entering
+  `__guest_start`, first frame, running ok) and is flushed to disk at once, so a silent stop still shows how far it got.
+- **Safe start.** If the last start crashed or stopped during start-up, the next one turns off what can be switched off at run time and has never been proved on a
+  device: sound, internet play, smooth 60 FPS, hi-res HUD and text, and the profiler. The log says so, Settings has **Leave safe mode**, and a start that runs 15
+  seconds past its first frame returns to normal by itself. Going to the background does not count as a failed start.
+- **Share logs** now includes `crash.txt`, `last-crash.txt` and `launch-phase.txt`.
+- **Profile-guided optimisation is off by default** (the `guest_pgo` input is now false). It was the only toolchain change in M2.6.34 and had never run on a device.
+
+### Finding the cause if it still stops
+
+Run **Halo CE iOS — Build IPA** by hand (Actions → Run workflow) and change one input at a time:
+
+1. Defaults (PGO off). If this starts, PGO was the problem.
+2. `arena_fastpath` = false. If this starts, the rewrite breaks something in the build 73 code.
+3. If neither starts, the cause is in the build 73 merge or the M2.6.33 runtime changes; send `crash.txt` and `launch-phase.txt` from Share logs.

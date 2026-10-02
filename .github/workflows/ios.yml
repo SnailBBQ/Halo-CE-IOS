@@ -9,9 +9,9 @@ on:
         type: boolean
         default: true
       guest_pgo:
-        description: 'Optimise the game with the committed upstream profile (needs clang 22, installed when available; set false for an A/B baseline build)'
+        description: 'Optimise the game with the committed upstream profile (clang 22; off until it has been proved on a device: set true to try it)'
         type: boolean
-        default: true
+        default: false
   push:
     paths:
       - 'port/ios/**'
@@ -27,6 +27,7 @@ on:
       - 'tools/tests/test_ios_pointer_fastpath.py'
       - 'tools/tests/test_ios_arena_fastpath.py'
       - 'tools/tests/test_ios_source_structure.py'
+      - 'tools/tests/test_ios_launch_state.c'
       - 'source/**'
       - 'port/linux/**'
       - 'tools/tests/test_ios_controls_layout.c'
@@ -93,6 +94,8 @@ jobs:
           "$RUNNER_TEMP/halo-net-test"
           cc -std=c11 -O2 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_hash.c -o "$RUNNER_TEMP/halo-hash-test"
           "$RUNNER_TEMP/halo-hash-test"
+          cc -std=gnu11 -Wall -Wextra -Wno-unused-function -Iport/ios/HaloIOS tools/tests/test_ios_launch_state.c -o "$RUNNER_TEMP/halo-launch-test"
+          "$RUNNER_TEMP/halo-launch-test"
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_vertex_colors.c -o "$RUNNER_TEMP/halo-vertex-test"
           "$RUNNER_TEMP/halo-vertex-test"
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_vertex_attributes.c -o "$RUNNER_TEMP/halo-attribute-test"
@@ -114,7 +117,7 @@ jobs:
           key: ios-guest-third-party-${{ hashFiles('tools/android_build.py', 'tools/ios_gl_stubs.py') }}
 
       - name: Install clang 22 for profile-guided optimisation
-        if: ${{ github.event.inputs.guest_pgo != 'false' }}
+        if: ${{ github.event.inputs.guest_pgo == 'true' }}
         run: |
           # Upstream's committed profiles (pgo/) are LLVM 22 profiles; an older clang cannot read them and
           # the build then goes without. This step is allowed to fail: the build continues with the
@@ -135,11 +138,11 @@ jobs:
       - name: Configure recovered arm64_32 guest
         env:
           ARENA_FASTPATH: ${{ github.event.inputs.arena_fastpath || 'true' }}
-          GUEST_PGO: ${{ github.event.inputs.guest_pgo || 'true' }}
+          GUEST_PGO: ${{ github.event.inputs.guest_pgo || 'false' }}
         run: |
           set -euxo pipefail
           PGO=use
-          if [ "$GUEST_PGO" = "false" ]; then PGO=off; fi
+          if [ "$GUEST_PGO" != "true" ]; then PGO=off; fi
           GUEST_CC_ARGS=()
           if [ -n "${GUEST_CC:-}" ]; then GUEST_CC_ARGS=(--android-guest-cc "$GUEST_CC"); fi
           python3 configure.py --pgo="$PGO" "${GUEST_CC_ARGS[@]}"

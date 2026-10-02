@@ -207,6 +207,15 @@ static UIColor *HaloLineColor(int category, BOOL expected)
     if (!boot.count) [self appendBody:@"Waiting for the engine to start…" color:normal to:out];
     else [self appendBody:stopped ? @"The engine stopped. Open the Problems tab to see why." : @"The game engine is running." color:stopped ? bad : good to:out];
 
+    NSMutableArray<NSString *> *startNotes = [NSMutableArray array];
+    for (NSString *line in boot)
+        if ([line hasPrefix:@"previous start"] || [line hasPrefix:@"  previous crash"] || [line hasPrefix:@"SAFE START"])
+            [startNotes addObject:line];
+    if (startNotes.count) {
+        [self appendHeading:@"How the last start went" to:out];
+        for (NSString *line in startNotes) [self appendBody:line color:warn to:out];
+    }
+
     [self appendHeading:@"Speed" to:out];
     if (fps < 0) [self appendBody:@"No frame rate measured yet (it is reported every 10 seconds)." color:normal to:out];
     else {

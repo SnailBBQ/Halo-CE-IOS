@@ -35,6 +35,8 @@ int main(void)
     CAT("Internet play: the invite link is on the clipboard", HALO_LOG_NETWORK);
     CAT("audio: could not open output (48000 Hz, 2 channels) - audio engine would not start: x (code -10868)", HALO_LOG_ERROR);
     CAT("network (system link): broadcast search failed: No route to host (errno 65). LOCAL NETWORK access may be off", HALO_LOG_ERROR);
+    CAT("previous start: the app crashed (last step: guest image)", HALO_LOG_ERROR);
+    CAT("  previous crash: signal=11", HALO_LOG_ERROR);
     CAT("", HALO_LOG_INFO);
     CAT("starting main menu music", HALO_LOG_INFO);
 

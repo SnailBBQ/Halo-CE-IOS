@@ -27,6 +27,8 @@
 #include "halo_ios_audio.h"
 #include "halo_ios_platform.h"
 #include "halo_hash_native.h"
+#include "halo_crash_report.h"
+#include "halo_launch_state.h"
 #import "HaloSettingsStore.h"
 #include <string.h>
 #include <strings.h>
@@ -2617,6 +2619,59 @@ struct main_guest_context
     uint32_t boot_va;
 };
 
+/* ---------- safe start: what is switched off after a start that did not finish ---------- */
+static int g_safe_level;
+static char *g_launch_note, *g_launch_crash;
+static NSString *const kSafeLevelKey = @"HaloSafeLevel";
+
+void halo_ios_set_safe_level(int level) { g_safe_level = level; }
+int halo_ios_safe_level(void) { return g_safe_level; }
+
+void halo_ios_set_launch_notes(const char *note, const char *crash)
+{
+    free(g_launch_note); free(g_launch_crash);
+    g_launch_note = note && *note ? strdup(note) : NULL;
+    g_launch_crash = crash && *crash ? strdup(crash) : NULL;
+}
+
+/* "Leave safe mode": the next start is a normal one. */
+void halo_ios_leave_safe_mode(void)
+{
+    [[NSUserDefaults standardUserDefaults] setInteger:HALO_SAFE_NORMAL forKey:kSafeLevelKey];
+    halo_crash_phase(HALO_PHASE_EXITED);
+    g_safe_level = HALO_SAFE_NORMAL;
+}
+
+static NSString *HaloDataFolder(void)
+{
+    return [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Halo"];
+}
+
+/* The first moment the guest has presented a frame, and the moment it has run long enough to count as a good start. */
+static void note_run_progress(uint64_t presented, double now)
+{
+    static double first_frame_time;
+    static int stage;
+
+    if (stage == 0 && presented > 0) {
+        stage = 1; first_frame_time = now;
+        halo_crash_phase("first frame presented");
+    } else if (stage == 1 && now - first_frame_time >= 15.0) {
+        stage = 2;
+        halo_crash_phase(HALO_PHASE_RUNNING_OK);
+        halo_crash_clear(HaloDataFolder().fileSystemRepresentation);
+        [[NSUserDefaults standardUserDefaults] setInteger:HALO_SAFE_NORMAL forKey:kSafeLevelKey];
+        say("this start ran for 15 seconds after its first frame: it counts as a good start");
+    }
+}
+
+/* Back from the background: the phase file says which state the app is really in. */
+void halo_ios_phase_foreground(void)
+{
+    uint64_t presented = atomic_load_explicit(&g_presented_frames, memory_order_relaxed);
+    if (presented > 0 && g_guest_finished == 0) halo_crash_phase(HALO_PHASE_RUNNING_OK);
+}
+
 static uint32_t build_boot(void)
 {
     const uint32_t base=UINT32_C(0xE0000000);
@@ -2657,20 +2712,20 @@ static uint32_t build_boot(void)
     char hires_hud[32], hires_text[32];
     snprintf(hires_hud,sizeof(hires_hud),"HALO_HIGH_RES_HUD=%s",launch_settings.hires_hud?"true":"false");
     snprintf(hires_text,sizeof(hires_text),"HALO_HIGH_RES_TEXT=%s",launch_settings.hires_text?"true":"false");
-    const char *values[]={
-        data,
-        save,
-        "HALO_GPU_STATS=1",
-        "HALO_NET_ONLINE=true",
-        "HALO_NET_ALLOW_UPNP=false",
-        "HALO_UPDATE_AUTO=false",
-        interpolation,
-        hires_hud,
-        hires_text,
-        "HOME=/tmp",
-        "TZ=UTC0",
-        NULL
-    };
+    const char *values[16]; unsigned count=0;
+    values[count++]=data;
+    values[count++]=save;
+    values[count++]="HALO_GPU_STATS=1";
+    values[count++]=g_safe_level?"HALO_NET_ONLINE=false":"HALO_NET_ONLINE=true";
+    values[count++]="HALO_NET_ALLOW_UPNP=false";
+    values[count++]="HALO_UPDATE_AUTO=false";
+    values[count++]=g_safe_level?"HALO_INTERPOLATION=false":interpolation;
+    values[count++]=g_safe_level?"HALO_HIGH_RES_HUD=false":hires_hud;
+    values[count++]=g_safe_level?"HALO_HIGH_RES_TEXT=false":hires_text;
+    if(g_safe_level) values[count++]="HALO_NO_AUDIO=1";
+    values[count++]="HOME=/tmp";
+    values[count++]="TZ=UTC0";
+    values[count]=NULL;
     unsigned ec=0;
     for(;values[ec]&&ec<63;ec++){
         uint32_t va;PUT_STRING(values[ec],va);env[ec]=va;
@@ -2830,10 +2885,10 @@ static void *main_guest_thread(void *opaque)
     halo_ios_net_set_resolver(ios_net_resolver);
     halo_ios_net_set_logger(ios_net_log);
     signal(SIGPIPE, SIG_IGN); /* a peer closing a socket must not kill the app */
-    say("M2.6.34: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
+    say("M2.6.35: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
     say("Performance defaults: smooth 60 FPS follows the Settings switch; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.34 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
-    say("M2.6.34 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
+    say("M2.6.35 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.35 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
         g_header ? g_header->start : 0u,
         context.boot_va,
         halo_guest_base_is_4gb_aligned() ? "YES" : "NO");
@@ -2846,6 +2901,7 @@ static void *main_guest_thread(void *opaque)
         void (*start)(uint32_t)=(void (*)(uint32_t))halo_guest_ptr(g_header->start,1);
         say("ENTERING REAL arm64_32 __guest_start()... (PC host=%p guest VA=0x%08x)",
             (void *)start, g_header->start);
+        halo_crash_phase("guest entering __guest_start");
         start(context.boot_va);
         halo_guest_exec_guard_set_active(0);
         reason=HALO_GUEST_ABORT_HOST;
@@ -2855,7 +2911,7 @@ static void *main_guest_thread(void *opaque)
         halo_guest_exec_guard_set_active(0);
         halo_guest_exec_stats st;
         halo_guest_exec_stats_get(&st);
-        say("M2.6.34 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
+        say("M2.6.35 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
             reason,
             (unsigned long long)st.pointer_upgrades,
             (unsigned long long)st.handled_faults,
@@ -2886,6 +2942,17 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
     g_heap_next=UINT32_C(0xA0000000);
     g_thread_stack_next=UINT32_C(0xEC000000);
 
+    halo_crash_phase("guest start");
+    if (g_launch_note) say("%s", g_launch_note);
+    if (g_launch_crash) {
+        char copy[700]; snprintf(copy, sizeof(copy), "%s", g_launch_crash);
+        for (char *l = strtok(copy, "\n"); l; l = strtok(NULL, "\n")) say("  previous crash: %s", l);
+    }
+    if (g_safe_level) {
+        halo_ios_set_profiler_enabled(0);
+        say("SAFE START: sound, internet play, smooth 60 FPS, hi-res HUD and text and the profiler are off because the last start did not finish. Settings > Diagnostics > Leave safe mode returns to a normal start.");
+    }
+
     if(!halo_guest_base_is_4gb_aligned())
     {
         say("FULL GUEST BLOCKED: guest arena is not 4-GiB aligned.");
@@ -2897,6 +2964,7 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
         return 0;
     }
     halo_guest_exec_stats_reset();
+    halo_crash_phase("guest bridge installed");
 
     NSString *elf=[[NSBundle mainBundle] pathForResource:@"halo_guest" ofType:@"elf"];
     if(!elf)
@@ -2915,8 +2983,18 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
 
     if(!load_guest_image(elf))
         return 0;
+    halo_crash_phase("guest image loaded");
+    if (g_launch_crash) {
+        const char *at = strstr(g_launch_crash, "guest_pc=0x");
+        if (at) {
+            uint32_t pc = (uint32_t)strtoul(at + 9, NULL, 16), symbol_va = 0;
+            const char *symbol = symbol_name_nearest(pc, &symbol_va);
+            say("  previous crash was in game code: %s+0x%x (guest address 0x%08x)", symbol ? symbol : "unknown", symbol ? pc - symbol_va : 0, pc);
+        }
+    }
 
     uint32_t boot=build_boot();
+    halo_crash_phase("guest boot environment built");
     if(!boot)
     {
         say("FULL GUEST BLOCKED: boot environment allocation failed.");
@@ -2946,6 +3024,7 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
         return 0;
     }
     pthread_detach(thread);
+    halo_crash_phase("guest thread started");
 
     for(int i=0;i<50 && !g_guest_finished;i++)
         usleep(100000);
@@ -2968,6 +3047,7 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
         while (!g_guest_finished)
         {
             usleep(100000);
+            if (monitor_ticks % 10 == 0) note_run_progress(atomic_load_explicit(&g_presented_frames,memory_order_relaxed), loading_seconds());
             if (++monitor_ticks % 100 == 0 && !g_guest_finished)
             {
                 double frame_sample = loading_seconds();
