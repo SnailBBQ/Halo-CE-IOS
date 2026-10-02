@@ -747,9 +747,8 @@ static unsigned long palette_hash(const D3DCOLOR *palette)
 	for (index = 0; index < 256; index++)
 		hash = (hash ^ palette[index]) * 16777619UL;
 	return hash ? hash : 1;
-}
-
 #endif
+}
 
 /* an entry's GL texture and description: its high-res HUD texture's, if it has
 one, with the bitmap's own size (which its coordinates are in) */

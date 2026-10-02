@@ -46,3 +46,11 @@ so the workflow's patch points still exist in it.
 
 Nothing here has been compiled for iOS or run on a device. The first build is the CI run; a merge mistake would show as a compile error there.
 Whether the iPhone and a build 73 PC find each other has not been tested.
+
+## Fix 1 (first CI run)
+
+The first build stopped in `port/linux/src/xbox_textures.c`: in my merge, the `#endif` that closes the iOS branch of `palette_hash` had landed after the
+function's closing brace, so with `HALO_IOS_GUEST` defined the function never closed. My merge checks had only compared the non-iOS view of each file, which
+cannot see that. Fixed, and `tools/tests/test_ios_source_structure.py` now checks every C file with iOS blocks in both views (same brace depth, no function
+opened inside another block) before the build starts; it fails on the broken file and passes on the fixed one. It is a structure check, not a compile: other
+mistakes could still show up as compiler errors.

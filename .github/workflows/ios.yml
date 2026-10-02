@@ -26,6 +26,9 @@ on:
       - 'tools/android_asm_convert.py'
       - 'tools/tests/test_ios_pointer_fastpath.py'
       - 'tools/tests/test_ios_arena_fastpath.py'
+      - 'tools/tests/test_ios_source_structure.py'
+      - 'source/**'
+      - 'port/linux/**'
       - 'tools/tests/test_ios_controls_layout.c'
       - 'tools/tests/test_ios_fault_histogram.c'
       - 'tools/tests/test_ios_settings_core.c'
@@ -72,6 +75,7 @@ jobs:
         run: |
           set -euxo pipefail
           python3 tools/tests/test_ios_workflow_configuration.py
+          python3 tools/tests/test_ios_source_structure.py
           python3 tools/tests/test_ios_arena_fastpath.py
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_controls_layout.c -o "$RUNNER_TEMP/halo-controls-test" -lm
           "$RUNNER_TEMP/halo-controls-test"
