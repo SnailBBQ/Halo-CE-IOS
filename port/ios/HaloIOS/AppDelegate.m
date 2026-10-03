@@ -416,7 +416,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{NSError *error=nil;BOOL restored=HaloApplyPendingRestore(&error);if(restored)restored=HaloModsApply(&error);
         dispatch_async(dispatch_get_main_queue(),^{
             if(restored){self.restoringBackup=NO;[self finishLaunch:application options:launchOptions];if(self.deferredInvite){HaloSetPendingInvite(self.deferredInvite.absoluteString);self.deferredInvite=nil;}return;}
-            UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Restore stopped" message:error.localizedDescription preferredStyle:UIAlertControllerStyleAlert];[alert addAction:[UIAlertAction actionWithTitle:@"Close Halo" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){(void)a;halo_ios_quit_app();}]];[screen presentViewController:alert animated:YES completion:nil];
+            UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Restore stopped" message:error.localizedDescription preferredStyle:UIAlertControllerStyleAlert];[alert addAction:[UIAlertAction actionWithTitle:@"Close Halo" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){(void)a;halo_ios_quit_app();}]];if(HaloModsPending())[alert addAction:[UIAlertAction actionWithTitle:@"Manage Mods" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){(void)action;UIViewController *manager=HaloMapsController();manager.modalPresentationStyle=UIModalPresentationFullScreen;[screen presentViewController:manager animated:YES completion:nil];}]];[screen presentViewController:alert animated:YES completion:nil];
         });
     });return YES;
 }
