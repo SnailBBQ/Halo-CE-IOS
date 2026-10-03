@@ -790,6 +790,9 @@ static void biped_falling_damage(
 		TEST_FLAG(definition->biped.flags, _biped_immune_to_falling_damage_bit);
 	real falling_velocity = biped->object.translational_velocity.k;
 
+#ifdef HALO_IOS_GUEST
+	if (ios_cheat_enabled(biped_index, IOS_CHEAT_NO_FALL | IOS_CHEAT_NOCLIP)) return;
+#endif
 	if (!cheat.jetpack || biped->unit.player_index == NONE)
 	{
 		if (collision_velocity > falling_damage->runtime_minimum_damage_velocity)
@@ -1857,6 +1860,9 @@ static boolean biped_jump(
 		if (cheat.super_jump && biped->unit.player_index!=NONE)
 			jump_magnitude *= 4.f;
 
+#ifdef HALO_IOS_GUEST
+		jump_magnitude *= ios_cheat_jump_multiplier(biped_index);
+#endif
 		jump_velocity = biped->object.translational_velocity;
 		{
 			real upward_velocity =
@@ -3735,6 +3741,9 @@ static void biped_update_moving(
 						player_get(biped->unit.player_index)->speed_multiplier;
 				}
 
+#ifdef HALO_IOS_GUEST
+				body_stun_scale *= ios_cheat_speed_multiplier(biped_index);
+#endif
 				crouch = biped->biped.crouch;
 				uncrouch = 1.f - crouch;
 				stun_scale =
@@ -3918,6 +3927,27 @@ static void biped_update_moving(
 	{
 		SET_FLAG(in_flags, _biped_physics_in_climb_anything_bit, TRUE);
 	}
+#ifdef HALO_IOS_GUEST
+	/* Use the engine's existing flying/no-collision physics, without changing tags
+	 * or retaining flags on the unit. Next tick normal physics resumes when off. */
+	if (ios_cheat_enabled(biped_index, IOS_CHEAT_NOCLIP) &&
+		biped->object.parent_object_index == NONE &&
+		!TEST_FLAG(biped->object.damage_flags, _object_dead_bit) &&
+		!TEST_FLAG(biped->unit.flags, _unit_suspended_bit)) {
+		real speed = 0.12f * ios_cheat_speed_multiplier(biped_index);
+		SET_FLAG(in_flags, _biped_physics_in_no_collision_bit, TRUE);
+		SET_FLAG(in_flags, _biped_physics_in_flying_bit, TRUE);
+		physics.forward = physics.aiming;
+		physics.existing_support_surface_index = NONE;
+		physics.movement_penalty = 0.f;
+		physics.acceleration_maximum = 0.04f;
+		physics.movement_desired.i = biped->unit.throttle.i * speed;
+		physics.movement_desired.j = biped->unit.throttle.j * speed;
+		physics.movement_desired.k =
+			(TEST_FLAG(biped->unit.control_flags, _unit_control_jump_bit) ? speed : 0.f) -
+			(TEST_FLAG(biped->unit.control_flags, _unit_control_crouch_modifier_bit) ? speed : 0.f);
+	}
+#endif
 	physics.in_flags = in_flags;
 
 	biped_update_physics(&physics);

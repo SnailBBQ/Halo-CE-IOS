@@ -1,6 +1,15 @@
 # Halo CE iOS — Port Status
 
-Updated October 1, 2026. Current development milestone: **M2.6.37**.
+Updated October 2, 2026. Current development milestone: **M2.6.38** (device testing pending).
+
+## Current status
+
+M2.6.37 device logs confirm a healthy running session, successful protocol-10 multiplayer join, audio without underruns, approximately 3.4 ms render CPU time and about two pointer upgrades per render call. The user reports smooth 60 FPS menus. The plasma-pistol first-person model still shows severe distortion.
+
+M2.6.38 adds an active-session `Documents/Halo/game_invite.txt`, expanded campaign tools and numeric movement/FOV controls. It isolates weapon bone interpolation while retaining world/camera smoothing and the working arena rewrite. See [release notes and test checklist](port/ios/UPDATE_M2638.md) and the [current iOS guide](port/ios/README.md). This update is not device-confirmed; the weapon workaround is a diagnostic mitigation.
+
+## Earlier milestones (historical evidence)
+
 
 Halo's real main menu rendered on a physical iPhone with **M2.6.12**. The test ran for more than ten minutes and showed the Halo background and Campaign, Multiplayer, and Settings. Startup and frame rendering were very slow, and blocks covered portions of the menu text. This was the first menu milestone; later campaign evidence is recorded below.
 

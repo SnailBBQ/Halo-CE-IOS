@@ -181,6 +181,7 @@ symbols in this file:
 /* ---------- headers */
 
 #include "cseries.h"
+#include "game/cheats.h"
 #define limit2d limit2d_inline
 #include "game/game.h"
 #undef limit2d
@@ -513,6 +514,13 @@ real player_control_get_field_of_view(
 			field_of_view = definition->unit.camera_field_of_view;
 		}
 	}
+#ifdef HALO_IOS_GUEST
+	/* Vertical FOV, bounded to the observer's accepted range; preserve zoom. */
+	if (control->zoom_level == NONE) {
+		real override = ios_cheat_field_of_view(control->unit_index);
+		if (override > 0.f) field_of_view = DEGREES_TO_RADIANS(override);
+	}
+#endif
 	return field_of_view;
 }
 

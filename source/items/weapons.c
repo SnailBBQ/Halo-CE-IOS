@@ -1772,6 +1772,11 @@ static boolean weapon_trigger_can_fire_again(
 			required_ticks;
 	}
 
+#ifdef HALO_IOS_GUEST
+	/* Preserve charge/overheat/animation states. Only remove the rate/latch delay. */
+	if (ios_cheat_enabled(weapon_get_owner_object_index(weapon_index), IOS_CHEAT_RAPID))
+		return TRUE;
+#endif
 	ticks_since_fire = trigger->idle_ticks;
 	if ((real)ticks_since_fire + 1.0f >= required_ticks)
 		result = TRUE;
@@ -2594,7 +2599,11 @@ static void weapon_trigger_fire(
 			}
 		}
 
-		if (owner_object_index!=NONE && damage_effect_index!=NONE)
+		if (owner_object_index!=NONE && damage_effect_index!=NONE
+#ifdef HALO_IOS_GUEST
+			&& !ios_cheat_enabled(owner_object_index, IOS_CHEAT_NO_RECOIL)
+#endif
+		)
 		{
 			struct unit_datum *unit= unit_get(owner_object_index);
 			struct damage_data damage;

@@ -5958,9 +5958,17 @@ boolean unit_update(
 		}
 	}
 
+#ifdef HALO_IOS_GUEST
+	if (ios_cheat_enabled(unit_index, IOS_CHEAT_FLASHLIGHT))
+		unit->unit.integrated_light_battery = 1.f;
+#endif
 	if (TEST_FLAG(unit->unit.flags, _unit_integrated_light_on_bit))
 	{
-		if (!TEST_FLAG(unit_definition->unit.flags, _unit_integrated_light_fucking_lasts_forever_bit))
+		if (!TEST_FLAG(unit_definition->unit.flags, _unit_integrated_light_fucking_lasts_forever_bit)
+#ifdef HALO_IOS_GUEST
+			&& !ios_cheat_enabled(unit_index, IOS_CHEAT_FLASHLIGHT)
+#endif
+		)
 		{
 			unit->unit.integrated_light_battery = unit->unit.integrated_light_battery - 1.f/(2.f*TICKS_PER_MINUTE);
 		}

@@ -59,6 +59,14 @@ typedef struct
     int cheat_ammo;           /* ... infinite ammo */
     int cheat_grenades;       /* ... infinite grenades */
     int cheat_reload;         /* ... no reloading (bottomless clip) */
+    int cheat_one_hit;
+    int cheat_flashlight;
+    int cheat_no_fall;
+    int cheat_rapid;
+    int cheat_no_recoil;
+    int cheat_third_person;
+    int cheat_noclip;
+    float cheat_jump, cheat_speed, cheat_fov; /* multipliers; vertical degrees, 0 = default */
     int hires_hud;            /* build 73: the HUD from the high-res assets; applies at launch */
     int hires_text;           /* build 73: menu and HUD text from the Overpass fonts at display resolution; applies at launch */
     int profiler;             /* sample the game thread for the log (about 1% of one core) */
@@ -132,6 +140,7 @@ static inline void hs_defaults(HsSettings *s)
     for (int i = 0; i < HS_PRESET_COUNT; i++) hs_default_preset(&s->presets[i], i);
     s->active = 0;
     s->volume = 1.0f;
+    s->cheat_jump = s->cheat_speed = 1.0f;
     s->audio_enabled = 1;
     s->join_from_clipboard = 0; /* reading the clipboard shows an iOS paste prompt */
     s->show_fps = 0;
@@ -181,6 +190,16 @@ static inline void hs_sanitize(HsSettings *s)
     s->cheat_ammo = s->cheat_ammo ? 1 : 0;
     s->cheat_grenades = s->cheat_grenades ? 1 : 0;
     s->cheat_reload = s->cheat_reload ? 1 : 0;
+    s->cheat_one_hit = !!s->cheat_one_hit;
+    s->cheat_flashlight = !!s->cheat_flashlight;
+    s->cheat_no_fall = !!s->cheat_no_fall;
+    s->cheat_rapid = !!s->cheat_rapid;
+    s->cheat_no_recoil = !!s->cheat_no_recoil;
+    s->cheat_third_person = !!s->cheat_third_person;
+    s->cheat_noclip = !!s->cheat_noclip;
+    s->cheat_jump = hs_clampf(s->cheat_jump, 1.0f, 10.0f);
+    s->cheat_speed = hs_clampf(s->cheat_speed, 1.0f, 5.0f);
+    s->cheat_fov = s->cheat_fov == 0 ? 0 : hs_clampf(s->cheat_fov, 20.0f, 90.0f);
     s->hires_hud = s->hires_hud ? 1 : 0;
     s->hires_text = s->hires_text ? 1 : 0;
 }
@@ -257,6 +276,14 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
     EMIT("active=%d\nvolume=%.3f\naudio=%d\nclipboard=%d\nfps=%d\nprofiler=%d\nfpsmode=%d\nhireshud=%d\nhirestext=%d\ncontrols=%d\ncheatgod=%d\ncheatammo=%d\ncheatgrenades=%d\ncheatreload=%d\n", s->active, s->volume, s->audio_enabled,
          s->join_from_clipboard, s->show_fps, s->profiler, s->fps_mode, s->hires_hud, s->hires_text, s->controls_mode,
          s->cheat_god, s->cheat_ammo, s->cheat_grenades, s->cheat_reload);
+    EMIT("cheatone_hit=%d\n", s->cheat_one_hit);
+    EMIT("cheatflashlight=%d\n", s->cheat_flashlight);
+    EMIT("cheatno_fall=%d\n", s->cheat_no_fall);
+    EMIT("cheatrapid=%d\n", s->cheat_rapid);
+    EMIT("cheatno_recoil=%d\n", s->cheat_no_recoil);
+    EMIT("cheatthird_person=%d\n", s->cheat_third_person);
+    EMIT("cheatnoclip=%d\n", s->cheat_noclip);
+    EMIT("cheatjump=%.3f\ncheatspeed=%.3f\ncheatfov=%.3f\n", s->cheat_jump, s->cheat_speed, s->cheat_fov);
     for (int i = 0; i < HS_PRESET_COUNT; i++)
     {
         const HsPreset *p = &s->presets[i];
@@ -318,6 +345,17 @@ static inline int hs_parse(HsSettings *s, const char *text)
                 else if (!strcmp(key, "cheatammo")) s->cheat_ammo = atoi(value);
                 else if (!strcmp(key, "cheatgrenades")) s->cheat_grenades = atoi(value);
                 else if (!strcmp(key, "cheatreload")) s->cheat_reload = atoi(value);
+                else if (!strcmp(key, "cheatone_hit")) s->cheat_one_hit = atoi(value);
+                else if (!strcmp(key, "cheatflashlight")) s->cheat_flashlight = atoi(value);
+                else if (!strcmp(key, "cheatno_fall")) s->cheat_no_fall = atoi(value);
+                else if (!strcmp(key, "cheatrapid")) s->cheat_rapid = atoi(value);
+                else if (!strcmp(key, "cheatno_recoil")) s->cheat_no_recoil = atoi(value);
+                else if (!strcmp(key, "cheatthird_person")) s->cheat_third_person = atoi(value);
+                else if (!strcmp(key, "cheatnoclip")) s->cheat_noclip = atoi(value);
+                else if (!strcmp(key, "cheatjump")) s->cheat_jump = (float)atof(value);
+                else if (!strcmp(key, "cheatspeed")) s->cheat_speed = (float)atof(value);
+                else if (!strcmp(key, "cheatfov")) s->cheat_fov = (float)atof(value);
+
                 else if (!strcmp(key, "hireshud")) s->hires_hud = atoi(value);
                 else if (!strcmp(key, "hirestext")) s->hires_text = atoi(value);
                 else if (key[0] == 'p' && key[1] >= '0' && key[1] < '0' + HS_PRESET_COUNT && key[2] == '.')

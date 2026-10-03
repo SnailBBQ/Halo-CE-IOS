@@ -66,6 +66,7 @@ symbols in this file:
 #include "rasterizer/rasterizer_console_vars.h"
 #include "scenario/scenario.h"
 #include "tag_files/tag_groups.h"
+#include "tag_files/tag_files.h"
 #include "units/units.h"
 
 /* ---------- constants */
@@ -96,6 +97,10 @@ static boolean cheats_unused_flag = FALSE;
 
 /* ---------- code */
 
+#ifdef HALO_IOS_GUEST
+static void ios_cheats_reset(void);
+#endif
+
 void cheats_initialize(
 	void)
 {
@@ -113,6 +118,9 @@ void cheats_dispose(
 void cheats_dispose_from_old_map(
 	void)
 {
+#ifdef HALO_IOS_GUEST
+	ios_cheats_reset();
+#endif
 	return;
 }
 
@@ -206,13 +214,47 @@ extern boolean game_engine_running(void);
 extern boolean network_game_is_active(void);
 boolean ios_cheat_infinite_grenades;
 static unsigned int ios_cheats_set;
+static HaloCampaignOptions ios_options = { 0, 0, 1.f, 1.f, 0.f };
+extern void host_campaign_options(HaloCampaignOptions *options);
+extern int host_sdl_show_toast(const char *, int, int, int, int);
+static void host_toast(const char *message) { host_sdl_show_toast(message, 2500, 0, 0, 0); }
+static void ios_campaign_action(unsigned int action);
+static boolean ios_campaign_active(void)
+{ return game_in_progress() && !game_engine_running() && !network_game_is_active(); }
+boolean ios_cheat_local_unit(long index)
+{
+    struct unit_datum *unit;
+    struct player_datum *player;
+    if (!ios_campaign_active() || index == NONE) return FALSE;
+    unit = unit_try_and_get(index);
+    if (!unit || unit->unit.player_index == NONE) return FALSE;
+    player = player_try_and_get(unit->unit.player_index);
+    return player && player->local_player_index != NONE && player->unit_index == index;
+}
+boolean ios_cheat_enabled(long index, unsigned int flag)
+{ return (ios_options.flags & flag) && ios_cheat_local_unit(index); }
+real ios_cheat_jump_multiplier(long index)
+{ return ios_cheat_local_unit(index) ? ios_options.jump : 1.f; }
+real ios_cheat_speed_multiplier(long index)
+{ return ios_cheat_local_unit(index) ? ios_options.speed : 1.f; }
+real ios_cheat_field_of_view(long index)
+{ return ios_cheat_local_unit(index) ? ios_options.fov : 0.f; }
 
 static void ios_cheats_apply(void)
 {
 	unsigned int wanted = 0, released;
 
-	if (game_in_progress() && !game_engine_running() && !network_game_is_active())
-		wanted = host_cheat_flags() & 15u;
+	/* Consume requests even outside campaign: they must never execute in a later mission. */
+	host_campaign_options(&ios_options);
+	if (ios_campaign_active()) {
+		wanted = ios_options.flags & 15u;
+		if (ios_options.action) ios_campaign_action(ios_options.action);
+	} else {
+		if (ios_options.action) host_toast("Campaign actions are unavailable here");
+		ios_options.flags = 0;
+		ios_options.jump = ios_options.speed = 1.f;
+		ios_options.fov = 0.f;
+	}
 	released = ios_cheats_set & ~wanted;
 	/* set again every tick while wanted (nothing else may put them back), cleared once when let go */
 	if (wanted & 1u)
@@ -230,6 +272,21 @@ static void ios_cheats_apply(void)
 	ios_cheat_infinite_grenades = (wanted & 4u) != 0;
 	ios_cheats_set = wanted;
 }
+/* Map boundaries discard pending UI requests and release only flags this UI set.
+ * Preferences are sampled again on the next tick; no spawn crosses a map load. */
+static void ios_cheats_reset(void)
+{
+    HaloCampaignOptions discarded;
+    host_campaign_options(&discarded);
+    if (ios_cheats_set & 1u) cheat.deathless_player = FALSE;
+    if (ios_cheats_set & 2u) cheat.infinite_ammo = FALSE;
+    if (ios_cheats_set & 8u) cheat.bottomless_clip = FALSE;
+    ios_cheats_set = 0;
+    ios_cheat_infinite_grenades = FALSE;
+    memset(&ios_options, 0, sizeof(ios_options));
+    ios_options.jump = ios_options.speed = 1.f;
+}
+
 #endif
 
 void cheats_update(
@@ -349,6 +406,9 @@ static long cheat_player_index(
 void cheats_initialize_for_new_map(
 	void)
 {
+#ifdef HALO_IOS_GUEST
+	ios_cheats_reset();
+#endif
 	cheats_load();
 
 	return;
@@ -510,3 +570,57 @@ void cheat_all_vehicles(
 
 	return;
 }
+
+#ifdef HALO_IOS_GUEST
+/* UI request IDs are fixed; matching only loaded assets keeps map ownership intact. */
+static void ios_campaign_action(unsigned int action)
+{
+    static const char *const weapons[] = { "pistol", "assault rifle", "shotgun", "sniper rifle", "rocket launcher", "plasma pistol", "plasma rifle", "needler", "flamethrower", "gravity rifle" };
+    static const char *const vehicles[] = { "warthog", "ghost", "banshee", "scorpion" };
+    struct tag_iterator iterator;
+    struct tag_reference reference;
+    const char *wanted = NULL;
+    long group = 'weap', tag;
+    {
+        long index = cheat_player_index();
+        struct player_datum *player = index == NONE ? NULL : player_try_and_get(index);
+        if (!player || !ios_cheat_local_unit(player->unit_index) ||
+            TEST_FLAG(unit_get(player->unit_index)->object.damage_flags, _object_dead_bit)) {
+            host_toast("A living campaign player is required"); return;
+        }
+    }
+    if (action == 1) { cheat_active_camouflage(); host_toast("Active camouflage applied"); return; }
+    if (action >= 100 && action < 100 + NUMBEROF(weapons)) wanted = weapons[action - 100];
+    else if (action >= 200 && action < 200 + NUMBEROF(vehicles)) { wanted = vehicles[action - 200]; group = 'vehi'; }
+    else if (action == 2 || action == 3) { wanted = action == 2 ? "over shield" : "active camouflage"; group = 'eqip'; }
+    if (!wanted) return;
+    tag_iterator_new(&iterator, group);
+    while ((tag = tag_iterator_next(&iterator)) != NONE) {
+        const char *name = tag_get_name(tag), *leaf;
+        if (!name) continue;
+        leaf = strrchr(name, '\\');
+        leaf = leaf ? leaf + 1 : name;
+        if (!strcmp(leaf, wanted)) {
+            memset(&reference, 0, sizeof(reference));
+            reference.index = tag;
+            {
+                long player_index = cheat_player_index();
+                struct player_datum *player = player_get(player_index);
+                struct object_placement_data placement;
+                real_point3d origin;
+                real_vector3d forward, up;
+                object_get_origin(player->unit_index, &origin);
+                object_get_orientation(player->unit_index, &forward, &up);
+                object_placement_data_new(&placement, reference.index, NONE);
+                placement.position.x = origin.x + forward.i * (group == 'vehi' ? 4.f : 1.5f);
+                placement.position.y = origin.y + forward.j * (group == 'vehi' ? 4.f : 1.5f);
+                placement.position.z = origin.z + 0.8f;
+                placement.forward = forward; placement.up = up;
+                host_toast(object_new(&placement) == NONE ? "Could not spawn this asset here" : "Spawned in front of the player");
+            }
+            return;
+        }
+    }
+    host_toast("This asset is not available in the current map");
+}
+#endif

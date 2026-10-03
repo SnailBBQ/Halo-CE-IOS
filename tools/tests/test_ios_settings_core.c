@@ -156,6 +156,19 @@ int main(void)
     float_base = hc_floating_base(hc_circle(100, 300, 100), 200, 250, 0, 0, 800, 390);
     CHECK(near(hc_cx(float_base), 200) && near(hc_cy(float_base), 250), "floating ring follows the thumb");
 
+    hs_defaults(&s);
+    s.cheat_jump = 2.5f; s.cheat_speed = 3.25f; s.cheat_fov = 80.f;
+    s.cheat_one_hit = s.cheat_flashlight = s.cheat_no_fall = 1;
+    s.cheat_rapid = s.cheat_no_recoil = s.cheat_third_person = s.cheat_noclip = 1;
+    CHECK(hs_serialize(&s, text, sizeof(text)) > 0, "serialize campaign tools");
+    hs_parse(&t, text);
+    CHECK(near(t.cheat_jump, 2.5f) && near(t.cheat_speed, 3.25f) && near(t.cheat_fov, 80.f), "numeric tools round trip");
+    CHECK(t.cheat_one_hit && t.cheat_flashlight && t.cheat_no_fall && t.cheat_rapid && t.cheat_no_recoil && t.cheat_third_person && t.cheat_noclip, "toggles round trip");
+    hs_parse(&t, "HALO1\ncheatjump=nan\ncheatspeed=999999\ncheatfov=inf\n");
+    CHECK(t.cheat_jump == 1 && t.cheat_speed == 5 && t.cheat_fov == 90, "hostile numeric tools clamped");
+    hs_parse(&t, "HALO1\ncheatgod=1\ncheatreload=1\n");
+    CHECK(t.cheat_jump == 1 && t.cheat_speed == 1 && t.cheat_fov == 0 && hs_cheat_mask(&t) == 9, "old settings keep defaults and bottomless clip");
+
     if (!failures) printf("PASS: settings core: 5 named presets round-trip, hostile input is clamped, layouts stay on screen, stick feel\n");
     return failures ? 1 : 0;
 }

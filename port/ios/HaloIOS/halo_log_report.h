@@ -35,7 +35,7 @@ typedef struct
     int engine_started;
     int stopped;
     char stop_reason[HR_TEXT];
-    char app_version[24];     /* "M2.6.37" */
+    char app_version[24];     /* "M2.6.38" */
 
     /* speed */
     int fps_samples;

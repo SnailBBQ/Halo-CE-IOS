@@ -2357,6 +2357,9 @@ static int connected_player_count(void)
 	return count;
 }
 
+#ifdef HALO_IOS_GUEST
+extern void host_active_invite(const char *invite);
+#endif
 static void update_hosting(void)
 {
 	int want = p2p.hosting_socket >= 0;
@@ -2379,6 +2382,9 @@ static void update_hosting(void)
 			snprintf(p2p.invite, sizeof(p2p.invite), "halo://join/%s", text);
 		}
 		p2p.hosting = 1;
+#ifdef HALO_IOS_GUEST
+		host_active_invite(p2p.invite);
+#endif
 		p2p.stun_started = 1;
 		p2p_signal_start();
 		p2p_signal_host(p2p.token);
@@ -2395,6 +2401,9 @@ static void update_hosting(void)
 	else if (!want && p2p.hosting)
 	{
 		p2p.hosting = 0;
+#ifdef HALO_IOS_GUEST
+		host_active_invite(NULL);
+#endif
 		p2p_signal_stop_hosting();
 		p2p_discord_set_hosting(NULL, 0, 0);
 	}

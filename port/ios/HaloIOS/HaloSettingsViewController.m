@@ -184,6 +184,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUINote(@"Paste the invite link a friend sent you. It works across iPhone, iPad, Android, Windows and Linux, as long as everyone is on the same Halo CE Universal build."),
         paste, join, fromClipboard])];
 
+    [self add:HaloUICardView(@"Invite file", @[HaloUINote(@"While hosting, Documents/Halo/game_invite.txt contains your current invite. Share it in Files. Leaving the hosted game empties it; each app launch clears the previous session.")])];
     NSString *invite = HaloLastHostedInvite();
     UIButton *share = HaloUIButton(invite ? @"Share my invite link" : @"Share my invite link", 1, ^(UIButton *b) {
         NSString *link = HaloLastHostedInvite();
@@ -334,8 +335,57 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUISwitchRow(@"God mode", @"You cannot die.", settings->cheat_god, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_god = on; }]; }),
         HaloUISwitchRow(@"Infinite ammo", @"Weapons never run out; plasma weapons never need a new battery.", settings->cheat_ammo, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_ammo = on; }]; }),
         HaloUISwitchRow(@"Infinite grenades", @"Throw as many as you like.", settings->cheat_grenades, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_grenades = on; }]; }),
-        HaloUISwitchRow(@"No reloading", @"A magazine never empties.", settings->cheat_reload, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_reload = on; }]; })])];
+        HaloUISwitchRow(@"Bottomless clip", @"A magazine never empties.", settings->cheat_reload, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_reload = on; }]; })])];
+    [self add:HaloUICardView(@"Player tools", @[
+        HaloUISwitchRow(@"One-hit kills", @"Hostile units only; friendly units are protected.", settings->cheat_one_hit, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_one_hit = on; }]; }),
+        HaloUISwitchRow(@"Unlimited flashlight", @"Keeps its battery full; you still toggle the light.", settings->cheat_flashlight, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_flashlight = on; }]; }),
+        HaloUISwitchRow(@"No fall damage", @"The local player takes no falling or collision damage.", settings->cheat_no_fall, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_no_fall = on; }]; }),
+        HaloUISwitchRow(@"Rapid fire", @"Removes shot-rate and trigger-latch delays; charging and overheating remain.", settings->cheat_rapid, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_rapid = on; }]; }),
+        HaloUISwitchRow(@"No recoil", @"Removes the weapon kick; projectile spread is unchanged.", settings->cheat_no_recoil, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_no_recoil = on; }]; }),
+        HaloUISwitchRow(@"Third person", @"Follow the player with the existing third-person camera.", settings->cheat_third_person, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_third_person = on; }]; }),
+        HaloUISwitchRow(@"Noclip", @"Fly through walls. Aim to move; jump rises and crouch descends. Disable inside clear space.", settings->cheat_noclip, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_noclip = on; }]; })])];
+    [self add:HaloUICardView(@"Super jump", @[HaloUISliderRow(@"Value", 1, 10, settings->cheat_jump, @"%.1f", ^(float value) { [self update:^(HsSettings *s) { s->cheat_jump = value; }]; }), HaloUIButton(@"Enter value", 0, ^(UIButton *b) { HsSettings current = [[HaloSettingsStore shared] snapshot]; [self enterCampaignValue:@"Super jump" value:current.cheat_jump minimum:1 maximum:10 apply:^(float value) { [self update:^(HsSettings *s) { s->cheat_jump = value; }]; }]; })])];
+    [self add:HaloUICardView(@"Player speed", @[HaloUISliderRow(@"Value", 1, 5, settings->cheat_speed, @"%.1f", ^(float value) { [self update:^(HsSettings *s) { s->cheat_speed = value; }]; }), HaloUIButton(@"Enter value", 0, ^(UIButton *b) { HsSettings current = [[HaloSettingsStore shared] snapshot]; [self enterCampaignValue:@"Player speed" value:current.cheat_speed minimum:1 maximum:5 apply:^(float value) { [self update:^(HsSettings *s) { s->cheat_speed = value; }]; }]; })])];
+    [self add:HaloUICardView(@"Vertical FOV (0 = default)", @[HaloUISliderRow(@"Value", 0, 90, settings->cheat_fov, @"%.1f", ^(float value) { [self update:^(HsSettings *s) { s->cheat_fov = value; }]; }), HaloUIButton(@"Enter value", 0, ^(UIButton *b) { HsSettings current = [[HaloSettingsStore shared] snapshot]; [self enterCampaignValue:@"Vertical FOV (0 = default)" value:current.cheat_fov minimum:0 maximum:90 apply:^(float value) { [self update:^(HsSettings *s) { s->cheat_fov = value; }]; }]; })])];
+    [self add:HaloUICardView(@"Spawn loaded map assets", @[
+        HaloUINote(@"Pickups appear in front of you. Only assets already loaded by the current map are supported; unavailable assets report a message."),
+        HaloUIButton(@"Weapon giver", 0, ^(UIButton *b) { [self chooseCampaignAsset:@"Weapon" names:@[@"Pistol", @"Assault rifle", @"Shotgun", @"Sniper rifle", @"Rocket launcher", @"Plasma pistol", @"Plasma rifle", @"Needler", @"Flamethrower", @"Gravity rifle"] base:100]; }),
+        HaloUIButton(@"Vehicle spawner", 0, ^(UIButton *b) { [self chooseCampaignAsset:@"Vehicle" names:@[@"Warthog", @"Ghost", @"Banshee", @"Scorpion"] base:200]; }),
+        HaloUIButton(@"Spawn overshield", 0, ^(UIButton *b) { [self queueCampaignAction:2]; }),
+        HaloUIButton(@"Spawn invisibility", 0, ^(UIButton *b) { [self queueCampaignAction:3]; }),
+        HaloUIButton(@"Apply active camouflage", 0, ^(UIButton *b) { [self queueCampaignAction:1]; })])];
     [self add:HaloUICardView(nil, @[HaloUINote(@"Changes apply within a moment, also in the middle of a mission.")])];
+}
+
+- (void)queueCampaignAction:(uint32_t)action
+{
+    if (!halo_ios_queue_campaign_action(action)) halo_ios_toast("An action is already waiting for the game");
+}
+
+- (void)chooseCampaignAsset:(NSString *)title names:(NSArray<NSString *> *)names base:(uint32_t)base
+{
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:@"Only the current map's loaded assets can be spawned." preferredStyle:UIAlertControllerStyleAlert];
+    [names enumerateObjectsUsingBlock:^(NSString *name, NSUInteger index, BOOL *stop) {
+        [alert addAction:[UIAlertAction actionWithTitle:name style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self queueCampaignAction:base + (uint32_t)index]; }]];
+    }];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)enterCampaignValue:(NSString *)title value:(float)value minimum:(float)minimum maximum:(float)maximum apply:(void (^)(float))apply
+{
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:[NSString stringWithFormat:@"Allowed range: %.0f–%.0f", minimum, maximum] preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.keyboardType = UIKeyboardTypeDecimalPad; field.text = [NSString stringWithFormat:@"%.1f", value]; }];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Apply" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        NSScanner *scanner = [NSScanner scannerWithString:alert.textFields.firstObject.text ?: @""];
+        float parsed;
+        if (![scanner scanFloat:&parsed] || !scanner.isAtEnd || !isfinite(parsed) || parsed < minimum || parsed > maximum || ([title hasPrefix:@"Vertical FOV"] && parsed != 0 && parsed < 20)) {
+            halo_ios_toast("Enter a number in the supported range (FOV: 0 or 20–90)"); return;
+        }
+        apply(parsed); [self renderSoon];
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 #pragma mark - Advanced

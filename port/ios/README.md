@@ -2,7 +2,15 @@
 
 Experimental Halo: Combat Evolved port for physical iPhone and iPad devices running iOS/iPadOS 15 or later. A native `arm64` app hosts the recovered `arm64_32` engine and presents graphics through EAGL/OpenGL ES 3.
 
-**Current version: M2.6.29 object filtering and focused performance measurements, awaiting device testing.** M2.6.19 reached the `a10` intro cutscene and initial campaign gameplay on the test iPhone, with improved menu response but very low frame rates. M2.6.21 restored campaign boot. M2.6.22 accelerates streamed vertex-color conversion natively and adds finer renderer measurements while retaining the working pointer bridge. Audio remains muted; full movement/aim controls and multiplayer remain pending. See [port status](../../IOS_PORT_STATUS.md).
+**Current version: M2.6.38**, awaiting device validation. Built on Halo CE Universal build 73, with protocol-10 multiplayer, working audio, full touch/controller input, category-based Settings and Diagnostics, and 30 / 60 / uncapped presentation modes. The user reports smooth 60 FPS menus; recent logs show about 3.4 ms render CPU time and a successful network join. First-person plasma-pistol geometry remains under investigation. See [current release notes](UPDATE_M2638.md) and [port status](../../IOS_PORT_STATUS.md).
+
+## Current multiplayer and campaign tools
+
+Settings → Multiplayer accepts a supported `halo://join/` invite or its bare 64-digit token. Compatible peers use network protocol 10. While hosting, share the current link through Settings or `Documents/Halo/game_invite.txt` in Files. The file is replaced atomically, emptied when hosting stops, and cleared on launch/guarded engine exit. It never stores invite history. After an abrupt app termination, the next launch clears the old file.
+
+Settings → Cheats contains god mode, infinite ammo/grenades, bottomless clip, loaded-map weapon and vehicle pickups, overshield/invisibility, hostile-unit one-hit kills, unlimited flashlight, no fall damage, rapid fire, no recoil, noclip and third person. Jump (1–10), local-player speed (1–5) and vertical FOV (0 = default; 20–90 degrees) have sliders and numeric entry. All gameplay tools are campaign-only; unavailable map assets report a message. See the release notes for exact behavior and validation limits.
+
+The M2.6.38 weapon test uses authoritative first-person weapon poses while keeping world/camera smoothing. It must be verified on the plasma pistol and other weapons; it is not yet a confirmed visual fix.
 
 ## Build with GitHub Actions
 
@@ -38,17 +46,17 @@ The app creates **Documents/Halo/maps** on its first launch, before starting the
 
 Import supports multiple files and keeps existing maps instead of replacing them. Files are copied into a temporary location before being published into the maps folder. Setup checks the presence and minimum size of `ui.map`; the engine performs the actual cache validation.
 
-## Menu controls
+## Controls and settings
 
-M2.6.17 uses a left D-pad and a right-side **A (green), B (red), X (blue), Y (yellow), Black, and White** cluster. A/B/X/Y form a diamond; Black and White flank A. A confirms menus and B returns/cancels. Black and White map to the Xbox adapter's right and left shoulder inputs respectively. All buttons feed the guest's first controller slot. Quick taps remain pending until polled; showing the log or leaving the app clears held/pending inputs.
+On-screen Xbox controls include the D-pad, both sticks, LT/RT, A/B/X/Y in their respective colors, Black/White, Back/Start and stick presses. Settings → Controls provides five named presets, placement/size editing, touch-look, sensitivity and floating-stick options. Physical GameController devices are supported; Auto hides touch controls while a controller is connected, with Always/Hidden overrides. A confirms menus; B returns/cancels. Opening native screens or leaving the app resets held touch input.
 
-These controls are for menu testing. Full gameplay controls and physical controller support are not implemented by this change. Test moving the highlight, opening Campaign with A, and returning with B before attempting a level.
+Settings has Multiplayer, Controls, Display, Audio, Cheats and Advanced categories, plus a pinned Logs entry. Display selects 30 / smooth 60 / uncapped presentation. Hi-res HUD/text options and some timing mode changes apply at launch. A safe start following a failed launch temporarily disables sound, internet play, smoothing and optional assets/profiling; a healthy run clears it.
 
 ## Testing and logs
 
-Use **Show game** to inspect the rendered surface and **Show log** to inspect diagnostics. Switch between **Boot log** (host/guest startup and renderer output) and **Game log** (the latest 64 KiB of `debug.txt`). The in-game terminal overlay is hidden, but its messages remain in the game log. A notice explains that Bink movies are skipped and audio is muted. Game log refreshes when opened/selected and when new boot diagnostics arrive while it is visible. **Share logs** exports the existing `ios-boot.log`, `debug.txt`, and `gamestate.txt` files from `Documents/Halo`.
+Settings → Logs opens Diagnostics Summary and Problems. Share logs exports available files from `Documents/Halo`, including boot/game/game-state and launch reports. Terminal output remains available in the logs without covering the game. Audio is supported through the native audio engine; Bink movie files are still unsupported and skipped. Engine-rendered campaign cinematics are separate from Bink movies.
 
-For a report, include the displayed milestone, the workflow commit, how long the app ran, all available logs, and a screenshot or recording. M2.6.12 needed an extended test to reveal the menu. The neutral loading image alone does not confirm a rendered game menu. Audio is currently muted and Bink movies are skipped.
+For a report, include the milestone, workflow commit, all logs, the map/weapon/action involved, and a screenshot or recording. Local checks do not establish device correctness. For M2.6.38, test weapons with cheats off first, then campaign tools individually, active-invite cleanup, and a multiplayer join with campaign settings enabled.
 
 ## Build the host locally on macOS
 
@@ -84,6 +92,10 @@ cp "$PACKAGE/HaloCE.ipa" build/ios/HaloCE.ipa
 ```
 
 Re-sign `build/ios/HaloCE.ipa` with your sideloading tool to install it. The internal target, executable, and app bundle remain `HaloIOS`; the device display name is **Halo CE**. The existing bundle identifier is retained to preserve upgrade continuity. Validate on a physical device: an iOS Simulator build does not validate this guest execution path.
+
+## Historical development notes
+
+The sections below describe earlier milestones and their then-current limitations. Use the current guide and release notes above for M2.6.38.
 
 ## M2.6.16 performance and loading diagnostics
 

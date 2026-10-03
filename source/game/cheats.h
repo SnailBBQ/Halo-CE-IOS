@@ -57,6 +57,15 @@ void cheats_load(
 void cheat_active_camouflage_local_player(
 	short player_index);
 
+#ifdef HALO_IOS_GUEST
+#include "halo_ios_campaign_options.h"
+boolean ios_cheat_local_unit(long unit_index);
+boolean ios_cheat_enabled(long unit_index, unsigned int flag);
+real ios_cheat_jump_multiplier(long unit_index);
+real ios_cheat_speed_multiplier(long unit_index);
+real ios_cheat_field_of_view(long unit_index);
+#endif
+
 /* ---------- globals */
 
 extern struct cheat_globals cheat;

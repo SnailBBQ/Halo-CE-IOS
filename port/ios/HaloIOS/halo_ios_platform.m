@@ -4,7 +4,7 @@
 
 #import <UIKit/UIKit.h>
 
-/* ---------- invites: halo://join/<44 hex digits> (see port/linux/README.md, "Internet play") */
+/* ---------- invites: halo://join/<64 hex digits> (build 73 public-key hash + token) */
 
 static NSString *const kInvitePrefix = @"halo://join/";
 static NSLock *InviteLock(void)
@@ -20,9 +20,9 @@ static NSString *g_last_invite;      /* the invite this copy of the game is host
 static BOOL HaloLooksLikeInvite(NSString *text)
 {
     NSString *trimmed = [text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
-    if ([trimmed.lowercaseString hasPrefix:kInvitePrefix]) return trimmed.length > kInvitePrefix.length;
-    /* the bare 44 hexadecimal digits are accepted too */
-    if (trimmed.length != 44) return NO;
+    if ([trimmed.lowercaseString hasPrefix:kInvitePrefix]) trimmed = [trimmed substringFromIndex:kInvitePrefix.length];
+    /* Keep the UI/export aligned with p2p_internal.h: 16-byte hash + 16-byte token. */
+    if (trimmed.length != 64) return NO;
     NSCharacterSet *hex = [NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdefABCDEF"];
     return [trimmed rangeOfCharacterFromSet:hex.invertedSet].location == NSNotFound;
 }
@@ -69,6 +69,24 @@ BOOL HaloJoinInviteFromClipboard(void)
     return YES;
 }
 
+/* Serialize lifecycle changes and atomic replacement together: an older write cannot
+ * race a hosting-stop clear. No history is kept, and clipboard contents are independent. */
+void halo_ios_set_hosted_invite(const char *text)
+{
+    NSString *invite = text ? [NSString stringWithUTF8String:text] : nil;
+    if (invite && !HaloLooksLikeInvite(invite)) invite = nil;
+    [InviteLock() lock];
+    g_last_invite = [invite copy];
+    NSString *root = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject stringByAppendingPathComponent:@"Halo"];
+    NSError *error = nil;
+    BOOL ready = [[NSFileManager defaultManager] createDirectoryAtPath:root withIntermediateDirectories:YES attributes:nil error:&error];
+    NSString *contents = invite ? [invite stringByAppendingString:@"\n"] : @"";
+    BOOL saved = ready && [contents writeToFile:[root stringByAppendingPathComponent:@"game_invite.txt"] atomically:YES encoding:NSUTF8StringEncoding error:&error];
+    if (!saved) [[NSFileManager defaultManager] removeItemAtPath:[root stringByAppendingPathComponent:@"game_invite.txt"] error:nil];
+    [InviteLock() unlock];
+    if (!saved) { NSLog(@"Halo invite export: %@", error); halo_ios_toast("Could not update game_invite.txt"); }
+}
+
 /* ---------- clipboard for the game */
 
 void halo_ios_clipboard_set(const char *text)
@@ -76,11 +94,6 @@ void halo_ios_clipboard_set(const char *text)
     if (!text) return;
     NSString *string = [NSString stringWithUTF8String:text];
     if (!string) return;
-    if (HaloLooksLikeInvite(string)) {
-        [InviteLock() lock];
-        g_last_invite = [string copy];
-        [InviteLock() unlock];
-    }
     dispatch_async(dispatch_get_main_queue(), ^{ UIPasteboard.generalPasteboard.string = string; });
 }
 

@@ -130,6 +130,7 @@ symbols in this file:
 
 #include "editor/editor_stubs.h"
 #include "game/players.h"
+#include "game/cheats.h"
 #include "input/input.h"
 #include "main/console.h"
 #include "saved games/game_state.h"
@@ -624,6 +625,13 @@ static void director_choose_game_perspective(
 
 	unit_index = player_control_get_unit_index(local_player_index);
 	following = director_desired_perspective(unit_index, &perspective);
+#ifdef HALO_IOS_GUEST
+	if (perspective == _director_perspective_first_person &&
+		ios_cheat_enabled(unit_index, IOS_CHEAT_THIRD_PERSON)) {
+		perspective = _director_perspective_third_person;
+		following = TRUE;
+	}
+#endif
 	if (force || director->seat_state != perspective)
 	{
 		if (following == TRUE)

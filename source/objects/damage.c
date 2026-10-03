@@ -1673,6 +1673,18 @@ void object_cause_damage(
 
 				damage->material_type = damage_material->material_type;
 
+#ifdef HALO_IOS_GUEST
+				/* Local player's hostile unit targets only: never friendly Marines,
+				 * scenery, other players, self damage, or a network match. */
+				if (damage->owner_player_index != NONE &&
+					(current_object->object.type == _object_type_biped || current_object->object.type == _object_type_vehicle)) {
+					struct player_datum *owner = player_try_and_get(damage->owner_player_index);
+					if (owner && current_object_index != owner->unit_index &&
+						ios_cheat_enabled(owner->unit_index, IOS_CHEAT_ONE_HIT) &&
+						game_team_is_enemy(damage->owner_team_index, current_object->object.owner_team_index))
+						force_kill = TRUE;
+				}
+#endif
 				if (cheat.omnipotent && damage->owner_player_index != NONE)
 					force_kill = TRUE;
 

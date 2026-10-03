@@ -348,6 +348,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 }
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+    halo_ios_set_hosted_invite(NULL); /* discard any invite left by a terminated run */
     [self prepareLaunchState];
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
 
@@ -364,7 +365,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"HALO iOS — M2.6.37 · add your maps";
+    title.text = @"HALO iOS — M2.6.38 · add your maps";
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:18];
 

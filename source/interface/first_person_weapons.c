@@ -109,6 +109,7 @@ symbols in this file:
 #include "effects/particles.h"
 #include "game/game_globals.h"
 #include "game/players.h"
+#include "game/cheats.h"
 #include "items/weapon_datum_flags.h"
 #include "items/weapon_definitions.h"
 #include "items/weapons.h"
@@ -1066,6 +1067,12 @@ static void first_person_weapon_build_node_matrices(
 	short local_player_index)
 {
 	struct first_person_weapon *first_person_weapon= first_person_weapon_get(local_player_index);
+#ifdef HALO_IOS_GUEST
+	if (ios_cheat_enabled(first_person_weapon->unit_index, IOS_CHEAT_NO_RECOIL)) {
+		first_person_weapon->firing_push_back = 0.f;
+		first_person_weapon->firing_push_back_velocity = 0.f;
+	}
+#endif
 
 	if (!first_person_weapon->rendered)
 	{
@@ -1374,12 +1381,19 @@ static void first_person_weapon_build_node_matrices(
 			&render.camera.position,
 			&render.camera.forward,
 			&render.camera.up);
+#ifdef HALO_IOS_GUEST
+		/* Keep the authoritative weapon bones at 30 Hz while investigating the
+		 * distorted first-person mesh. World/camera interpolation stays enabled.
+		 * This avoids possible blending of incompatible weapon skeletons. */
+		(void)local_player_index;
+#else
 		/* the pose between the last two ticks (render_interpolation.c) */
 		render_interpolation_first_person(
 			local_player_index,
 			first_person_weapon->node_matrices,
 			(short)animation_graph->nodes.count,
 			&render.camera);
+#endif
 	}
 
 	return;
