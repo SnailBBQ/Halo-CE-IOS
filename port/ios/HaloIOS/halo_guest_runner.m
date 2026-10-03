@@ -815,6 +815,9 @@ static uint32_t guest_alloc(uint32_t size, uint32_t alignment)
     return va;
 }
 
+/* defined further down; the backtrace below needs it first */
+static const char *symbol_name_nearest(uint32_t value, uint32_t *symbol_va);
+
 /* One line of a guest backtrace: the function and offset an address in the guest's code is in. */
 static void say_guest_frame(const char *label, uint64_t host_address, uint64_t arena)
 {

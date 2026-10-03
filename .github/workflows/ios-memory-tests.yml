@@ -11,6 +11,9 @@ on:
       - 'port/ios/HaloIOS/halo_log_report.h'
       - 'port/ios/HaloIOS/halo_log_classify.h'
       - 'tools/tests/test_ios_guest_vm.c'
+      - 'tools/tests/test_ios_declaration_order.py'
+      - 'port/ios/HaloIOS/*.m'
+      - 'port/ios/HaloIOS/*.c'
       - 'tools/tests/test_ios_log_report.c'
       - 'tools/tests/test_ios_image_load.c'
       - 'tools/tests/fixtures/**'
@@ -27,6 +30,7 @@ jobs:
       - name: Run the tests
         run: |
           set -euxo pipefail
+          python3 tools/tests/test_ios_declaration_order.py
           cc -std=gnu11 -O1 -Wall -Wextra -Wno-unused-function -Wno-unused-variable -Iport/ios/HaloIOS \
             tools/tests/test_ios_guest_vm.c -o "$RUNNER_TEMP/halo-vm-test"
           "$RUNNER_TEMP/halo-vm-test"
