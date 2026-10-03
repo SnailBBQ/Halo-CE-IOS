@@ -1,6 +1,7 @@
 #import "halo_ios_platform.h"
 #import "halo_guest_runner.h"
 #import "HaloSettingsStore.h"
+#include "halo_invite_file_policy.h"
 
 #import <UIKit/UIKit.h>
 
@@ -52,7 +53,7 @@ BOOL HaloJoinInviteText(NSString *text)
         return NO;
     }
     HaloSetPendingInvite(text);
-    halo_ios_toast("Joining the invite…");
+    halo_ios_toast("Joining the inviteâ€¦");
     return YES;
 }
 
@@ -65,26 +66,203 @@ BOOL HaloJoinInviteFromClipboard(void)
         return NO;
     }
     HaloSetPendingInvite(text);
-    halo_ios_toast("Joining the invite…");
+    halo_ios_toast("Joining the inviteâ€¦");
     return YES;
 }
 
-/* Serialize lifecycle changes and atomic replacement together: an older write cannot
- * race a hosting-stop clear. No history is kept, and clipboard contents are independent. */
+/* A picked folder works with sideloaded builds: no application-specific iCloud
+ * entitlement is required. File-provider access and bookmarks follow UIKit's
+ * document-picker contract. All coordinated I/O runs off the game/UI threads. */
+static NSString *const kInviteFolderBookmark = @"HaloInviteFolderBookmark";
+static NSString *const kInviteFolderLabel = @"HaloInviteFolderLabel";
+static NSString *const kInviteOwnedCode = @"HaloInviteOwnedCode";
+static dispatch_queue_t InviteFileQueue(void)
+{
+    static dispatch_queue_t queue;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ queue = dispatch_queue_create("halo.invite-file", DISPATCH_QUEUE_SERIAL); });
+    return queue;
+}
+static NSError *InviteFileError(NSInteger code, NSString *message)
+{
+    return [NSError errorWithDomain:@"HaloInviteFile" code:code userInfo:@{NSLocalizedDescriptionKey:message}];
+}
+static NSURL *LocalInviteFolder(void)
+{
+    return [[[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject URLByAppendingPathComponent:@"Halo" isDirectory:YES];
+}
+/* Call only on InviteFileQueue. Caller balances security scope after I/O. */
+static NSURL *ResolveInviteFolder(BOOL *scoped, NSError **error)
+{
+    *scoped = NO;
+    NSData *bookmark = [[NSUserDefaults standardUserDefaults] dataForKey:kInviteFolderBookmark];
+    if (!bookmark) return LocalInviteFolder();
+    BOOL stale = NO;
+    NSURL *folder = [NSURL URLByResolvingBookmarkData:bookmark options:0 relativeToURL:nil bookmarkDataIsStale:&stale error:error];
+    if (!folder || ![folder startAccessingSecurityScopedResource]) {
+        if (error && !*error) *error = InviteFileError(1, @"Choose the invite folder again to restore access.");
+        return nil; /* Never silently export to a different location. */
+    }
+    *scoped = YES;
+    if (stale) {
+        NSData *renewed = [folder bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil relativeToURL:nil error:error];
+        if (!renewed) { [folder stopAccessingSecurityScopedResource]; *scoped = NO; return nil; }
+        [[NSUserDefaults standardUserDefaults] setObject:renewed forKey:kInviteFolderBookmark];
+    }
+    return folder;
+}
+static NSString *ReadSmallInvite(NSURL *url, NSError **error)
+{
+    NSDictionary *attributes = [[NSFileManager defaultManager] attributesOfItemAtPath:url.path error:error];
+    if (!attributes) return nil;
+    if ([attributes[NSFileSize] unsignedLongLongValue] > 1024) {
+        if (error) *error = InviteFileError(2, @"The invite file must contain one link, at most 1024 bytes.");
+        return nil;
+    }
+    return [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:error];
+}
+/* A clear is conditional: a code pasted from a PC belongs to the user and must
+ * survive host-stop/launch cleanup. Creation leaves an existing incoming file
+ * intact. Only publishing a live hosted invite intentionally replaces it. */
+static BOOL WriteInviteToFolder(NSURL *folder, NSString *invite, NSError **error)
+{
+    NSFileManager *files = [NSFileManager defaultManager];
+    if (![files createDirectoryAtURL:folder withIntermediateDirectories:YES attributes:nil error:error]) return NO;
+    NSURL *url = [folder URLByAppendingPathComponent:@"game_invite.txt"];
+    NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] initWithFilePresenter:nil];
+    __block NSError *operationError = nil;
+    __block BOOL saved = NO;
+    [coordinator coordinateWritingItemAtURL:url options:NSFileCoordinatorWritingForReplacing error:error byAccessor:^(NSURL *coordinatedURL) {
+        NSString *owned = [[NSUserDefaults standardUserDefaults] stringForKey:kInviteOwnedCode];
+        if (!invite && [files fileExistsAtPath:coordinatedURL.path]) {
+            NSString *existing = ReadSmallInvite(coordinatedURL, &operationError);
+            if (!existing) return;
+            NSString *trimmed = [existing stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+            if (!halo_invite_clear_allowed(trimmed.UTF8String, owned.UTF8String)) {
+                /* Includes empty files and incoming PC invites. No rewrite. */
+                [[NSUserDefaults standardUserDefaults] removeObjectForKey:kInviteOwnedCode];
+                saved = YES;
+                return;
+            }
+        }
+        NSString *contents = invite ? [invite stringByAppendingString:@"\n"] : @"";
+        saved = [contents writeToURL:coordinatedURL atomically:YES encoding:NSUTF8StringEncoding error:&operationError];
+        if (saved) {
+            if (invite) [[NSUserDefaults standardUserDefaults] setObject:invite forKey:kInviteOwnedCode];
+            else [[NSUserDefaults standardUserDefaults] removeObjectForKey:kInviteOwnedCode];
+        }
+    }];
+    if (operationError && error) *error = operationError;
+    if (!saved && error && !*error) *error = InviteFileError(4, @"Could not update the invite file.");
+    return saved;
+}
+static BOOL WriteCurrentInvite(NSString *invite, NSError **error)
+{
+    BOOL scoped = NO;
+    NSURL *folder = ResolveInviteFolder(&scoped, error);
+    if (!folder) return NO;
+    BOOL saved = WriteInviteToFolder(folder, invite, error);
+    if (scoped) [folder stopAccessingSecurityScopedResource];
+    return saved;
+}
+NSString *HaloInviteFileLocation(void)
+{
+    NSString *label = [[NSUserDefaults standardUserDefaults] stringForKey:kInviteFolderLabel];
+    return label.length ? [NSString stringWithFormat:@"Selected folder: %@ / game_invite.txt", label]
+        : @"Choose an iCloud Drive folder below. Until then, the file stays in Documents/Halo/game_invite.txt.";
+}
+void HaloSelectInviteFolder(NSURL *folder, void (^completion)(NSError *))
+{
+    /* Retain the picker's grant until a persisted bookmark is created. */
+    BOOL granted = [folder startAccessingSecurityScopedResource];
+    NSError *error = nil;
+    NSNumber *isDirectory = nil;
+    NSString *folderLabel = nil;
+    if (granted) [folder getResourceValue:&folderLabel forKey:NSURLLocalizedNameKey error:nil];
+    [folder getResourceValue:&isDirectory forKey:NSURLIsDirectoryKey error:&error];
+    NSData *bookmark = granted && isDirectory.boolValue ? [folder bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil relativeToURL:nil error:&error] : nil;
+    if (granted) [folder stopAccessingSecurityScopedResource];
+    if (!bookmark) {
+        completion(error ?: InviteFileError(3, @"Choose a writable folder in iCloud Drive."));
+        return;
+    }
+    [InviteLock() lock];
+    dispatch_async(InviteFileQueue(), ^{
+        @autoreleasepool {
+            NSError *operationError = nil;
+            /* Attempt previous-destination cleanup before moving the writer.
+             * A revoked grant is reported without blocking a replacement. */
+            if (!WriteCurrentInvite(nil, &operationError)) {
+                /* A revoked old bookmark must not prevent choosing a new grant.
+                   Its inaccessible file cannot be cleaned up by this process. */
+                NSLog(@"Halo old invite folder cleanup: %@", operationError.localizedDescription);
+                halo_ios_toast("Previous invite folder could not be cleared. Remove its old file in Files if needed.");
+                operationError = nil;
+            }
+            NSData *previous = [[NSUserDefaults standardUserDefaults] dataForKey:kInviteFolderBookmark];
+            NSString *previousLabel = [[NSUserDefaults standardUserDefaults] stringForKey:kInviteFolderLabel];
+            [[NSUserDefaults standardUserDefaults] setObject:bookmark forKey:kInviteFolderBookmark];
+            [[NSUserDefaults standardUserDefaults] setObject:(folderLabel.length ? folderLabel : folder.lastPathComponent) forKey:kInviteFolderLabel];
+            /* Current memory state wins if hosting changed while the picker
+             * was open. Later lifecycle writes run in this same serial queue. */
+            NSString *current = HaloLastHostedInvite();
+            BOOL ready = WriteCurrentInvite(current, &operationError);
+            if (!ready) {
+                if (previous) [[NSUserDefaults standardUserDefaults] setObject:previous forKey:kInviteFolderBookmark];
+                else [[NSUserDefaults standardUserDefaults] removeObjectForKey:kInviteFolderBookmark];
+                if (previousLabel) [[NSUserDefaults standardUserDefaults] setObject:previousLabel forKey:kInviteFolderLabel];
+                else [[NSUserDefaults standardUserDefaults] removeObjectForKey:kInviteFolderLabel];
+                /* Restore a currently hosted code at the previous destination. */
+                WriteCurrentInvite(HaloLastHostedInvite(), nil);
+            }
+            dispatch_async(dispatch_get_main_queue(), ^{ completion(ready ? nil : operationError); });
+        }
+    });
+    [InviteLock() unlock];
+}
+void HaloReadInviteFile(void (^completion)(NSString *, NSError *))
+{
+    dispatch_async(InviteFileQueue(), ^{
+        @autoreleasepool {
+            NSError *error = nil;
+            BOOL scoped = NO;
+            NSURL *folder = ResolveInviteFolder(&scoped, &error);
+            __block NSString *text = nil;
+            __block NSError *readError = nil;
+            if (folder) {
+                NSURL *url = [folder URLByAppendingPathComponent:@"game_invite.txt"];
+                NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] initWithFilePresenter:nil];
+                [coordinator coordinateReadingItemAtURL:url options:0 error:&error byAccessor:^(NSURL *coordinatedURL) {
+                    text = ReadSmallInvite(coordinatedURL, &readError);
+                }];
+                if (scoped) [folder stopAccessingSecurityScopedResource];
+            }
+            NSError *resultError = error ?: readError;
+            dispatch_async(dispatch_get_main_queue(), ^{ completion(text, resultError); });
+        }
+    });
+}
+/* Lock orders lifecycle enqueueing with current-memory publication. I/O never
+ * holds InviteLock, so file-provider delays cannot stall simulation or UIKit. */
 void halo_ios_set_hosted_invite(const char *text)
 {
     NSString *invite = text ? [NSString stringWithUTF8String:text] : nil;
     if (invite && !HaloLooksLikeInvite(invite)) invite = nil;
     [InviteLock() lock];
     g_last_invite = [invite copy];
-    NSString *root = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject stringByAppendingPathComponent:@"Halo"];
-    NSError *error = nil;
-    BOOL ready = [[NSFileManager defaultManager] createDirectoryAtPath:root withIntermediateDirectories:YES attributes:nil error:&error];
-    NSString *contents = invite ? [invite stringByAppendingString:@"\n"] : @"";
-    BOOL saved = ready && [contents writeToFile:[root stringByAppendingPathComponent:@"game_invite.txt"] atomically:YES encoding:NSUTF8StringEncoding error:&error];
-    if (!saved) [[NSFileManager defaultManager] removeItemAtPath:[root stringByAppendingPathComponent:@"game_invite.txt"] error:nil];
+    dispatch_async(InviteFileQueue(), ^{
+        @autoreleasepool {
+            NSError *error = nil;
+            NSString *current = HaloLastHostedInvite();
+            if (current != invite && ![current isEqualToString:invite]) return;
+            if (!WriteCurrentInvite(invite, &error)) {
+                /* Log no invite contents. Preserve the file on failed I/O. */
+                NSLog(@"Halo invite file: %@", error.localizedDescription);
+                halo_ios_toast("Could not update invite file. Check iCloud sync or choose the folder again.");
+            }
+        }
+    });
     [InviteLock() unlock];
-    if (!saved) { NSLog(@"Halo invite export: %@", error); halo_ios_toast("Could not update game_invite.txt"); }
 }
 
 /* ---------- clipboard for the game */

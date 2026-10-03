@@ -9,7 +9,7 @@ extern "C" {
 
 /* Called from guest threads (through the SDL clipboard and toast imports). */
 void halo_ios_clipboard_set(const char *text);
-/* NULL clears the active invite and replaces the sharing file with an empty file. */
+/* NULL clears this app's hosted code; a different incoming PC invite is preserved. */
 void halo_ios_set_hosted_invite(const char *text);
 /* An invite opened through a halo:// link wins; otherwise the pasteboard, if
  * "Join invites on the clipboard" is on. Writes an empty string if none. */
@@ -31,6 +31,11 @@ NSString *HaloLastHostedInvite(void);
 BOOL HaloJoinInviteText(NSString *text);
 /* Reads the pasteboard (a deliberate button press) and joins an invite found there. */
 BOOL HaloJoinInviteFromClipboard(void);
+/* Document-picker grant; callbacks run on the main queue. I/O is serialized off
+ * the game/UI threads and uses file coordination with the selected provider. */
+NSString *HaloInviteFileLocation(void);
+void HaloSelectInviteFolder(NSURL *folder, void (^completion)(NSError *error));
+void HaloReadInviteFile(void (^completion)(NSString *text, NSError *error));
 #endif
 
 #endif

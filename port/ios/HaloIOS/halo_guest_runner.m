@@ -687,6 +687,9 @@ static void ios_campaign_options(uint32_t packet)
     result.action = atomic_exchange(&g_campaign_action, 0);
     memcpy(out, &result, sizeof(result));
 }
+static _Atomic uint32_t g_viewmodel_flags = 3;
+void halo_ios_set_viewmodel_flags(uint32_t flags) { atomic_store_explicit(&g_viewmodel_flags, flags & 3u, memory_order_relaxed); }
+static uint32_t ios_viewmodel_flags(void) { return atomic_load_explicit(&g_viewmodel_flags, memory_order_relaxed); }
 static _Atomic uint32_t g_cheat_flags;
 void halo_ios_set_cheat_flags(uint32_t flags) { atomic_store_explicit(&g_cheat_flags, flags & 15u, memory_order_relaxed); }
 static uint32_t ios_cheat_flags(void) { return atomic_load_explicit(&g_cheat_flags, memory_order_relaxed); }
@@ -2408,6 +2411,7 @@ static void *resolve_host_import(const char *name)
     MAP("host_audio_fill", ios_audio_fill);
     MAP("host_audio_push", ios_audio_push);
     MAP("host_cheat_flags", ios_cheat_flags);
+    MAP("host_viewmodel_flags", ios_viewmodel_flags);
     MAP("host_active_invite", ios_active_invite);
     MAP("host_campaign_options", ios_campaign_options);
     MAP("host_debug_state", ios_debug_state);
@@ -2966,11 +2970,11 @@ static void *main_guest_thread(void *opaque)
     halo_ios_net_set_resolver(ios_net_resolver);
     halo_ios_net_set_logger(ios_net_log);
     signal(SIGPIPE, SIG_IGN); /* a peer closing a socket must not kill the app */
-    say("M2.6.39: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
+    say("M2.6.40: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
     say("Performance defaults: smooth 60 FPS follows the Settings switch; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.39: sparse shader constant locations preserved; landscape settings header protected; authoritative weapon poses retained.");
-    say("M2.6.39 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
-    say("M2.6.39 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
+    say("M2.6.40: independent first-person meshes and bounded pose diagnostics; coordinated iCloud invite file support.");
+    say("M2.6.40 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.40 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
         g_header ? g_header->start : 0u,
         context.boot_va,
         halo_guest_base_is_4gb_aligned() ? "YES" : "NO");
@@ -2993,7 +2997,7 @@ static void *main_guest_thread(void *opaque)
         halo_guest_exec_guard_set_active(0);
         halo_guest_exec_stats st;
         halo_guest_exec_stats_get(&st);
-        say("M2.6.39 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
+        say("M2.6.40 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
             reason,
             (unsigned long long)st.pointer_upgrades,
             (unsigned long long)st.handled_faults,

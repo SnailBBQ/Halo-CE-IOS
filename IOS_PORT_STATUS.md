@@ -1,12 +1,14 @@
 # Halo CE iOS — Port Status
 
-Updated October 2, 2026. Current development milestone: **M2.6.39** (device testing pending).
+Updated October 2, 2026. Current development milestone: **M2.6.40** (device testing pending).
 
 ## Current status
 
 M2.6.37 device logs confirm a healthy running session, successful protocol-10 multiplayer join, audio without underruns, approximately 3.4 ms render CPU time and about two pointer upgrades per render call. The user reports smooth 60 FPS menus. The plasma-pistol first-person model still shows severe distortion.
 
-M2.6.38 adds an active-session `Documents/Halo/game_invite.txt`, expanded campaign tools and numeric movement/FOV controls. It isolates weapon bone interpolation while retaining world/camera smoothing and the working arena rewrite. See [release notes and test checklist](port/ios/UPDATE_M2638.md) and the [current iOS guide](port/ios/README.md). M2.6.38 device feedback confirms continued operation and a PC multiplayer join, but the weapon-pose mitigation did not fix the obstruction. M2.6.39 protects the landscape Settings header and corrects sparse shader constant mapping; see [current release notes](port/ios/UPDATE_M2639.md). The new rendering change is not yet device-confirmed.
+M2.6.38 adds an active-session `Documents/Halo/game_invite.txt`, expanded campaign tools and numeric movement/FOV controls. It isolates weapon bone interpolation while retaining world/camera smoothing and the working arena rewrite. See [release notes and test checklist](port/ios/UPDATE_M2638.md) and the [current iOS guide](port/ios/README.md). M2.6.38 device feedback confirms continued operation and a PC multiplayer join, but the weapon-pose mitigation did not fix the obstruction. M2.6.39 protects the landscape Settings header and corrects sparse shader constant mapping; see [M2.6.39 release notes](port/ios/UPDATE_M2639.md). Device testing now confirms the header repair, but the shader correction did not resolve the obstruction.
+
+M2.6.39 device evidence confirms approximately 60 FPS, a complete Settings heading and a persistent obstruction while alive that disappears in the death camera. M2.6.40 adds independent first-person mesh visibility, validated bone remapping/pose measurements and document-picker-based iCloud Drive invite export/import. See [current release notes](port/ios/UPDATE_M2640.md). The mesh fault is not yet diagnosed; Hidden is a local workaround.
 
 ## Earlier milestones (historical evidence)
 

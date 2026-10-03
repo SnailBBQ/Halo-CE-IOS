@@ -49,6 +49,8 @@ on:
       - 'tools/tests/test_ios_vertex_colors.c'
       - 'tools/tests/test_ios_vertex_attributes.c'
       - 'tools/tests/test_ios_vertex_constants.c'
+      - 'tools/tests/test_ios_invite_file_policy.c'
+      - 'tools/tests/test_ios_first_person_remap.py'
       - 'tools/tests/test_ios_render_scans.c'
       - 'tools/tests/test_ios_render_adapters.py'
       - 'tools/tests/test_ios_scene_scans.c'
@@ -86,6 +88,9 @@ jobs:
           python3 tools/tests/test_ios_source_structure.py
           cc -std=c11 -Wall -Wextra -Werror tools/tests/test_ios_vertex_constants.c -o "$RUNNER_TEMP/halo-constants-test"
           "$RUNNER_TEMP/halo-constants-test"
+          cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_invite_file_policy.c -o "$RUNNER_TEMP/halo-invite-file-test"
+          "$RUNNER_TEMP/halo-invite-file-test"
+          python3 tools/tests/test_ios_first_person_remap.py
           python3 tools/tests/test_ios_campaign_policy.py
           python3 tools/tests/test_ios_arena_fastpath.py
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_controls_layout.c -o "$RUNNER_TEMP/halo-controls-test" -lm

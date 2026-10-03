@@ -3,13 +3,14 @@
 #import "HaloUI.h"
 #import "halo_ios_platform.h"
 #import "halo_guest_runner.h"
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 typedef NS_ENUM(NSInteger, HaloCategory) {
     HaloCategoryMultiplayer = 0, HaloCategoryControls, HaloCategoryDisplay, HaloCategoryAudio, HaloCategoryCheats, HaloCategoryAdvanced,
     HaloCategoryLogs, HaloCategoryCount
 };
 
-@interface HaloSettingsViewController () <UITextFieldDelegate>
+@interface HaloSettingsViewController () <UITextFieldDelegate, UIDocumentPickerDelegate>
 @property(nonatomic, strong) UIView *detail;
 @property(nonatomic, strong) UIStackView *stack;
 @property(nonatomic, strong) NSArray<UIButton *> *sidebar;
@@ -206,7 +207,23 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUINote(@"Paste the invite link a friend sent you. It works across iPhone, iPad, Android, Windows and Linux, as long as everyone is on the same Halo CE Universal build."),
         paste, join, fromClipboard])];
 
-    [self add:HaloUICardView(@"Invite file", @[HaloUINote(@"While hosting, Documents/Halo/game_invite.txt contains your current invite. Share it in Files. Leaving the hosted game empties it; each app launch clears the previous session.")])];
+    [self add:HaloUICardView(@"Invite file · iCloud Drive", @[
+        HaloUINote(HaloInviteFileLocation()),
+        HaloUINote(@"Choose a folder in iCloud Drive once. Hosting updates game_invite.txt there. Paste a PC invite into the same file, wait for iCloud to sync, then join below. Ending a hosted game clears only the code this app wrote; a different PC invite is preserved."),
+        HaloUIButton(@"Choose iCloud Drive folder", 0, ^(UIButton *b) {
+            UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeFolder] asCopy:NO];
+            picker.delegate = self;
+            picker.allowsMultipleSelection = NO;
+            [self presentViewController:picker animated:YES completion:nil];
+        }),
+        HaloUIButton(@"Join from game_invite.txt", 1, ^(UIButton *b) {
+            b.enabled = NO;
+            HaloReadInviteFile(^(NSString *text, NSError *error) {
+                b.enabled = YES;
+                if (error) { halo_ios_toast("Could not read invite file. Check iCloud sync or choose the folder again."); return; }
+                if (HaloJoinInviteText(text)) [self dismissViewControllerAnimated:YES completion:nil];
+            });
+        })])];
     NSString *invite = HaloLastHostedInvite();
     UIButton *share = HaloUIButton(invite ? @"Share my invite link" : @"Share my invite link", 1, ^(UIButton *b) {
         NSString *link = HaloLastHostedInvite();
@@ -226,6 +243,15 @@ static NSString *HaloCategorySymbol(HaloCategory c)
                         settings->join_from_clipboard, ^(BOOL on) { [self update:^(HsSettings *s) { s->join_from_clipboard = on; }]; })])];
     [self add:HaloUICardView(@"Finding games on your Wi-Fi", @[
         HaloUINote(@"If games on the same network are not found, check iOS Settings > Privacy & Security > Local Network > Halo CE is on, and that both devices are on the same Wi-Fi.")])];
+}
+
+- (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls
+{
+    if (!urls.count) return;
+    HaloSelectInviteFolder(urls.firstObject, ^(NSError *error) {
+        halo_ios_toast(error ? "Could not access that folder. Choose a writable iCloud Drive folder." : "Invite folder saved. game_invite.txt is ready there.");
+        [self renderSoon];
+    });
 }
 
 - (BOOL)textFieldShouldReturn:(UITextField *)field { [field resignFirstResponder]; return YES; }
@@ -328,6 +354,12 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         }),
         HaloUINote(note),
         HaloUINote(@"Switching between 30 and the other two takes effect the next time you open the app. Switching between 60 and Uncapped takes effect now.")])];
+
+    [self add:HaloUICardView(@"First-person view", @[
+        HaloUISegmentRow(nil, @[@"Both", @"Weapon", @"Hands", @"Hidden"], settings->viewmodel_mode, ^(NSInteger i) {
+            [self update:^(HsSettings *s) { s->viewmodel_mode = (int)i; }];
+        }),
+        HaloUINote(@"Changes immediately. Try Weapon and Hands separately to identify the stretched mesh; Hidden gives a clear view if it is either one. Your HUD, attacks and other players stay active.")])];
 
     [self add:HaloUICardView(@"HUD and text", @[
         HaloUISwitchRow(@"High-res HUD", @"Sharper meters, radar and reticles.", settings->hires_hud, ^(BOOL on) { [self update:^(HsSettings *s) { s->hires_hud = on; }]; }),

@@ -17,8 +17,8 @@ That project is a fork of [punpckhdq/halo](https://github.com/punpckhdq/halo).
 This fork is based on Halo CE Universal **build 73** and adds an experimental native iOS app (arm64 host, arm64_32 guest, OpenGL ES 3).
 The iOS build has on-screen Xbox controls with five named schemes, touch-look, physical controller support, sound, a readable log and
 invite-link multiplayer that follows the other ports' protocol. See [iOS port status](IOS_PORT_STATUS.md), the
-[M2.6.39 release notes](port/ios/UPDATE_M2639.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
-Current iOS milestone: **M2.6.39** — landscape Settings header repair and shader constant mapping correction. M2.6.38 device feedback confirms working multiplayer with a PC client; the viewmodel obstruction remains under investigation and this rendering change needs device validation.
+[M2.6.40 release notes](port/ios/UPDATE_M2640.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
+Current iOS milestone: **M2.6.40** — independent first-person weapon/hands visibility and iCloud Drive invite sharing. M2.6.39 device logs show approximately 60 FPS, but stretched first-person geometry persists. This update adds isolation controls and bounded diagnostics; a complete model repair is not yet confirmed.
 Release downloads below are the upstream project's; the iOS build is an Actions artifact (**Halo CE iOS — Build IPA**).
 
 ## Download

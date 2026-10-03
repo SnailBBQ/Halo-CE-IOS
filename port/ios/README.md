@@ -2,15 +2,15 @@
 
 Experimental Halo: Combat Evolved port for physical iPhone and iPad devices running iOS/iPadOS 15 or later. A native `arm64` app hosts the recovered `arm64_32` engine and presents graphics through EAGL/OpenGL ES 3.
 
-**Current version: M2.6.39**, awaiting device validation. Built on Halo CE Universal build 73, with protocol-10 multiplayer, working audio, full touch/controller input, category-based Settings and Diagnostics, and 30 / 60 / uncapped presentation modes. The user reports smooth 60 FPS menus; recent logs show about 3.4 ms render CPU time and a successful network join. First-person plasma-pistol geometry remains under investigation. See [current release notes](UPDATE_M2639.md) and [port status](../../IOS_PORT_STATUS.md).
+**Current version: M2.6.40**, awaiting device validation. Built on Halo CE Universal build 73, with protocol-10 multiplayer, working audio, full touch/controller input, category-based Settings and Diagnostics, and 30 / 60 / uncapped presentation modes. The user reports smooth 60 FPS menus; recent logs show about 3.4 ms render CPU time and a successful network join. First-person plasma-pistol geometry remains under investigation. See [current release notes](UPDATE_M2640.md) and [port status](../../IOS_PORT_STATUS.md).
 
 ## Current multiplayer and campaign tools
 
-Settings → Multiplayer accepts a supported `halo://join/` invite or its bare 64-digit token. Compatible peers use network protocol 10. While hosting, share the current link through Settings or `Documents/Halo/game_invite.txt` in Files. The file is replaced atomically, emptied when hosting stops, and cleared on launch/guarded engine exit. It never stores invite history. After an abrupt app termination, the next launch clears the old file.
+Settings → Multiplayer accepts a supported `halo://join/` invite or its bare 64-digit token. Compatible peers use protocol 10. Choose **Choose iCloud Drive folder** to move game_invite.txt into a remembered folder, then use **Join from game_invite.txt** to read a PC invite after sync. Until a folder is chosen, Documents/Halo is the fallback. Hosting publishes its current code; stopping or launch cleanup clears only the code this app wrote, preserving a different incoming PC code. No invite history is kept; abrupt termination/provider delays can defer cleanup until next launch/sync.
 
 Settings → Cheats contains god mode, infinite ammo/grenades, bottomless clip, loaded-map weapon and vehicle pickups, overshield/invisibility, hostile-unit one-hit kills, unlimited flashlight, no fall damage, rapid fire, no recoil, noclip and third person. Jump (1–10), local-player speed (1–5) and vertical FOV (0 = default; 20–90 degrees) have sliders and numeric entry. All gameplay tools are campaign-only; unavailable map assets report a message. See the release notes for exact behavior and validation limits.
 
-The M2.6.38 weapon test uses authoritative first-person weapon poses while keeping world/camera smoothing. Device testing confirmed the obstruction persists. M2.6.39 corrects shader constant reflection/upload for sparse locations and fixes the landscape Settings header. The visual result still needs device testing.
+The M2.6.38 weapon test uses authoritative first-person weapon poses while keeping world/camera smoothing. Device testing confirmed the obstruction persists. M2.6.39 corrects shader constant reflection/upload for sparse locations and fixes the landscape Settings header. M2.6.39 device testing still shows the obstruction. M2.6.40 adds Both / Weapon / Hands / Hidden under Display and bounded pose diagnostics, not a confirmed complete model repair.
 
 ## Build with GitHub Actions
 
@@ -56,7 +56,7 @@ Settings has Multiplayer, Controls, Display, Audio, Cheats and Advanced categori
 
 Settings → Logs opens Diagnostics Summary and Problems. Share logs exports available files from `Documents/Halo`, including boot/game/game-state and launch reports. Terminal output remains available in the logs without covering the game. Audio is supported through the native audio engine; Bink movie files are still unsupported and skipped. Engine-rendered campaign cinematics are separate from Bink movies.
 
-For a report, include the milestone, workflow commit, all logs, the map/weapon/action involved, and a screenshot or recording. Local checks do not establish device correctness. For M2.6.38, test weapons with cheats off first, then campaign tools individually, active-invite cleanup, and a multiplayer join with campaign settings enabled.
+For a report, include the milestone, workflow commit, all logs, the map/weapon/action involved, and a screenshot or recording. Local checks do not establish device correctness. For M2.6.40, compare Both / Weapon / Hands / Hidden while alive and after respawn, then test iCloud host-code cleanup and PC-invite preservation across app launches.
 
 ## Build the host locally on macOS
 
@@ -95,7 +95,7 @@ Re-sign `build/ios/HaloCE.ipa` with your sideloading tool to install it. The int
 
 ## Historical development notes
 
-The sections below describe earlier milestones and their then-current limitations. Use the current guide and release notes above for M2.6.39.
+The sections below describe earlier milestones and their then-current limitations. Use the current guide and release notes above for M2.6.40.
 
 ## M2.6.16 performance and loading diagnostics
 
@@ -170,3 +170,7 @@ The M2.6.24 device test confirms working native renderer helpers and better menu
 ## M2.6.29 object filtering and performance measurements
 
 The current test build preserves shared object lists, invisible parents and widgets, and safely skips only shadowless objects on shadow passes. New timings separate object lighting, model/widget traversal and simulation updates. Static pointer rewriting remains disabled. See the [correctness changes and device comparison checklist](PERFORMANCE_M2629.md).
+
+## Invite file in iCloud Drive (M2.6.40)
+
+Choose Settings > Multiplayer > Choose iCloud Drive folder, then select a folder in iCloud Drive. The app remembers access and publishes the current hosted invite into game_invite.txt there. Once selected, the export moves out of Documents/Halo. Paste a supported PC invite into the same file, wait for iCloud sync, and press Join from game_invite.txt on the phone. Host-stop and launch cleanup preserve a different incoming PC code. If permission expires, choose the folder again. See the current release notes for offline-sync and revoked-access limitations.

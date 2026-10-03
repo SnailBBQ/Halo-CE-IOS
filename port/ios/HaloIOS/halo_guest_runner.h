@@ -27,6 +27,8 @@ void halo_ios_phase_foreground(void);
 /* Cheats from Settings: 1 god mode, 2 infinite ammo, 4 infinite grenades, 8 no reloading. The game applies
  * them only in the campaign (source/game/cheats.c). */
 void halo_ios_set_cheat_flags(uint32_t flags);
+/* Local first-person meshes: bit 0 weapon, bit 1 hands. */
+void halo_ios_set_viewmodel_flags(uint32_t flags);
 /* One-shot request; refuses a second action until the game consumes the first. */
 int halo_ios_queue_campaign_action(uint32_t action);
 

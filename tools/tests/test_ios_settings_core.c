@@ -16,6 +16,21 @@ int main(void)
     CHECK(s.active == 0 && s.volume == 1.0f && s.audio_enabled && !s.join_from_clipboard && s.profiler == 1 && s.fps_mode == 1 && s.hires_hud == 0 && s.hires_text == 0 && s.controls_mode == 0 && hs_cheat_mask(&s) == 0, "default globals (cheats off)");
     CHECK(s.presets[2].touch_look && s.presets[2].floating_sticks && near(s.presets[2].look_curve, 1.5f), "default aim");
 
+    /* First-person visibility is persistent and applies independently from cheats. */
+    CHECK(s.viewmodel_mode == 0 && hs_viewmodel_mask(&s) == 3u, "legacy/default both meshes");
+    for (int mode=0;mode<4;++mode) {
+        static const unsigned masks[4]={3u,1u,2u,0u};
+        s.viewmodel_mode=mode;
+        CHECK(hs_serialize(&s,text,sizeof(text))>0,"viewmodel serialize");
+        hs_parse(&t,text);
+        CHECK(t.viewmodel_mode==mode && hs_viewmodel_mask(&t)==masks[mode],"viewmodel round trip");
+    }
+    hs_parse(&t,"HALO1\nviewmodel=999\n");
+    CHECK(t.viewmodel_mode==3 && hs_viewmodel_mask(&t)==0,"viewmodel upper bound");
+    hs_parse(&t,"HALO1\nviewmodel=-1\n");
+    CHECK(t.viewmodel_mode==0 && hs_viewmodel_mask(&t)==3,"viewmodel lower bound");
+    hs_defaults(&s);
+
     /* round trip, including a renamed preset with accents, moved/scaled/hidden controls */
     hs_set_name(s.presets[1].name, "  Thumbs ñ ☃ wide  ");
     s.active = 3;

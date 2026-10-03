@@ -67,6 +67,7 @@ typedef struct
     int cheat_third_person;
     int cheat_noclip;
     float cheat_jump, cheat_speed, cheat_fov; /* multipliers; vertical degrees, 0 = default */
+    int viewmodel_mode;       /* 0 both, 1 weapon only, 2 hands only, 3 hidden; local rendering only */
     int hires_hud;            /* build 73: the HUD from the high-res assets; applies at launch */
     int hires_text;           /* build 73: menu and HUD text from the Overpass fonts at display resolution; applies at launch */
     int profiler;             /* sample the game thread for the log (about 1% of one core) */
@@ -126,6 +127,13 @@ static inline void hs_default_preset(HsPreset *p, int index)
 static inline unsigned hs_cheat_mask(const HsSettings *s)
 {
     return (s->cheat_god ? 1u : 0u) | (s->cheat_ammo ? 2u : 0u) | (s->cheat_grenades ? 4u : 0u) | (s->cheat_reload ? 8u : 0u);
+}
+
+/* Independent weapon/hands visibility; neither simulation nor remote players change. */
+static inline unsigned hs_viewmodel_mask(const HsSettings *s)
+{
+    static const unsigned masks[4] = {3u, 1u, 2u, 0u};
+    return masks[hs_clampi(s->viewmodel_mode, 0, 3)];
 }
 
 /* Frame cap the host paces presentation to: 0 means none (the display's own refresh limits it). */
@@ -200,6 +208,7 @@ static inline void hs_sanitize(HsSettings *s)
     s->cheat_jump = hs_clampf(s->cheat_jump, 1.0f, 10.0f);
     s->cheat_speed = hs_clampf(s->cheat_speed, 1.0f, 5.0f);
     s->cheat_fov = s->cheat_fov == 0 ? 0 : hs_clampf(s->cheat_fov, 20.0f, 90.0f);
+    s->viewmodel_mode = hs_clampi(s->viewmodel_mode, 0, 3);
     s->hires_hud = s->hires_hud ? 1 : 0;
     s->hires_text = s->hires_text ? 1 : 0;
 }
@@ -276,6 +285,7 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
     EMIT("active=%d\nvolume=%.3f\naudio=%d\nclipboard=%d\nfps=%d\nprofiler=%d\nfpsmode=%d\nhireshud=%d\nhirestext=%d\ncontrols=%d\ncheatgod=%d\ncheatammo=%d\ncheatgrenades=%d\ncheatreload=%d\n", s->active, s->volume, s->audio_enabled,
          s->join_from_clipboard, s->show_fps, s->profiler, s->fps_mode, s->hires_hud, s->hires_text, s->controls_mode,
          s->cheat_god, s->cheat_ammo, s->cheat_grenades, s->cheat_reload);
+    EMIT("viewmodel=%d\n", s->viewmodel_mode);
     EMIT("cheatone_hit=%d\n", s->cheat_one_hit);
     EMIT("cheatflashlight=%d\n", s->cheat_flashlight);
     EMIT("cheatno_fall=%d\n", s->cheat_no_fall);
@@ -356,6 +366,7 @@ static inline int hs_parse(HsSettings *s, const char *text)
                 else if (!strcmp(key, "cheatspeed")) s->cheat_speed = (float)atof(value);
                 else if (!strcmp(key, "cheatfov")) s->cheat_fov = (float)atof(value);
 
+                else if (!strcmp(key, "viewmodel")) s->viewmodel_mode = atoi(value);
                 else if (!strcmp(key, "hireshud")) s->hires_hud = atoi(value);
                 else if (!strcmp(key, "hirestext")) s->hires_text = atoi(value);
                 else if (key[0] == 'p' && key[1] >= '0' && key[1] < '0' + HS_PRESET_COUNT && key[2] == '.')
