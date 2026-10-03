@@ -16,19 +16,19 @@ static NSMutableData *fixture(void){
     for(int i=0;i<10;i++){size_t o=1024+i*48;put16(t,o+4,4);put16(t,o+6,4);put16(t,o+8,1);put16(t,o+12,11);put16(t,o+14,16);put32(t,o+24,7000);put32(t,o+28,64);}
     for(int i=0;i<16;i++)put32(b,7000+i*4,0xff336699);return d;
 }
-static NSDictionary *read(NSMutableData *expanded,NSURL *url){
+static NSDictionary *ReadPictureFixture(NSMutableData *expanded,NSURL *url){
     uLongf n=compressBound(expanded.length-2048);NSMutableData *raw=[NSMutableData dataWithLength:2048+n];memcpy(raw.mutableBytes,expanded.bytes,2048);
     compress2((uint8_t *)raw.mutableBytes+2048,&n,(const uint8_t *)expanded.bytes+2048,expanded.length-2048,Z_BEST_SPEED);raw.length=2048+n;[raw writeToURL:url atomically:YES];return HaloReadMapPictures(url);
 }
 #define CHECK(v) do{if(!(v)){fprintf(stderr,"FAIL map pictures line %d\n",__LINE__);exit(1);}}while(0)
 int main(void){@autoreleasepool{
     NSURL *url=[NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:[NSUUID.UUID.UUIDString stringByAppendingString:@".map"]]];
-    NSMutableData *d=fixture();NSDictionary *images=read(d,url);CHECK(images.count==10);UIImage *a=images[@"a10"];CHECK(a.width==4 && a.height==4);
+    NSMutableData *d=fixture();NSDictionary *images=ReadPictureFixture(d,url);CHECK(images.count==10);UIImage *a=images[@"a10"];CHECK(a.width==4 && a.height==4);
     const uint8_t *p=a.rgba.bytes;CHECK(p[0]==0x33&&p[1]==0x66&&p[2]==0x99&&p[3]==255);
-    put32(d.mutableBytes,2048+512+0x44,99);CHECK(!read(d,url).count);
-    d=fixture();put32(d.mutableBytes,2048+768+0x64,0xffffffff);CHECK(!read(d,url).count);
-    d=fixture();for(int i=0;i<10;i++)put32(d.mutableBytes,2048+1024+i*48+24,8190);CHECK(!read(d,url).count);
-    d=fixture();put32(d.mutableBytes,8,0xffffffff);CHECK(!read(d,url).count);
+    put32(d.mutableBytes,2048+512+0x44,99);CHECK(!ReadPictureFixture(d,url).count);
+    d=fixture();put32(d.mutableBytes,2048+768+0x64,0xffffffff);CHECK(!ReadPictureFixture(d,url).count);
+    d=fixture();for(int i=0;i<10;i++)put32(d.mutableBytes,2048+1024+i*48+24,8190);CHECK(!ReadPictureFixture(d,url).count);
+    d=fixture();put32(d.mutableBytes,8,0xffffffff);CHECK(!ReadPictureFixture(d,url).count);
     [[NSData dataWithBytes:"broken" length:6] writeToURL:url atomically:YES];CHECK(!HaloReadMapPictures(url).count);
     [NSFileManager.defaultManager removeItemAtURL:url error:nil];puts("PASS: actual ui.map thumbnail parser, RGBA decoding, bounded tag references, invalid pixels, oversized expansion, truncation");
 }return 0;}
