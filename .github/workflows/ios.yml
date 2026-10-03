@@ -113,6 +113,7 @@ jobs:
           python3 tools/tests/test_ios_world_cheats.py
           python3 tools/tests/test_ios_store_build_modes.py
           python3 tools/tests/test_ios_header_declarations.py
+          python3 tools/tests/test_ios_touch_aiming.py
           python3 tools/tests/test_ios_frameworks_linked.py
           python3 tools/tests/test_ios_import_coverage.py
           python3 tools/tests/test_ios_campaign_policy.py
