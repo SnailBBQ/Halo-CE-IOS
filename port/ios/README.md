@@ -2,7 +2,7 @@
 
 Experimental Halo: Combat Evolved port for physical iPhone and iPad devices running iOS/iPadOS 15 or later. A native `arm64` app hosts the recovered `arm64_32` engine and presents graphics through EAGL/OpenGL ES 3.
 
-**Current version: M2.6.40**, awaiting device validation. Built on Halo CE Universal build 73, with protocol-10 multiplayer, working audio, full touch/controller input, category-based Settings and Diagnostics, and 30 / 60 / uncapped presentation modes. The user reports smooth 60 FPS menus; recent logs show about 3.4 ms render CPU time and a successful network join. First-person plasma-pistol geometry remains under investigation. See [current release notes](UPDATE_M2640.md) and [port status](../../IOS_PORT_STATUS.md).
+**Current version: M2.6.41**, awaiting device validation. M2.6.41 corrects stale iOS vertex/index GPU mirror data by refreshing requested ranges before drawing. M2.6.40 testing shows a correct campaign assault rifle alongside corrupted world geometry and persistent multiplayer distortion. Device validation is needed for the visual fix and upload-cost impact; the separate guest_glUniform4fv execution fault remains under investigation. See [release notes](UPDATE_M2641.md).
 
 ## Current multiplayer and campaign tools
 
@@ -174,3 +174,7 @@ The current test build preserves shared object lists, invisible parents and widg
 ## Invite file in iCloud Drive (M2.6.40)
 
 Choose Settings > Multiplayer > Choose iCloud Drive folder, then select a folder in iCloud Drive. The app remembers access and publishes the current hosted invite into game_invite.txt there. Once selected, the export moves out of Documents/Halo. Paste a supported PC invite into the same file, wait for iCloud sync, and press Join from game_invite.txt on the phone. Host-stop and launch cleanup preserve a different incoming PC code. If permission expires, choose the folder again. See the current release notes for offline-sync and revoked-access limitations.
+
+## M2.6.41 geometry correction
+
+Device testing found campaign world corruption as well as multiplayer mesh distortion. The iOS GPU geometry mirror incorrectly treated no-op write-tracking generations as unchanged data. Requested ranges now refresh before every draw, including same-frame writes and reused map addresses. This may increase upload cost; FPS and visual correctness need device validation. The guest_glUniform4fv execution fault remains under investigation. See [release notes](UPDATE_M2641.md). Swipe-away terminates the app through iOS; final callbacks and iCloud cleanup are best-effort, with existing next-launch cleanup retained.

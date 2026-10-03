@@ -17,8 +17,8 @@ That project is a fork of [punpckhdq/halo](https://github.com/punpckhdq/halo).
 This fork is based on Halo CE Universal **build 73** and adds an experimental native iOS app (arm64 host, arm64_32 guest, OpenGL ES 3).
 The iOS build has on-screen Xbox controls with five named schemes, touch-look, physical controller support, sound, a readable log and
 invite-link multiplayer that follows the other ports' protocol. See [iOS port status](IOS_PORT_STATUS.md), the
-[M2.6.40 release notes](port/ios/UPDATE_M2640.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
-Current iOS milestone: **M2.6.40** — independent first-person weapon/hands visibility and iCloud Drive invite sharing. M2.6.39 device logs show approximately 60 FPS, but stretched first-person geometry persists. This update adds isolation controls and bounded diagnostics; a complete model repair is not yet confirmed.
+[M2.6.40 release notes](port/ios/UPDATE_M2641.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
+Current iOS milestone: **M2.6.41**. M2.6.41 corrects stale iOS vertex/index GPU mirror data by refreshing requested ranges before drawing. M2.6.40 testing shows a correct campaign assault rifle alongside corrupted world geometry and persistent multiplayer distortion. Device validation is needed for the visual fix and upload-cost impact; the separate guest_glUniform4fv execution fault remains under investigation.
 Release downloads below are the upstream project's; the iOS build is an Actions artifact (**Halo CE iOS — Build IPA**).
 
 ## Download
@@ -148,3 +148,7 @@ To record a new profile:
 The build then plays the main menu and the first minute of each campaign
 level. This procedure continues for approximately 15 minutes. The game
 data must be in `assets/`.
+
+## M2.6.41 geometry correction
+
+Device testing found campaign world corruption as well as multiplayer mesh distortion. The iOS GPU geometry mirror incorrectly treated no-op write-tracking generations as unchanged data. Requested ranges now refresh before every draw, including same-frame writes and reused map addresses. This may increase upload cost; FPS and visual correctness need device validation. The guest_glUniform4fv execution fault remains under investigation. See [release notes](port/ios/UPDATE_M2641.md). Swipe-away terminates the app through iOS; final callbacks and iCloud cleanup are best-effort, with existing next-launch cleanup retained.

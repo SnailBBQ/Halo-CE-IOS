@@ -3069,7 +3069,16 @@ static BOOL mirror_refresh(unsigned long first, unsigned long last)
 			memory_watch_generation(PLATFORM_CONTIGUOUS_BASE + page * MIRROR_PAGE_SIZE, MIRROR_PAGE_SIZE) >
 			mirror.generation[page];
 
-		stale[page - first] = mirror.state[page] != _mirror_page_present || written;
+		/* iOS has no memory-watch generations: zero does not mean unchanged.
+           Re-upload every requested range, including same-frame writes and map
+           address reuse. Keep the synchronized SubData path for live pages.
+           A once-per-frame refresh is insufficient for dynamic geometry. */
+#ifdef HALO_IOS_GUEST
+        stale[page - first] = TRUE;
+        written = FALSE; /* no trustworthy rewrite history on this host */
+#else
+        stale[page - first] = mirror.state[page] != _mirror_page_present || written;
+#endif
 		if (written)
 		{
 			if (device.frame - mirror.rewritten_frame[page] <= MIRROR_REWRITE_FRAMES)
@@ -3158,7 +3167,7 @@ static BOOL mirror_range(unsigned long address, unsigned long size, GLuint *buff
 	unsigned long segment, first, last, page, oldest = ~0UL, newest = 0;
 	BOOL present = TRUE;
 
-	if (!size || address < PLATFORM_CONTIGUOUS_BASE || start + size > PLATFORM_CONTIGUOUS_SIZE)
+	if (!size || address < PLATFORM_CONTIGUOUS_BASE || size > PLATFORM_CONTIGUOUS_SIZE || start > PLATFORM_CONTIGUOUS_SIZE - size)
 		return FALSE;
 	segment = start / MIRROR_SEGMENT_SIZE;
 	if ((start + size - 1) / MIRROR_SEGMENT_SIZE != segment)
@@ -3185,7 +3194,14 @@ static BOOL mirror_range(unsigned long address, unsigned long size, GLuint *buff
 				newest = mirror.generation[page];
 		}
 	}
-	if (!present || memory_watch_generation(address, size) > oldest)
+	#ifdef HALO_IOS_GUEST
+    /* Never accept the zero-generation mirror as a cached snapshot. */
+    (void)present;
+    (void)oldest;
+    if (TRUE)
+#else
+    if (!present || memory_watch_generation(address, size) > oldest)
+#endif
 	{
 		if (!mirror_refresh(first, last))
 			return FALSE;

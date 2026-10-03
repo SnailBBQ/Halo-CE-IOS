@@ -91,6 +91,7 @@ jobs:
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_invite_file_policy.c -o "$RUNNER_TEMP/halo-invite-file-test"
           "$RUNNER_TEMP/halo-invite-file-test"
           python3 tools/tests/test_ios_first_person_remap.py
+          python3 tools/tests/test_ios_geometry_mirror.py
           python3 tools/tests/test_ios_campaign_policy.py
           python3 tools/tests/test_ios_arena_fastpath.py
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_controls_layout.c -o "$RUNNER_TEMP/halo-controls-test" -lm

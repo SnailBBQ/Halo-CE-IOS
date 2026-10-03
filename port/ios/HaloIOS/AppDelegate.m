@@ -347,6 +347,15 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     halo_crash_phase(HALO_PHASE_BACKGROUND);
 }
 
+/* Force quit while suspended may skip this callback. Next-launch owned-code
+   cleanup remains authoritative; iOS terminates all guest/host threads itself. */
+- (void)applicationWillTerminate:(UIApplication *)application {
+    (void)application;
+    halo_ios_menu_reset();
+    halo_ios_set_hosted_invite(NULL);
+    halo_crash_phase(HALO_PHASE_EXITED);
+}
+
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     halo_ios_set_hosted_invite(NULL); /* discard any invite left by a terminated run */
     [self prepareLaunchState];
@@ -365,7 +374,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"HALO iOS — M2.6.40 · add your maps";
+    title.text = @"HALO iOS — M2.6.41 · add your maps";
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:18];
 
