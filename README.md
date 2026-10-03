@@ -1,6 +1,6 @@
 # Halo: Combat Evolved for Linux, Windows, Android and iOS
 
-Current iOS update: **M2.6.47** — clear grenade-swap and flashlight symbols, Settings size/color Options, centered larger map previews and direct-boot polish. See [release notes](port/ios/UPDATE_M2647.md). Device validation is pending.
+Current iOS update: **M2.6.50** — picture aspect/detail choices, opt-in touch aiming and AirPlay mirroring guidance, shared by the regular and separate mod-test apps. See [release notes](port/ios/UPDATE_M2650.md). Device validation is pending.
 
 [![Join our Discord](https://invidget.switchblade.xyz/9gqcHyr5km)](https://discord.gg/9gqcHyr5km)
 
