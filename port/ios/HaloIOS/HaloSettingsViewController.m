@@ -5,6 +5,30 @@
 #import "halo_guest_runner.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
+@interface HaloOptionPicker : UITableViewController
+@property(nonatomic,copy) NSArray<NSString *> *choices;
+@property(nonatomic,copy) void (^pick)(NSUInteger);
+@end
+@implementation HaloOptionPicker
+- (void)viewDidLoad { [super viewDidLoad];
+    self.tableView.backgroundColor=HaloUIBackground();
+    self.navigationItem.leftBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self action:@selector(cancel)];
+}
+- (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated];[self.tableView setContentOffset:CGPointMake(0,-self.tableView.adjustedContentInset.top) animated:NO]; }
+- (void)cancel { [self dismissViewControllerAnimated:YES completion:nil]; }
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { (void)tableView;(void)section;return (NSInteger)self.choices.count; }
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    UITableViewCell *cell=[tableView dequeueReusableCellWithIdentifier:@"option"];
+    if (!cell) cell=[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"option"];
+    cell.backgroundColor=HaloUICard();cell.textLabel.textColor=UIColor.whiteColor;
+    cell.textLabel.text=self.choices[(NSUInteger)indexPath.row];return cell;
+}
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    (void)tableView;void (^pick)(NSUInteger)=self.pick;NSUInteger row=(NSUInteger)indexPath.row;
+    [self dismissViewControllerAnimated:YES completion:^{ if (pick) pick(row); }];
+}
+@end
+
 typedef NS_ENUM(NSInteger, HaloCategory) {
     HaloCategoryMultiplayer = 0, HaloCategoryControls, HaloCategoryDisplay, HaloCategoryAudio, HaloCategoryCheats, HaloCategoryAdvanced,
     HaloCategoryLogs, HaloCategoryCount
@@ -15,6 +39,7 @@ typedef NS_ENUM(NSInteger, HaloCategory) {
 @property(nonatomic, strong) UIStackView *stack;
 @property(nonatomic, strong) NSArray<UIButton *> *sidebar;
 @property(nonatomic) HaloCategory selected;
+@property(nonatomic,strong) id campaignObserver;
 @end
 
 @implementation HaloSettingsViewController
@@ -128,9 +153,13 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         [self.detail.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
         [self.detail.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor]]];
     self.stack = HaloUIScrollingStack(self.detail, 12);
+    __weak HaloSettingsViewController *weakSelf=self;
+    self.campaignObserver=[[NSNotificationCenter defaultCenter] addObserverForName:HaloCampaignStateChangedNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) { (void)note;[weakSelf renderSoon]; }];
     self.selected = HaloCategoryMultiplayer;
     [self renderDetail];
 }
+
+- (void)dealloc { if (self.campaignObserver) [[NSNotificationCenter defaultCenter] removeObserver:self.campaignObserver]; }
 
 - (void)choose:(HaloCategory)category
 {
@@ -157,6 +186,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         self.sidebar[i].backgroundColor = on ? HaloUIAccent() : (i == HaloCategoryLogs ? [UIColor colorWithWhite:0.14 alpha:1] : UIColor.clearColor);
     }
     for (UIView *view in self.stack.arrangedSubviews) { [self.stack removeArrangedSubview:view]; [view removeFromSuperview]; }
+    self.stack.userInteractionEnabled = self.selected != HaloCategoryCheats || [[HaloSettingsStore shared] campaignActive];
     HsSettings settings = [[HaloSettingsStore shared] snapshot];
     switch (self.selected) {
         case HaloCategoryMultiplayer: [self buildMultiplayer:&settings]; break;
@@ -283,7 +313,10 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         choose.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 14);
         UIButton *rename = HaloUIButton(@"Rename", 0, ^(UIButton *b) { [self renamePreset:i]; });
         [rename.widthAnchor constraintEqualToConstant:90].active = YES;
-        UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:@[choose, rename]];
+        UIButton *gear=HaloUIButton(@"",0,^(UIButton *b) { [self editPreset:i]; });
+        [gear setImage:[UIImage systemImageNamed:@"gearshape"] forState:UIControlStateNormal];
+        gear.accessibilityLabel=@"Edit preset";[gear.widthAnchor constraintEqualToConstant:48].active=YES;
+        UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:@[choose, gear, rename]];
         row.spacing = 8;
         [schemes addObject:row];
     }
@@ -384,6 +417,9 @@ static NSString *HaloCategorySymbol(HaloCategory c)
 
 - (void)buildCheats:(const HsSettings *)settings
 {
+    [self add:HaloUICardView(@"Preset recipe", @[
+        HaloUINote([[HaloSettingsStore shared] campaignActive] ? @"Active cheats last only for this campaign session. Preset recipes are edited with the gear in Controls." : @"Cheats are off. Start a solo campaign to enable them. Saved recipes never activate automatically."),
+        HaloUIButton(@"Apply this preset’s cheats",1,^(UIButton *b) { [self applyPresetCheats]; })])];
     [self add:HaloUICardView(@"Campaign cheats", @[
         HaloUINote(@"These use the game's own cheat flags. They work only in the campaign and switch off by themselves in multiplayer and network games, so nobody cheats where others play."),
         HaloUISwitchRow(@"God mode", @"You cannot die.", settings->cheat_god, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_god = on; }]; }),
@@ -405,25 +441,22 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUINote(@"Pickups appear in front of you. Only assets already loaded by the current map are supported; unavailable assets report a message."),
         HaloUIButton(@"Weapon giver", 0, ^(UIButton *b) { [self chooseCampaignAsset:@"Weapon" names:@[@"Pistol", @"Assault rifle", @"Shotgun", @"Sniper rifle", @"Rocket launcher", @"Plasma pistol", @"Plasma rifle", @"Needler", @"Flamethrower", @"Gravity rifle"] base:100]; }),
         HaloUIButton(@"Vehicle spawner", 0, ^(UIButton *b) { [self chooseCampaignAsset:@"Vehicle" names:@[@"Warthog", @"Ghost", @"Banshee", @"Scorpion"] base:200]; }),
-        HaloUIButton(@"Spawn overshield", 0, ^(UIButton *b) { [self queueCampaignAction:2]; }),
-        HaloUIButton(@"Spawn invisibility", 0, ^(UIButton *b) { [self queueCampaignAction:3]; }),
-        HaloUIButton(@"Apply active camouflage", 0, ^(UIButton *b) { [self queueCampaignAction:1]; })])];
+        HaloUIButton(@"Spawn Overshield", 0, ^(UIButton *b) { [self queueCampaignAction:2]; }),
+        HaloUIButton(@"Spawn Active Camo", 0, ^(UIButton *b) { [self queueCampaignAction:3]; }),
+        HaloUIButton(@"Apply Active Camo", 0, ^(UIButton *b) { [self queueCampaignAction:1]; }),
+        HaloUIButton(@"Apply Overshield",0,^(UIButton *b) { [self queueCampaignAction:4]; })])];
     [self add:HaloUICardView(nil, @[HaloUINote(@"Changes apply within a moment, also in the middle of a mission.")])];
 }
 
 - (void)queueCampaignAction:(uint32_t)action
 {
-    if (!halo_ios_queue_campaign_action(action)) halo_ios_toast("An action is already waiting for the game");
+    if (![[HaloSettingsStore shared] campaignActive]) { halo_ios_toast("Start a solo campaign before using cheats");return; }
+    if (!halo_ios_queue_campaign_action(action)) halo_ios_toast("The campaign action queue is full or unavailable");
 }
 
 - (void)chooseCampaignAsset:(NSString *)title names:(NSArray<NSString *> *)names base:(uint32_t)base
 {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:@"Only the current map's loaded assets can be spawned." preferredStyle:UIAlertControllerStyleAlert];
-    [names enumerateObjectsUsingBlock:^(NSString *name, NSUInteger index, BOOL *stop) {
-        [alert addAction:[UIAlertAction actionWithTitle:name style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [self queueCampaignAction:base + (uint32_t)index]; }]];
-    }];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:alert animated:YES completion:nil];
+    [self presentChoices:title names:names from:self pick:^(NSUInteger index) { [self queueCampaignAction:base+(uint32_t)index]; }];
 }
 
 - (void)enterCampaignValue:(NSString *)title value:(float)value minimum:(float)minimum maximum:(float)maximum apply:(void (^)(float))apply
@@ -442,10 +475,82 @@ static NSString *HaloCategorySymbol(HaloCategory c)
     [self presentViewController:alert animated:YES completion:nil];
 }
 
+- (void)presentChoices:(NSString *)title names:(NSArray<NSString *> *)names from:(UIViewController *)presenter pick:(void (^)(NSUInteger))pick {
+    HaloOptionPicker *list=[[HaloOptionPicker alloc] initWithStyle:UITableViewStyleInsetGrouped];
+    list.title=title;list.choices=names;list.pick=pick;
+    UINavigationController *navigation=[[UINavigationController alloc] initWithRootViewController:list];
+    navigation.modalPresentationStyle=UIModalPresentationFullScreen;
+    [presenter presentViewController:navigation animated:YES completion:nil];
+}
+- (void)applyPresetCheats {
+    if (![[HaloSettingsStore shared] campaignActive]) { halo_ios_toast("Start a solo campaign first");return; }
+    HsSettings current=[[HaloSettingsStore shared] snapshot];HsPreset recipe=current.presets[current.active];
+    [self update:^(HsSettings *s) { hs_apply_preset_cheats(s,s->active); }];
+    if (recipe.cheat_actions&1u) [self queueCampaignAction:3];
+    if (recipe.cheat_actions&2u) [self queueCampaignAction:2];
+    if (recipe.cheat_actions&4u) [self queueCampaignAction:1];
+    if (recipe.cheat_actions&8u) [self queueCampaignAction:4];
+    if (recipe.cheat_weapon) [self queueCampaignAction:99u+(uint32_t)recipe.cheat_weapon];
+    [self renderSoon];
+}
+- (void)editPreset:(int)index {
+    HsSettings current=[[HaloSettingsStore shared] snapshot];HsPreset p=current.presets[index];
+    UIViewController *editor=[UIViewController new];editor.title=[NSString stringWithUTF8String:p.name];
+    editor.view.backgroundColor=HaloUIBackground();
+    __weak UIViewController *weakEditor=editor;
+    UIView *content=[UIView new];content.translatesAutoresizingMaskIntoConstraints=NO;[editor.view addSubview:content];
+    [NSLayoutConstraint activateConstraints:@[[content.topAnchor constraintEqualToAnchor:editor.view.safeAreaLayoutGuide.topAnchor],[content.bottomAnchor constraintEqualToAnchor:editor.view.safeAreaLayoutGuide.bottomAnchor],[content.leadingAnchor constraintEqualToAnchor:editor.view.safeAreaLayoutGuide.leadingAnchor constant:16],[content.trailingAnchor constraintEqualToAnchor:editor.view.safeAreaLayoutGuide.trailingAnchor constant:-16]]];
+    UIStackView *rows=HaloUIScrollingStack(content,12);
+    [rows addArrangedSubview:HaloUILabel([NSString stringWithUTF8String:p.name],22,UIFontWeightBold,nil)];
+    [rows addArrangedSubview:HaloUIButton(@"Done",1,^(UIButton *b) { [weakEditor dismissViewControllerAnimated:YES completion:nil];[self renderSoon]; })];
+    [rows addArrangedSubview:HaloUINote(@"Edits save the recipe only. Use Apply this preset’s cheats during a solo campaign to activate it.")];
+    [rows addArrangedSubview:HaloUISegmentRow(@"Face buttons",@[@"Classic Xbox UI",@"Playstation UI"],p.face_style,^(NSInteger value) { [self update:^(HsSettings *s) { s->presets[index].face_style=(int)value; }]; })];
+    NSArray<NSString *> *names=@[@"God mode",@"Infinite ammo",@"Infinite grenades",@"Bottomless clip",@"One-hit kills",@"Unlimited flashlight",@"No fall damage",@"Rapid fire",@"No recoil",@"Third person",@"Noclip"];
+    for (NSUInteger bit=0;bit<names.count;++bit) {
+        unsigned flag=1u<<(unsigned)bit;
+        [rows addArrangedSubview:HaloUISwitchRow(names[bit],nil,!!(p.cheat_flags&flag),^(BOOL on) { [self update:^(HsSettings *s) { if (on) s->presets[index].cheat_flags|=flag;else s->presets[index].cheat_flags&=~flag; }]; })];
+    }
+    NSArray<NSString *> *actions=@[@"Spawn Active Camo",@"Spawn Overshield",@"Apply Active Camo",@"Apply Overshield"];
+    for (NSUInteger bit=0;bit<actions.count;++bit) {
+        unsigned flag=1u<<(unsigned)bit;
+        [rows addArrangedSubview:HaloUISwitchRow(actions[bit],@"Run once when applying the recipe",!!(p.cheat_actions&flag),^(BOOL on) { [self update:^(HsSettings *s) { if (on) s->presets[index].cheat_actions|=flag;else s->presets[index].cheat_actions&=~flag; }]; })];
+    }
+    NSArray<NSString *> *weapons=@[@"None",@"Pistol",@"Assault rifle",@"Shotgun",@"Sniper rifle",@"Rocket launcher",@"Plasma pistol",@"Plasma rifle",@"Needler",@"Flamethrower",@"Gravity rifle"];
+    UIButton *weapon=HaloUIButton([@"Weapon giver: " stringByAppendingString:weapons[(NSUInteger)p.cheat_weapon]],0,^(UIButton *button) {
+        [self presentChoices:@"Preset weapon giver" names:weapons from:weakEditor pick:^(NSUInteger choice) {
+            [self update:^(HsSettings *s) { s->presets[index].cheat_weapon=(int)choice; }];
+            [button setTitle:[@"Weapon giver: " stringByAppendingString:weapons[choice]] forState:UIControlStateNormal];
+        }];
+    });[rows addArrangedSubview:weapon];
+    NSArray<NSString *> *values=@[@"Super jump",@"Super speed",@"Vertical FOV"];
+    for (int field=0;field<3;++field) {
+        float value=field==0?p.cheat_jump:field==1?p.cheat_speed:p.cheat_fov;
+        UIButton *number=HaloUIButton([NSString stringWithFormat:@"%@: %.1f",values[field],value],0,^(UIButton *button) {
+            HsSettings latest=[[HaloSettingsStore shared] snapshot];HsPreset recipe=latest.presets[index];
+            float initial=field==0?recipe.cheat_jump:field==1?recipe.cheat_speed:recipe.cheat_fov;
+            UIAlertController *alert=[UIAlertController alertControllerWithTitle:values[field] message:field==2?@"0 = default; 20–90 degrees":field==0?@"1–10 multiplier":@"1–5 multiplier" preferredStyle:UIAlertControllerStyleAlert];
+            [alert addTextFieldWithConfigurationHandler:^(UITextField *text) { text.keyboardType=UIKeyboardTypeDecimalPad;text.text=[NSString stringWithFormat:@"%.1f",initial]; }];
+            [alert addAction:[UIAlertAction actionWithTitle:@"Save" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+                NSScanner *scanner=[NSScanner scannerWithString:alert.textFields.firstObject.text?:@""];float v;
+                if (![scanner scanFloat:&v]||!scanner.isAtEnd||!isfinite(v)|| (field==2 ? (v!=0&&(v<20||v>90)) : (v<1||v>(field==0?10:5)))) { halo_ios_toast("Enter a value in the displayed range");return; }
+                [self update:^(HsSettings *s) { if (field==0) s->presets[index].cheat_jump=v;else if(field==1) s->presets[index].cheat_speed=v;else s->presets[index].cheat_fov=v; }];
+                [button setTitle:[NSString stringWithFormat:@"%@: %.1f",values[field],v] forState:UIControlStateNormal];
+            }]];
+            [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+            [weakEditor presentViewController:alert animated:YES completion:nil];
+        });[rows addArrangedSubview:number];
+    }
+    editor.modalPresentationStyle=UIModalPresentationFullScreen;
+    [self presentViewController:editor animated:YES completion:^{ UIScrollView *scroll=(UIScrollView *)rows.superview;[scroll setContentOffset:CGPointMake(0,-scroll.adjustedContentInset.top) animated:NO]; }];
+}
+
 #pragma mark - Advanced
 
 - (void)buildAdvanced:(const HsSettings *)settings
 {
+    [self add:HaloUICardView(@"Game",@[
+        HaloUIButton(@"Quit Game",2,^(UIButton *b) { [self confirmAppQuit:NO]; }),
+        HaloUIButton(@"Restart Game",0,^(UIButton *b) { [self confirmAppQuit:YES]; })])];
     NSMutableArray<UIView *> *diag = [NSMutableArray array];
     [diag addObject:HaloUISwitchRow(@"Performance profiler", @"Samples the game thread so Diagnostics can show where the time goes. About 1% of one CPU core.", settings->profiler, ^(BOOL on) { [self update:^(HsSettings *s) { s->profiler = on; }]; })];
     [diag addObject:HaloUIButton(@"Share log files", 0, ^(UIButton *b) { if (self.onShareLogs) self.onShareLogs(b); })];
@@ -466,6 +571,15 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUIValueRow(@"App version", version, nil),
         HaloUIValueRow(@"Game", @"Halo CE Universal build 73", nil),
         HaloUINote(@"Everyone in a multiplayer game must be on the same game build.")])];
+    [self add:HaloUICardView(@"Credits",@[
+        HaloUINote(@"Halo CE Universal and the iOS port contributors."),
+        HaloUIButton(@"Halo-CE-IOS on GitHub",0,^(UIButton *b) { [UIApplication.sharedApplication openURL:[NSURL URLWithString:@"https://github.com/xSkullHD/Halo-CE-IOS"] options:@{} completionHandler:nil]; })])];
+}
+- (void)confirmAppQuit:(BOOL)restart {
+    UIAlertController *alert=[UIAlertController alertControllerWithTitle:restart?@"Restart Halo":@"Quit Halo" message:restart?@"Halo will close. Tap its app icon to start a fresh run; iOS cannot automatically reopen it. Unsaved progress will be lost.":@"Close Halo completely? Unsaved progress will be lost." preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:restart?@"Close for restart":@"Quit" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a) { halo_ios_quit_app(); }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 @end

@@ -1,8 +1,10 @@
 # Halo CE iOS — Port Status
 
-Updated October 3, 2026. Current development milestone: **M2.6.41** (device testing pending).
+Updated October 2, 2026. Current development milestone: **M2.6.42** (device testing pending).
 
 ## Current status
+
+M2.6.42 replaces M2.6.41’s costly upload-every-draw fallback with exact native geometry comparisons: unchanged pages avoid GPU uploads while modified/reused pages remain fresh. Active cheats are session-only; presets have gear editors, campaign recipes and Xbox/PlayStation face-button styles. Advanced adds explicit Quit, manual Restart instructions and GitHub Credits. Device FPS, visuals and client stability need validation.
 
 M2.6.41 corrects stale iOS vertex/index GPU mirror data by refreshing requested ranges before drawing. M2.6.40 testing shows a correct campaign assault rifle alongside corrupted world geometry and persistent multiplayer distortion. Device validation is needed for the visual fix and upload-cost impact; the separate guest_glUniform4fv execution fault remains under investigation.
 
@@ -10,7 +12,7 @@ M2.6.37 device logs confirm a healthy running session, successful protocol-10 mu
 
 M2.6.38 adds an active-session `Documents/Halo/game_invite.txt`, expanded campaign tools and numeric movement/FOV controls. It isolates weapon bone interpolation while retaining world/camera smoothing and the working arena rewrite. See [release notes and test checklist](port/ios/UPDATE_M2638.md) and the [current iOS guide](port/ios/README.md). M2.6.38 device feedback confirms continued operation and a PC multiplayer join, but the weapon-pose mitigation did not fix the obstruction. M2.6.39 protects the landscape Settings header and corrects sparse shader constant mapping; see [M2.6.39 release notes](port/ios/UPDATE_M2639.md). Device testing now confirms the header repair, but the shader correction did not resolve the obstruction.
 
-M2.6.39 device evidence confirms approximately 60 FPS, a complete Settings heading and a persistent obstruction while alive that disappears in the death camera. M2.6.40 adds independent first-person mesh visibility, validated bone remapping/pose measurements and document-picker-based iCloud Drive invite export/import. See [current release notes](port/ios/UPDATE_M2641.md). The mesh fault is not yet diagnosed; Hidden is a local workaround.
+M2.6.39 device evidence confirms approximately 60 FPS, a complete Settings heading and a persistent obstruction while alive that disappears in the death camera. M2.6.40 adds independent first-person mesh visibility, validated bone remapping/pose measurements and document-picker-based iCloud Drive invite export/import. See [current release notes](port/ios/UPDATE_M2642.md). The mesh fault is not yet diagnosed; Hidden is a local workaround.
 
 ## Earlier milestones (historical evidence)
 
@@ -192,4 +194,8 @@ Not compiled or run on a device yet.
 
 ## M2.6.41 geometry correction
 
-Device testing found campaign world corruption as well as multiplayer mesh distortion. The iOS GPU geometry mirror incorrectly treated no-op write-tracking generations as unchanged data. Requested ranges now refresh before every draw, including same-frame writes and reused map addresses. This may increase upload cost; FPS and visual correctness need device validation. The guest_glUniform4fv execution fault remains under investigation. See [release notes](port/ios/UPDATE_M2641.md). Swipe-away terminates the app through iOS; final callbacks and iCloud cleanup are best-effort, with existing next-launch cleanup retained.
+Device testing found campaign world corruption as well as multiplayer mesh distortion. The iOS GPU geometry mirror incorrectly treated no-op write-tracking generations as unchanged data. Requested ranges now refresh before every draw, including same-frame writes and reused map addresses. This may increase upload cost; FPS and visual correctness need device validation. The guest_glUniform4fv execution fault remains under investigation. See [release notes](port/ios/UPDATE_M2642.md). Swipe-away terminates the app through iOS; final callbacks and iCloud cleanup are best-effort, with existing next-launch cleanup retained.
+
+## M2.6.42 update
+
+M2.6.42 replaces M2.6.41’s costly upload-every-draw fallback with exact native geometry comparisons: unchanged pages avoid GPU uploads while modified/reused pages remain fresh. Active cheats are session-only; presets have gear editors, campaign recipes and Xbox/PlayStation face-button styles. Advanced adds explicit Quit, manual Restart instructions and GitHub Credits. Device FPS, visuals and client stability need validation.

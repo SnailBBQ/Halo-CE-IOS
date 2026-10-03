@@ -39,24 +39,44 @@ TAIL = r'''
 static void draw(unsigned long offset,unsigned long size){GLuint b;unsigned long o,g;assert(mirror_range(PLATFORM_CONTIGUOUS_BASE+offset,size,&b,&o,&g));assert(!memcmp(gpu[b-1]+o,memory+offset,size));}
 int main(void){
  memset(memory,1,sizeof(memory));draw(0,64);
- memory[0]=2;draw(0,64); /* same frame, zero generation */
+ unsigned initial=uploads;draw(0,64);assert(uploads==initial); /* unchanged: no GL work */
+ memory[0]=2;draw(0,64);assert(uploads==initial+1); /* same frame, zero generation */
  for(unsigned i=0;i<20;++i){++device.frame;memory[0]=(unsigned char)i;draw(0,64);}
  memset(memory,0xa5,sizeof(memory));draw(0,8192); /* map address reuse */
  memory[8192]=0x77;draw(4096,8192); /* overlapping refreshed ranges */
  draw(0,0x120000); /* batching >256 pages */
+ unsigned stable=uploads;draw(0,0x120000);assert(uploads==stable);
+ hg_reset(&cache);draw(0,4096);assert(uploads==stable+1); /* invalidation */
+ reject_source=1;memory[0]=0x31;draw(0,4096);reject_source=0;draw(0,4096); /* safe fallback */
  GLuint b;unsigned long o;
  assert(!mirror_range(PLATFORM_CONTIGUOUS_BASE+0x3ffff0,32,&b,&o,NULL));
  assert(!mirror_range(PLATFORM_CONTIGUOUS_BASE,~0UL,&b,&o,NULL));
  assert(!mirror_range(PLATFORM_CONTIGUOUS_BASE,0,&b,&o,NULL));
  assert(!mirror_range(PLATFORM_CONTIGUOUS_BASE+PLATFORM_CONTIGUOUS_SIZE,1,&b,&o,NULL));
- assert(uploads>20);puts("zero-generation mirror coherence: passed");return 0;
+ hg_reset(&cache);assert(uploads>20);puts("zero-generation mirror coherence: passed");return 0;
 }
 '''
 def source():
     text=(ROOT/'port/linux/src/d3d8_gl.c').read_text(encoding='utf-8-sig')
     start=text.index('#define MIRROR_SEGMENT_SIZE')
     end=text.index('/* the smallest and largest index of an index range',start)
-    return PREFIX+text[start:end]+TAIL
+    native=(ROOT/'port/ios/HaloIOS/halo_geometry_cache.h').read_text(encoding='utf-8')
+    adapter=r'''
+static HgCache cache;
+static int reject_source;
+static const void *resolve(void *context,uint32_t address,size_t size) {
+ (void)context;
+ if (reject_source || address<0x80000000u || size>sizeof(memory) || address-0x80000000u>sizeof(memory)-size) return NULL;
+ return memory+(address-0x80000000u);
+}
+unsigned int host_geometry_pages(unsigned int first,unsigned int count,uintptr_t dirty) {
+ return hg_compare(&cache,resolve,NULL,first,count,(unsigned char *)dirty);
+}
+'''
+    # ILP32 guest passes a 32-bit pointer. The LP64 desktop fixture needs its
+    # own pointer width; the production implementation and tests stay identical.
+    mirror=text[start:end].replace('(unsigned int)dirty','(uintptr_t)dirty').replace('unsigned int dirty);','uintptr_t dirty);')
+    return PREFIX+native+adapter+mirror+TAIL
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('--emit');args=parser.parse_args()
     if args.emit: Path(args.emit).write_text(source(),encoding='utf-8')

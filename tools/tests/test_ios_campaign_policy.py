@@ -25,6 +25,11 @@ static struct unit_datum units[3];
 static struct player_datum players[3];
 static int in_progress, engine, network, actions, toasts;
 static HaloCampaignOptions host_wanted;
+static unsigned campaign_active;
+void host_campaign_state(unsigned active) {
+ campaign_active=active;
+ if (!active) { memset(&host_wanted,0,sizeof(host_wanted));host_wanted.jump=host_wanted.speed=1.f; }
+}
 boolean game_in_progress(void) { return in_progress; }
 boolean game_engine_running(void) { return engine; }
 boolean network_game_is_active(void) { return network; }
@@ -57,11 +62,11 @@ int main(void)
     network = 1; CHECK(!ios_cheat_enabled(0, IOS_CHEAT_NOCLIP));
     CHECK(ios_cheat_speed_multiplier(0) == 1.f);
     host_wanted.action = 200; ios_cheats_apply();
-    CHECK(actions == 1 && toasts == 1 && host_wanted.action == 0);
+    CHECK(actions == 1 && toasts == 0 && !campaign_active && host_wanted.action == 0);
     CHECK(!cheat.deathless_player && !cheat.infinite_ammo && !cheat.bottomless_clip && !ios_cheat_infinite_grenades);
-    network = 0; engine = 1; host_wanted.action = 2; ios_cheats_apply(); CHECK(actions == 1 && toasts == 2);
-    engine = 0; in_progress = 0; host_wanted.action = 3; ios_cheats_apply(); CHECK(actions == 1 && toasts == 3);
-    in_progress = 1; ios_cheats_apply(); CHECK(actions == 1); /* no delayed spawns */
+    network = 0; engine = 1; host_wanted.action = 2; ios_cheats_apply(); CHECK(actions == 1 && toasts == 0 && !campaign_active);
+    engine = 0; in_progress = 0; host_wanted.action = 3; ios_cheats_apply(); CHECK(actions == 1 && toasts == 0 && !campaign_active);
+    in_progress = 1; ios_cheats_apply(); CHECK(actions == 1 && campaign_active && !cheat.deathless_player); /* no delayed spawns */
     players[0].unit_index = 1; CHECK(!ios_cheat_local_unit(0)); /* stale ownership */
     host_wanted.action = 100; ios_cheats_reset();
     CHECK(host_wanted.action == 0 && ios_options.jump == 1.f && ios_options.speed == 1.f);

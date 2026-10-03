@@ -63,6 +63,7 @@ symbols in this file:
 #include "main/console.h"
 #include "math/real_math.h"
 #include "objects/objects.h"
+#include "objects/damage.h"
 #include "rasterizer/rasterizer_console_vars.h"
 #include "scenario/scenario.h"
 #include "tag_files/tag_groups.h"
@@ -209,6 +210,7 @@ void cheats_network_client_enforce(
 multiplayer game of the game engine and never in a network game, so nobody cheats where others play.
 What this turned on is turned off again when the setting goes off or the game is not the campaign. */
 extern unsigned int host_cheat_flags(void);
+extern void host_campaign_state(unsigned int active);
 extern boolean game_in_progress(void);
 extern boolean game_engine_running(void);
 extern boolean network_game_is_active(void);
@@ -245,6 +247,7 @@ static void ios_cheats_apply(void)
 	unsigned int wanted = 0, released;
 
 	/* Consume requests even outside campaign: they must never execute in a later mission. */
+	host_campaign_state(ios_campaign_active());
 	host_campaign_options(&ios_options);
 	if (ios_campaign_active()) {
 		wanted = ios_options.flags & 15u;
@@ -277,6 +280,7 @@ static void ios_cheats_apply(void)
 static void ios_cheats_reset(void)
 {
     HaloCampaignOptions discarded;
+    host_campaign_state(0);
     host_campaign_options(&discarded);
     if (ios_cheats_set & 1u) cheat.deathless_player = FALSE;
     if (ios_cheats_set & 2u) cheat.infinite_ammo = FALSE;
@@ -588,6 +592,11 @@ static void ios_campaign_action(unsigned int action)
             TEST_FLAG(unit_get(player->unit_index)->object.damage_flags, _object_dead_bit)) {
             host_toast("A living campaign player is required"); return;
         }
+    }
+    if (action == 4) {
+        long player_index=cheat_player_index();
+        struct player_datum *player=player_get(player_index);
+        host_toast(object_double_charge_shield(player->unit_index) ? "Overshield applied" : "Could not apply overshield"); return;
     }
     if (action == 1) { cheat_active_camouflage(); host_toast("Active camouflage applied"); return; }
     if (action >= 100 && action < 100 + NUMBEROF(weapons)) wanted = weapons[action - 100];

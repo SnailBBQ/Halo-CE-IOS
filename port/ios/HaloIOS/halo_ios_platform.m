@@ -30,6 +30,7 @@ static BOOL HaloLooksLikeInvite(NSString *text)
 
 void HaloSetPendingInvite(NSString *invite)
 {
+    halo_ios_campaign_state(0);
     NSString *trimmed = [invite stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
     [InviteLock() lock];
     g_pending_invite = [trimmed copy];

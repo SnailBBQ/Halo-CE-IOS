@@ -27,6 +27,7 @@
 #include "halo_ios_audio.h"
 #include "halo_ios_platform.h"
 #include "halo_hash_native.h"
+#include "halo_geometry_cache.h"
 #include "halo_crash_report.h"
 #include "halo_launch_state.h"
 #import "HaloSettingsStore.h"
@@ -665,11 +666,37 @@ static void ios_silent_advance(uint32_t packet_va)
     atomic_fetch_add(&g_silent_calls,1);
     atomic_fetch_add(&g_silent_ns,(uint64_t)((loading_seconds()-started)*1e9));
 }
-static _Atomic uint32_t g_campaign_action;
+void halo_ios_quit_app(void) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        halo_ios_campaign_state(0);
+        halo_ios_set_hosted_invite(NULL); /* async provider cleanup; next launch remains necessary */
+        halo_ios_menu_reset();
+        halo_crash_phase(HALO_PHASE_EXITED);
+        fflush(NULL);
+        exit(EXIT_SUCCESS); /* explicit user Quit; all guest threads end with the process */
+    });
+}
+static _Atomic int g_campaign_active;
+static pthread_mutex_t g_campaign_lock=PTHREAD_MUTEX_INITIALIZER;
+static uint32_t g_campaign_queue[16],g_campaign_head,g_campaign_count;
+void halo_ios_campaign_state(int active) {
+    int previous=atomic_exchange(&g_campaign_active,!!active);
+    if (!active) { pthread_mutex_lock(&g_campaign_lock);g_campaign_count=g_campaign_head=0;pthread_mutex_unlock(&g_campaign_lock); }
+    if (previous!=!!active) [[HaloSettingsStore shared] setCampaignActive:!!active];
+}
+static void ios_campaign_state(uint32_t active) { halo_ios_campaign_state((int)active); }
+static uint32_t ios_campaign_take_action(void) {
+    pthread_mutex_lock(&g_campaign_lock);
+    uint32_t action=0;
+    if (g_campaign_count) { action=g_campaign_queue[g_campaign_head];g_campaign_head=(g_campaign_head+1)%16;--g_campaign_count; }
+    pthread_mutex_unlock(&g_campaign_lock);return action;
+}
 int halo_ios_queue_campaign_action(uint32_t action)
 {
-    uint32_t expected = 0;
-    return action && atomic_compare_exchange_strong(&g_campaign_action, &expected, action);
+    pthread_mutex_lock(&g_campaign_lock);
+    int ok=action && atomic_load(&g_campaign_active) && g_campaign_count<16;
+    if (ok) { g_campaign_queue[(g_campaign_head+g_campaign_count)%16]=action;++g_campaign_count; }
+    pthread_mutex_unlock(&g_campaign_lock);return ok;
 }
 static void ios_campaign_options(uint32_t packet)
 {
@@ -684,7 +711,7 @@ static void ios_campaign_options(uint32_t packet)
     if (s.cheat_no_recoil) result.flags |= IOS_CHEAT_NO_RECOIL;
     if (s.cheat_third_person) result.flags |= IOS_CHEAT_THIRD_PERSON;
     if (s.cheat_noclip) result.flags |= IOS_CHEAT_NOCLIP;
-    result.action = atomic_exchange(&g_campaign_action, 0);
+    result.action = ios_campaign_take_action();
     memcpy(out, &result, sizeof(result));
 }
 static _Atomic uint32_t g_viewmodel_flags = 3;
@@ -1772,6 +1799,24 @@ static void ios_host_set_tp(uint32_t thread)
     g_guest_tp = thread;
 }
 
+static HgCache g_geometry_cache;
+static _Atomic uint64_t g_geometry_calls, g_geometry_changed, g_geometry_bytes;
+static const void *ios_geometry_resolve(void *context, uint32_t address, size_t size) {
+    (void)context; return gp(address,size);
+}
+static uint32_t ios_geometry_pages(uint32_t first,uint32_t count,uint32_t dirty_va) {
+    if (!count && first==UINT32_MAX) { hg_reset(&g_geometry_cache);return 1; }
+    if (!count || count>256 || first>=HG_PAGE_COUNT || count>HG_PAGE_COUNT-first) return 0;
+    uint64_t source=0x80000000ull+(uint64_t)first*HG_PAGE_SIZE, end=source+(uint64_t)count*HG_PAGE_SIZE;
+    if ((uint64_t)dirty_va<end && (uint64_t)dirty_va+count>source) return 0;
+    unsigned char *dirty=gp(dirty_va,count);
+    uint64_t changed=g_geometry_cache.changed, bytes=g_geometry_cache.compared;
+    int ok=dirty && hg_compare(&g_geometry_cache,ios_geometry_resolve,NULL,first,count,dirty);
+    atomic_fetch_add(&g_geometry_calls,1);
+    atomic_fetch_add(&g_geometry_changed,g_geometry_cache.changed-changed);
+    atomic_fetch_add(&g_geometry_bytes,g_geometry_cache.compared-bytes);
+    return ok;
+}
 static void ios_memory_watch_initialize(void) {}
 static void ios_memory_watch_protect(uint32_t a, uint32_t b) { (void)a; (void)b; }
 static uint32_t ios_memory_watch_generation(uint32_t a, uint32_t b) { (void)a; (void)b; return 0; }
@@ -1918,6 +1963,7 @@ static int ios_sdl_poll_event(uint32_t event)
 
 static void ios_active_invite(uint32_t text)
 {
+    halo_ios_campaign_state(0);
     /* The guest invite is small. Resolve every byte through the arena validator;
      * never let Foundation read an unterminated guest string. */
     char copy[256];
@@ -2414,11 +2460,13 @@ static void *resolve_host_import(const char *name)
     MAP("host_viewmodel_flags", ios_viewmodel_flags);
     MAP("host_active_invite", ios_active_invite);
     MAP("host_campaign_options", ios_campaign_options);
+    MAP("host_campaign_state", ios_campaign_state);
     MAP("host_debug_state", ios_debug_state);
     MAP("host_cache_inflate", ios_cache_inflate_step);
     MAP("host_cache_inflate_end", ios_cache_inflate_end);
     MAP("host_guest_pointer", ios_host_guest_pointer);
 
+    MAP("host_geometry_pages", ios_geometry_pages);
     MAP("host_memory_watch_initialize", ios_memory_watch_initialize);
     MAP("host_memory_watch_protect", ios_memory_watch_protect);
     MAP("host_memory_watch_generation", ios_memory_watch_generation);
@@ -2970,11 +3018,11 @@ static void *main_guest_thread(void *opaque)
     halo_ios_net_set_resolver(ios_net_resolver);
     halo_ios_net_set_logger(ios_net_log);
     signal(SIGPIPE, SIG_IGN); /* a peer closing a socket must not kill the app */
-    say("M2.6.41: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
+    say("M2.6.42: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
     say("Performance defaults: smooth 60 FPS follows the Settings switch; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.41: independent first-person meshes and bounded pose diagnostics; coordinated iCloud invite file support.");
-    say("M2.6.41 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
-    say("M2.6.41 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
+    say("M2.6.42: independent first-person meshes and bounded pose diagnostics; coordinated iCloud invite file support.");
+    say("M2.6.42 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.42 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
         g_header ? g_header->start : 0u,
         context.boot_va,
         halo_guest_base_is_4gb_aligned() ? "YES" : "NO");
@@ -2997,7 +3045,7 @@ static void *main_guest_thread(void *opaque)
         halo_guest_exec_guard_set_active(0);
         halo_guest_exec_stats st;
         halo_guest_exec_stats_get(&st);
-        say("M2.6.41 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
+        say("M2.6.42 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
             reason,
             (unsigned long long)st.pointer_upgrades,
             (unsigned long long)st.handled_faults,
@@ -3208,6 +3256,10 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                 static const char *scene_names[]={"datum lookup/iteration","BSP index triangles","BSP bit triangles","material ranges","visibility surface lists","visibility leaf references","object list filter"};
                 for(unsigned kind=0;kind<7;kind++)say("native scene %s: %llu calls, %llu items, %.1f ms total",scene_names[kind],
                     (unsigned long long)atomic_load(&g_scene_calls[kind]),(unsigned long long)atomic_load(&g_scene_items[kind]),atomic_load(&g_scene_ns[kind])/1e6);
+                say("geometry cache: %llu comparisons, %llu KiB checked, %llu changed pages (exact byte comparison)",
+                    (unsigned long long)atomic_load(&g_geometry_calls),
+                    (unsigned long long)(atomic_load(&g_geometry_bytes)/1024),
+                    (unsigned long long)atomic_load(&g_geometry_changed));
                 say("native scene invalid inputs: %llu; datum diagnostic fallbacks: %llu",(unsigned long long)atomic_load(&g_scene_invalid),(unsigned long long)atomic_load(&g_datum_fallbacks));
                 say("native shadow filter: %llu skipped; %llu diagnostic fallbacks",(unsigned long long)atomic_load(&g_object_filter_skipped),(unsigned long long)atomic_load(&g_object_filter_fallbacks));
                 for (int phase=0; phase<24; phase++) {

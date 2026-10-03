@@ -1006,7 +1006,11 @@ static void gl_initialize(void)
 		config_string("debug.gpu_dump_shaders") : NULL;
 	debug_settings.statistics = config_boolean("debug.gpu_stats");
 	xgpu_gl_state_invalidate();
-	device.gl_ready = TRUE;
+	#ifdef HALO_IOS_GUEST
+    { extern unsigned int host_geometry_pages(unsigned int,unsigned int,unsigned int);
+      host_geometry_pages(0xffffffffu,0,0); }
+#endif
+    device.gl_ready = TRUE;
 }
 
 Direct3D *WINAPI Direct3DCreate8(UINT sdk_version)
@@ -3046,6 +3050,9 @@ static struct
 
 /* uploads the pages of [first, last) that are absent or stale; FALSE if one
 of them turns out to be volatile */
+#ifdef HALO_IOS_GUEST
+extern unsigned int host_geometry_pages(unsigned int first,unsigned int count,unsigned int dirty);
+#endif
 static BOOL mirror_refresh(unsigned long first, unsigned long last)
 {
 	unsigned long page, run;
@@ -3063,18 +3070,21 @@ static BOOL mirror_refresh(unsigned long first, unsigned long last)
 		}
 		return TRUE;
 	}
-	for (page = first; page < last; page++)
-	{
-		BOOL written = mirror.state[page] == _mirror_page_present &&
+	#ifdef HALO_IOS_GUEST
+    unsigned char dirty[256];
+    BOOL verified=host_geometry_pages((unsigned int)first,(unsigned int)count,(unsigned int)dirty)!=0;
+#endif
+    for (page = first; page < last; page++)
+    {
+        BOOL written = mirror.state[page] == _mirror_page_present &&
 			memory_watch_generation(PLATFORM_CONTIGUOUS_BASE + page * MIRROR_PAGE_SIZE, MIRROR_PAGE_SIZE) >
 			mirror.generation[page];
 
-		/* iOS has no memory-watch generations: zero does not mean unchanged.
-           Re-upload every requested range, including same-frame writes and map
-           address reuse. Keep the synchronized SubData path for live pages.
-           A once-per-frame refresh is insufficient for dynamic geometry. */
+		/* Zero generations are not proof of immutability. Exact native byte
+           comparison detects same-frame writes and reused map addresses.
+           First-use GPU pages still upload even if the native snapshot exists. */
 #ifdef HALO_IOS_GUEST
-        stale[page - first] = TRUE;
+        stale[page - first] = mirror.state[page] != _mirror_page_present || !verified || dirty[page-first];
         written = FALSE; /* no trustworthy rewrite history on this host */
 #else
         stale[page - first] = mirror.state[page] != _mirror_page_present || written;
@@ -3195,7 +3205,7 @@ static BOOL mirror_range(unsigned long address, unsigned long size, GLuint *buff
 		}
 	}
 	#ifdef HALO_IOS_GUEST
-    /* Never accept the zero-generation mirror as a cached snapshot. */
+    /* Validate bytes every draw; only changed pages reach GL. */
     (void)present;
     (void)oldest;
     if (TRUE)

@@ -4,11 +4,13 @@
 #import "halo_ios_gl_host.h"
 
 NSString *const HaloSettingsChangedNotification = @"HaloSettingsChanged";
+NSString *const HaloCampaignStateChangedNotification = @"HaloCampaignStateChanged";
 static NSString *const kSettingsKey = @"HaloSettingsV1";
 
 @implementation HaloSettingsStore {
     HsSettings _settings;
     NSLock *_lock;
+    BOOL _campaignActive;
 }
 
 + (instancetype)shared
@@ -43,12 +45,20 @@ static NSString *const kSettingsKey = @"HaloSettingsV1";
     return copy;
 }
 
+- (BOOL)campaignActive { [_lock lock];BOOL active=_campaignActive;[_lock unlock];return active; }
+- (void)setCampaignActive:(BOOL)active {
+    [_lock lock];_campaignActive=active;if (!active) hs_clear_cheats(&_settings);[_lock unlock];
+    if (!active) halo_ios_set_cheat_flags(0);
+    dispatch_async(dispatch_get_main_queue(), ^{ [[NSNotificationCenter defaultCenter] postNotificationName:HaloCampaignStateChangedNotification object:nil]; });
+}
+
 - (void)update:(void (^)(HsSettings *settings))block
 {
     [_lock lock];
     HsSettings next = _settings;
     block(&next);
     hs_sanitize(&next);
+    if (!_campaignActive) hs_clear_cheats(&next);
     _settings = next;
     [_lock unlock];
 

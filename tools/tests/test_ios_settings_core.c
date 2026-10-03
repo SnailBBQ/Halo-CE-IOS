@@ -12,7 +12,7 @@ int main(void)
 
     /* defaults: five named presets, sensible values */
     hs_defaults(&s);
-    CHECK(!strcmp(s.presets[0].name, "Classic Xbox") && !strcmp(s.presets[4].name, "Preset 5"), "default names");
+    CHECK(!strcmp(s.presets[0].name, "Classic Xbox UI") && !strcmp(s.presets[4].name, "Preset 5"), "default names");
     CHECK(s.active == 0 && s.volume == 1.0f && s.audio_enabled && !s.join_from_clipboard && s.profiler == 1 && s.fps_mode == 1 && s.hires_hud == 0 && s.hires_text == 0 && s.controls_mode == 0 && hs_cheat_mask(&s) == 0, "default globals (cheats off)");
     CHECK(s.presets[2].touch_look && s.presets[2].floating_sticks && near(s.presets[2].look_curve, 1.5f), "default aim");
 
@@ -53,14 +53,14 @@ int main(void)
     int written = hs_serialize(&s, text, sizeof(text));
     CHECK(written > 0 && written < (int)sizeof(text), "serialize wrote %d", written);
     CHECK(hs_parse(&t, text) == 1, "parse header");
-    CHECK(t.active == 3 && near(t.volume, 0.35f) && !t.audio_enabled && t.join_from_clipboard && t.profiler == 0 && t.fps_mode == 2 && t.hires_hud == 1 && t.hires_text == 1 && t.controls_mode == 1 && t.cheat_god == 1 && !t.cheat_ammo && t.cheat_grenades == 1 && !t.cheat_reload, "globals round trip");
+    CHECK(t.active == 3 && near(t.volume, 0.35f) && !t.audio_enabled && t.join_from_clipboard && t.profiler == 0 && t.fps_mode == 2 && t.hires_hud == 1 && t.hires_text == 1 && t.controls_mode == 1 && !t.cheat_god && !t.cheat_ammo && !t.cheat_grenades && !t.cheat_reload, "globals round trip");
     CHECK(!strcmp(t.presets[1].name, "Thumbs ñ ☃ wide"), "name round trip got '%s'", t.presets[1].name);
     CHECK(near(t.presets[1].opacity, 0.5f) && near(t.presets[1].look_sensitivity, 2.25f) && t.presets[1].invert_look_y, "aim round trip");
     CHECK(t.presets[1].place[HC_A].placed && near(t.presets[1].place[HC_A].fx, 0.9f) && near(t.presets[1].place[HC_A].fy, 0.4f) &&
           near(t.presets[1].place[HC_A].scale, 1.4f), "placement round trip");
     CHECK(t.presets[1].place[HC_DPAD].hidden && !t.presets[1].place[HC_B].placed, "hidden round trip, untouched stays default");
     CHECK(near(t.presets[4].place[HC_RT].scale, 0.8f) && t.presets[4].place[HC_RT].placed, "second preset round trip");
-    CHECK(!strcmp(t.presets[0].name, "Classic Xbox"), "other names stay");
+    CHECK(!strcmp(t.presets[0].name, "Classic Xbox UI"), "other names stay");
 
     /* cheat mask, frame cap and files written by M2.6.33-35 (which had "smooth=" and no cheats) */
     {
@@ -79,7 +79,7 @@ int main(void)
         hs_parse(&old, "HALO1\nsmooth=1\n");
         CHECK(old.fps_mode == 1, "smooth=1 reads as smooth 60");
         hs_parse(&old, "HALO1\nfpsmode=9\ncontrols=-4\ncheatgod=7\n");
-        CHECK(old.fps_mode == 2 && old.controls_mode == 0 && old.cheat_god == 1, "out of range values are clamped");
+        CHECK(old.fps_mode == 2 && old.controls_mode == 0 && old.cheat_god == 0, "out of range values are clamped");
     }
 
     /* names: control characters, newlines (which would break the file format), length, UTF-8 safety */
@@ -102,7 +102,7 @@ int main(void)
     CHECK(!strcmp(t.presets[2].name, "a=b HALO1"), "equals sign in a name: '%s'", t.presets[2].name);
 
     /* hostile or damaged data: defaults for anything unreadable, everything clamped */
-    CHECK(hs_parse(&t, "garbage") == 0 && !strcmp(t.presets[0].name, "Classic Xbox"), "no header gives defaults");
+    CHECK(hs_parse(&t, "garbage") == 0 && !strcmp(t.presets[0].name, "Classic Xbox UI"), "no header gives defaults");
     CHECK(hs_parse(&t, NULL) == 0, "NULL text");
     hs_parse(&t, "HALO1\nactive=99\nvolume=7\np0.opacity=-4\np0.sens=1e30\np0.dead=nan\np0.c.a=1,9,-9,50,7\np9.name=x\nunknown=1\nno equals line\n\n");
     CHECK(t.active == 4 && t.volume == 1.0f, "global clamps (%d, %f)", t.active, t.volume);
@@ -111,7 +111,7 @@ int main(void)
     char huge[40000];
     memset(huge, 'x', sizeof(huge)); memcpy(huge, "HALO1\n", 6); huge[sizeof(huge) - 1] = 0;
     hs_parse(&t, huge);
-    CHECK(!strcmp(t.presets[0].name, "Classic Xbox"), "one enormous line is skipped");
+    CHECK(!strcmp(t.presets[0].name, "Classic Xbox UI"), "one enormous line is skipped");
     char tiny[8];
     hs_defaults(&s);
     CHECK(hs_serialize(&s, tiny, sizeof(tiny)) == -1, "too small a buffer is reported");
@@ -177,13 +177,25 @@ int main(void)
     s.cheat_rapid = s.cheat_no_recoil = s.cheat_third_person = s.cheat_noclip = 1;
     CHECK(hs_serialize(&s, text, sizeof(text)) > 0, "serialize campaign tools");
     hs_parse(&t, text);
-    CHECK(near(t.cheat_jump, 2.5f) && near(t.cheat_speed, 3.25f) && near(t.cheat_fov, 80.f), "numeric tools round trip");
-    CHECK(t.cheat_one_hit && t.cheat_flashlight && t.cheat_no_fall && t.cheat_rapid && t.cheat_no_recoil && t.cheat_third_person && t.cheat_noclip, "toggles round trip");
+    CHECK(near(t.cheat_jump, 1.f) && near(t.cheat_speed, 1.f) && near(t.cheat_fov, 0.f), "numeric tools round trip");
+    CHECK(!t.cheat_one_hit && !t.cheat_flashlight && !t.cheat_no_fall && !t.cheat_rapid && !t.cheat_no_recoil && !t.cheat_third_person && !t.cheat_noclip, "toggles round trip");
     hs_parse(&t, "HALO1\ncheatjump=nan\ncheatspeed=999999\ncheatfov=inf\n");
-    CHECK(t.cheat_jump == 1 && t.cheat_speed == 5 && t.cheat_fov == 90, "hostile numeric tools clamped");
+    CHECK(t.cheat_jump == 1 && t.cheat_speed == 1 && t.cheat_fov == 0, "hostile numeric tools clamped");
     hs_parse(&t, "HALO1\ncheatgod=1\ncheatreload=1\n");
-    CHECK(t.cheat_jump == 1 && t.cheat_speed == 1 && t.cheat_fov == 0 && hs_cheat_mask(&t) == 9, "old settings keep defaults and bottomless clip");
+    CHECK(t.cheat_jump == 1 && t.cheat_speed == 1 && t.cheat_fov == 0 && hs_cheat_mask(&t) == 0, "old settings keep defaults and bottomless clip");
 
+    hs_defaults(&s);
+    s.presets[1].cheat_flags=2047u;s.presets[1].cheat_actions=15;s.presets[1].cheat_weapon=6;
+    s.presets[1].cheat_jump=2.5f;s.presets[1].cheat_speed=3.25f;s.presets[1].cheat_fov=80.f;
+    hs_apply_preset_cheats(&s,1);
+    CHECK(hs_cheat_mask(&s)==15u && s.cheat_noclip && s.cheat_speed==3.25f,"explicit preset apply");
+    CHECK(hs_serialize(&s,text,sizeof(text))>0,"preset recipe serialize");hs_parse(&t,text);
+    CHECK(hs_cheat_mask(&t)==0 && t.cheat_speed==1 && !t.cheat_noclip,"active cheats never persist");
+    CHECK(t.presets[1].cheat_flags==2047u && t.presets[1].cheat_actions==15 && t.presets[1].cheat_weapon==6 && t.presets[1].cheat_jump==2.5f,"recipe persists independently");
+    HcControl ps[HC_COUNT];hc_layout(0,0,800,390,ps);hs_apply_preset(&t.presets[1],0,0,800,390,ps);
+    CHECK(!strcmp(ps[HC_A].label,"×") && !strcmp(ps[HC_X].label,"□") && ps[HC_A].button==HC_BTN_A,"PlayStation presentation retains input mapping");
+    hs_apply_preset_cheats(&t,1);hs_clear_cheats(&t);
+    CHECK(hs_cheat_mask(&t)==0 && t.cheat_jump==1 && t.cheat_fov==0 && t.presets[1].cheat_flags==2047,"lobby reset preserves recipes");
     if (!failures) printf("PASS: settings core: 5 named presets round-trip, hostile input is clamped, layouts stay on screen, stick feel\n");
     return failures ? 1 : 0;
 }

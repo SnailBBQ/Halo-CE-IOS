@@ -43,6 +43,10 @@ typedef struct
     float move_curve;         /* 1 ... 3 */
     float look_curve;         /* 1 ... 3 */
     int haptics;
+    int face_style; /* 0 Xbox, 1 PlayStation; input mapping is unchanged */
+    unsigned cheat_flags, cheat_actions;
+    float cheat_jump, cheat_speed, cheat_fov;
+    int cheat_weapon; /* 0 none, 1..10 weapon choices */
 } HsPreset;
 
 typedef struct
@@ -107,7 +111,7 @@ static inline void hs_set_name(char out[HS_NAME_MAX + 1], const char *name)
 
 static inline void hs_default_preset(HsPreset *p, int index)
 {
-    static const char *names[HS_PRESET_COUNT] = { "Classic Xbox", "Preset 2", "Preset 3", "Preset 4", "Preset 5" };
+    static const char *names[HS_PRESET_COUNT] = { "Classic Xbox UI", "Playstation UI", "Preset 3", "Preset 4", "Preset 5" };
 
     memset(p, 0, sizeof(*p));
     hs_set_name(p->name, names[hs_clampi(index, 0, HS_PRESET_COUNT - 1)]);
@@ -121,6 +125,8 @@ static inline void hs_default_preset(HsPreset *p, int index)
     p->move_curve = 1.0f;
     p->look_curve = 1.5f;
     p->haptics = 1;
+    p->face_style = index == 1;
+    p->cheat_jump = p->cheat_speed = 1.f;
 }
 
 /* The mask the game reads (host_cheat_flags): 1 god mode, 2 infinite ammo, 4 infinite grenades, 8 no reloading. */
@@ -181,6 +187,12 @@ static inline void hs_sanitize_preset(HsPreset *p)
     p->move_curve = hs_clampf(p->move_curve, 1.0f, 3.0f);
     p->look_curve = hs_clampf(p->look_curve, 1.0f, 3.0f);
     p->haptics = p->haptics ? 1 : 0;
+    p->face_style = hs_clampi(p->face_style,0,1);
+    p->cheat_flags &= 2047u; p->cheat_actions &= 15u;
+    p->cheat_weapon=hs_clampi(p->cheat_weapon,0,10);
+    p->cheat_jump=hs_clampf(p->cheat_jump,1,10);
+    p->cheat_speed=hs_clampf(p->cheat_speed,1,5);
+    p->cheat_fov=p->cheat_fov==0 ? 0 : hs_clampf(p->cheat_fov,20,90);
 }
 
 static inline void hs_sanitize(HsSettings *s)
@@ -220,6 +232,12 @@ static inline void hs_sanitize(HsSettings *s)
 static inline void hs_apply_preset(const HsPreset *preset, float left, float top, float right, float bottom,
                                    HcControl controls[HC_COUNT])
 {
+    if (preset->face_style) {
+        controls[HC_A].label="×"; controls[HC_A].color=HC_COLOR_BLUE;
+        controls[HC_B].label="○"; controls[HC_B].color=HC_COLOR_RED;
+        controls[HC_X].label="□"; controls[HC_X].color=HC_COLOR_PINK;
+        controls[HC_Y].label="△"; controls[HC_Y].color=HC_COLOR_GREEN;
+    }
     float width = right - left, height = bottom - top;
 
     for (int i = 0; i < HC_COUNT; i++)
@@ -271,6 +289,22 @@ static inline void hs_reset_layout(HsPreset *preset)
     }
 }
 
+/* Active cheats belong to this campaign session, never to saved settings. */
+static inline void hs_clear_cheats(HsSettings *s) {
+    s->cheat_god=s->cheat_ammo=s->cheat_grenades=s->cheat_reload=0;
+    s->cheat_one_hit=s->cheat_flashlight=s->cheat_no_fall=s->cheat_rapid=0;
+    s->cheat_no_recoil=s->cheat_third_person=s->cheat_noclip=0;
+    s->cheat_jump=s->cheat_speed=1.f;s->cheat_fov=0;
+}
+static inline void hs_apply_preset_cheats(HsSettings *s,int index) {
+    const HsPreset *p=&s->presets[hs_clampi(index,0,HS_PRESET_COUNT-1)];
+    unsigned f=p->cheat_flags;
+    s->cheat_god=!!(f&1);s->cheat_ammo=!!(f&2);s->cheat_grenades=!!(f&4);s->cheat_reload=!!(f&8);
+    s->cheat_one_hit=!!(f&16);s->cheat_flashlight=!!(f&32);s->cheat_no_fall=!!(f&64);
+    s->cheat_rapid=!!(f&128);s->cheat_no_recoil=!!(f&256);s->cheat_third_person=!!(f&512);s->cheat_noclip=!!(f&1024);
+    s->cheat_jump=p->cheat_jump;s->cheat_speed=p->cheat_speed;s->cheat_fov=p->cheat_fov;
+}
+
 /* ---------- saving and loading: one text blob of key=value lines */
 
 static const char *const hs_control_keys[HC_COUNT] = {
@@ -279,6 +313,8 @@ static const char *const hs_control_keys[HC_COUNT] = {
 
 static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
 {
+    HsSettings saved=*s;
+    hs_clear_cheats(&saved);s=&saved;
     size_t n = 0;
 #define EMIT(...) do { int w = snprintf(out + n, n < size ? size - n : 0, __VA_ARGS__); if (w < 0) return -1; n += (size_t)w; } while (0)
     EMIT("HALO1\n");
@@ -299,6 +335,7 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
         const HsPreset *p = &s->presets[i];
 
         EMIT("p%d.name=%s\n", i, p->name);
+        EMIT("p%d.face=%d\np%d.cheats=%u\np%d.actions=%u\np%d.weapon=%d\np%d.jump=%.3f\np%d.speed=%.3f\np%d.fov=%.3f\n",i,p->face_style,i,p->cheat_flags,i,p->cheat_actions,i,p->cheat_weapon,i,p->cheat_jump,i,p->cheat_speed,i,p->cheat_fov);
         EMIT("p%d.opacity=%.3f\np%d.look=%d\np%d.sens=%.3f\np%d.invert=%d\np%d.float=%d\n", i, p->opacity, i, p->touch_look,
              i, p->look_sensitivity, i, p->invert_look_y, i, p->floating_sticks);
         EMIT("p%d.dead=%.3f\np%d.movecurve=%.3f\np%d.lookcurve=%.3f\np%d.haptics=%d\n", i, p->stick_dead_zone, i, p->move_curve,
@@ -375,6 +412,13 @@ static inline int hs_parse(HsSettings *s, const char *text)
                     const char *field = key + 3;
 
                     if (!strcmp(field, "name")) hs_set_name(p->name, value);
+                    else if (!strcmp(field,"face")) p->face_style=atoi(value);
+                    else if (!strcmp(field,"cheats")) p->cheat_flags=(unsigned)strtoul(value,NULL,10);
+                    else if (!strcmp(field,"actions")) p->cheat_actions=(unsigned)strtoul(value,NULL,10);
+                    else if (!strcmp(field,"weapon")) p->cheat_weapon=atoi(value);
+                    else if (!strcmp(field,"jump")) p->cheat_jump=(float)atof(value);
+                    else if (!strcmp(field,"speed")) p->cheat_speed=(float)atof(value);
+                    else if (!strcmp(field,"fov")) p->cheat_fov=(float)atof(value);
                     else if (!strcmp(field, "opacity")) p->opacity = (float)atof(value);
                     else if (!strcmp(field, "look")) p->touch_look = atoi(value);
                     else if (!strcmp(field, "sens")) p->look_sensitivity = (float)atof(value);
@@ -410,6 +454,9 @@ static inline int hs_parse(HsSettings *s, const char *text)
         cursor = end + 1;
     }
     hs_sanitize(s);
+    hs_clear_cheats(s); /* discard legacy persisted active cheats as well */
+    if (!strcmp(s->presets[0].name,"Classic Xbox")) hs_set_name(s->presets[0].name,"Classic Xbox UI");
+    if (!strcmp(s->presets[1].name,"Preset 2")) hs_set_name(s->presets[1].name,"Playstation UI");
     return 1;
 }
 

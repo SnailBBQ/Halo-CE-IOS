@@ -9,6 +9,7 @@
 static UIColor *HaloColor(int color, CGFloat alpha)
 {
     switch (color) {
+        case HC_COLOR_PINK: return [UIColor colorWithRed:0.95 green:0.35 blue:0.7 alpha:alpha];
         case HC_COLOR_GREEN:  return [UIColor colorWithRed:0.10 green:0.68 blue:0.24 alpha:alpha];
         case HC_COLOR_RED:    return [UIColor colorWithRed:0.86 green:0.13 blue:0.16 alpha:alpha];
         case HC_COLOR_BLUE:   return [UIColor colorWithRed:0.12 green:0.40 blue:0.92 alpha:alpha];

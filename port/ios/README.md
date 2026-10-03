@@ -2,7 +2,7 @@
 
 Experimental Halo: Combat Evolved port for physical iPhone and iPad devices running iOS/iPadOS 15 or later. A native `arm64` app hosts the recovered `arm64_32` engine and presents graphics through EAGL/OpenGL ES 3.
 
-**Current version: M2.6.41**, awaiting device validation. M2.6.41 corrects stale iOS vertex/index GPU mirror data by refreshing requested ranges before drawing. M2.6.40 testing shows a correct campaign assault rifle alongside corrupted world geometry and persistent multiplayer distortion. Device validation is needed for the visual fix and upload-cost impact; the separate guest_glUniform4fv execution fault remains under investigation. See [release notes](UPDATE_M2641.md).
+**Current version: M2.6.42**, awaiting device validation. M2.6.42 replaces M2.6.41’s costly upload-every-draw fallback with exact native geometry comparisons: unchanged pages avoid GPU uploads while modified/reused pages remain fresh. Active cheats are session-only; presets have gear editors, campaign recipes and Xbox/PlayStation face-button styles. Advanced adds explicit Quit, manual Restart instructions and GitHub Credits. Device FPS, visuals and client stability need validation. See [release notes](UPDATE_M2642.md).
 
 ## Current multiplayer and campaign tools
 
@@ -177,4 +177,8 @@ Choose Settings > Multiplayer > Choose iCloud Drive folder, then select a folder
 
 ## M2.6.41 geometry correction
 
-Device testing found campaign world corruption as well as multiplayer mesh distortion. The iOS GPU geometry mirror incorrectly treated no-op write-tracking generations as unchanged data. Requested ranges now refresh before every draw, including same-frame writes and reused map addresses. This may increase upload cost; FPS and visual correctness need device validation. The guest_glUniform4fv execution fault remains under investigation. See [release notes](UPDATE_M2641.md). Swipe-away terminates the app through iOS; final callbacks and iCloud cleanup are best-effort, with existing next-launch cleanup retained.
+Device testing found campaign world corruption as well as multiplayer mesh distortion. The iOS GPU geometry mirror incorrectly treated no-op write-tracking generations as unchanged data. Requested ranges now refresh before every draw, including same-frame writes and reused map addresses. This may increase upload cost; FPS and visual correctness need device validation. The guest_glUniform4fv execution fault remains under investigation. See [release notes](UPDATE_M2642.md). Swipe-away terminates the app through iOS; final callbacks and iCloud cleanup are best-effort, with existing next-launch cleanup retained.
+
+## M2.6.42 update
+
+M2.6.42 replaces M2.6.41’s costly upload-every-draw fallback with exact native geometry comparisons: unchanged pages avoid GPU uploads while modified/reused pages remain fresh. Active cheats are session-only; presets have gear editors, campaign recipes and Xbox/PlayStation face-button styles. Advanced adds explicit Quit, manual Restart instructions and GitHub Credits. Device FPS, visuals and client stability need validation.

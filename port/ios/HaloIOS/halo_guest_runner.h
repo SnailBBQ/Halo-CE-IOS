@@ -31,6 +31,8 @@ void halo_ios_set_cheat_flags(uint32_t flags);
 void halo_ios_set_viewmodel_flags(uint32_t flags);
 /* One-shot request; refuses a second action until the game consumes the first. */
 int halo_ios_queue_campaign_action(uint32_t action);
+void halo_ios_campaign_state(int active);
+void halo_ios_quit_app(void);
 
 /* The sampling profiler (log reports "Where the time goes"); costs about 1% of one core. */
 void halo_ios_set_profiler_enabled(int enabled);
