@@ -45,3 +45,10 @@ and audio hooks.
    Settings > Multiplayer, and joining from the PC client still works.
 3. Settings > Display > Menus > Xbox menus, reopen the app: System Link as before.
 4. Settings still opens, the controls overlay still works in the menus.
+
+## Fix 1 (second CI error)
+
+`halo_ios_set_ambient_gain` was defined in the runner and used by the settings store, but not declared in `halo_guest_runner.h`, which the
+device build includes. The test build had its own `extern` line, so only the device build failed. `tools/tests/test_ios_header_declarations.py`
+now follows each file's real includes (with the test-only branch removed) and fails on a call to a project function that nothing it includes
+declares. It was run on the whole tree: this was the only one.

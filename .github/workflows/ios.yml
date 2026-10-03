@@ -44,6 +44,7 @@ on:
       - 'tools/tests/test_ios_color.c'
       - 'tools/tests/test_ios_scancodes.c'
       - 'tools/tests/test_ios_store_build_modes.py'
+      - 'tools/tests/test_ios_header_declarations.py'
       - 'tools/ce_menus.py'
       - 'tools/port_settings.py'
       - 'port/third_party/**'
@@ -107,6 +108,7 @@ jobs:
           python3 tools/tests/test_ios_powerups.py
           python3 tools/tests/test_ios_world_cheats.py
           python3 tools/tests/test_ios_store_build_modes.py
+          python3 tools/tests/test_ios_header_declarations.py
           python3 tools/tests/test_ios_campaign_policy.py
           python3 tools/tests/test_ios_arena_fastpath.py
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_controls_layout.c -o "$RUNNER_TEMP/halo-controls-test" -lm

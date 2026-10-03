@@ -46,6 +46,8 @@ void halo_ios_touch_look(float dx, float dy);
 void halo_ios_post_focus_event(void);
 
 void halo_ios_set_channel_gains(float music,float dialogue,float effects);
+/* Environment sounds (the device and ambient sound classes); 0 ... 1. */
+void halo_ios_set_ambient_gain(float gain);
 #ifdef __OBJC__
 @class NSString;
 NSString *HaloNetworkSummary(void);

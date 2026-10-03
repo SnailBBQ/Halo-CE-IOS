@@ -21,6 +21,7 @@ on:
       - 'tools/tests/test_ios_color.c'
       - 'tools/tests/test_ios_scancodes.c'
       - 'tools/tests/test_ios_store_build_modes.py'
+      - 'tools/tests/test_ios_header_declarations.py'
       - 'tools/tests/test_ios_world_cheats.py'
       - 'port/ios/HaloIOS/*.h'
       - 'source/game/cheats.c'
@@ -51,6 +52,7 @@ jobs:
           python3 tools/tests/test_ios_powerups.py
           python3 tools/tests/test_ios_campaign_policy.py
           python3 tools/tests/test_ios_store_build_modes.py
+          python3 tools/tests/test_ios_header_declarations.py
           for t in settings_core map_order pad_input color scancodes; do
             cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS "tools/tests/test_ios_$t.c" -o "$RUNNER_TEMP/halo-$t-test" -lm
             "$RUNNER_TEMP/halo-$t-test"
