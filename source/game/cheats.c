@@ -222,6 +222,8 @@ extern void host_campaign_options(HaloCampaignOptions *options);
 extern int host_sdl_show_toast(const char *, int, int, int, int);
 static void host_toast(const char *message) { host_sdl_show_toast(message, 2500, 0, 0, 0); }
 static void ios_campaign_action(unsigned int action);
+static long cheat_player_index(void);
+static unsigned int ios_recipe_actions[16],ios_recipe_head,ios_recipe_count;
 static void ios_powerups_tick(void);
 static boolean ios_campaign_active(void)
 { return game_in_progress() && !game_engine_running() && !network_game_is_active(); }
@@ -253,8 +255,25 @@ static void ios_cheats_apply(void)
 	host_campaign_options(&ios_options);
 	if (ios_campaign_active()) {
 		wanted = ios_options.flags & 15u;
-		if (ios_options.action) ios_campaign_action(ios_options.action);
+		/* A recipe can activate before the intro has created a player. Keep
+		   only request IDs, in order, until a living local unit is available. */
+		if (ios_options.action && ios_recipe_count < NUMBEROF(ios_recipe_actions)) {
+			ios_recipe_actions[(ios_recipe_head + ios_recipe_count) % NUMBEROF(ios_recipe_actions)] = ios_options.action;
+			ios_recipe_count++;
+		}
+		if (ios_recipe_count) {
+			long index = cheat_player_index();
+			struct player_datum *player = index == NONE ? NULL : player_try_and_get(index);
+			if (player && ios_cheat_local_unit(player->unit_index) &&
+				!TEST_FLAG(unit_get(player->unit_index)->object.damage_flags, _object_dead_bit)) {
+				unsigned int action = ios_recipe_actions[ios_recipe_head];
+				ios_recipe_head = (ios_recipe_head + 1) % NUMBEROF(ios_recipe_actions);
+				ios_recipe_count--;
+				ios_campaign_action(action);
+			}
+		}
 	} else {
+		ios_recipe_head = ios_recipe_count = 0;
 		if (ios_options.action) host_toast("Campaign actions are unavailable here");
 		ios_options.flags = 0;
 		ios_options.jump = ios_options.speed = 1.f;
@@ -283,6 +302,7 @@ static void ios_cheats_apply(void)
 static void ios_cheats_reset(void)
 {
     HaloCampaignOptions discarded;
+    ios_recipe_head = ios_recipe_count = 0;
     host_campaign_state(0);
     host_campaign_options(&discarded);
     if (ios_cheats_set & 1u) cheat.deathless_player = FALSE;

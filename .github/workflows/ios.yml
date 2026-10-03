@@ -39,6 +39,8 @@ on:
       - 'tools/tests/test_ios_controls_layout.c'
       - 'tools/tests/test_ios_fault_histogram.c'
       - 'tools/tests/test_ios_settings_core.c'
+      - 'tools/tests/test_ios_preset_activation.m'
+      - 'tools/tests/test_ios_map_pictures.m'
       - 'tools/tests/test_ios_log_classify.c'
       - 'tools/tests/test_ios_net.c'
       - 'tools/tests/test_ios_hash.c'

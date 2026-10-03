@@ -18,7 +18,10 @@ typedef float real;
 #define TRUE 1
 #define FALSE 0
 #define NONE (-1)
-struct unit_datum { struct { long player_index; } unit; };
+#define NUMBEROF(a) (sizeof(a)/sizeof((a)[0]))
+#define TEST_FLAG(a,b) ((a)&(1u<<(b)))
+enum {_object_dead_bit=0};
+struct unit_datum { struct { long player_index; } unit; struct {unsigned damage_flags;} object; };
 struct player_datum { long unit_index, local_player_index; };
 struct { int deathless_player, infinite_ammo, bottomless_clip; } cheat;
 static struct unit_datum units[3];
@@ -34,12 +37,14 @@ boolean game_in_progress(void) { return in_progress; }
 boolean game_engine_running(void) { return engine; }
 boolean network_game_is_active(void) { return network; }
 struct unit_datum *unit_try_and_get(long i) { return i >= 0 && i < 3 ? &units[i] : NULL; }
+struct unit_datum *unit_get(long i) { return unit_try_and_get(i); }
 struct player_datum *player_try_and_get(long i) { return i >= 0 && i < 3 ? &players[i] : NULL; }
 void host_campaign_options(HaloCampaignOptions *out) { *out = host_wanted; host_wanted.action = 0; }
 int host_sdl_show_toast(const char *s, int a, int b, int c, int d)
 { (void)s; (void)a; (void)b; (void)c; (void)d; ++toasts; return 1; }
 """ + body + r"""
 static void ios_campaign_action(unsigned int action) { actions += (action != 0); }
+static long cheat_player_index(void) { return 0; }
 static void ios_powerups_tick(void) { /* Power-up behavior is covered by the separate runtime harness. */ }
 #define CHECK(x) do { if (!(x)) { printf("FAIL line %d: %s\n", __LINE__, #x); return 1; } } while (0)
 int main(void)
@@ -68,6 +73,16 @@ int main(void)
     network = 0; engine = 1; host_wanted.action = 2; ios_cheats_apply(); CHECK(actions == 1 && toasts == 0 && !campaign_active);
     engine = 0; in_progress = 0; host_wanted.action = 3; ios_cheats_apply(); CHECK(actions == 1 && toasts == 0 && !campaign_active);
     in_progress = 1; ios_cheats_apply(); CHECK(actions == 1 && campaign_active && !cheat.deathless_player); /* no delayed spawns */
+    /* Recipe requests wait through player creation, then run once; map and
+       multiplayer transitions must discard them before a later mission. */
+    players[0].unit_index=NONE;host_wanted.action=100;ios_cheats_apply();CHECK(actions==1 && ios_recipe_count==1);
+    ios_cheats_apply();CHECK(actions==1 && ios_recipe_count==1);
+    players[0].unit_index=0;ios_cheats_apply();CHECK(actions==2 && ios_recipe_count==0);
+    ios_cheats_apply();CHECK(actions==2);
+    units[0].object.damage_flags=1;host_wanted.action=100;ios_cheats_apply();CHECK(actions==2 && ios_recipe_count==1);
+    ios_cheats_reset();CHECK(!ios_recipe_count);units[0].object.damage_flags=0;ios_cheats_apply();CHECK(actions==2);
+    players[0].unit_index=NONE;host_wanted.action=100;ios_cheats_apply();CHECK(ios_recipe_count==1);
+    network=1;ios_cheats_apply();CHECK(!ios_recipe_count && actions==2);network=0;players[0].unit_index=0;ios_cheats_apply();CHECK(actions==2);
     players[0].unit_index = 1; CHECK(!ios_cheat_local_unit(0)); /* stale ownership */
     host_wanted.action = 100; ios_cheats_reset();
     CHECK(host_wanted.action == 0 && ios_options.jump == 1.f && ios_options.speed == 1.f);
