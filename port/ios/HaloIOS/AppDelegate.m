@@ -41,6 +41,8 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 @property(nonatomic) BOOL engineStarted;
 @property(nonatomic) BOOL importing;
 @property(nonatomic) BOOL foldersReady;
+@property(nonatomic) BOOL restoringBackup;
+@property(nonatomic,strong) NSURL *deferredInvite;
 @property(nonatomic) BOOL physicalPadConnected;
 @property(nonatomic, strong) UIButton *settingsButton;
 @property(nonatomic, strong) UILabel *fpsLabel;
@@ -203,6 +205,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 }
 - (void)applicationDidBecomeActive:(UIApplication *)application {
     (void)application;
+    if(self.restoringBackup)return;
     [self refreshSetup];
     halo_ios_audio_resume();
     halo_ios_phase_foreground();
@@ -324,6 +327,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 - (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey, id> *)options {
     (void)app; (void)options;
     if ([url.scheme caseInsensitiveCompare:@"halo"] != NSOrderedSame) return NO;
+    if(self.restoringBackup){self.deferredInvite=url;return YES;}
     HaloSetPendingInvite(url.absoluteString);
     halo_ios_toast("Joining the invite…");
     return YES;
@@ -367,11 +371,20 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 }
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-    NSError *restoreError=nil;
-    if(!HaloApplyPendingRestore(&restoreError)) {
-        self.window=[[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];UIViewController *blocked=[UIViewController new];blocked.view.backgroundColor=UIColor.blackColor;self.window.rootViewController=blocked;[self.window makeKeyAndVisible];
-        dispatch_async(dispatch_get_main_queue(),^{UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Restore stopped" message:restoreError.localizedDescription preferredStyle:UIAlertControllerStyleAlert];[alert addAction:[UIAlertAction actionWithTitle:@"Close Halo" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){(void)a;halo_ios_quit_app();}]];[blocked presentViewController:alert animated:YES completion:nil];});return YES;
-    }
+    NSString *pending=[[[NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask].firstObject.path stringByAppendingPathComponent:@"HaloBackups"] stringByAppendingPathComponent:@"pending.plist"];
+    if(![NSFileManager.defaultManager fileExistsAtPath:pending])return [self finishLaunch:application options:launchOptions];
+    self.restoringBackup=YES;
+    self.window=[[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];UIViewController *screen=[UIViewController new];screen.view.backgroundColor=UIColor.blackColor;self.window.rootViewController=screen;
+    UILabel *message=[UILabel new];message.text=@"Restoring Halo…\nKeep the app open. Large map backups may take a while.";message.textColor=UIColor.whiteColor;message.textAlignment=NSTextAlignmentCenter;message.numberOfLines=0;message.translatesAutoresizingMaskIntoConstraints=NO;[screen.view addSubview:message];[NSLayoutConstraint activateConstraints:@[[message.centerXAnchor constraintEqualToAnchor:screen.view.centerXAnchor],[message.centerYAnchor constraintEqualToAnchor:screen.view.centerYAnchor],[message.widthAnchor constraintLessThanOrEqualToAnchor:screen.view.widthAnchor constant:-40]]];[self.window makeKeyAndVisible];
+    /* Large map hashing/copies must not block application launch or the UI thread. */
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{NSError *error=nil;BOOL restored=HaloApplyPendingRestore(&error);
+        dispatch_async(dispatch_get_main_queue(),^{
+            if(restored){self.restoringBackup=NO;[self finishLaunch:application options:launchOptions];if(self.deferredInvite){HaloSetPendingInvite(self.deferredInvite.absoluteString);self.deferredInvite=nil;}return;}
+            UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Restore stopped" message:error.localizedDescription preferredStyle:UIAlertControllerStyleAlert];[alert addAction:[UIAlertAction actionWithTitle:@"Close Halo" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){(void)a;halo_ios_quit_app();}]];[screen presentViewController:alert animated:YES completion:nil];
+        });
+    });return YES;
+}
+- (BOOL)finishLaunch:(UIApplication *)application options:(NSDictionary *)launchOptions {
     halo_ios_set_hosted_invite(NULL); /* discard any invite left by a terminated run */
     [self prepareLaunchState];
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];

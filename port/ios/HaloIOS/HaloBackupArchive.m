@@ -29,6 +29,15 @@ BOOL HaloBackupAllowed(NSString *path) {
         [path isEqual:@"settings.txt"] || [path isEqual:@"config.toml"];
 }
 static unsigned Section(NSString *path) { return [path hasPrefix:@"save/"]?1:[path hasPrefix:@"maps/"]||[path hasPrefix:@"map_thumbnails/"]?8:[path isEqual:@"config.toml"]?2:6; }
+static NSString *Relative(NSURL *file,NSURL *root) {
+    /* /var and /private/var may name the same app directory. Enumeration and
+     * file URLs must agree before calculating a relative filename. */
+    NSString *base=root.URLByResolvingSymlinksInPath.path.stringByStandardizingPath;
+    NSString *path=file.URLByResolvingSymlinksInPath.path.stringByStandardizingPath;
+    NSString *prefix=[base stringByAppendingString:@"/"];
+    HaloBackupRequire([path hasPrefix:prefix],@"File escaped the snapshot directory.");
+    return [path substringFromIndex:prefix.length];
+}
 BOOL HaloBackupRegular(NSURL *url) {
     NSNumber *regular=nil,*link=nil;[url getResourceValue:&regular forKey:NSURLIsRegularFileKey error:nil];[url getResourceValue:&link forKey:NSURLIsSymbolicLinkKey error:nil];return regular.boolValue&&!link.boolValue;
 }
@@ -54,7 +63,7 @@ NSURL *HaloBackupExport(unsigned mask) {
         NSDirectoryEnumerator *walk=[fm enumeratorAtURL:root includingPropertiesForKeys:@[NSURLIsRegularFileKey,NSURLIsSymbolicLinkKey] options:0 errorHandler:^BOOL(NSURL *u,NSError *e) { (void)u;@throw [NSException exceptionWithName:@"HaloBackup" reason:e.localizedDescription userInfo:nil]; }];
         for(NSURL *url in walk) {
             NSNumber *link=nil;[url getResourceValue:&link forKey:NSURLIsSymbolicLinkKey error:nil];if(link.boolValue){[walk skipDescendants];continue;}
-            NSString *path=[url.path substringFromIndex:root.path.length+1];
+            NSString *path=Relative(url,root);
             if(!HaloBackupRegular(url)||!HaloBackupAllowed(path)||!(Section(path)&mask))continue;
             NSURL *target=[snapshot URLByAppendingPathComponent:path];HaloBackupRequire([fm createDirectoryAtURL:target.URLByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil],@"Cannot create snapshot directory.");HaloBackupRequire([fm copyItemAtURL:url toURL:target error:nil],@"Cannot copy save or map into snapshot. Try again after saving.");
         }
@@ -62,7 +71,7 @@ NSURL *HaloBackupExport(unsigned mask) {
         NSMutableArray *records=[NSMutableArray array];
         NSDirectoryEnumerator *files=[fm enumeratorAtURL:snapshot includingPropertiesForKeys:@[NSURLIsRegularFileKey] options:0 errorHandler:nil];
         for(NSURL *url in files)if(HaloBackupRegular(url)) {
-            NSString *path=[url.path substringFromIndex:snapshot.path.length+1];NSDictionary *a=[fm attributesOfItemAtPath:url.path error:nil];
+            NSString *path=Relative(url,snapshot);NSDictionary *a=[fm attributesOfItemAtPath:url.path error:nil];
             [records addObject:@{@"path":path,@"size":a[NSFileSize],@"sha256":HaloBackupHashFile(url)}];
         }
         [records sortUsingComparator:^NSComparisonResult(NSDictionary *a,NSDictionary *b){return [a[@"path"] compare:b[@"path"]];}];
@@ -72,7 +81,7 @@ NSURL *HaloBackupExport(unsigned mask) {
         @try {
             [out writeData:[NSData dataWithBytes:"HALOBK01" length:8]];uint32_t length=CFSwapInt32HostToLittle((uint32_t)manifest.length);[out writeData:[NSData dataWithBytes:&length length:4]];[out writeData:manifest];
             for(NSDictionary *record in records) {
-                NSFileHandle *in=[NSFileHandle fileHandleForReadingFromURL:[snapshot URLByAppendingPathComponent:record[@"path"]] error:nil];HaloBackupRequire(in!=nil,@"Snapshot disappeared.");
+                NSFileHandle *in=[NSFileHandle fileHandleForReadingFromURL:[snapshot URLByAppendingPathComponent:record[@"path"]] error:nil];HaloBackupRequire(in!=nil,[@"Snapshot disappeared: " stringByAppendingString:record[@"path"]]);
                 @try { for(;;) { @autoreleasepool { NSData *chunk=[in readDataOfLength:1024*1024];if(!chunk.length)break;[out writeData:chunk]; } } } @finally {[in closeFile];}
             }[out synchronizeFile];
         } @finally { [out closeFile]; }
