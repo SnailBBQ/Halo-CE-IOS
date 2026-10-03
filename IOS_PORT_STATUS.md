@@ -1,8 +1,8 @@
 # Halo CE iOS — Port Status
 
-Current iOS update: **M2.6.47** — clear grenade-swap and flashlight symbols, Settings size/color Options, centered larger map previews and direct-boot polish. See [release notes](port/ios/UPDATE_M2647.md). Device validation is pending.
+Current iOS update: **M2.6.50** — picture aspect/detail choices, opt-in touch aiming and AirPlay mirroring guidance, shared by the regular and separate mod-test apps. See [release notes](port/ios/UPDATE_M2650.md). Device validation is pending.
 
-Updated October 3, 2026. Current development milestone: **M2.6.47** (device testing pending).
+Updated October 3, 2026. Current development milestone: **M2.6.50** (device testing pending).
 
 ## Current status
 
@@ -214,3 +214,12 @@ frame cap, performance overlay, ambient volume, recent games and QR, profile exp
 Merged with the newer Halo CE Universal (PC menus with the server browser, Direct Link and Create Game; XML menus; per-class volumes),
 two new key-name imports, a Menus choice in Settings > Display, and the fix for the M2.6.48 CI build error. See
 [the notes](port/ios/UPDATE_M2649.md). Not compiled or run on a device yet.
+
+
+## M2.6.50 display and touch aiming
+
+Shared update for the regular and separately identified mod-test apps: Default 4:3, Widescreen 16:9 and device-aspect Fullscreen;
+480/720/960-line render detail; per-control-profile auto-fire, Fire-button look dragging and right-stick firing.
+Defaults retain 640x480 and all shooting assists off. AirPlay uses iOS Screen Mirroring; it mirrors controls too.
+No separate TV-only game view or in-app AirPlay route picker is implemented. See [integration and device checklist](port/ios/UPDATE_M2650.md).
+Local source/settings checks pass; an Apple build and device tests are still required before claiming these options work on device.

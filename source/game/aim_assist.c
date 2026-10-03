@@ -637,6 +637,40 @@ long player_aim_projectile(
 	return target_object_index;
 }
 
+#ifdef HALO_IOS_GUEST
+/* One projectile collision query against the actual camera ray, never the
+ * magnetism cone. No retained objects, altered allegiance or synthetic damage. */
+boolean ios_crosshair_has_enemy(long player_index)
+{
+    struct player_datum *player = player_get(player_index);
+    struct collision_result hit;
+    real_point3d position;
+    real_vector3d direction;
+    struct object_datum *target;
+    boolean enemy = FALSE;
+    if (player->unit_index == NONE ||
+        global_current_collision_user_depth >= MAXIMUM_COLLISION_USER_STACK_DEPTH)
+        return FALSE;
+    director_camera_deterministic(player->unit_index, &position, &direction);
+    if (normalize3d(&direction) == 0.f) return FALSE;
+    scale_vector3d(&direction, 128.f, &direction);
+    global_current_collision_users[global_current_collision_user_depth++] = _collision_user_aim_assist;
+    if (collision_test_vector(_collision_test_for_projectiles_flags, &position,
+        &direction, player->unit_index, &hit) && hit.object_index != NONE)
+    {
+        target = object_try_and_get(hit.object_index);
+        if (target && hit.object_index != player->unit_index &&
+            TEST_FLAG(_object_mask_unit, target->object.type) &&
+            !TEST_FLAG(target->object.flags, _object_invisible_bit) &&
+            !TEST_FLAG(target->object.damage_flags, _object_dead_bit) &&
+            game_team_is_enemy(player->team_index, target->object.owner_team_index))
+            enemy = TRUE;
+    }
+    --global_current_collision_user_depth;
+    return enemy;
+}
+#endif
+
 long local_player_aim_assist(
 	short local_player_index,
 	real *autoaim_level,

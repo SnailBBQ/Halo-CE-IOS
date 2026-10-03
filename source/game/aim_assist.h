@@ -70,6 +70,10 @@ long local_player_aim_assist(
 	real_euler_angles2d *target_angular_position,
 	real_euler_angles2d *target_angular_velocity);
 
+#ifdef HALO_IOS_GUEST
+boolean ios_crosshair_has_enemy(long player_index);
+#endif
+
 /* ---------- globals */
 
 /* ---------- public code */

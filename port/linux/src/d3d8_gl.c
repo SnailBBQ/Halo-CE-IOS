@@ -97,6 +97,10 @@ static void screen_mode_choose(long *width, float scale[2])
 	const char *display = getenv("HALO_DISPLAY_WIDTH");
 
 	*width = config_integer("display.screen_width");
+#ifdef HALO_IOS_GUEST
+	/* iOS owns this choice; an old engine config must not override Settings. */
+	*width = display ? atol(display) : 640;
+#endif
 	if (*width <= 0)
 		*width = display ? atol(display) : 640;
 	if (*width < 640)
@@ -105,6 +109,12 @@ static void screen_mode_choose(long *width, float scale[2])
 		*width = 1600;
 	*width &= ~1L;
 	scale[0] = scale[1] = 1.0f;
+#ifdef HALO_IOS_GUEST
+	const char *detail = getenv("HALO_RENDER_SCALE");
+	float factor = detail ? (float)atof(detail) : 1.0f;
+	/* Whitelist scales so malformed settings cannot request an unbounded target. */
+	if (factor == 1.5f || factor == 2.0f) scale[0] = scale[1] = factor;
+#endif
 #else
 	long display_width, display_height;
 

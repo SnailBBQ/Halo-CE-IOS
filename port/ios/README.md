@@ -1,6 +1,6 @@
 # Halo CE iOS
 
-Current iOS update: **M2.6.47** — clear grenade-swap and flashlight symbols, Settings size/color Options, centered larger map previews and direct-boot polish. See [release notes](UPDATE_M2647.md). Device validation is pending.
+Current iOS update: **M2.6.50** — picture aspect/detail choices, opt-in touch aiming and AirPlay mirroring guidance, shared by the regular and separate mod-test apps. See [release notes](UPDATE_M2650.md). Device validation is pending.
 
 Experimental Halo: Combat Evolved port for physical iPhone and iPad devices running iOS/iPadOS 15 or later. A native `arm64` app hosts the recovered `arm64_32` engine and presents graphics through EAGL/OpenGL ES 3.
 
@@ -184,3 +184,9 @@ Device testing found campaign world corruption as well as multiplayer mesh disto
 ## M2.6.42 update
 
 M2.6.42 replaces M2.6.41’s costly upload-every-draw fallback with exact native geometry comparisons: unchanged pages avoid GPU uploads while modified/reused pages remain fresh. Active cheats are session-only; presets have gear editors, campaign recipes and Xbox/PlayStation face-button styles. Advanced adds explicit Quit, manual Restart instructions and GitHub Credits. Device FPS, visuals and client stability need validation.
+
+## Picture, touch aiming and casting
+
+Settings → Display provides Default 4:3, Widescreen 16:9, Fullscreen and 480/720/960-line render detail. These choices apply on the next launch; 640×480 remains the default and Safe Start fallback. Settings → Controls → Touch aiming has per-profile enemy auto-fire, Fire-button dragging and right-stick firing, all off by default.
+
+Use iOS Control Center → Screen Mirroring for AirPlay, or a supported display adapter. Game and controls are mirrored together; a separate TV-only renderer is not implemented. Higher render detail can reduce FPS and use more memory. See the M2.6.50 device checklist before enabling it for normal play.

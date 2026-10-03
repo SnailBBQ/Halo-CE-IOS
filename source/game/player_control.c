@@ -783,6 +783,24 @@ static void handle_one_player_input(
 
 	player->control_flags = input.unit_control_flags;
 	player->throttle = input.throttle;
+#ifdef HALO_IOS_GUEST
+    {
+        extern int host_touch_auto_fire(void);
+        /* Input remains authoritative: assist never clears a manually held trigger.
+         * The native gate is off in Settings/background and with a controller. */
+        if (host_touch_auto_fire() && input.primary_trigger == 0.f &&
+            player->unit_index != NONE && local_player_get_player_index(local_player_index) != NONE &&
+            current_weapon_index != NONE && !director_inhibited_input(local_player_index) &&
+            !TEST_FLAG(player->inhibited_button_bit_vector, _button_fire) &&
+            player_control_camera_control_is_active() && !cinematic_in_progress() &&
+            !TEST_FLAG(unit_get(player->unit_index)->object.damage_flags, _object_dead_bit) &&
+            ios_crosshair_has_enemy(local_player_get_player_index(local_player_index)))
+        {
+            input.primary_trigger = 1.f;
+            SET_FLAG(player->control_flags, _unit_control_weapon_primary_trigger_bit, TRUE);
+        }
+    }
+#endif
 	player->primary_trigger = input.primary_trigger;
 	match_assert_valid_real(
 		"c:\\halo\\SOURCE\\game\\player_control.c",

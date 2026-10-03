@@ -430,6 +430,12 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUISliderRow(@"Look acceleration", 1.0f, 3.0f, preset.look_curve, @"%.1f", ^(float v) { [self update:^(HsSettings *s) { s->presets[s->active].look_curve = v; }]; }),
         HaloUISwitchRow(@"Invert look", @"Up on the screen looks down.", preset.invert_look_y, ^(BOOL on) { [self update:^(HsSettings *s) { s->presets[s->active].invert_look_y = on; }]; })])];
 
+    [self add:HaloUICardView(@"Touch aiming", @[
+        HaloUISwitchRow(@"Auto-fire on enemies", @"Fire while using touch controls when the crosshair directly meets a living enemy. Physical controllers are unaffected.", preset.auto_fire, ^(BOOL on) { [self update:^(HsSettings *s) { s->presets[s->active].auto_fire = on; }]; }),
+        HaloUISwitchRow(@"Aim with the Fire button", @"Hold Fire and drag to look without lifting your finger.", preset.fire_drag, ^(BOOL on) { [self update:^(HsSettings *s) { s->presets[s->active].fire_drag = on; }]; }),
+        HaloUISwitchRow(@"Fire with the right stick", @"Moving the right stick also holds Fire. Re-centre or release to stop firing.", preset.stick_fire, ^(BOOL on) { [self update:^(HsSettings *s) { s->presets[s->active].stick_fire = on; }]; }),
+        HaloUINote(@"These options are saved with your control scheme. Auto-fire requires touch input and does not act in menus or cinematics.")])];
+
     [self add:HaloUICardView(@"Sticks", @[
         HaloUISwitchRow(@"Floating sticks", @"The stick starts where your thumb lands.", preset.floating_sticks, ^(BOOL on) { [self update:^(HsSettings *s) { s->presets[s->active].floating_sticks = on; }]; }),
         HaloUISliderRow(@"Dead zone", 0.0f, 0.4f, preset.stick_dead_zone, @"%.2f", ^(float v) { [self update:^(HsSettings *s) { s->presets[s->active].stick_dead_zone = v; }]; }),
@@ -540,6 +546,13 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUINote(note),
         HaloUISwitchRow(@"Show FPS", @"Display the frame-rate counter.", settings->show_fps, ^(BOOL on) { [self update:^(HsSettings *s) { s->show_fps = on; }]; }),
         HaloUINote(@"Switching between 30 and the other two takes effect the next time you open the app. Switching between 60 and Uncapped takes effect now.")])];
+
+    [self add:HaloUICardView(@"Game picture", @[
+        HaloUISegmentRow(@"Aspect ratio", @[@"Default · 4:3", @"Widescreen · 16:9", @"Fullscreen"], settings->display_mode, ^(NSInteger i) { [self update:^(HsSettings *s) { s->display_mode = (int)i; }]; }),
+        HaloUISegmentRow(@"Render detail", @[@"Standard · 480p", @"High · 720p", @"Very high · 960p"], settings->render_quality, ^(NSInteger i) { [self update:^(HsSettings *s) { s->render_quality = (int)i; }]; }),
+        HaloUINote(@"A wider picture shows more of the scene without stretching it. Fullscreen matches your device. Higher detail draws more pixels and uses more power; Standard is the performance default. Picture changes apply on the next app launch.")])];
+    [self add:HaloUICardView(@"AirPlay and external screens", @[
+        HaloUINote(@"Open iOS Control Center, choose Screen Mirroring, then select your Apple TV or compatible AirPlay display. You can also connect a supported display adapter. The game and touch controls are mirrored together. Use a physical controller for a clearer TV view. Your device and AirPlay receiver must be on a network that supports discovery; latency depends on the connection.")])];
 
     [self add:HaloUICardView(@"Game HUD profile",@[[self hudChoiceRow:settings->active]])];
     [self add:HaloUICardView(@"Game HUD and FPS",@[
