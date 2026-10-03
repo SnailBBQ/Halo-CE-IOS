@@ -1,10 +1,17 @@
 #import "HaloUI.h"
 #import "HaloSettingsStore.h"
+#import "halo_color.h"
 
 UIColor *HaloUIBackground(void) { return [UIColor colorWithRed:0.055 green:0.063 blue:0.078 alpha:1]; }
 UIColor *HaloUICard(void) { return [UIColor colorWithRed:0.105 green:0.118 blue:0.145 alpha:1]; }
+static UIColor *HaloUIColorFromRGB(unsigned rgb) {
+    return [UIColor colorWithRed:((rgb >> 16) & 255) / 255.0 green:((rgb >> 8) & 255) / 255.0 blue:(rgb & 255) / 255.0 alpha:1];
+}
 UIColor *HaloUIAccent(void) {
-    switch([HaloSettingsStore.shared snapshot].ui_theme){
+    HsSettings settings=[HaloSettingsStore.shared snapshot];
+    if(settings.accent_mode==1)return HaloUIColorFromRGB(hx_clamp_accent(settings.accent_rgb));
+    if(settings.accent_mode==2)return HaloUIColorFromRGB(hx_chroma(CACurrentMediaTime(),settings.chroma_seconds));
+    switch(settings.ui_theme){
         case 1:return [UIColor colorWithRed:.08 green:.48 blue:.26 alpha:1];
         case 2:return [UIColor colorWithRed:.48 green:.27 blue:.78 alpha:1];
         case 3:return [UIColor colorWithRed:.70 green:.34 blue:.02 alpha:1];
@@ -12,11 +19,18 @@ UIColor *HaloUIAccent(void) {
         default:return [UIColor colorWithRed:.20 green:.52 blue:.98 alpha:1];
     }
 }
-void HaloUIApplyAccent(UIView *root) {
-    UIColor *accent=HaloUIAccent();root.tintColor=accent;
+/* Sidebar rows keep their white icon and text: the selected row's background is the accent colour, so an accent-tinted icon
+ * would vanish into it. Everything else follows the accent. */
+static void HaloUIApplyAccentWith(UIView *root,UIColor *accent) {
+    if([root.accessibilityIdentifier isEqual:@"HaloSidebarRow"])return;
+    root.tintColor=accent;
+    if([root isKindOfClass:UISwitch.class])((UISwitch *)root).onTintColor=accent;
+    else if([root isKindOfClass:UISlider.class])((UISlider *)root).minimumTrackTintColor=accent;
+    else if([root isKindOfClass:UISegmentedControl.class])((UISegmentedControl *)root).selectedSegmentTintColor=accent;
     if([root.accessibilityIdentifier isEqual:@"HaloAccentButton"])root.backgroundColor=accent;
-    for(UIView *child in root.subviews)HaloUIApplyAccent(child);
+    for(UIView *child in root.subviews)HaloUIApplyAccentWith(child,accent);
 }
+void HaloUIApplyAccent(UIView *root) { HaloUIApplyAccentWith(root,HaloUIAccent()); }
 UIColor *HaloUIGreen(void) { return [UIColor colorWithRed:0.30 green:0.82 blue:0.45 alpha:1]; }
 UIColor *HaloUIAmber(void) { return [UIColor colorWithRed:1.00 green:0.74 blue:0.28 alpha:1]; }
 UIColor *HaloUIRed(void) { return [UIColor colorWithRed:1.00 green:0.40 blue:0.40 alpha:1]; }
@@ -185,4 +199,24 @@ UIStackView *HaloUIScrollingStack(UIView *container, CGFloat spacing)
         [stack.leadingAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.leadingAnchor constant:4],
         [stack.trailingAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.trailingAnchor constant:-4]]];
     return stack;
+}
+
+UIButton *HaloUIDisclosureHeader(NSString *title, NSString *summary, BOOL expanded, void (^toggle)(void)) {
+    UIButton *button=[UIButton buttonWithType:UIButtonTypeCustom];
+    button.backgroundColor=HaloUICard();button.layer.cornerRadius=14;
+    UILabel *name=HaloUILabel(title,17,UIFontWeightSemibold,nil);
+    UIStackView *text=[[UIStackView alloc] initWithArrangedSubviews:@[name]];text.axis=UILayoutConstraintAxisVertical;text.spacing=2;
+    if(summary.length)[text addArrangedSubview:HaloUINote(summary)];
+    UIImageView *chevron=[[UIImageView alloc] initWithImage:[UIImage systemImageNamed:expanded?@"chevron.down":@"chevron.right"]];
+    chevron.tintColor=HaloUISecondaryText();chevron.contentMode=UIViewContentModeScaleAspectFit;
+    [chevron setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    [chevron.widthAnchor constraintEqualToConstant:18].active=YES;
+    UIStackView *row=[[UIStackView alloc] initWithArrangedSubviews:@[text,chevron]];
+    row.axis=UILayoutConstraintAxisHorizontal;row.spacing=10;row.alignment=UIStackViewAlignmentCenter;row.userInteractionEnabled=NO;row.translatesAutoresizingMaskIntoConstraints=NO;
+    [button addSubview:row];
+    [NSLayoutConstraint activateConstraints:@[
+        [row.topAnchor constraintEqualToAnchor:button.topAnchor constant:14],[row.bottomAnchor constraintEqualToAnchor:button.bottomAnchor constant:-14],
+        [row.leadingAnchor constraintEqualToAnchor:button.leadingAnchor constant:16],[row.trailingAnchor constraintEqualToAnchor:button.trailingAnchor constant:-16]]];
+    [button addAction:[UIAction actionWithHandler:^(UIAction *action){(void)action;if(toggle)toggle();}] forControlEvents:UIControlEventTouchUpInside];
+    return button;
 }

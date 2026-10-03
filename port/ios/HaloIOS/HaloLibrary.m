@@ -4,6 +4,7 @@
 #import "HaloBackupArchive.h"
 #import "HaloSettingsStore.h"
 #import "HaloUI.h"
+#import "halo_map_order.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 @interface HaloLibraryController:UIViewController<UIDocumentPickerDelegate>
 @property BOOL maps;
@@ -64,6 +65,7 @@
 - (void)renderMaps {
     [self loadMapPictures];
     __weak typeof(self) weakSelf=self;
+    HsSettings opts=[HaloSettingsStore.shared snapshot];BOOL sortAlpha=opts.maps_mp_alpha;
     NSArray *mods=nil;@try{mods=HaloModsList();}@catch(NSException *exception){[self.rows addArrangedSubview:HaloUINote(exception.reason)];return;}
     [self.rows addArrangedSubview:HaloUICardView(@"Mod library",@[
         HaloUINote(@"Import compiled Xbox version 5 map mods. Weapon, character and other tag changes must be compiled into these maps; loose tags and executable plugins are not supported. Changes load on the next app launch. Later enabled entries override earlier entries with the same filename. Original maps are preserved for unloading."),
@@ -82,10 +84,14 @@
     [self.rows addArrangedSubview:HaloUICardView(@"Installed game files",@[
         HaloUINote(@"Halo loads the same Documents/Halo/maps directory. This build requires Xbox version 5 maps, including ui.map. Header checks do not prove every asset is intact. Matching builds are required for multiplayer. Menu pictures are read from ui.map where its layout is supported; custom pictures override them."),
         HaloUIButton(@"Import maps",1,^(UIButton *b){(void)b;weakSelf.pickerKind=2;UIDocumentPickerViewController *p=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:YES];p.allowsMultipleSelection=YES;p.delegate=weakSelf;[weakSelf presentViewController:p animated:YES completion:nil];}),
-        HaloUIButton(@"Refresh installed maps",0,^(UIButton *b){(void)b;[weakSelf render];})])];
-    NSString *folder=[HaloBackupRoot() stringByAppendingPathComponent:@"maps"];NSArray *names=[[NSFileManager.defaultManager contentsOfDirectoryAtPath:folder error:nil] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];BOOL ui=NO;NSUInteger count=0;
+        HaloUIButton(@"Refresh installed maps",0,^(UIButton *b){(void)b;[weakSelf render];}),
+        HaloUISwitchRow(@"Show installed game files",@"Lists every map in Documents/Halo/maps with its picture and header check. Hidden by default because the list is long.",opts.maps_show_files,^(BOOL on){[HaloSettingsStore.shared update:^(HsSettings *s2){s2->maps_show_files=on;}];[weakSelf render];}),
+        HaloUISwitchRow(@"Sort multiplayer maps A–Z",@"Off: the order the game's own menu shows them. Campaign maps always stay in mission order at the top.",opts.maps_mp_alpha,^(BOOL on){[HaloSettingsStore.shared update:^(HsSettings *s2){s2->maps_mp_alpha=on;}];[weakSelf render];}),
+        HaloUISwitchRow(@"Multiplayer only",@"Hides the campaign maps from this list. Nothing is deleted or unloaded.",opts.maps_mp_only,^(BOOL on){[HaloSettingsStore.shared update:^(HsSettings *s2){s2->maps_mp_only=on;}];[weakSelf render];})])];
+    NSString *folder=[HaloBackupRoot() stringByAppendingPathComponent:@"maps"];NSArray *names=[[NSFileManager.defaultManager contentsOfDirectoryAtPath:folder error:nil] sortedArrayUsingComparator:^NSComparisonResult(NSString *a,NSString *b){int c=hm_compare(a.stringByDeletingPathExtension.lowercaseString.UTF8String,b.stringByDeletingPathExtension.lowercaseString.UTF8String,sortAlpha);return c<0?NSOrderedAscending:c>0?NSOrderedDescending:[a localizedCaseInsensitiveCompare:b];}];BOOL ui=NO;NSUInteger count=0,hidden=0;
     for(NSString *name in names) {
         if(![name.pathExtension.lowercaseString isEqual:@"map"])continue;NSURL *url=[NSURL fileURLWithPath:[folder stringByAppendingPathComponent:name]];if(!HaloBackupRegular(url))continue;count++;if([name.lowercaseString isEqual:@"ui.map"])ui=YES;
+        {NSString *shownBase=name.stringByDeletingPathExtension.lowercaseString;if(!(opts.maps_show_files&&hm_visible(shownBase.UTF8String,opts.maps_mp_only))){hidden++;continue;}}
         NSFileHandle *f=[NSFileHandle fileHandleForReadingFromURL:url error:nil];NSData *header=nil;@try {header=[f readDataOfLength:2048];}@catch(NSException *e){(void)e;}@finally {[f closeFile];}
         uint32_t magic=0,version=0,foot=0;BOOL valid=NO;if(header.length==2048){memcpy(&magic,header.bytes,4);memcpy(&version,(char *)header.bytes+4,4);memcpy(&foot,(char *)header.bytes+2044,4);valid=CFSwapInt32LittleToHost(magic)==0x68656164 && CFSwapInt32LittleToHost(foot)==0x666f6f74 && CFSwapInt32LittleToHost(version)==5;}
         NSString *base=name.stringByDeletingPathExtension.lowercaseString;BOOL campaign=[@[@"a10",@"a30",@"a50",@"b30",@"b40",@"c10",@"c20",@"c40",@"d20",@"d40"] containsObject:base];
@@ -93,8 +99,10 @@
         NSDictionary *attrs=[NSFileManager.defaultManager attributesOfItemAtPath:url.path error:nil];NSString *size=[NSByteCountFormatter stringFromByteCount:[attrs[NSFileSize] longLongValue] countStyle:NSByteCountFormatterCountStyleFile];
         UIImageView *image=[UIImageView new];image.contentMode=UIViewContentModeScaleAspectFit;image.clipsToBounds=YES;image.backgroundColor=UIColor.clearColor;image.layer.cornerRadius=0;[image.heightAnchor constraintEqualToConstant:190].active=YES;
         NSString *thumb=[[HaloBackupRoot() stringByAppendingPathComponent:@"map_thumbnails"] stringByAppendingPathComponent:[base stringByAppendingPathExtension:@"png"]];image.image=[UIImage imageWithContentsOfFile:thumb]?:self.mapPictures[base]?:[UIImage systemImageNamed:campaign?@"mountain.2.fill":@"map.fill"];image.tintColor=HaloUIAccent();
-        [self.rows addArrangedSubview:HaloUICardView(name,@[image,HaloUINote([NSString stringWithFormat:@"%@ · %@\n%@",kind,size,valid?@"Version 5 header verified":@"Invalid / unsupported header: reimport a compatible map"]),HaloUIButton(@"Choose map picture",0,^(UIButton *b){(void)b;weakSelf.thumbnailName=base;weakSelf.pickerKind=3;UIDocumentPickerViewController *p=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeImage] asCopy:YES];p.delegate=weakSelf;[weakSelf presentViewController:p animated:YES completion:nil];})])];
+        [self.rows addArrangedSubview:HaloUICardView((hm_index(base.UTF8String)>=0||hm_is_ui(base.UTF8String))?[NSString stringWithUTF8String:hm_title(base.UTF8String)]:name,@[image,HaloUINote([NSString stringWithFormat:@"%@ · %@ · %@\n%@",name,kind,size,valid?@"Version 5 header verified":@"Invalid / unsupported header: reimport a compatible map"]),HaloUIButton(@"Choose map picture",0,^(UIButton *b){(void)b;weakSelf.thumbnailName=base;weakSelf.pickerKind=3;UIDocumentPickerViewController *p=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeImage] asCopy:YES];p.delegate=weakSelf;[weakSelf presentViewController:p animated:YES completion:nil];})])];
     }
+    if(count&&!opts.maps_show_files)[self.rows addArrangedSubview:HaloUICardView(nil,@[HaloUINote([NSString stringWithFormat:@"%lu installed game files are hidden. Turn on “Show installed game files” above to list them, choose map pictures or read their header checks.",(unsigned long)count])])];
+    else if(opts.maps_show_files&&opts.maps_mp_only&&hidden)[self.rows addArrangedSubview:HaloUINote([NSString stringWithFormat:@"%lu campaign maps are hidden by Multiplayer only.",(unsigned long)hidden])];
     if(!count)[self.rows addArrangedSubview:HaloUINote(@"No maps installed. Import your compatible map files above.")];
     if(!ui)[self.rows addArrangedSubview:HaloUINote(@"ui.map is missing. Halo needs it to start.")];
 }

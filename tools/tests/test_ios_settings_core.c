@@ -220,6 +220,69 @@ int main(void)
     hs_defaults(&s);CHECK(s.gear_scale==1 && s.ui_theme==0,"Options defaults");s.gear_scale=1.5f;s.ui_theme=2;
     CHECK(hs_serialize(&s,text,sizeof(text))>0 && hs_parse(&t,text) && near(t.gear_scale,1.5f) && t.ui_theme==2,"Options persist");
     hs_parse(&t,"HALO1\ngearscale=nan\nuitheme=999\n");CHECK(t.gear_scale==.75f && t.ui_theme==4,"Options bounds");
+    /* ---- M2.6.48: accent colours, installed-files list, ambient sound, controller shaping, gyro, left-handed, toggles, new cheats */
+    hs_defaults(&s);
+    CHECK(s.accent_mode==0 && s.accent_rgb==0x3385FAu && near(s.chroma_seconds,12.f),"accent defaults");
+    CHECK(!s.maps_show_files && !s.maps_mp_alpha && !s.maps_mp_only,"installed files hidden, game order, campaign shown by default");
+    CHECK(near(s.ambient_volume,1.f) && s.thermal_cap==1 && !s.perf_overlay,"audio and display defaults");
+    CHECK(near(s.pad_dead,0) && near(s.pad_curve,1),"controller shaping off by default");
+    { int identity=1; for(int b=0;b<14;b++) if(s.pad_map[b]!=b) identity=0; CHECK(identity,"controller map defaults to identity"); }
+    CHECK(near(s.presets[0].gyro_sens,1.f) && !s.presets[0].gyro && !s.presets[0].mirror && s.presets[0].toggle_mask==0,"control defaults");
+    s.accent_mode=2;s.accent_rgb=0xA1B2C3u;s.chroma_seconds=20.f;s.maps_show_files=1;s.maps_mp_alpha=1;s.maps_mp_only=1;
+    s.ambient_volume=.4f;s.perf_overlay=1;s.thermal_cap=0;s.pad_dead=.15f;s.pad_curve=2.f;s.pad_map[0]=1;s.pad_map[1]=0;s.pad_map[13]=6;
+    s.presets[3].mirror=1;s.presets[3].toggle_mask=(1u<<HC_LS)|(1u<<HC_RS);s.presets[3].gyro=1;s.presets[3].gyro_sens=1.75f;
+    s.presets[3].gyro_flip_yaw=1;s.presets[3].cheat_slow=3;s.presets[3].cheat_flags=8192u|16384u|1u;
+    CHECK(hs_serialize(&s,text,sizeof(text))>0 && hs_parse(&t,text),"serialize the new settings");
+    CHECK(t.accent_mode==2 && t.accent_rgb==0xA1B2C3u && near(t.chroma_seconds,20.f),"accent persists");
+    CHECK(t.maps_show_files && t.maps_mp_alpha && t.maps_mp_only,"installed-files options persist");
+    CHECK(near(t.ambient_volume,.4f) && t.perf_overlay && !t.thermal_cap && near(t.pad_dead,.15f) && near(t.pad_curve,2.f),"ambient, overlay, thermal, controller shaping persist");
+    CHECK(t.pad_map[0]==1 && t.pad_map[1]==0 && t.pad_map[2]==2 && t.pad_map[13]==6,"controller remap persists");
+    CHECK(t.presets[3].mirror && t.presets[3].toggle_mask==((1u<<HC_LS)|(1u<<HC_RS)) && t.presets[3].gyro && near(t.presets[3].gyro_sens,1.75f) &&
+          t.presets[3].gyro_flip_yaw && !t.presets[3].gyro_flip_pitch && t.presets[3].cheat_slow==3 && t.presets[3].cheat_flags==(8192u|16384u|1u),"per-profile controls and recipe persist");
+    hs_apply_preset_cheats(&t,3);
+    CHECK(t.cheat_jetpack && t.cheat_ai_ignore && t.cheat_god && t.cheat_slow==3,"a recipe activates jetpack, AI ignore and slow motion");
+    t.cheat_jetpack=t.cheat_ai_ignore=1;t.cheat_slow=2;
+    CHECK(hs_serialize(&t,text,sizeof(text))>0 && hs_parse(&s,text) && !s.cheat_jetpack && !s.cheat_ai_ignore && s.cheat_slow==0,"running session cheats are never saved");
+    hs_clear_cheats(&t);CHECK(!t.cheat_jetpack && !t.cheat_ai_ignore && t.cheat_slow==0,"clearing cheats clears the new ones");
+    hs_parse(&t,"HALO1\naccentmode=9\naccentrgb=99999999999\nchroma=nan\nmapsshow=5\nmapsalpha=-3\nambient=9\nperf=7\nthermal=2\npaddead=-4\npadcurve=nan\npadmap=99,1,2,x,5\n"
+                "p1.slow=99\np1.mirror=5\np1.toggle=4294967295\np1.gyro=3\np1.gyrosens=nan\np1.cheats=4294967295\n");
+    CHECK(t.accent_mode==2 && (t.accent_rgb&~0xFFFFFFu)==0 && t.chroma_seconds>=3.f && t.chroma_seconds<=60.f,"hostile accent values are bounded (mode %d rgb %x chroma %f)",t.accent_mode,t.accent_rgb,t.chroma_seconds);
+    CHECK(t.maps_show_files==1 && t.maps_mp_alpha==1 && t.ambient_volume==1.f && t.perf_overlay==1 && t.thermal_cap==1,"hostile flags and volumes are bounded");
+    CHECK(t.pad_dead==0 && t.pad_curve>=1.f && t.pad_curve<=3.f,"hostile controller shaping is bounded");
+    { int ok=t.pad_map[0]==0 && t.pad_map[1]==1 && t.pad_map[2]==2 && t.pad_map[3]==3 && t.pad_map[4]==4; for(int b=0;b<14;b++) if(t.pad_map[b]>13) ok=0; CHECK(ok,"a damaged remap keeps the entries before the damage and the rest stay identity (%u %u %u %u %u)",t.pad_map[0],t.pad_map[1],t.pad_map[2],t.pad_map[3],t.pad_map[4]); }
+    CHECK(t.presets[1].cheat_slow==4 && t.presets[1].mirror==1 && t.presets[1].gyro==1 && t.presets[1].gyro_sens>=.25f && t.presets[1].gyro_sens<=3.f,"hostile profile fields are bounded");
+    CHECK((t.presets[1].toggle_mask&~HS_TOGGLE_ALLOWED)==0 && t.presets[1].toggle_mask==HS_TOGGLE_ALLOWED && (t.presets[1].cheat_flags&~32767u)==0,"only buttons can latch and only known recipe bits survive");
+    /* the old file format still reads: a file from before this update has none of the new keys */
+    hs_parse(&t,"HALO1\nactive=2\nvolume=0.5\n");
+    CHECK(t.active==2 && t.accent_rgb==0x3385FAu && t.pad_curve==1.f && t.thermal_cap==1 && t.presets[0].gyro_sens==1.f,"older files read with the new defaults");
+    /* left-handed mirror: every control swaps sides, sizes and heights are kept, mirroring twice is the original */
+    {
+        HcControl a[HC_COUNT], b[HC_COUNT];
+        HsPreset plain, left; hs_default_preset(&plain,2); left=plain; left.mirror=1;
+        hc_layout(10,0,810,390,a);hs_apply_preset(&plain,10,0,810,390,a);
+        hc_layout(10,0,810,390,b);hs_apply_preset(&left,10,0,810,390,b);
+        int ok=1; for(int i=0;i<HC_COUNT;i++){ if(!near(hc_cx(b[i].r),10+810-hc_cx(a[i].r))||!near(b[i].r.w,a[i].r.w)||!near(b[i].r.y,a[i].r.y)||!near(b[i].r.h,a[i].r.h)||b[i].hidden!=a[i].hidden) ok=0; }
+        CHECK(ok,"left-handed mirrors every control about the centre of the safe area");
+        CHECK(hc_cx(a[HC_LSTICK].r)<hc_cx(a[HC_RSTICK].r) && hc_cx(b[HC_LSTICK].r)>hc_cx(b[HC_RSTICK].r),"the move stick is on the right when mirrored");
+        HsPreset moved=plain; moved.place[HC_A].placed=1;moved.place[HC_A].fx=.9f;moved.place[HC_A].fy=.5f;moved.place[HC_A].scale=1.f;moved.place[HC_A].opacity=1.f; HsPreset moved_left=moved; moved_left.mirror=1;
+        hc_layout(10,0,810,390,a);hs_apply_preset(&moved,10,0,810,390,a);hc_layout(10,0,810,390,b);hs_apply_preset(&moved_left,10,0,810,390,b);
+        CHECK(near(hc_cx(b[HC_A].r),10+810-hc_cx(a[HC_A].r)),"a control the player moved is mirrored too");
+        ok=1;
+        for(int i=0;i<HC_COUNT;i++){ if(b[i].r.x<10-.01f||b[i].r.x+b[i].r.w>810+.01f) ok=0; }
+        CHECK(ok,"the mirrored layout stays on screen");
+    }
+    /* heat-aware frame cap */
+    hs_defaults(&s);s.fps_mode=1;s.thermal_cap=1;
+    CHECK(hs_effective_cap(&s,0,0)==60 && hs_effective_cap(&s,1,0)==60,"smooth 60 is held at 60 while the phone is cool or warm");
+    CHECK(hs_effective_cap(&s,2,0)==45 && hs_effective_cap(&s,3,0)==30,"serious heat gives 45, critical heat 30");
+    CHECK(hs_effective_cap(&s,0,1)==45 && hs_effective_cap(&s,3,1)==30,"Low Power Mode gives 45, and heat can still lower it further");
+    s.fps_mode=2;
+    CHECK(hs_effective_cap(&s,0,0)==0 && hs_effective_cap(&s,2,0)==45 && hs_effective_cap(&s,3,0)==30,"uncapped has no cap until the phone is hot");
+    s.thermal_cap=0;
+    CHECK(hs_effective_cap(&s,3,1)==0,"with the option off the mode's own cap is used whatever the heat");
+    s.fps_mode=1;CHECK(hs_effective_cap(&s,3,1)==60,"... also for smooth 60");
+    s.fps_mode=0;s.thermal_cap=1;CHECK(hs_effective_cap(&s,3,1)==0,"the original 30 FPS mode is never touched");
+    s.fps_mode=1;CHECK(hs_effective_cap(&s,-5,0)==60 && hs_effective_cap(&s,99,0)==30,"odd thermal values are safe");
     if (!failures) printf("PASS: settings core: 5 named presets round-trip, hostile input is clamped, layouts stay on screen, stick feel\n");
     return failures ? 1 : 0;
 }

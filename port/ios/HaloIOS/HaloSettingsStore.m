@@ -5,6 +5,7 @@ extern void halo_ios_set_channel_gains(float,float,float);
 extern void halo_ios_audio_set_volume(float);
 extern void halo_ios_set_profiler_enabled(int);
 extern void halo_ios_gl_set_frame_cap(int);
+extern void halo_ios_set_ambient_gain(float);
 extern void halo_ios_set_cheat_flags(uint32_t);
 extern void halo_ios_set_viewmodel_flags(uint32_t);
 extern int halo_ios_queue_campaign_action(uint32_t);
@@ -12,6 +13,12 @@ extern int halo_ios_queue_campaign_action(uint32_t);
 #import "halo_ios_audio.h"
 #import "halo_guest_runner.h"
 #import "halo_ios_gl_host.h"
+
+static int HaloEffectiveCap(const HsSettings *settings)
+{
+    NSProcessInfo *info = NSProcessInfo.processInfo;
+    return hs_effective_cap(settings, (int)info.thermalState, info.isLowPowerModeEnabled ? 1 : 0);
+}
 #endif
 
 NSString *const HaloSettingsChangedNotification = @"HaloSettingsChanged";
@@ -42,7 +49,18 @@ static NSString *const kSettingsKey = @"HaloSettingsV1";
         halo_ios_set_channel_gains(_settings.music_volume,_settings.dialogue_volume,_settings.effects_volume);
         halo_ios_audio_set_volume(_settings.audio_enabled ? _settings.volume : 0.0f);
         halo_ios_set_profiler_enabled(_settings.profiler);
-        halo_ios_gl_set_frame_cap(hs_frame_cap(&_settings));
+        halo_ios_gl_set_frame_cap(HaloEffectiveCap(&_settings));
+        halo_ios_set_ambient_gain(_settings.ambient_volume);
+        __weak HaloSettingsStore *weakSelf = self;
+        void (^reapply)(NSNotification *) = ^(NSNotification *note) {
+            (void)note;
+            HaloSettingsStore *strong = weakSelf;
+            if (!strong) return;
+            HsSettings now = [strong snapshot];
+            halo_ios_gl_set_frame_cap(HaloEffectiveCap(&now));   /* the phone got hotter or cooler, or Low Power Mode changed */
+        };
+        [[NSNotificationCenter defaultCenter] addObserverForName:NSProcessInfoThermalStateDidChangeNotification object:nil queue:nil usingBlock:reapply];
+        [[NSNotificationCenter defaultCenter] addObserverForName:NSProcessInfoPowerStateDidChangeNotification object:nil queue:nil usingBlock:reapply];
         halo_ios_set_cheat_flags(hs_cheat_mask(&_settings));
         halo_ios_set_viewmodel_flags(hs_viewmodel_mask(&_settings));
     }
@@ -112,7 +130,8 @@ static NSString *const kSettingsKey = @"HaloSettingsV1";
     halo_ios_set_channel_gains(next.music_volume,next.dialogue_volume,next.effects_volume);
     halo_ios_audio_set_volume(next.audio_enabled ? next.volume : 0.0f);
     halo_ios_set_profiler_enabled(next.profiler);
-    halo_ios_gl_set_frame_cap(hs_frame_cap(&next));
+    halo_ios_gl_set_frame_cap(HaloEffectiveCap(&next));
+    halo_ios_set_ambient_gain(next.ambient_volume);
     halo_ios_set_cheat_flags(hs_cheat_mask(&next));
     halo_ios_set_viewmodel_flags(hs_viewmodel_mask(&next));
     dispatch_async(dispatch_get_main_queue(), ^{

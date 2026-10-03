@@ -39,6 +39,10 @@ on:
       - 'tools/tests/test_ios_controls_layout.c'
       - 'tools/tests/test_ios_fault_histogram.c'
       - 'tools/tests/test_ios_settings_core.c'
+      - 'tools/tests/test_ios_map_order.c'
+      - 'tools/tests/test_ios_pad_input.c'
+      - 'tools/tests/test_ios_color.c'
+      - 'tools/tests/test_ios_world_cheats.py'
       - 'tools/tests/test_ios_preset_activation.m'
       - 'tools/tests/test_ios_map_pictures.m'
       - 'tools/tests/test_ios_mods.m'
@@ -96,6 +100,7 @@ jobs:
           python3 tools/tests/test_ios_first_person_remap.py
           python3 tools/tests/test_ios_geometry_mirror.py
           python3 tools/tests/test_ios_powerups.py
+          python3 tools/tests/test_ios_world_cheats.py
           python3 tools/tests/test_ios_campaign_policy.py
           python3 tools/tests/test_ios_arena_fastpath.py
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_controls_layout.c -o "$RUNNER_TEMP/halo-controls-test" -lm
@@ -104,6 +109,12 @@ jobs:
           "$RUNNER_TEMP/halo-hist-test"
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_settings_core.c -o "$RUNNER_TEMP/halo-settings-test" -lm
           "$RUNNER_TEMP/halo-settings-test"
+          cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_map_order.c -o "$RUNNER_TEMP/halo-maporder-test" -lm
+          "$RUNNER_TEMP/halo-maporder-test"
+          cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_pad_input.c -o "$RUNNER_TEMP/halo-padinput-test" -lm
+          "$RUNNER_TEMP/halo-padinput-test"
+          cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_color.c -o "$RUNNER_TEMP/halo-color-test" -lm
+          "$RUNNER_TEMP/halo-color-test"
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_log_classify.c -o "$RUNNER_TEMP/halo-log-test" -lm
           "$RUNNER_TEMP/halo-log-test"
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_sdl_events.c -o "$RUNNER_TEMP/halo-events-test"

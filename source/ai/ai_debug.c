@@ -24,6 +24,7 @@ AI_DEBUG.C
 #include "camera/observer.h"
 #include "editor/editor_stubs.h"
 #include "game/game.h"
+#include "game/game_allegiance.h"
 #include "game/players.h"
 #include "main/console.h"
 #include "memory/data.h"
@@ -6193,3 +6194,169 @@ static long ai_debug_get_this_actor(
 
 	return actor_index;
 }
+
+#ifdef HALO_IOS_GUEST
+/* iOS campaign cheats that need this file's camera, collision and unit code. source/game/cheats.c calls them, only in a
+ * solo campaign and only with a living local player. */
+
+void ios_ai_ignore_player(boolean ignore)
+{
+	ai_debug.ignore_player = ignore ? TRUE : FALSE;
+}
+
+/* Where the crosshair meets the level: a ray from the camera along its forward vector, 150 world units long, against the level
+ * only. The point is pulled back along the ray so whatever is placed there stands in front of the surface, not inside it, and
+ * it must lie inside the level. */
+static boolean ios_crosshair_target(long ignore_object_index, real_point3d *target)
+{
+	struct observer_result const *camera = observer_get_camera(0);
+	struct collision_result collision;
+	struct location location;
+	real_vector3d vector;
+
+	if (!camera)
+		return FALSE;
+	vector.i = camera->forward.i*150.f;
+	vector.j = camera->forward.j*150.f;
+	vector.k = camera->forward.k*150.f;
+	if (!collision_test_vector(
+		FLAG(_collision_test_front_facing_surfaces_bit) | FLAG(_collision_test_structure_bit),
+		&camera->position, &vector, ignore_object_index, &collision))
+		return FALSE;
+	target->x = collision.point.x - camera->forward.i*0.35f;
+	target->y = collision.point.y - camera->forward.j*0.35f;
+	target->z = collision.point.z - camera->forward.k*0.35f + 0.05f;
+	scenario_location_from_point(&location, target);
+
+	return location.cluster_index != NONE;
+}
+
+static void ios_stop_object(long object_index)
+{
+	struct object_datum *object = object_get(object_index);
+
+	object->object.translational_velocity.i = 0.f;
+	object->object.translational_velocity.j = 0.f;
+	object->object.translational_velocity.k = 0.f;
+}
+
+/* the player, or the vehicle the player is in */
+static long ios_player_body(long unit_index)
+{
+	long parent_index = unit_get(unit_index)->object.parent_object_index;
+
+	return parent_index == NONE ? unit_index : parent_index;
+}
+
+boolean ios_teleport_to_crosshair(long unit_index)
+{
+	real_point3d target;
+	long body_index = ios_player_body(unit_index);
+
+	if (!ios_crosshair_target(unit_index, &target))
+		return FALSE;
+	object_set_position(body_index, &target, NULL, NULL);
+	ios_stop_object(body_index);
+
+	return TRUE;
+}
+
+/* Moves every hostile, living, AI-controlled biped that is not in a vehicle to a ring around the crosshair point (at most 24).
+ * Returns how many moved, or -1 when the crosshair has no target. */
+short ios_teleport_enemies_to_crosshair(long unit_index)
+{
+	static const real ring[8][2] = {
+		{ 1.f, 0.f }, { 0.7071f, 0.7071f }, { 0.f, 1.f }, { -0.7071f, 0.7071f },
+		{ -1.f, 0.f }, { -0.7071f, -0.7071f }, { 0.f, -1.f }, { 0.7071f, -0.7071f } };
+	struct object_iterator iterator;
+	struct unit_datum *unit;
+	real_point3d target;
+	short moved = 0;
+	short team_index = unit_get(unit_index)->object.owner_team_index;
+
+	if (!ios_crosshair_target(unit_index, &target))
+		return -1;
+	object_iterator_new(&iterator, _object_mask_biped, 0);
+	while (moved < 24 && (unit = object_iterator_next(&iterator)) != NULL)
+	{
+		long index = iterator.index;
+		real radius = 0.8f + 0.7f*(real)(moved/8);
+		real_point3d place;
+		struct location location;
+
+		if (index == unit_index ||
+			unit->unit.player_index != NONE ||
+			unit->unit.actor_index == NONE ||
+			unit->object.parent_object_index != NONE ||
+			TEST_FLAG(unit->object.damage_flags, _object_dead_bit) ||
+			!game_team_is_enemy(team_index, unit->object.owner_team_index))
+			continue;
+		place.x = target.x + ring[moved%8][0]*radius;
+		place.y = target.y + ring[moved%8][1]*radius;
+		place.z = target.z;
+		scenario_location_from_point(&location, &place);
+		if (location.cluster_index == NONE)
+			place = target;
+		object_set_position(index, &place, NULL, NULL);
+		ios_stop_object(index);
+		moved++;
+	}
+
+	return moved;
+}
+
+static real_point3d ios_saved_position[3];
+static real_vector3d ios_saved_forward[3];
+static boolean ios_saved_valid[3];
+
+void ios_world_reset(void)
+{
+	short slot;
+
+	for (slot = 0; slot < 3; slot++)
+		ios_saved_valid[slot] = FALSE;
+}
+
+boolean ios_save_position(long unit_index, short slot)
+{
+	real_vector3d up;
+	long body_index = ios_player_body(unit_index);
+
+	if (slot < 0 || slot > 2)
+		return FALSE;
+	object_get_origin(body_index, &ios_saved_position[slot]);
+	object_get_orientation(body_index, &ios_saved_forward[slot], &up);
+	ios_saved_valid[slot] = TRUE;
+
+	return TRUE;
+}
+
+boolean ios_return_position(long unit_index, short slot)
+{
+	struct location location;
+	long body_index = ios_player_body(unit_index);
+
+	if (slot < 0 || slot > 2 || !ios_saved_valid[slot])
+		return FALSE;
+	scenario_location_from_point(&location, &ios_saved_position[slot]);
+	if (location.cluster_index == NONE)
+		return FALSE;
+	object_set_position(body_index, &ios_saved_position[slot], &ios_saved_forward[slot], NULL);
+	ios_stop_object(body_index);
+
+	return TRUE;
+}
+
+/* health and shield back to full; the shield is never lowered if it is over-charged */
+boolean ios_restore_health_shield(long unit_index)
+{
+	struct unit_datum *unit = unit_get(unit_index);
+
+	object_restore_body(unit_index);
+	if (unit->object.shield_vitality < 1.f)
+		unit->object.shield_vitality = 1.f;
+	unit->object.shield_stun_ticks = 0;
+
+	return TRUE;
+}
+#endif

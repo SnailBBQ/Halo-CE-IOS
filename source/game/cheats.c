@@ -225,6 +225,8 @@ static void ios_campaign_action(unsigned int action);
 static long cheat_player_index(void);
 static unsigned int ios_recipe_actions[16],ios_recipe_head,ios_recipe_count;
 static void ios_powerups_tick(void);
+static void ios_world_cheats_tick(void);
+static void ios_world_cheats_reset(void);
 static boolean ios_campaign_active(void)
 { return game_in_progress() && !game_engine_running() && !network_game_is_active(); }
 boolean ios_cheat_local_unit(long index)
@@ -296,6 +298,7 @@ static void ios_cheats_apply(void)
 	ios_cheat_infinite_grenades = (wanted & 4u) != 0;
 	ios_cheats_set = wanted;
     ios_powerups_tick();
+    ios_world_cheats_tick();
 }
 /* Map boundaries discard pending UI requests and release only flags this UI set.
  * Preferences are sampled again on the next tick; no spawn crosses a map load. */
@@ -310,6 +313,7 @@ static void ios_cheats_reset(void)
     if (ios_cheats_set & 8u) cheat.bottomless_clip = FALSE;
     ios_cheats_set = 0;
     ios_cheat_infinite_grenades = FALSE;
+    ios_world_cheats_reset();
     memset(&ios_options, 0, sizeof(ios_options));
     ios_options.jump = ios_options.speed = 1.f;
 }
@@ -599,6 +603,89 @@ void cheat_all_vehicles(
 }
 
 #ifdef HALO_IOS_GUEST
+/* ---- Settings > Cheats: jetpack, AI ignore, slow motion, checkpoints, teleports, restore. The helpers that need the
+ * collision and unit code live in source/ai/ai_debug.c. */
+extern void ios_ai_ignore_player(boolean ignore);
+extern boolean ios_teleport_to_crosshair(long unit_index);
+extern short ios_teleport_enemies_to_crosshair(long unit_index);
+extern boolean ios_save_position(long unit_index, short slot);
+extern boolean ios_return_position(long unit_index, short slot);
+extern boolean ios_restore_health_shield(long unit_index);
+extern void ios_world_reset(void);
+extern void main_save_map_safe(void);
+extern void main_save_map_nonsafe(void);
+extern void main_revert_map(void);
+extern void game_time_set_speed(real speed);
+extern boolean game_time_reset_speed(void);
+
+static unsigned int ios_world_set; /* what this code switched on: 1 jetpack, 2 AI ignore, 4 slow motion */
+
+/* Held cheats are set again every tick while wanted and put back once when let go (or when the map or mode changes). */
+static void ios_world_cheats_tick(void)
+{
+    static const real speeds[5] = { 1.f, 0.75f, 0.5f, 0.25f, 0.1f };
+    unsigned int level = (ios_options.flags & IOS_CHEAT_SLOW_MASK) >> IOS_CHEAT_SLOW_SHIFT;
+    unsigned int want = 0;
+
+    if (ios_campaign_active()) {
+        if (ios_options.flags & IOS_CHEAT_JETPACK) want |= 1u;
+        if (ios_options.flags & IOS_CHEAT_AI_IGNORE) want |= 2u;
+        if (level >= 1 && level <= 4) want |= 4u;
+    }
+    if (want & 1u) cheat.jetpack = TRUE; else if (ios_world_set & 1u) cheat.jetpack = FALSE;
+    if (want & 2u) ios_ai_ignore_player(TRUE); else if (ios_world_set & 2u) ios_ai_ignore_player(FALSE);
+    if (want & 4u) game_time_set_speed(speeds[level]); else if (ios_world_set & 4u) game_time_reset_speed();
+    ios_world_set = want;
+}
+
+static void ios_world_cheats_reset(void)
+{
+    if (ios_world_set & 1u) cheat.jetpack = FALSE;
+    if (ios_world_set & 2u) ios_ai_ignore_player(FALSE);
+    if (ios_world_set & 4u) game_time_reset_speed();
+    ios_world_set = 0;
+    ios_world_reset();
+}
+
+/* One-shot requests. Returns TRUE when the ID was one of these (so the caller stops). IDs: 5 checkpoint when safe,
+ * 6 checkpoint now, 7 revert to the last checkpoint, 8 teleport to the crosshair, 9 teleport hostile units to the crosshair,
+ * 10 restore health and shield, 300-302 save a position, 310-312 return to a saved position. */
+static boolean ios_world_action(unsigned int action)
+{
+    long index = cheat_player_index();
+    struct player_datum *player = index == NONE ? NULL : player_try_and_get(index);
+    long unit_index = player ? player->unit_index : NONE;
+    char message[64];
+
+    if (unit_index == NONE) return FALSE;
+    switch (action) {
+    case 5: main_save_map_safe(); host_toast("Checkpoint requested: it saves as soon as it is safe (up to 8 seconds)"); return TRUE;
+    case 6: main_save_map_nonsafe(); host_toast("Checkpoint saved"); return TRUE;
+    case 7: main_revert_map(); host_toast("Returning to the last checkpoint"); return TRUE;
+    case 8: host_toast(ios_teleport_to_crosshair(unit_index) ? "Teleported to your crosshair" : "Nothing in range to teleport to"); return TRUE;
+    case 9: {
+        short moved = ios_teleport_enemies_to_crosshair(unit_index);
+        if (moved < 0) host_toast("Nothing in range to teleport to");
+        else if (moved == 0) host_toast("No hostile units to move");
+        else {
+            char *write = message;
+            const char *prefix = "Moved ", *suffix = moved == 1 ? " hostile unit to your crosshair" : " hostile units to your crosshair";
+            while (*prefix) *write++ = *prefix++;
+            if (moved >= 10) *write++ = (char)('0' + moved / 10);
+            *write++ = (char)('0' + moved % 10);
+            while (*suffix) *write++ = *suffix++;
+            *write = 0;
+            host_toast(message);
+        }
+        return TRUE; }
+    case 10: ios_restore_health_shield(unit_index); host_toast("Health and shield restored"); return TRUE;
+    default: break;
+    }
+    if (action >= 300 && action < 303) { host_toast(ios_save_position(unit_index, (short)(action - 300)) ? "Position saved" : "Could not save the position"); return TRUE; }
+    if (action >= 310 && action < 313) { host_toast(ios_return_position(unit_index, (short)(action - 310)) ? "Returned to the saved position" : "No saved position in this slot"); return TRUE; }
+    return FALSE;
+}
+
 /* Infinite effects only refresh the living, local solo player. Releasing camo
  * stops refreshing its timer; an existing normal pickup can still run its course.
  * Overshield remains a normal damage-consumable reserve after disabling. */
@@ -631,6 +718,7 @@ static void ios_campaign_action(unsigned int action)
             host_toast("A living campaign player is required"); return;
         }
     }
+    if (ios_world_action(action)) return;
     if (action == 4) {
         long player_index=cheat_player_index();
         struct player_datum *player=player_get(player_index);

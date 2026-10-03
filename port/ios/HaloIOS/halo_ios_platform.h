@@ -25,6 +25,10 @@ void halo_ios_toast(const char *text);
 /* An invite opened through a halo:// link or "Join from clipboard"; the game picks it up
  * as if it were on the clipboard. */
 void HaloSetPendingInvite(NSString *invite);
+/* Games hosted or joined, newest first (at most 8): dictionaries with "invite", "role" (Hosted or Joined) and "date". */
+void HaloRecordRecentGame(NSString *invite, NSString *role);
+NSArray<NSDictionary *> *HaloRecentGames(void);
+void HaloClearRecentGames(void);
 /* The invite this copy of the game is hosting, or nil. */
 NSString *HaloLastHostedInvite(void);
 /* Joins an invite typed or pasted by the player; NO (and a message) if it is not an invite. */

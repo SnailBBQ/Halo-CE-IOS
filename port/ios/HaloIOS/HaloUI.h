@@ -28,3 +28,5 @@ UIView *HaloUISegmentRow(NSString *title, NSArray<NSString *> *options, NSIntege
 UIView *HaloUIPill(NSString *text, UIColor *color);
 /* A scrolling vertical stack pinned inside `container`; returns the stack to fill. */
 UIStackView *HaloUIScrollingStack(UIView *container, CGFloat spacing);
+/* A card-style header that opens and closes a group of cards. `summary` is the small line under the title. */
+UIButton *HaloUIDisclosureHeader(NSString *title, NSString *summary, BOOL expanded, void (^toggle)(void));

@@ -50,7 +50,16 @@ typedef struct
     unsigned cheat_flags, cheat_actions;
     float cheat_jump, cheat_speed, cheat_fov;
     int cheat_weapon; /* 0 none, 1..10 weapon choices */
+    int cheat_slow;           /* recipe: 0 off, 1..4 = 75, 50, 25, 10 percent game speed */
+    int mirror;               /* left-handed: the whole touch layout is mirrored left to right */
+    unsigned toggle_mask;     /* bit n: control n latches on a tap instead of being held (buttons only) */
+    int gyro;                 /* aim by turning the device */
+    float gyro_sens;          /* 0.25 ... 3 */
+    int gyro_flip_yaw, gyro_flip_pitch;
 } HsPreset;
+
+/* the touch buttons that can latch: the face buttons, the stick clicks (crouch and zoom) and the shoulders */
+#define HS_TOGGLE_ALLOWED ((1u<<HC_A)|(1u<<HC_B)|(1u<<HC_X)|(1u<<HC_Y)|(1u<<HC_LS)|(1u<<HC_RS)|(1u<<HC_WHITE)|(1u<<HC_BLACK))
 
 #define HS_HUD_COUNT 5
 /* FPS, weapon HUD, health/shields/radar, navigation, damage indicators.
@@ -65,6 +74,12 @@ typedef struct
     HsHudPreset hud_presets[3];
     float music_volume, dialogue_volume, effects_volume;
     int cheat_camo, cheat_overshield;
+    int cheat_jetpack, cheat_ai_ignore, cheat_slow;   /* session cheats; cheat_slow: 0 off, 1..4 */
+    int accent_mode; unsigned accent_rgb; float chroma_seconds; /* 0 preset colour, 1 chosen colour, 2 colour cycle */
+    int maps_show_files, maps_mp_alpha, maps_mp_only;          /* Mods: installed game files shown, multiplayer A-Z, campaign hidden */
+    float ambient_volume;     /* device and ambient sound classes */
+    int perf_overlay, thermal_cap;
+    float pad_dead, pad_curve; unsigned char pad_map[14]; /* physical controller: stick shaping and button remap */
     int active;               /* 0 ... 4 */
     HsPreset presets[HS_PRESET_COUNT];
     float volume;             /* 0 ... 1 */
@@ -142,6 +157,7 @@ static inline void hs_default_preset(HsPreset *p, int index)
     p->face_style = index == 1;
     p->startup_auto = 1;
     p->cheat_jump = p->cheat_speed = 1.f;
+    p->gyro_sens = 1.0f;
 }
 
 /* The mask the game reads (host_cheat_flags): 1 god mode, 2 infinite ammo, 4 infinite grenades, 8 no reloading. */
@@ -163,6 +179,21 @@ static inline int hs_frame_cap(const HsSettings *s)
     return s->fps_mode == 1 ? 60 : 0;
 }
 
+/* The cap to use right now: the chosen mode's cap, lowered when the phone is hot or in Low Power Mode (if allowed).
+ * thermal_state is NSProcessInfoThermalState: 0 nominal, 1 fair, 2 serious, 3 critical. The original 30 FPS mode is never raised or lowered. */
+static inline int hs_effective_cap(const HsSettings *s, int thermal_state, int low_power)
+{
+    int cap = hs_frame_cap(s), limit = 0;
+
+    if (s->fps_mode == 0 || !s->thermal_cap)
+        return cap;
+    if (thermal_state >= 3) limit = 30;
+    else if (thermal_state == 2 || low_power) limit = 45;
+    if (limit && (cap == 0 || limit < cap))
+        cap = limit;
+    return cap;
+}
+
 static inline void hs_defaults(HsSettings *s)
 {
     memset(s, 0, sizeof(*s));
@@ -170,6 +201,11 @@ static inline void hs_defaults(HsSettings *s)
     s->active = 0;
     s->volume = 1.0f;
     s->music_volume=s->dialogue_volume=s->effects_volume=1.f;
+    s->ambient_volume=1.f;
+    s->accent_rgb=0x3385FAu;s->chroma_seconds=12.f;
+    s->thermal_cap=1;
+    s->pad_curve=1.f;
+    for(int b=0;b<14;b++) s->pad_map[b]=(unsigned char)b;
     for(int h=0;h<HS_HUD_COUNT;h++) { s->hud[h].scale=s->hud[h].opacity=1.f; }
     for(int p=0;p<3;p++) { snprintf(s->hud_presets[p].name,HS_NAME_MAX+1,"HUD %d",p+1); memcpy(s->hud_presets[p].elements,s->hud,sizeof(s->hud)); }
     s->cheat_jump = s->cheat_speed = 1.0f;
@@ -209,7 +245,9 @@ static inline void hs_sanitize_preset(HsPreset *p)
     p->haptics = p->haptics ? 1 : 0;
     p->hud_choice=hs_clampi(p->hud_choice,0,3);p->startup_auto=!!p->startup_auto;
     p->face_style = hs_clampi(p->face_style,0,1);
-    p->cheat_flags &= 8191u; p->cheat_actions &= 15u;
+    p->cheat_flags &= 32767u; p->cheat_actions &= 15u;
+    p->cheat_slow=hs_clampi(p->cheat_slow,0,4);p->mirror=!!p->mirror;p->toggle_mask&=HS_TOGGLE_ALLOWED;
+    p->gyro=!!p->gyro;p->gyro_sens=hs_clampf(p->gyro_sens,.25f,3.f);p->gyro_flip_yaw=!!p->gyro_flip_yaw;p->gyro_flip_pitch=!!p->gyro_flip_pitch;
     p->cheat_weapon=hs_clampi(p->cheat_weapon,0,10);
     p->cheat_jump=hs_clampf(p->cheat_jump,1,10);
     p->cheat_speed=hs_clampf(p->cheat_speed,1,5);
@@ -228,6 +266,12 @@ static inline void hs_sanitize(HsSettings *s)
     for(int p=0;p<3;p++) { char name[HS_NAME_MAX+1];hs_set_name(name,s->hud_presets[p].name);memcpy(s->hud_presets[p].name,name,sizeof(name));for(int h=0;h<HS_HUD_COUNT;h++) hs_sanitize_hud(&s->hud_presets[p].elements[h]); }
     s->music_volume=hs_clampf(s->music_volume,0,1);s->dialogue_volume=hs_clampf(s->dialogue_volume,0,1);s->effects_volume=hs_clampf(s->effects_volume,0,1);
     s->cheat_camo=!!s->cheat_camo;s->cheat_overshield=!!s->cheat_overshield;
+    s->cheat_jetpack=!!s->cheat_jetpack;s->cheat_ai_ignore=!!s->cheat_ai_ignore;s->cheat_slow=hs_clampi(s->cheat_slow,0,4);
+    s->accent_mode=hs_clampi(s->accent_mode,0,2);s->accent_rgb&=0xFFFFFFu;s->chroma_seconds=hs_clampf(s->chroma_seconds,3.f,60.f);
+    s->maps_show_files=!!s->maps_show_files;s->maps_mp_alpha=!!s->maps_mp_alpha;s->maps_mp_only=!!s->maps_mp_only;
+    s->ambient_volume=hs_clampf(s->ambient_volume,0,1);s->perf_overlay=!!s->perf_overlay;s->thermal_cap=!!s->thermal_cap;
+    s->pad_dead=hs_clampf(s->pad_dead,0,.4f);s->pad_curve=hs_clampf(s->pad_curve,1,3);
+    for(int b=0;b<14;b++) if(s->pad_map[b]>13) s->pad_map[b]=(unsigned char)b;
     s->volume = hs_clampf(s->volume, 0.0f, 1.0f);
     s->audio_enabled = s->audio_enabled ? 1 : 0;
     s->join_from_clipboard = s->join_from_clipboard ? 1 : 0;
@@ -299,6 +343,12 @@ static inline void hs_apply_preset(const HsPreset *preset, float left, float top
         if (r.y + r.h > bottom) r.y = bottom - r.h;
         controls[i].r = r;
     }
+    if (preset->mirror)
+    {
+        /* left-handed: every control swaps sides (the layout is edited and stored unmirrored) */
+        for (int i = 0; i < HC_COUNT; i++)
+            controls[i].r.x = left + right - (controls[i].r.x + controls[i].r.w);
+    }
 }
 
 /* Records a control's new centre (from dragging) as fractions of the safe area. */
@@ -328,6 +378,7 @@ static inline void hs_clear_cheats(HsSettings *s) {
     s->cheat_one_hit=s->cheat_flashlight=s->cheat_no_fall=s->cheat_rapid=0;
     s->cheat_no_recoil=s->cheat_third_person=s->cheat_noclip=0;
     s->cheat_camo=s->cheat_overshield=0;
+    s->cheat_jetpack=s->cheat_ai_ignore=s->cheat_slow=0;
     s->cheat_jump=s->cheat_speed=1.f;s->cheat_fov=0;
 }
 static inline void hs_apply_preset_cheats(HsSettings *s,int index) {
@@ -337,6 +388,7 @@ static inline void hs_apply_preset_cheats(HsSettings *s,int index) {
     s->cheat_one_hit=!!(f&16);s->cheat_flashlight=!!(f&32);s->cheat_no_fall=!!(f&64);
     s->cheat_rapid=!!(f&128);s->cheat_no_recoil=!!(f&256);s->cheat_third_person=!!(f&512);s->cheat_noclip=!!(f&1024);
     s->cheat_camo=!!(f&2048);s->cheat_overshield=!!(f&4096);
+    s->cheat_jetpack=!!(f&8192);s->cheat_ai_ignore=!!(f&16384);s->cheat_slow=hs_clampi(p->cheat_slow,0,4);
     s->cheat_jump=p->cheat_jump;s->cheat_speed=p->cheat_speed;s->cheat_fov=p->cheat_fov;
 }
 
@@ -362,6 +414,11 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
          s->join_from_clipboard, s->show_fps, s->profiler, s->fps_mode, s->hires_hud, s->hires_text, s->controls_mode,
          s->cheat_god, s->cheat_ammo, s->cheat_grenades, s->cheat_reload);
     EMIT("viewmodel=%d\n", s->viewmodel_mode);
+    EMIT("accentmode=%d\naccentrgb=%u\nchroma=%.2f\n", s->accent_mode, s->accent_rgb, s->chroma_seconds);
+    EMIT("mapsshow=%d\nmapsalpha=%d\nmapsmponly=%d\nambient=%.3f\nperf=%d\nthermal=%d\npaddead=%.3f\npadcurve=%.3f\n",
+         s->maps_show_files, s->maps_mp_alpha, s->maps_mp_only, s->ambient_volume, s->perf_overlay, s->thermal_cap, s->pad_dead, s->pad_curve);
+    EMIT("padmap=");
+    for (int b = 0; b < 14; b++) EMIT("%u%s", (unsigned)s->pad_map[b], b + 1 < 14 ? "," : "\n");
     EMIT("cheatone_hit=%d\n", s->cheat_one_hit);
     EMIT("cheatflashlight=%d\n", s->cheat_flashlight);
     EMIT("cheatno_fall=%d\n", s->cheat_no_fall);
@@ -377,6 +434,8 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
         EMIT("p%d.name=%s\n", i, p->name);
         EMIT("p%d.hudchoice=%d\np%d.startauto=%d\n",i,p->hud_choice,i,p->startup_auto);
         EMIT("p%d.face=%d\np%d.cheats=%u\np%d.actions=%u\np%d.weapon=%d\np%d.jump=%.3f\np%d.speed=%.3f\np%d.fov=%.3f\n",i,p->face_style,i,p->cheat_flags,i,p->cheat_actions,i,p->cheat_weapon,i,p->cheat_jump,i,p->cheat_speed,i,p->cheat_fov);
+        EMIT("p%d.slow=%d\np%d.mirror=%d\np%d.toggle=%u\np%d.gyro=%d\np%d.gyrosens=%.3f\np%d.gyroflipy=%d\np%d.gyroflipp=%d\n",
+             i, p->cheat_slow, i, p->mirror, i, p->toggle_mask, i, p->gyro, i, p->gyro_sens, i, p->gyro_flip_yaw, i, p->gyro_flip_pitch);
         EMIT("p%d.opacity=%.3f\np%d.look=%d\np%d.sens=%.3f\np%d.invert=%d\np%d.float=%d\n", i, p->opacity, i, p->touch_look,
              i, p->look_sensitivity, i, p->invert_look_y, i, p->floating_sticks);
         EMIT("p%d.dead=%.3f\np%d.movecurve=%.3f\np%d.lookcurve=%.3f\np%d.haptics=%d\n", i, p->stick_dead_zone, i, p->move_curve,
@@ -460,6 +519,29 @@ static inline int hs_parse(HsSettings *s, const char *text)
                 else if (!strcmp(key, "viewmodel")) s->viewmodel_mode = atoi(value);
                 else if (!strcmp(key, "hireshud")) s->hires_hud = atoi(value);
                 else if (!strcmp(key, "hirestext")) s->hires_text = atoi(value);
+                else if (!strcmp(key, "accentmode")) s->accent_mode = atoi(value);
+                else if (!strcmp(key, "accentrgb")) s->accent_rgb = (unsigned)strtoul(value, NULL, 10);
+                else if (!strcmp(key, "chroma")) s->chroma_seconds = (float)atof(value);
+                else if (!strcmp(key, "mapsshow")) s->maps_show_files = atoi(value);
+                else if (!strcmp(key, "mapsalpha")) s->maps_mp_alpha = atoi(value);
+                else if (!strcmp(key, "mapsmponly")) s->maps_mp_only = atoi(value);
+                else if (!strcmp(key, "ambient")) s->ambient_volume = (float)atof(value);
+                else if (!strcmp(key, "perf")) s->perf_overlay = atoi(value);
+                else if (!strcmp(key, "thermal")) s->thermal_cap = atoi(value);
+                else if (!strcmp(key, "paddead")) s->pad_dead = (float)atof(value);
+                else if (!strcmp(key, "padcurve")) s->pad_curve = (float)atof(value);
+                else if (!strcmp(key, "padmap"))
+                {
+                    const char *at = value;
+                    for (int b = 0; b < 14 && *at; b++)
+                    {
+                        char *end = NULL;
+                        long v = strtol(at, &end, 10);
+                        if (end == at) break;
+                        s->pad_map[b] = (unsigned char)(v >= 0 && v <= 13 ? v : b);
+                        at = *end == ',' ? end + 1 : end;
+                    }
+                }
                 else if (key[0] == 'p' && key[1] >= '0' && key[1] < '0' + HS_PRESET_COUNT && key[2] == '.')
                 {
                     HsPreset *p = &s->presets[key[1] - '0'];
@@ -472,6 +554,13 @@ static inline int hs_parse(HsSettings *s, const char *text)
                     else if (!strcmp(field,"cheats")) p->cheat_flags=(unsigned)strtoul(value,NULL,10);
                     else if (!strcmp(field,"actions")) p->cheat_actions=(unsigned)strtoul(value,NULL,10);
                     else if (!strcmp(field,"weapon")) p->cheat_weapon=atoi(value);
+                    else if (!strcmp(field,"slow")) p->cheat_slow=atoi(value);
+                    else if (!strcmp(field,"mirror")) p->mirror=atoi(value);
+                    else if (!strcmp(field,"toggle")) p->toggle_mask=(unsigned)strtoul(value,NULL,10);
+                    else if (!strcmp(field,"gyro")) p->gyro=atoi(value);
+                    else if (!strcmp(field,"gyrosens")) p->gyro_sens=(float)atof(value);
+                    else if (!strcmp(field,"gyroflipy")) p->gyro_flip_yaw=atoi(value);
+                    else if (!strcmp(field,"gyroflipp")) p->gyro_flip_pitch=atoi(value);
                     else if (!strcmp(field,"jump")) p->cheat_jump=(float)atof(value);
                     else if (!strcmp(field,"speed")) p->cheat_speed=(float)atof(value);
                     else if (!strcmp(field,"fov")) p->cheat_fov=(float)atof(value);

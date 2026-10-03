@@ -201,3 +201,10 @@ Device testing found campaign world corruption as well as multiplayer mesh disto
 ## M2.6.42 update
 
 M2.6.42 replaces M2.6.41’s costly upload-every-draw fallback with exact native geometry comparisons: unchanged pages avoid GPU uploads while modified/reused pages remain fresh. Active cheats are session-only; presets have gear editors, campaign recipes and Xbox/PlayStation face-button styles. Advanced adds explicit Quit, manual Restart instructions and GitHub Credits. Device FPS, visuals and client stability need validation.
+
+## M2.6.48 settings polish and more cheats
+
+Sidebar icon fix, custom and chroma accent colours, installed-game-files list controls, collapsible cheat sections with slow
+motion, AI ignore, jetpack, checkpoints and teleports, left-handed layout, toggle buttons, gyro, controller remap, heat-aware
+frame cap, performance overlay, ambient volume, recent games and QR, profile export/import, problem report. See
+[the notes](port/ios/UPDATE_M2648.md). Not compiled or run on a device yet.

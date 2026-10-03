@@ -13,6 +13,8 @@
 #import "halo_ios_platform.h"
 #import "halo_crash_report.h"
 #import "halo_launch_state.h"
+#import <mach/mach.h>
+#import <os/proc.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 extern NSString * const HaloIOSFirstFramePresentedNotification;
@@ -26,6 +28,21 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 - (UIRectEdge)preferredScreenEdgesDeferringSystemGestures { return UIRectEdgeAll; }
 - (BOOL)prefersStatusBarHidden { return YES; }
 @end
+
+/* The second line of the performance overlay: the app's memory, what is left before iOS closes it, and how hot the phone is. */
+static NSString *HaloPerfLine(void)
+{
+    task_vm_info_data_t info;
+    mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
+    unsigned long long used = 0, left = (unsigned long long)os_proc_available_memory() >> 20;
+    static NSString *const heat[] = { @"cool", @"warm", @"hot", @"critical" };
+    NSInteger thermal = NSProcessInfo.processInfo.thermalState;
+
+    if (task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&info, &count) == KERN_SUCCESS)
+        used = (unsigned long long)info.phys_footprint >> 20;
+    if (thermal < 0 || thermal > 3) thermal = 0;
+    return [NSString stringWithFormat:@"%llu MB · %llu free · %@", used, left, heat[thermal]];
+}
 
 @interface AppDelegate () <UIDocumentPickerDelegate>
 @property(nonatomic, strong) UIView *bootOverlay;
@@ -345,7 +362,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     if(self.engineStarted && !self.bootOverlay.hidden && halo_ios_presented_frames()>0){self.bootOverlay.hidden=YES;[self.launchSpinner stopAnimating];[self updateControlsVisibility];}
     HsSettings settings = [[HaloSettingsStore shared] snapshot];
     HsHud h=settings.hud[0];
-    self.fpsLabel.hidden = !settings.show_fps || h.hidden || !self.bootOverlay.hidden;
+    self.fpsLabel.hidden = !(settings.show_fps || settings.perf_overlay) || h.hidden || !self.bootOverlay.hidden;
     self.fpsLabel.alpha=h.opacity;
     self.fpsLabel.font=[UIFont monospacedDigitSystemFontOfSize:13*h.scale weight:UIFontWeightBold];
     [self.fpsLabel sizeToFit];
@@ -358,7 +375,14 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     uint64_t frames = halo_ios_presented_frames();
     CFTimeInterval now = CACurrentMediaTime();
     if (self.fpsLastTime > 0 && now > self.fpsLastTime)
-        self.fpsLabel.text = [NSString stringWithFormat:@" %.0f FPS ", (double)(frames - self.fpsLastFrames) / (now - self.fpsLastTime)];
+    {
+        double fps = (double)(frames - self.fpsLastFrames) / (now - self.fpsLastTime);
+        self.fpsLabel.numberOfLines = settings.perf_overlay ? 2 : 1;
+        self.fpsLabel.textAlignment = NSTextAlignmentCenter;
+        self.fpsLabel.text = settings.perf_overlay && fps > 0.5
+            ? [NSString stringWithFormat:@" %.0f FPS · %.1f ms \n %@ ", fps, 1000.0 / fps, HaloPerfLine()]
+            : [NSString stringWithFormat:@" %.0f FPS ", fps];
+    }
     self.fpsLastFrames = frames;
     self.fpsLastTime = now;
 }

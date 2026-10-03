@@ -122,6 +122,18 @@ void halo_ios_audio_set_volume(float volume)
     atomic_store_explicit(&g_volume, volume, memory_order_relaxed);
 }
 
+/* Stops and starts the phone's audio engine again (the guest and its sound buffers are not touched). */
+void halo_ios_audio_restart(void)
+{
+    if (!g_opened)
+        return;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (g_engine.isRunning)
+            [g_engine stop];
+        HaloStartEngine();
+    });
+}
+
 void halo_ios_audio_resume(void)
 {
     if (!g_opened)

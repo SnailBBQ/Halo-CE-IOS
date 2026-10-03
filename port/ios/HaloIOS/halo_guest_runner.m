@@ -703,12 +703,13 @@ int halo_ios_queue_campaign_action(uint32_t action)
     pthread_mutex_unlock(&g_campaign_lock);return ok;
 }
 /* Scalar audio controls are atomic: no Objective-C lock on a mixing hot path. */
-static _Atomic float g_music_gain=1.f,g_dialogue_gain=1.f,g_effects_gain=1.f;
+static _Atomic float g_music_gain=1.f,g_dialogue_gain=1.f,g_effects_gain=1.f,g_ambient_gain=1.f;
+void halo_ios_set_ambient_gain(float gain) { atomic_store(&g_ambient_gain,gain<0.f?0.f:gain>1.f?1.f:gain); }
 void halo_ios_set_channel_gains(float music,float dialogue,float effects) {
  atomic_store(&g_music_gain,music);atomic_store(&g_dialogue_gain,dialogue);atomic_store(&g_effects_gain,effects);
 }
 static float ios_audio_class_gain(uint32_t category) {
- return atomic_load(category==32?&g_music_gain:(category==19 || category==44 || category==46 || category==47)?&g_dialogue_gain:&g_effects_gain);
+ return atomic_load(category==32?&g_music_gain:(category==19 || category==44 || category==46 || category==47)?&g_dialogue_gain:(category==28 || category==29 || category==30 || (category>=33 && category<=35))?&g_ambient_gain:&g_effects_gain);
 }
 /* HUD packet is copied once per screen draw, with no guest pointers retained. */
 static void ios_hud_options(uint32_t packet) {
@@ -752,6 +753,9 @@ static void ios_campaign_options(uint32_t packet)
     if (s.cheat_no_recoil) result.flags |= IOS_CHEAT_NO_RECOIL;
     if (s.cheat_third_person) result.flags |= IOS_CHEAT_THIRD_PERSON;
     if (s.cheat_noclip) result.flags |= IOS_CHEAT_NOCLIP;
+    if (s.cheat_jetpack) result.flags |= IOS_CHEAT_JETPACK;
+    if (s.cheat_ai_ignore) result.flags |= IOS_CHEAT_AI_IGNORE;
+    result.flags |= ((uint32_t)hs_clampi(s.cheat_slow, 0, 4) << IOS_CHEAT_SLOW_SHIFT) & IOS_CHEAT_SLOW_MASK;
     if (s.cheat_camo) result.flags |= IOS_CHEAT_CAMO;
     if (s.cheat_overshield) result.flags |= IOS_CHEAT_OVERSHIELD;
     result.action = ios_campaign_take_action();
@@ -3150,12 +3154,12 @@ static void *main_guest_thread(void *opaque)
     halo_ios_net_set_resolver(ios_net_resolver);
     halo_ios_net_set_logger(ios_net_log);
     signal(SIGPIPE, SIG_IGN); /* a peer closing a socket must not kill the app */
-    say("M2.6.47: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
+    say("M2.6.48: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
     say("Performance defaults: smooth 60 FPS follows the Settings switch; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.47: independent first-person meshes and bounded pose diagnostics; coordinated iCloud invite file support.");
-    say("M2.6.47: timed campaign power-ups, independent audio channels, HUD groups, map library and staged backups.");
-    say("M2.6.47 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
-    say("M2.6.47 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
+    say("M2.6.48: independent first-person meshes and bounded pose diagnostics; coordinated iCloud invite file support.");
+    say("M2.6.48: timed campaign power-ups, independent audio channels, HUD groups, map library and staged backups.");
+    say("M2.6.48 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.48 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
         g_header ? g_header->start : 0u,
         context.boot_va,
         halo_guest_base_is_4gb_aligned() ? "YES" : "NO");
@@ -3178,7 +3182,7 @@ static void *main_guest_thread(void *opaque)
         halo_guest_exec_guard_set_active(0);
         halo_guest_exec_stats st;
         halo_guest_exec_stats_get(&st);
-        say("M2.6.47 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
+        say("M2.6.48 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
             reason,
             (unsigned long long)st.pointer_upgrades,
             (unsigned long long)st.handled_faults,

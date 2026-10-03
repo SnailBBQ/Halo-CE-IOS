@@ -46,6 +46,8 @@ int host_sdl_show_toast(const char *s, int a, int b, int c, int d)
 static void ios_campaign_action(unsigned int action) { actions += (action != 0); }
 static long cheat_player_index(void) { return 0; }
 static void ios_powerups_tick(void) { /* Power-up behavior is covered by the separate runtime harness. */ }
+static void ios_world_cheats_tick(void) { /* covered by the world-cheat harness */ }
+static void ios_world_cheats_reset(void) { }
 #define CHECK(x) do { if (!(x)) { printf("FAIL line %d: %s\n", __LINE__, #x); return 1; } } while (0)
 int main(void)
 {

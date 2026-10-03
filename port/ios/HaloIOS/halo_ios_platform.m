@@ -28,10 +28,38 @@ static BOOL HaloLooksLikeInvite(NSString *text)
     return [trimmed rangeOfCharacterFromSet:hex.invertedSet].location == NSNotFound;
 }
 
+/* The last few games hosted or joined, newest first, so a player can find one again. Invites stop working when the host ends the game. */
+static NSString *const kRecentGamesKey = @"HaloRecentGames";
+
+void HaloRecordRecentGame(NSString *invite, NSString *role)
+{
+    NSString *trimmed = [invite stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    if (!trimmed.length || !HaloLooksLikeInvite(trimmed)) return;
+    @synchronized (NSUserDefaults.standardUserDefaults) {
+        NSMutableArray *list = [([NSUserDefaults.standardUserDefaults arrayForKey:kRecentGamesKey] ?: @[]) mutableCopy];
+        for (NSDictionary *entry in [list copy])
+            if ([entry isKindOfClass:NSDictionary.class] && [entry[@"invite"] isEqual:trimmed]) [list removeObject:entry];
+        [list insertObject:@{ @"invite": trimmed, @"role": role ?: @"Joined", @"date": @([NSDate date].timeIntervalSince1970) } atIndex:0];
+        while (list.count > 8) [list removeLastObject];
+        [NSUserDefaults.standardUserDefaults setObject:list forKey:kRecentGamesKey];
+    }
+}
+
+NSArray<NSDictionary *> *HaloRecentGames(void)
+{
+    NSMutableArray<NSDictionary *> *valid = [NSMutableArray array];
+    for (id entry in ([NSUserDefaults.standardUserDefaults arrayForKey:kRecentGamesKey] ?: @[]))
+        if ([entry isKindOfClass:NSDictionary.class] && [entry[@"invite"] isKindOfClass:NSString.class]) [valid addObject:entry];
+    return valid;
+}
+
+void HaloClearRecentGames(void) { [NSUserDefaults.standardUserDefaults removeObjectForKey:kRecentGamesKey]; }
+
 void HaloSetPendingInvite(NSString *invite)
 {
     halo_ios_campaign_state(0);
     NSString *trimmed = [invite stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    HaloRecordRecentGame(trimmed, @"Joined");
     [InviteLock() lock];
     g_pending_invite = [trimmed copy];
     [InviteLock() unlock];
@@ -249,6 +277,7 @@ void halo_ios_set_hosted_invite(const char *text)
 {
     NSString *invite = text ? [NSString stringWithUTF8String:text] : nil;
     if (invite && !HaloLooksLikeInvite(invite)) invite = nil;
+    if (invite) HaloRecordRecentGame(invite, @"Hosted");
     [InviteLock() lock];
     g_last_invite = [invite copy];
     dispatch_async(InviteFileQueue(), ^{

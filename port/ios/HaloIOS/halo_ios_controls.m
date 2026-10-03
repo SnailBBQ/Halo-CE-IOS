@@ -5,6 +5,55 @@
 
 #import <GameController/GameController.h>
 #import <QuartzCore/QuartzCore.h>
+#import <CoreMotion/CoreMotion.h>
+#import "halo_pad_input.h"
+
+/* ---- physical controller shaping and remap (halo_pad_input.h); refreshed whenever the settings change */
+typedef struct { float dead, curve; unsigned char map[HP_BUTTONS]; } HaloPadConfig;
+static HaloPadConfig g_pad = { 0.f, 1.f, { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 } };
+
+static void HaloPadReload(void)
+{
+    HsSettings settings = [[HaloSettingsStore shared] snapshot];
+    g_pad.dead = settings.pad_dead;
+    g_pad.curve = settings.pad_curve;
+    memcpy(g_pad.map, settings.pad_map, HP_BUTTONS);
+}
+
+/* ---- gyro aiming: the device's turning rate becomes look movement, scaled like a finger drag (halo_pad_input.h).
+ * It runs only while the active profile turns it on. */
+static CMMotionManager *g_motion;
+static NSTimeInterval g_motion_last;
+static float g_gyro_sens = 1.f;
+static BOOL g_gyro_flip_yaw, g_gyro_flip_pitch;
+
+static void HaloGyroApply(const HsPreset *preset)
+{
+    g_gyro_sens = preset->gyro_sens;
+    g_gyro_flip_yaw = preset->gyro_flip_yaw ? YES : NO;
+    g_gyro_flip_pitch = preset->gyro_flip_pitch ? YES : NO;
+    if (preset->gyro) {
+        if (g_motion.deviceMotionActive) return;
+        if (!g_motion) g_motion = [[CMMotionManager alloc] init];
+        if (!g_motion.deviceMotionAvailable) return;
+        g_motion.deviceMotionUpdateInterval = 1.0 / 60.0;
+        g_motion_last = 0;
+        [g_motion startDeviceMotionUpdatesToQueue:NSOperationQueue.mainQueue withHandler:^(CMDeviceMotion *motion, NSError *error) {
+            if (!motion || error) return;
+            NSTimeInterval dt = g_motion_last > 0 ? motion.timestamp - g_motion_last : 0;
+            g_motion_last = motion.timestamp;
+            UIInterfaceOrientation orientation = UIInterfaceOrientationLandscapeRight;
+            for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
+                if ([scene isKindOfClass:UIWindowScene.class]) { orientation = ((UIWindowScene *)scene).interfaceOrientation; break; }
+            float dx = 0, dy = 0;
+            hp_gyro_look((float)motion.rotationRate.x, (float)motion.rotationRate.y, (float)dt, g_gyro_sens,
+                         orientation == UIInterfaceOrientationLandscapeLeft, g_gyro_flip_yaw, g_gyro_flip_pitch, 0.03f, &dx, &dy);
+            if (dx != 0.f || dy != 0.f) halo_ios_touch_look(dx * 1.6f, dy * 1.6f);
+        }];
+    } else if (g_motion.deviceMotionActive) {
+        [g_motion stopDeviceMotionUpdates];
+    }
+}
 
 static UIColor *HaloColor(int color, CGFloat alpha)
 {
@@ -49,6 +98,7 @@ static const char *const kControlNames[HC_COUNT] = {
 @implementation HaloControlsView {
     HcControl _controls[HC_COUNT];
     int _holds[HC_COUNT];
+    BOOL _latched[HC_COUNT];     /* toggle buttons that are currently held down by a tap */
     unsigned _dpadMask;
     HsSettings _settings;
     HsPreset _work;              /* the scheme being edited */
@@ -174,6 +224,12 @@ static const char *const kControlNames[HC_COUNT] = {
     if (!_built || _laidOutSize.width < 10) return;
     float left = (float)_laidOutInsets.left, top = (float)_laidOutInsets.top;
     float right = (float)(_laidOutSize.width - _laidOutInsets.right), bottom = (float)(_laidOutSize.height - _laidOutInsets.bottom);
+    for (int i = 0; i < HC_COUNT; i++)
+        if (_latched[i] && !([self preset]->toggle_mask & (1u << i) & HS_TOGGLE_ALLOWED)) {
+            _latched[i] = NO;
+            if (_controls[i].button >= 0) halo_ios_menu_button(_controls[i].button, 0);
+        }
+    HaloGyroApply([self preset]);
     _scale = hc_layout(left, top, right, bottom, _controls);
     hs_apply_preset([self preset], left, top, right, bottom, _controls);
     _stickHome[0] = _controls[HC_LSTICK].r;
@@ -416,6 +472,14 @@ static NSNumber *HaloTouchKey(UITouch *touch)
 {
     const HcControl *c = &_controls[index];
     if (_holds[index]++ > 0) return;
+    if (c->button >= 0 && ([self preset]->toggle_mask & (1u << index) & HS_TOGGLE_ALLOWED)) {
+        /* a latching button: each tap flips it, and it stays down between taps */
+        _latched[index] = !_latched[index];
+        halo_ios_menu_button(c->button, _latched[index] ? 1 : 0);
+        [self buzz];
+        return;
+    }
+    if (_latched[index]) { _latched[index] = NO; halo_ios_menu_button(c->button, 0); }   /* latching was switched off while it was down */
     if (c->axis >= 0 && c->kind == HC_KIND_PILL) halo_ios_pad_axis(c->axis, 32767);
     else if (c->button >= 0) halo_ios_menu_button(c->button, 1);
     [self buzz];
@@ -426,6 +490,7 @@ static NSNumber *HaloTouchKey(UITouch *touch)
     const HcControl *c = &_controls[index];
     if (_holds[index] <= 0) return;
     if (--_holds[index] > 0) return;
+    if ([self preset]->toggle_mask & (1u << index) & HS_TOGGLE_ALLOWED) return;   /* a latched button is let go by the next tap */
     if (c->axis >= 0 && c->kind == HC_KIND_PILL) halo_ios_pad_axis(c->axis, 0);
     else if (c->button >= 0) halo_ios_menu_button(c->button, 0);
 }
@@ -481,6 +546,7 @@ static NSNumber *HaloTouchKey(UITouch *touch)
     float left = (float)_laidOutInsets.left, top = (float)_laidOutInsets.top;
     float right = (float)(_laidOutSize.width - _laidOutInsets.right), bottom = (float)(_laidOutSize.height - _laidOutInsets.bottom);
     float w = right - left, h = bottom - top;
+    if ([self preset]->mirror) return p.x > right - 0.42f * w && p.y > top + 0.28f * h;   /* left-handed: steer with the right thumb */
     return p.x < left + 0.42f * w && p.y > top + 0.28f * h;
 }
 
@@ -735,7 +801,9 @@ static NSNumber *HaloTouchKey(UITouch *touch)
     CGPoint offset = self.dragOffsets[HaloTouchKey(touch)].CGPointValue;
     float left = (float)_laidOutInsets.left, top = (float)_laidOutInsets.top;
     float right = (float)(_laidOutSize.width - _laidOutInsets.right), bottom = (float)(_laidOutSize.height - _laidOutInsets.bottom);
-    hs_place_control(&_work, index, (float)(p.x - offset.x), (float)(p.y - offset.y), left, top, right, bottom);
+    float centreX = (float)(p.x - offset.x);
+    if (_work.mirror) centreX = left + right - centreX;   /* the layout is stored unmirrored and mirrored when drawn */
+    hs_place_control(&_work, index, centreX, (float)(p.y - offset.y), left, top, right, bottom);
     [self relayout];
 }
 
@@ -777,12 +845,19 @@ static void HaloPushGamepad(GCExtendedGamepad *pad)
     if (pad.dpad.down.isPressed) b |= 1u << HC_BTN_DPAD_DOWN;
     if (pad.dpad.left.isPressed) b |= 1u << HC_BTN_DPAD_LEFT;
     if (pad.dpad.right.isPressed) b |= 1u << HC_BTN_DPAD_RIGHT;
+    b = hp_remap(b, g_pad.map);
     int32_t axes[6];
+    float lx = pad.leftThumbstick.xAxis.value, ly = pad.leftThumbstick.yAxis.value;
+    float rx = pad.rightThumbstick.xAxis.value, ry = pad.rightThumbstick.yAxis.value;
+    if (g_pad.dead > 0.f || g_pad.curve > 1.f) {   /* untouched by default: the raw values go through as before */
+        hp_stick(lx, ly, g_pad.dead, g_pad.curve, &lx, &ly);
+        hp_stick(rx, ry, g_pad.dead, g_pad.curve, &rx, &ry);
+    }
     /* GameController's Y axes grow upwards; SDL's grow downwards. */
-    axes[HC_AXIS_LX] = HaloAxisValue(pad.leftThumbstick.xAxis.value, NO);
-    axes[HC_AXIS_LY] = HaloAxisValue(pad.leftThumbstick.yAxis.value, YES);
-    axes[HC_AXIS_RX] = HaloAxisValue(pad.rightThumbstick.xAxis.value, NO);
-    axes[HC_AXIS_RY] = HaloAxisValue(pad.rightThumbstick.yAxis.value, YES);
+    axes[HC_AXIS_LX] = HaloAxisValue(lx, NO);
+    axes[HC_AXIS_LY] = HaloAxisValue(ly, YES);
+    axes[HC_AXIS_RX] = HaloAxisValue(rx, NO);
+    axes[HC_AXIS_RY] = HaloAxisValue(ry, YES);
     axes[HC_AXIS_LT] = HaloAxisValue(pad.leftTrigger.value, NO);
     axes[HC_AXIS_RT] = HaloAxisValue(pad.rightTrigger.value, NO);
     halo_ios_physical_pad_state(b, axes);
@@ -815,6 +890,8 @@ void halo_ios_controllers_start(void (^changed)(BOOL connected))
 {
     g_controllers_changed = [changed copy];
     NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+    HaloPadReload();
+    [center addObserverForName:HaloSettingsChangedNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) { (void)note; HaloPadReload(); }];
     [center addObserverForName:GCControllerDidConnectNotification object:nil queue:NSOperationQueue.mainQueue
                     usingBlock:^(NSNotification *note) {
         if ([note.object isKindOfClass:GCController.class]) HaloAttachController((GCController *)note.object);
