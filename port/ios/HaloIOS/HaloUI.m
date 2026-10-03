@@ -1,8 +1,22 @@
 #import "HaloUI.h"
+#import "HaloSettingsStore.h"
 
 UIColor *HaloUIBackground(void) { return [UIColor colorWithRed:0.055 green:0.063 blue:0.078 alpha:1]; }
 UIColor *HaloUICard(void) { return [UIColor colorWithRed:0.105 green:0.118 blue:0.145 alpha:1]; }
-UIColor *HaloUIAccent(void) { return [UIColor colorWithRed:0.20 green:0.52 blue:0.98 alpha:1]; }
+UIColor *HaloUIAccent(void) {
+    switch([HaloSettingsStore.shared snapshot].ui_theme){
+        case 1:return [UIColor colorWithRed:.08 green:.48 blue:.26 alpha:1];
+        case 2:return [UIColor colorWithRed:.48 green:.27 blue:.78 alpha:1];
+        case 3:return [UIColor colorWithRed:.70 green:.34 blue:.02 alpha:1];
+        case 4:return [UIColor colorWithRed:.72 green:.19 blue:.34 alpha:1];
+        default:return [UIColor colorWithRed:.20 green:.52 blue:.98 alpha:1];
+    }
+}
+void HaloUIApplyAccent(UIView *root) {
+    UIColor *accent=HaloUIAccent();root.tintColor=accent;
+    if([root.accessibilityIdentifier isEqual:@"HaloAccentButton"])root.backgroundColor=accent;
+    for(UIView *child in root.subviews)HaloUIApplyAccent(child);
+}
 UIColor *HaloUIGreen(void) { return [UIColor colorWithRed:0.30 green:0.82 blue:0.45 alpha:1]; }
 UIColor *HaloUIAmber(void) { return [UIColor colorWithRed:1.00 green:0.74 blue:0.28 alpha:1]; }
 UIColor *HaloUIRed(void) { return [UIColor colorWithRed:1.00 green:0.40 blue:0.40 alpha:1]; }
@@ -102,6 +116,7 @@ UIButton *HaloUIButton(NSString *title, NSInteger style, void (^tap)(UIButton *b
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
     [button setTitle:title forState:UIControlStateNormal];
     button.titleLabel.font = [UIFont systemFontOfSize:15.5 weight:UIFontWeightSemibold];
+    if(style==1)button.accessibilityIdentifier=@"HaloAccentButton";
     UIColor *background = style == 1 ? HaloUIAccent() : [UIColor colorWithWhite:0.20 alpha:1];
     UIColor *text = style == 2 ? HaloUIRed() : UIColor.whiteColor;
     [button setTitleColor:text forState:UIControlStateNormal];
@@ -161,10 +176,10 @@ UIStackView *HaloUIScrollingStack(UIView *container, CGFloat spacing)
     stack.translatesAutoresizingMaskIntoConstraints = NO;
     [scroll addSubview:stack];
     [NSLayoutConstraint activateConstraints:@[
-        [scroll.topAnchor constraintEqualToAnchor:container.topAnchor],
-        [scroll.bottomAnchor constraintEqualToAnchor:container.bottomAnchor],
-        [scroll.leadingAnchor constraintEqualToAnchor:container.leadingAnchor],
-        [scroll.trailingAnchor constraintEqualToAnchor:container.trailingAnchor],
+        [scroll.topAnchor constraintEqualToAnchor:container.safeAreaLayoutGuide.topAnchor],
+        [scroll.bottomAnchor constraintEqualToAnchor:container.safeAreaLayoutGuide.bottomAnchor],
+        [scroll.leadingAnchor constraintEqualToAnchor:container.safeAreaLayoutGuide.leadingAnchor],
+        [scroll.trailingAnchor constraintEqualToAnchor:container.safeAreaLayoutGuide.trailingAnchor],
         [stack.topAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.topAnchor constant:4],
         [stack.bottomAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.bottomAnchor constant:-40],
         [stack.leadingAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.leadingAnchor constant:4],

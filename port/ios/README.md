@@ -1,6 +1,6 @@
 # Halo CE iOS
 
-Current iOS update: **M2.6.46** — prioritized draggable Settings, linked HUD/control profiles, startup preferences, corrected controller labels and a compiled-map mod manager. See [release notes](UPDATE_M2646.md). Device validation is pending.
+Current iOS update: **M2.6.47** — clear grenade-swap and flashlight symbols, Settings size/color Options, centered larger map previews and direct-boot polish. See [release notes](UPDATE_M2647.md). Device validation is pending.
 
 Experimental Halo: Combat Evolved port for physical iPhone and iPad devices running iOS/iPadOS 15 or later. A native `arm64` app hosts the recovered `arm64_32` engine and presents graphics through EAGL/OpenGL ES 3.
 

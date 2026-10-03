@@ -264,16 +264,18 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     HsSettings settings=[HaloSettingsStore.shared snapshot];
     CGFloat x=settings.gear_placed?CGRectGetMinX(safe)+settings.gear_x*safe.size.width:CGRectGetMidX(safe);
     CGFloat y=settings.gear_placed?CGRectGetMinY(safe)+settings.gear_y*safe.size.height:CGRectGetMinY(safe)+26;
-    self.settingsButton.bounds=CGRectMake(0,0,48,44);
-    self.settingsButton.center=CGPointMake(MAX(CGRectGetMinX(safe)+24,MIN(CGRectGetMaxX(safe)-24,x)),MAX(CGRectGetMinY(safe)+22,MIN(CGRectGetMaxY(safe)-22,y)));
+    CGFloat halfW=MAX(44,48*settings.gear_scale)/2,halfH=MAX(44,44*settings.gear_scale)/2;
+    self.settingsButton.bounds=CGRectMake(0,0,halfW*2,halfH*2);
+    [self.settingsButton setPreferredSymbolConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:20*settings.gear_scale weight:UIImageSymbolWeightSemibold] forImageInState:UIControlStateNormal];
+    self.settingsButton.center=CGPointMake(MAX(CGRectGetMinX(safe)+halfW,MIN(CGRectGetMaxX(safe)-halfW,x)),MAX(CGRectGetMinY(safe)+halfH,MIN(CGRectGetMaxY(safe)-halfH,y)));
     [root bringSubviewToFront:self.settingsButton];
 }
 - (void)dragSettings:(UILongPressGestureRecognizer *)gesture {
     UIView *root=self.settingsButton.superview;CGPoint point=[gesture locationInView:root];
     if(gesture.state==UIGestureRecognizerStateBegan){self.draggingGear=YES;self.gearDragOffset=CGPointMake(self.settingsButton.center.x-point.x,self.settingsButton.center.y-point.y);[(HaloControlsView *)self.menuControls releaseAll];}
     if(gesture.state==UIGestureRecognizerStateChanged || gesture.state==UIGestureRecognizerStateBegan){
-        CGRect safe=UIEdgeInsetsInsetRect(root.bounds,root.safeAreaInsets);
-        self.settingsButton.center=CGPointMake(MAX(CGRectGetMinX(safe)+24,MIN(CGRectGetMaxX(safe)-24,point.x+self.gearDragOffset.x)),MAX(CGRectGetMinY(safe)+22,MIN(CGRectGetMaxY(safe)-22,point.y+self.gearDragOffset.y)));
+        CGRect safe=UIEdgeInsetsInsetRect(root.bounds,root.safeAreaInsets);CGFloat halfW=self.settingsButton.bounds.size.width/2,halfH=self.settingsButton.bounds.size.height/2;
+        self.settingsButton.center=CGPointMake(MAX(CGRectGetMinX(safe)+halfW,MIN(CGRectGetMaxX(safe)-halfW,point.x+self.gearDragOffset.x)),MAX(CGRectGetMinY(safe)+halfH,MIN(CGRectGetMaxY(safe)-halfH,point.y+self.gearDragOffset.y)));
     }
     if(gesture.state==UIGestureRecognizerStateEnded || gesture.state==UIGestureRecognizerStateCancelled){
         CGRect safe=UIEdgeInsetsInsetRect(root.bounds,root.safeAreaInsets);CGPoint center=self.settingsButton.center;
@@ -659,9 +661,9 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
         import.enabled = NO;
         start.enabled = NO;
     } else if ([self hasStartupMap]) {
-        [self refreshSetup];
         HsSettings settings=[HaloSettingsStore.shared snapshot];
         if(settings.presets[settings.active].startup_auto && !halo_ios_safe_level())[self startHalo:nil];
+        else [self refreshSetup];
     } else {
         halo_crash_phase("waiting for maps");
         [self refreshSetup];

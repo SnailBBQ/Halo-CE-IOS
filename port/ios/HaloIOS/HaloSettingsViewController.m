@@ -32,7 +32,7 @@
 @end
 
 typedef NS_ENUM(NSInteger, HaloCategory) {
-    HaloCategoryMultiplayer = 0, HaloCategoryControls, HaloCategoryDisplay, HaloCategoryAudio, HaloCategoryCheats, HaloCategoryMods, HaloCategoryAdvanced,
+    HaloCategoryMultiplayer = 0, HaloCategoryControls, HaloCategoryDisplay, HaloCategoryAudio, HaloCategoryCheats, HaloCategoryMods, HaloCategoryOptions, HaloCategoryAdvanced,
     HaloCategoryLogs, HaloCategoryCount
 };
 
@@ -57,6 +57,7 @@ static NSString *HaloCategoryTitle(HaloCategory c)
         case HaloCategoryAudio: return @"Audio";
         case HaloCategoryCheats: return @"Cheats";
         case HaloCategoryMods: return @"Mods";
+        case HaloCategoryOptions: return @"Options";
         case HaloCategoryAdvanced: return @"Advanced";
         default: return @"Logs";
     }
@@ -71,6 +72,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         case HaloCategoryAudio: return @"speaker.wave.2.fill";
         case HaloCategoryCheats: return @"sparkles";
         case HaloCategoryMods: return @"square.stack.3d.up.fill";
+        case HaloCategoryOptions: return @"slider.horizontal.3";
         case HaloCategoryAdvanced: return @"wrench.and.screwdriver.fill";
         default: return @"doc.text.magnifyingglass";
     }
@@ -189,6 +191,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
 
 - (void)renderDetail
 {
+    HaloUIApplyAccent(self.view);
     for (NSInteger i = 0; i < (NSInteger)self.sidebar.count; i++) {
         BOOL on = i == (NSInteger)self.selected;
         self.sidebar[i].backgroundColor = on ? HaloUIAccent() : (i == HaloCategoryLogs ? [UIColor colorWithWhite:0.14 alpha:1] : UIColor.clearColor);
@@ -202,6 +205,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         case HaloCategoryDisplay: [self buildDisplay:&settings]; break;
         case HaloCategoryAudio: [self buildAudio:&settings]; break;
         case HaloCategoryCheats: [self buildCheats:&settings]; break;
+        case HaloCategoryOptions: [self buildOptions:&settings]; break;
         default: [self buildAdvanced:&settings]; break;
     }
 }
@@ -581,6 +585,15 @@ static NSString *HaloCategorySymbol(HaloCategory c)
 
 #pragma mark - Advanced
 
+- (void)buildOptions:(const HsSettings *)settings {
+    [self add:HaloUICardView(@"Settings button",@[
+        HaloUISliderRow(@"Size",.75f,1.75f,settings->gear_scale,@"%.2f×",^(float value){[self update:^(HsSettings *s){s->gear_scale=value;}];}),
+        HaloUINote(@"Touch and hold the gear to move it. Its touch target remains at least 44 points."),
+        HaloUIButton(@"Reset size and position",0,^(UIButton *button){(void)button;[self update:^(HsSettings *s){s->gear_scale=1;s->gear_placed=0;}];[self renderSoon];})])];
+    [self add:HaloUICardView(@"Color scheme",@[
+        HaloUISegmentRow(@"Accent color",@[@"Blue",@"Green",@"Purple",@"Amber",@"Rose"],settings->ui_theme,^(NSInteger value){[self update:^(HsSettings *s){s->ui_theme=(int)value;}];[self renderSoon];}),
+        HaloUINote(@"Applies to Settings buttons, switches, sliders and selections. Gameplay control colors remain part of your control profile.")])];
+}
 - (void)buildAdvanced:(const HsSettings *)settings
 {
     [self add:HaloUICardView(@"Game",@[

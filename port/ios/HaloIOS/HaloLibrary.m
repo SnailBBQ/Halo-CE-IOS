@@ -18,7 +18,7 @@
 @property(nonatomic,strong) NSURL *temporaryExport;
 @end
 @implementation HaloLibraryController
-- (void)viewDidLoad { [super viewDidLoad];self.view.backgroundColor=HaloUIBackground();self.title=self.maps?@"Mods":@"Backups";self.mask=7;self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(close)];self.rows=HaloUIScrollingStack(self.view,12);[self render]; }
+- (void)viewDidLoad { [super viewDidLoad];self.view.backgroundColor=HaloUIBackground();self.title=self.maps?@"Mods":@"Backups";self.navigationController.navigationBar.tintColor=HaloUIAccent();self.mask=7;self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(close)];self.rows=HaloUIScrollingStack(self.view,12);[self render]; }
 - (void)close { if(!self.busy)[self dismissViewControllerAnimated:YES completion:nil]; }
 - (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
     (void)controller;if(self.temporaryExport){[NSFileManager.defaultManager removeItemAtURL:self.temporaryExport error:nil];self.temporaryExport=nil;}
@@ -77,7 +77,7 @@
         [items addObject:HaloUIButton(@"Export mod",0,^(UIButton *button){(void)button;@try{UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForExportingURLs:@[HaloModsExport(index)] asCopy:YES];picker.delegate=weakSelf;weakSelf.pickerKind=6;[weakSelf presentViewController:picker animated:YES completion:nil];}@catch(NSException *exception){[weakSelf message:exception.reason];}})];
         [self.rows addArrangedSubview:HaloUICardView([NSString stringWithFormat:@"%lu · %@",(unsigned long)index+1,mod[@"file"]],items)];
     }
-    if(!mods.count)[self.rows addArrangedSubview:HaloUINote(@"No mods imported. Your installed game maps remain available below.")];
+    if(!mods.count)[self.rows addArrangedSubview:HaloUICardView(nil,@[HaloUINote(@"No mods imported. Your installed game maps remain available below.")])];
 
     [self.rows addArrangedSubview:HaloUICardView(@"Installed game files",@[
         HaloUINote(@"Halo loads the same Documents/Halo/maps directory. This build requires Xbox version 5 maps, including ui.map. Header checks do not prove every asset is intact. Matching builds are required for multiplayer. Menu pictures are read from ui.map where its layout is supported; custom pictures override them."),
@@ -91,7 +91,7 @@
         NSString *base=name.stringByDeletingPathExtension.lowercaseString;BOOL campaign=[@[@"a10",@"a30",@"a50",@"b30",@"b40",@"c10",@"c20",@"c40",@"d20",@"d40"] containsObject:base];
         NSString *kind=[base isEqual:@"ui"]?@"Main menu":campaign?@"Campaign":@"Multiplayer / custom";
         NSDictionary *attrs=[NSFileManager.defaultManager attributesOfItemAtPath:url.path error:nil];NSString *size=[NSByteCountFormatter stringFromByteCount:[attrs[NSFileSize] longLongValue] countStyle:NSByteCountFormatterCountStyleFile];
-        UIImageView *image=[UIImageView new];image.contentMode=UIViewContentModeScaleAspectFit;image.clipsToBounds=YES;image.backgroundColor=[UIColor colorWithWhite:.16 alpha:1];image.layer.cornerRadius=10;[image.heightAnchor constraintEqualToConstant:110].active=YES;
+        UIImageView *image=[UIImageView new];image.contentMode=UIViewContentModeScaleAspectFit;image.clipsToBounds=YES;image.backgroundColor=UIColor.clearColor;image.layer.cornerRadius=0;[image.heightAnchor constraintEqualToConstant:190].active=YES;
         NSString *thumb=[[HaloBackupRoot() stringByAppendingPathComponent:@"map_thumbnails"] stringByAppendingPathComponent:[base stringByAppendingPathExtension:@"png"]];image.image=[UIImage imageWithContentsOfFile:thumb]?:self.mapPictures[base]?:[UIImage systemImageNamed:campaign?@"mountain.2.fill":@"map.fill"];image.tintColor=HaloUIAccent();
         [self.rows addArrangedSubview:HaloUICardView(name,@[image,HaloUINote([NSString stringWithFormat:@"%@ · %@\n%@",kind,size,valid?@"Version 5 header verified":@"Invalid / unsupported header: reimport a compatible map"]),HaloUIButton(@"Choose map picture",0,^(UIButton *b){(void)b;weakSelf.thumbnailName=base;weakSelf.pickerKind=3;UIDocumentPickerViewController *p=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeImage] asCopy:YES];p.delegate=weakSelf;[weakSelf presentViewController:p animated:YES completion:nil];})])];
     }

@@ -300,22 +300,33 @@ static const char *const kControlNames[HC_COUNT] = {
         symbol.path=p.CGPath;symbol.strokeColor=UIColor.whiteColor.CGColor;symbol.lineWidth=MAX(1.5,r.size.width*.035);symbol.lineCap=kCALineCapRound;symbol.lineJoin=kCALineJoinRound;
     }
     if(utility) {
-        CGFloat cx=CGRectGetMidX(r),cy=CGRectGetMidY(r),d=r.size.width*.19;
+        CGFloat cx=CGRectGetMidX(r),cy=CGRectGetMidY(r),d=r.size.width*.23;
         UIBezierPath *p=[UIBezierPath bezierPath];
         if(i==HC_WHITE) {
-            /* Flashlight body, bezel and three light rays, centered as one icon. */
-            [p moveToPoint:CGPointMake(cx-d,cy+d*.45)];[p addLineToPoint:CGPointMake(cx,cy+d*.45)];[p addLineToPoint:CGPointMake(cx+d*.45,cy+d*.8)];[p addLineToPoint:CGPointMake(cx+d*.45,cy-d*.8)];[p addLineToPoint:CGPointMake(cx,cy-d*.45)];[p addLineToPoint:CGPointMake(cx-d,cy-d*.45)];[p closePath];
-            for(int ray=-1;ray<=1;ray++){[p moveToPoint:CGPointMake(cx+d*.75,cy+ray*d*.4)];[p addLineToPoint:CGPointMake(cx+d*1.2,cy+ray*d*.8)];}
+            /* Upright torch: narrow handle, flared head, lens and light beams.
+               Unlike a speaker, the handle extends behind the broad lens. */
+            [p moveToPoint:CGPointMake(-.27,.9)];[p addLineToPoint:CGPointMake(.27,.9)];[p addLineToPoint:CGPointMake(.27,-.05)];[p addLineToPoint:CGPointMake(.6,-.5)];[p addLineToPoint:CGPointMake(.6,-.78)];[p addLineToPoint:CGPointMake(-.6,-.78)];[p addLineToPoint:CGPointMake(-.6,-.5)];[p addLineToPoint:CGPointMake(-.27,-.05)];[p closePath];
+            [p moveToPoint:CGPointMake(-.6,-.5)];[p addLineToPoint:CGPointMake(.6,-.5)];
+            [p moveToPoint:CGPointMake(-.27,.65)];[p addLineToPoint:CGPointMake(.27,.65)];
+            [p appendPath:[UIBezierPath bezierPathWithRoundedRect:CGRectMake(-.09,.1,.18,.25) cornerRadius:.05]];
+            for(int ray=-1;ray<=1;ray++){[p moveToPoint:CGPointMake(ray*.38,-1.02)];[p addLineToPoint:CGPointMake(ray*.55,-1.28)];}
+            [p applyTransform:CGAffineTransformMakeRotation(-M_PI/5)];
         } else {
-            /* Grenade plus opposed arrows: swap grenade type, not weapon. */
-            [p appendPath:[UIBezierPath bezierPathWithOvalInRect:CGRectMake(cx-d*.45,cy-d*.4,d*.9,d*1.1)]];
-            [p moveToPoint:CGPointMake(cx-d*.25,cy-d*.45)];[p addLineToPoint:CGPointMake(cx-d*.25,cy-d*.8)];[p addLineToPoint:CGPointMake(cx+d*.4,cy-d*.8)];
-            [p moveToPoint:CGPointMake(cx-d*1.25,cy-d*.75)];[p addLineToPoint:CGPointMake(cx+d,cy-d*.75)];[p addLineToPoint:CGPointMake(cx+d*.7,cy-d*1.05)];
-            [p moveToPoint:CGPointMake(cx+d,cy-d*.75)];[p addLineToPoint:CGPointMake(cx+d*.7,cy-d*.45)];
-            [p moveToPoint:CGPointMake(cx+d*1.25,cy+d*.9)];[p addLineToPoint:CGPointMake(cx-d,cy+d*.9)];[p addLineToPoint:CGPointMake(cx-d*.7,cy+d*.6)];
-            [p moveToPoint:CGPointMake(cx-d,cy+d*.9)];[p addLineToPoint:CGPointMake(cx-d*.7,cy+d*1.2)];
+            /* Segmented grenade body, fuse lever and pin surrounded by two
+               circular arrows, following the supplied grenade-swap reference. */
+            [p appendPath:[UIBezierPath bezierPathWithOvalInRect:CGRectMake(-.55,-.42,1.1,1.32)]];
+            for(int row=0;row<3;row++){CGFloat y=-.12+row*.3;[p moveToPoint:CGPointMake(-.5,y)];[p addLineToPoint:CGPointMake(.5,y)];}
+            for(int col=-1;col<=1;col+=2){[p moveToPoint:CGPointMake(col*.18,-.38)];[p addCurveToPoint:CGPointMake(col*.15,.85) controlPoint1:CGPointMake(col*.3,0) controlPoint2:CGPointMake(col*.3,.65)];}
+            [p appendPath:[UIBezierPath bezierPathWithRoundedRect:CGRectMake(-.24,-.68,.48,.25) cornerRadius:.03]];
+            [p moveToPoint:CGPointMake(-.27,-.85)];[p addLineToPoint:CGPointMake(.35,-.85)];[p addLineToPoint:CGPointMake(.7,.65)];
+            [p appendPath:[UIBezierPath bezierPathWithOvalInRect:CGRectMake(.17,-.83,.43,.43)]];
+            [p moveToPoint:CGPointMake(-1.43,-.2)];[p addArcWithCenter:CGPointZero radius:1.45 startAngle:-M_PI+.14 endAngle:0 clockwise:YES];
+            [p moveToPoint:CGPointMake(1.2,-.22)];[p addLineToPoint:CGPointMake(1.45,0)];[p addLineToPoint:CGPointMake(1.68,-.25)];
+            [p moveToPoint:CGPointMake(1.43,.2)];[p addArcWithCenter:CGPointZero radius:1.45 startAngle:.14 endAngle:M_PI clockwise:YES];
+            [p moveToPoint:CGPointMake(-1.2,.22)];[p addLineToPoint:CGPointMake(-1.45,0)];[p addLineToPoint:CGPointMake(-1.68,.25)];
         }
-        symbol.path=p.CGPath;symbol.strokeColor=(i==HC_WHITE?UIColor.blackColor:UIColor.whiteColor).CGColor;symbol.lineWidth=MAX(1.5,r.size.width*.03);symbol.lineCap=kCALineCapRound;symbol.lineJoin=kCALineJoinRound;
+        [p applyTransform:CGAffineTransformMake(d,0,0,d,cx,cy)];
+        symbol.path=p.CGPath;symbol.strokeColor=(i==HC_WHITE?UIColor.blackColor:UIColor.whiteColor).CGColor;symbol.lineWidth=MAX(1.5,r.size.width*.024);symbol.lineCap=kCALineCapRound;symbol.lineJoin=kCALineJoinRound;
     }
     label.hidden = (text.length == 0) || !show;
     if(playstation || utility)label.hidden=YES;

@@ -25,6 +25,13 @@ int main(void){@autoreleasepool{
     NSURL *url=[NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:[NSUUID.UUID.UUIDString stringByAppendingString:@".map"]]];
     NSMutableData *d=fixture();NSDictionary *images=ReadPictureFixture(d,url);CHECK(images.count==10);UIImage *a=images[@"a10"];CHECK(a.width==4 && a.height==4);
     const uint8_t *p=a.rgba.bytes;CHECK(p[0]==0x33&&p[1]==0x66&&p[2]==0x99&&p[3]==255);
+    /* Padded texture: preserve the colored 2×2 picture, remove outer black. */
+    d=fixture();for(int i=0;i<16;i++)put32(d.mutableBytes,7000+i*4,0xff000000);
+    for(int y=1;y<3;y++)for(int x=1;x<3;x++)put32(d.mutableBytes,7000+(y*4+x)*4,0xff336699);
+    a=ReadPictureFixture(d,url)[@"a10"];CHECK(a.width==2 && a.height==2 && a.rgba.length==16);
+    d=fixture();for(int i=0;i<16;i++)put32(d.mutableBytes,7000+i*4,0xff000000);
+    a=ReadPictureFixture(d,url)[@"a10"];CHECK(a.width==4 && a.height==4);
+    d=fixture();
     put32(d.mutableBytes,2048+512+0x44,99);CHECK(!ReadPictureFixture(d,url).count);
     d=fixture();put32(d.mutableBytes,2048+768+0x64,0xffffffff);CHECK(!ReadPictureFixture(d,url).count);
     d=fixture();for(int i=0;i<10;i++)put32(d.mutableBytes,2048+1024+i*48+24,8190);CHECK(!ReadPictureFixture(d,url).count);

@@ -217,6 +217,9 @@ int main(void)
     hc_layout(0,0,800,390,ps);hs_apply_preset(&t.presets[1],0,0,800,390,ps);
     CHECK(!strcmp(ps[HC_LT].label,"L2") && !strcmp(ps[HC_RT].label,"R2") && !strcmp(ps[HC_LS].label,"L3") && !strcmp(ps[HC_RS].label,"R3"),"PlayStation trigger/stick labels");
     hs_parse(&t,"HALO1\np2.hudchoice=999\np2.startauto=7\ngear=1,nan,999\n");CHECK(t.presets[2].hud_choice==3 && t.presets[2].startup_auto==1 && t.gear_x==0 && t.gear_y==1,"new settings bounded");
+    hs_defaults(&s);CHECK(s.gear_scale==1 && s.ui_theme==0,"Options defaults");s.gear_scale=1.5f;s.ui_theme=2;
+    CHECK(hs_serialize(&s,text,sizeof(text))>0 && hs_parse(&t,text) && near(t.gear_scale,1.5f) && t.ui_theme==2,"Options persist");
+    hs_parse(&t,"HALO1\ngearscale=nan\nuitheme=999\n");CHECK(t.gear_scale==.75f && t.ui_theme==4,"Options bounds");
     if (!failures) printf("PASS: settings core: 5 named presets round-trip, hostile input is clamped, layouts stay on screen, stick feel\n");
     return failures ? 1 : 0;
 }

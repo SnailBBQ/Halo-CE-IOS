@@ -6,6 +6,7 @@
 UIColor *HaloUIBackground(void);
 UIColor *HaloUICard(void);
 UIColor *HaloUIAccent(void);
+void HaloUIApplyAccent(UIView *root);
 UIColor *HaloUIGreen(void);
 UIColor *HaloUIAmber(void);
 UIColor *HaloUIRed(void);

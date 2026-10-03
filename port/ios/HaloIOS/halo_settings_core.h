@@ -59,6 +59,7 @@ typedef struct { float x,y,scale,opacity; int hidden; } HsHud;
 typedef struct { char name[HS_NAME_MAX+1]; HsHud elements[HS_HUD_COUNT]; } HsHudPreset;
 typedef struct
 {
+    float gear_scale; int ui_theme; /* shared Options; theme indexes 0..4 */
     int gear_placed; float gear_x, gear_y; /* safe-area fractions */
     HsHud hud[HS_HUD_COUNT];
     HsHudPreset hud_presets[3];
@@ -174,6 +175,7 @@ static inline void hs_defaults(HsSettings *s)
     s->cheat_jump = s->cheat_speed = 1.0f;
     s->audio_enabled = 1;
     s->join_from_clipboard = 0; /* reading the clipboard shows an iOS paste prompt */
+    s->gear_scale=1.f;
     s->show_fps = 0;
     s->profiler = 1;
     s->fps_mode = 1;
@@ -231,6 +233,7 @@ static inline void hs_sanitize(HsSettings *s)
     s->join_from_clipboard = s->join_from_clipboard ? 1 : 0;
     s->show_fps = s->show_fps ? 1 : 0;
     s->profiler = s->profiler ? 1 : 0;
+    s->gear_scale=hs_clampf(s->gear_scale,.75f,1.75f);s->ui_theme=hs_clampi(s->ui_theme,0,4);
     s->gear_placed=!!s->gear_placed;s->gear_x=hs_clampf(s->gear_x,0,1);s->gear_y=hs_clampf(s->gear_y,0,1);
     s->fps_mode = hs_clampi(s->fps_mode, 0, 2);
     s->controls_mode = hs_clampi(s->controls_mode, 0, 2);
@@ -350,6 +353,7 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
     size_t n = 0;
 #define EMIT(...) do { int w = snprintf(out + n, n < size ? size - n : 0, __VA_ARGS__); if (w < 0) return -1; n += (size_t)w; } while (0)
     EMIT("HALO1\n");
+    EMIT("gearscale=%.3f\nuitheme=%d\n",s->gear_scale,s->ui_theme);
     EMIT("gear=%d,%.4f,%.4f\n",s->gear_placed,s->gear_x,s->gear_y);
     EMIT("music=%.3f\ndialogue=%.3f\neffects=%.3f\n",s->music_volume,s->dialogue_volume,s->effects_volume);
     for(int h=0;h<HS_HUD_COUNT;h++) { const HsHud *q=&s->hud[h];EMIT("hud%d=%.4f,%.4f,%.3f,%.3f,%d\n",h,q->x,q->y,q->scale,q->opacity,q->hidden); }
@@ -430,6 +434,8 @@ static inline int hs_parse(HsSettings *s, const char *text)
                     if(q) { HsHud v=*q;if(sscanf(value,"%f,%f,%f,%f,%d",&v.x,&v.y,&v.scale,&v.opacity,&v.hidden)==5)*q=v; }
                 }
                 else if (!strncmp(key,"hn",2)) { int p=-1;if(sscanf(key,"hn%d",&p)==1 && p>=0 && p<3)hs_set_name(s->hud_presets[p].name,value); }
+                else if (!strcmp(key,"gearscale")) s->gear_scale=(float)atof(value);
+                else if (!strcmp(key,"uitheme")) s->ui_theme=atoi(value);
                 else if (!strcmp(key,"gear")) { int placed;float x,y;if(sscanf(value,"%d,%f,%f",&placed,&x,&y)==3){s->gear_placed=placed;s->gear_x=x;s->gear_y=y;} }
                 else if (!strcmp(key, "fps")) s->show_fps = atoi(value);
                 else if (!strcmp(key, "profiler")) s->profiler = atoi(value);

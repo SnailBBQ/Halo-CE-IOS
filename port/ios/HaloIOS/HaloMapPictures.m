@@ -41,6 +41,20 @@ static UIImage *mpImage(NSData *data,const uint8_t *bitmap){
     else if(!halo_texel_native(kind,bytes,linear,w,h,1,w*bytes,pixels,NULL,argbPixels))return nil;
     // Convert explicitly to premultiplied RGBA for CoreGraphics on every host.
     uint8_t *rgba=decoded.mutableBytes;for(size_t i=0;i<(size_t)w*h;i++){uint32_t c=argbPixels[i],a=c>>24;rgba[i*4]=(uint8_t)(((c>>16)&255)*a/255);rgba[i*4+1]=(uint8_t)(((c>>8)&255)*a/255);rgba[i*4+2]=(uint8_t)((c&255)*a/255);rgba[i*4+3]=(uint8_t)a;}
+    /* Menu pictures occupy part of their padded power-of-two textures. Trim
+       only the outer transparent/pure-black padding; preserve internal pixels.
+       A fully black image keeps its original dimensions. No UIKit work here. */
+    uint32_t left=w,top=h,right=0,bottom=0;BOOL occupied=NO;
+    for(uint32_t y=0;y<h;y++)for(uint32_t x=0;x<w;x++){
+        const uint8_t *pixel=rgba+((size_t)y*w+x)*4;
+        if(pixel[3] && (pixel[0]||pixel[1]||pixel[2])){occupied=YES;left=MIN(left,x);right=MAX(right,x);top=MIN(top,y);bottom=MAX(bottom,y);}
+    }
+    if(occupied && (left || top || right+1<w || bottom+1<h)){
+        uint32_t cw=right-left+1,ch=bottom-top+1;
+        NSMutableData *cropped=[NSMutableData dataWithLength:(size_t)cw*ch*4];
+        for(uint32_t y=0;y<ch;y++)memcpy((uint8_t *)cropped.mutableBytes+(size_t)y*cw*4,rgba+((size_t)(top+y)*w+left)*4,(size_t)cw*4);
+        decoded=cropped;w=cw;h=ch;
+    }
 #ifdef HALO_MAP_PICTURE_TEST
     UIImage *image=[UIImage new];image.rgba=decoded;image.width=w;image.height=h;return image;
 #else
