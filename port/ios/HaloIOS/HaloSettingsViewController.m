@@ -52,8 +52,14 @@ static NSString *HaloCategorySymbol(HaloCategory c)
     title.translatesAutoresizingMaskIntoConstraints = NO;
     UIButton *done = HaloUIButton(@"Back to game", 1, ^(UIButton *b) { [self dismissViewControllerAnimated:YES completion:nil]; });
     done.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.view addSubview:title];
-    [self.view addSubview:done];
+    /* A header owns its height; a short landscape sidebar must never compress
+       the title to zero or pull the dismissal button above the safe area. */
+    UIView *header = [[UIView alloc] init];
+    header.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:header];
+    [header addSubview:title];
+    [header addSubview:done];
+    [title setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisVertical];
 
     /* the category list: the first six in order, Logs pinned to the bottom */
     UIStackView *list = [[UIStackView alloc] init];
@@ -84,24 +90,40 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         [list addArrangedSubview:row];
     }
     self.sidebar = buttons;
-    [self.view addSubview:list];
+    UIScrollView *categories = [[UIScrollView alloc] init];
+    categories.translatesAutoresizingMaskIntoConstraints = NO;
+    categories.alwaysBounceVertical = NO;
+    [self.view addSubview:categories];
+    [categories addSubview:list];
 
     self.detail = [[UIView alloc] init];
     self.detail.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.detail];
     UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
     [NSLayoutConstraint activateConstraints:@[
-        [title.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:20],
-        [title.topAnchor constraintEqualToAnchor:safe.topAnchor constant:12],
-        [done.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-20],
-        [done.centerYAnchor constraintEqualToAnchor:title.centerYAnchor],
+        [header.topAnchor constraintEqualToAnchor:safe.topAnchor constant:8],
+        [header.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
+        [header.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
+        [header.heightAnchor constraintEqualToConstant:48],
+        [title.leadingAnchor constraintEqualToAnchor:header.leadingAnchor constant:4],
+        [title.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
+        [title.trailingAnchor constraintLessThanOrEqualToAnchor:done.leadingAnchor constant:-12],
+        [done.trailingAnchor constraintEqualToAnchor:header.trailingAnchor constant:-4],
+        [done.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
+        [done.heightAnchor constraintEqualToConstant:44],
         [done.widthAnchor constraintEqualToConstant:130],
-        [list.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:14],
-        [list.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
-        [list.widthAnchor constraintEqualToConstant:176],
-        [list.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor constant:-10],
-        [self.detail.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:10],
-        [self.detail.leadingAnchor constraintEqualToAnchor:list.trailingAnchor constant:16],
+        [categories.topAnchor constraintEqualToAnchor:header.bottomAnchor constant:10],
+        [categories.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
+        [categories.widthAnchor constraintEqualToConstant:176],
+        [categories.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor constant:-10],
+        [list.topAnchor constraintEqualToAnchor:categories.contentLayoutGuide.topAnchor],
+        [list.bottomAnchor constraintEqualToAnchor:categories.contentLayoutGuide.bottomAnchor],
+        [list.leadingAnchor constraintEqualToAnchor:categories.contentLayoutGuide.leadingAnchor],
+        [list.trailingAnchor constraintEqualToAnchor:categories.contentLayoutGuide.trailingAnchor],
+        [list.widthAnchor constraintEqualToAnchor:categories.frameLayoutGuide.widthAnchor],
+        [list.heightAnchor constraintGreaterThanOrEqualToAnchor:categories.frameLayoutGuide.heightAnchor],
+        [self.detail.topAnchor constraintEqualToAnchor:header.bottomAnchor constant:10],
+        [self.detail.leadingAnchor constraintEqualToAnchor:categories.trailingAnchor constant:16],
         [self.detail.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
         [self.detail.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor]]];
     self.stack = HaloUIScrollingStack(self.detail, 12);

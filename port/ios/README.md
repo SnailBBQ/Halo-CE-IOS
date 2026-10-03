@@ -2,7 +2,7 @@
 
 Experimental Halo: Combat Evolved port for physical iPhone and iPad devices running iOS/iPadOS 15 or later. A native `arm64` app hosts the recovered `arm64_32` engine and presents graphics through EAGL/OpenGL ES 3.
 
-**Current version: M2.6.38**, awaiting device validation. Built on Halo CE Universal build 73, with protocol-10 multiplayer, working audio, full touch/controller input, category-based Settings and Diagnostics, and 30 / 60 / uncapped presentation modes. The user reports smooth 60 FPS menus; recent logs show about 3.4 ms render CPU time and a successful network join. First-person plasma-pistol geometry remains under investigation. See [current release notes](UPDATE_M2638.md) and [port status](../../IOS_PORT_STATUS.md).
+**Current version: M2.6.39**, awaiting device validation. Built on Halo CE Universal build 73, with protocol-10 multiplayer, working audio, full touch/controller input, category-based Settings and Diagnostics, and 30 / 60 / uncapped presentation modes. The user reports smooth 60 FPS menus; recent logs show about 3.4 ms render CPU time and a successful network join. First-person plasma-pistol geometry remains under investigation. See [current release notes](UPDATE_M2639.md) and [port status](../../IOS_PORT_STATUS.md).
 
 ## Current multiplayer and campaign tools
 
@@ -10,7 +10,7 @@ Settings → Multiplayer accepts a supported `halo://join/` invite or its bare 6
 
 Settings → Cheats contains god mode, infinite ammo/grenades, bottomless clip, loaded-map weapon and vehicle pickups, overshield/invisibility, hostile-unit one-hit kills, unlimited flashlight, no fall damage, rapid fire, no recoil, noclip and third person. Jump (1–10), local-player speed (1–5) and vertical FOV (0 = default; 20–90 degrees) have sliders and numeric entry. All gameplay tools are campaign-only; unavailable map assets report a message. See the release notes for exact behavior and validation limits.
 
-The M2.6.38 weapon test uses authoritative first-person weapon poses while keeping world/camera smoothing. It must be verified on the plasma pistol and other weapons; it is not yet a confirmed visual fix.
+The M2.6.38 weapon test uses authoritative first-person weapon poses while keeping world/camera smoothing. Device testing confirmed the obstruction persists. M2.6.39 corrects shader constant reflection/upload for sparse locations and fixes the landscape Settings header. The visual result still needs device testing.
 
 ## Build with GitHub Actions
 
@@ -95,7 +95,7 @@ Re-sign `build/ios/HaloCE.ipa` with your sideloading tool to install it. The int
 
 ## Historical development notes
 
-The sections below describe earlier milestones and their then-current limitations. Use the current guide and release notes above for M2.6.38.
+The sections below describe earlier milestones and their then-current limitations. Use the current guide and release notes above for M2.6.39.
 
 ## M2.6.16 performance and loading diagnostics
 

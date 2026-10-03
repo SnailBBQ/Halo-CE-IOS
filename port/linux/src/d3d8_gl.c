@@ -25,6 +25,9 @@ Conventions carried over from the Xbox:
 #include "sdl_platform.h"
 #include "halo_ui_pointer.h"
 #include "port_config.h"
+#ifdef HALO_IOS_GUEST
+#include "halo_vertex_constants.h"
+#endif
 
 #include <math.h>
 #include <stdio.h>
@@ -229,6 +232,9 @@ struct program_entry
 	consecutive locations, a changed range is uploaded by itself */
 	unsigned long constant_count;
 	BOOL constants_consecutive;
+#ifdef HALO_IOS_GUEST
+	struct halo_vertex_constant_locations constant_locations;
+#endif
 	/* constants_serial at the program's last constant upload (constants_store); 64-bit: a 32-bit one
 	wrapped within minutes to an hour of play, after which programs kept stale registers (another
 	object's bone matrices) for a frame */
@@ -1976,6 +1982,18 @@ static struct program_entry *program_get(GLuint vertex_shader, GLuint fragment_s
 		return NULL;
 	}
 	state_program(entry->program);
+#ifdef HALO_IOS_GUEST
+    halo_vertex_constants_reflect(&entry->constant_locations, entry->program);
+    entry->constant_count = entry->constant_locations.count;
+    /* This is an availability sentinel, not necessarily c[0]'s location. */
+    entry->constants = entry->constant_count ? 0 : -1;
+    entry->constants_consecutive = entry->constant_locations.consecutive;
+    if (entry->constant_count && !entry->constants_consecutive) {
+        static unsigned reports;
+        if (reports++ < 8)
+            platform_log("vertex constants: sparse locations, preserving registers through %lu", entry->constant_count - 1);
+    }
+#else
 	entry->constants = glGetUniformLocation(entry->program, "c");
 	entry->constant_count = XGPU_VERTEX_CONSTANT_COUNT;
 	if (entry->constants >= 0)
@@ -2005,6 +2023,7 @@ static struct program_entry *program_get(GLuint vertex_shader, GLuint fragment_s
 			}
 		}
 	}
+#endif
 	entry->viewport_scale = glGetUniformLocation(entry->program, "viewport_scale");
 	entry->viewport_offset = glGetUniformLocation(entry->program, "viewport_offset");
 	entry->point_size = glGetUniformLocation(entry->program, "point_size");
@@ -2760,10 +2779,14 @@ static struct program_entry *prepare_draw(BOOL immediate)
 		}
 		if (first < entry->constant_count)
 		{
+#ifdef HALO_IOS_GUEST
+            halo_vertex_constants_upload(&entry->constant_locations, first, last, device.constants);
+#else
 			if (entry->constants_consecutive)
 				glUniform4fv(entry->constants + (GLint)first, (GLsizei)(last - first + 1), device.constants[first]);
 			else
 				glUniform4fv(entry->constants, XGPU_VERTEX_CONSTANT_COUNT, &device.constants[0][0]);
+#endif
 		}
 		entry->constants_serial = constants_serial;
 	}
