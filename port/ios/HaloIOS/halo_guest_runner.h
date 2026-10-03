@@ -45,4 +45,9 @@ void halo_ios_touch_look(float dx, float dy);
 /* Makes the game look at the clipboard (an invite link) on its next event poll. */
 void halo_ios_post_focus_event(void);
 
+void halo_ios_set_channel_gains(float music,float dialogue,float effects);
+#ifdef __OBJC__
+@class NSString;
+NSString *HaloNetworkSummary(void);
+#endif
 #endif

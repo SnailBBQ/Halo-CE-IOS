@@ -40,6 +40,7 @@ int host_sdl_show_toast(const char *s, int a, int b, int c, int d)
 { (void)s; (void)a; (void)b; (void)c; (void)d; ++toasts; return 1; }
 """ + body + r"""
 static void ios_campaign_action(unsigned int action) { actions += (action != 0); }
+static void ios_powerups_tick(void) { /* Power-up behavior is covered by the separate runtime harness. */ }
 #define CHECK(x) do { if (!(x)) { printf("FAIL line %d: %s\n", __LINE__, #x); return 1; } } while (0)
 int main(void)
 {

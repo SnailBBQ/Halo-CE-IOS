@@ -1363,12 +1363,21 @@ static void temporary_hud_draw(
 	return;
 }
 
+#ifdef HALO_IOS_GUEST
+#include "halo_ios_hud_options.h"
+HaloHudOptions halo_ios_hud[5];
+int halo_ios_hud_group;
+extern void host_hud_options(HaloHudOptions *options);
+#endif
 void hud_draw_screen(
 	void)
 {
 	long player_index = local_player_get_player_index(render.local_player_index);
 	director_perspective perspective = director_get_perspective(render.local_player_index);
 
+#ifdef HALO_IOS_GUEST
+    host_hud_options(halo_ios_hud);halo_ios_hud_group=0;
+#endif
 	rasterizer_hud_begin();
 	if (player_index != NONE)
 	{
@@ -1396,12 +1405,48 @@ void hud_draw_screen(
 				perspective != _director_perspective_scripted &&
 				player->unit_index != NONE)
 			{
+#ifdef HALO_IOS_GUEST
+                halo_ios_hud_group=1;
+#endif
+#ifdef HALO_IOS_GUEST
+                if(!halo_ios_hud[halo_ios_hud_group].hidden)
+#endif
 				hud_render_weapon_interface(player);
+#ifdef HALO_IOS_GUEST
+                halo_ios_hud_group=0;
+#endif
 				hud_show_action_response(player_index);
 				hud_play_unit_sounds(player, hud_scripted_globals->show_hud);
+#ifdef HALO_IOS_GUEST
+                halo_ios_hud_group=2;
+#endif
+#ifdef HALO_IOS_GUEST
+                if(!halo_ios_hud[halo_ios_hud_group].hidden)
+#endif
 				hud_render_unit_interface(player);
+#ifdef HALO_IOS_GUEST
+                halo_ios_hud_group=0;
+#endif
+#ifdef HALO_IOS_GUEST
+                halo_ios_hud_group=3;
+#endif
+#ifdef HALO_IOS_GUEST
+                if(!halo_ios_hud[halo_ios_hud_group].hidden)
+#endif
 				hud_render_nav_points(render.local_player_index);
+#ifdef HALO_IOS_GUEST
+                halo_ios_hud_group=0;
+#endif
+#ifdef HALO_IOS_GUEST
+                halo_ios_hud_group=4;
+#endif
+#ifdef HALO_IOS_GUEST
+                if(!halo_ios_hud[halo_ios_hud_group].hidden)
+#endif
 				hud_render_damage_indicators(render.local_player_index);
+#ifdef HALO_IOS_GUEST
+                halo_ios_hud_group=0;
+#endif
 			}
 			else
 			{

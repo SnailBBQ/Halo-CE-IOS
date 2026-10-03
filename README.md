@@ -1,5 +1,7 @@
 # Halo: Combat Evolved for Linux, Windows, Android and iOS
 
+Current iOS update: **M2.6.44** — timed Apply Active Camo, dedicated power-up sections with separate Infinite toggles, HUD/layout customization, audio channels, connection information, maps and staged backups. See [release notes](port/ios/UPDATE_M2644.md). Device validation is pending.
+
 [![Join our Discord](https://invidget.switchblade.xyz/9gqcHyr5km)](https://discord.gg/9gqcHyr5km)
 
 This project is a port of the Halo: Combat Evolved decompilation to Linux,
@@ -17,8 +19,8 @@ That project is a fork of [punpckhdq/halo](https://github.com/punpckhdq/halo).
 This fork is based on Halo CE Universal **build 73** and adds an experimental native iOS app (arm64 host, arm64_32 guest, OpenGL ES 3).
 The iOS build has on-screen Xbox controls with five named schemes, touch-look, physical controller support, sound, a readable log and
 invite-link multiplayer that follows the other ports' protocol. See [iOS port status](IOS_PORT_STATUS.md), the
-[M2.6.40 release notes](port/ios/UPDATE_M2642.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
-Current iOS milestone: **M2.6.42**. M2.6.42 replaces M2.6.41’s costly upload-every-draw fallback with exact native geometry comparisons: unchanged pages avoid GPU uploads while modified/reused pages remain fresh. Active cheats are session-only; presets have gear editors, campaign recipes and Xbox/PlayStation face-button styles. Advanced adds explicit Quit, manual Restart instructions and GitHub Credits. Device FPS, visuals and client stability need validation.
+[M2.6.42 release notes](port/ios/UPDATE_M2642.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
+Previous iOS milestone: **M2.6.42**. M2.6.42 replaces M2.6.41’s costly upload-every-draw fallback with exact native geometry comparisons: unchanged pages avoid GPU uploads while modified/reused pages remain fresh. Active cheats are session-only; presets have gear editors, campaign recipes and Xbox/PlayStation face-button styles. Advanced adds explicit Quit, manual Restart instructions and GitHub Credits. Device FPS, visuals and client stability need validation.
 Release downloads below are the upstream project's; the iOS build is an Actions artifact (**Halo CE iOS — Build IPA**).
 
 ## Download

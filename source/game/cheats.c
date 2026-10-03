@@ -60,6 +60,7 @@ symbols in this file:
 #include "input/input.h"
 #include "interface/terminal.h"
 #include "items/weapon_definitions.h"
+#include "items/equipment_definitions.h"
 #include "main/console.h"
 #include "math/real_math.h"
 #include "objects/objects.h"
@@ -221,6 +222,7 @@ extern void host_campaign_options(HaloCampaignOptions *options);
 extern int host_sdl_show_toast(const char *, int, int, int, int);
 static void host_toast(const char *message) { host_sdl_show_toast(message, 2500, 0, 0, 0); }
 static void ios_campaign_action(unsigned int action);
+static void ios_powerups_tick(void);
 static boolean ios_campaign_active(void)
 { return game_in_progress() && !game_engine_running() && !network_game_is_active(); }
 boolean ios_cheat_local_unit(long index)
@@ -274,6 +276,7 @@ static void ios_cheats_apply(void)
 		cheat.bottomless_clip = FALSE;
 	ios_cheat_infinite_grenades = (wanted & 4u) != 0;
 	ios_cheats_set = wanted;
+    ios_powerups_tick();
 }
 /* Map boundaries discard pending UI requests and release only flags this UI set.
  * Preferences are sampled again on the next tick; no spawn crosses a map load. */
@@ -576,6 +579,21 @@ void cheat_all_vehicles(
 }
 
 #ifdef HALO_IOS_GUEST
+/* Infinite effects only refresh the living, local solo player. Releasing camo
+ * leaves at most two simulation ticks, so the ordinary expiry clears its flag.
+ * Overshield remains a normal damage-consumable reserve after disabling. */
+static void ios_powerups_tick(void) {
+    long index=cheat_player_index();
+    struct player_datum *p=index==NONE?NULL:player_try_and_get(index);
+    struct unit_datum *u;
+    if(!p || !ios_cheat_local_unit(p->unit_index))return;
+    u=unit_get(p->unit_index);if(TEST_FLAG(u->object.damage_flags,_object_dead_bit))return;
+    if(ios_options.flags&IOS_CHEAT_CAMO)player_handle_powerup_minor(index,_player_powerup_active_camouflage,2);
+    if(ios_options.flags&IOS_CHEAT_OVERSHIELD) {
+        if(u->object.shield_vitality<=1.f)object_double_charge_shield(p->unit_index);
+        else if(!TEST_FLAG(u->object.damage_flags,_object_shield_over_charging_bit))u->object.shield_vitality=3.f;
+    }
+}
 /* UI request IDs are fixed; matching only loaded assets keeps map ownership intact. */
 static void ios_campaign_action(unsigned int action)
 {
@@ -598,7 +616,22 @@ static void ios_campaign_action(unsigned int action)
         struct player_datum *player=player_get(player_index);
         host_toast(object_double_charge_shield(player->unit_index) ? "Overshield applied" : "Could not apply overshield"); return;
     }
-    if (action == 1) { cheat_active_camouflage(); host_toast("Active camouflage applied"); return; }
+    if (action == 1) {
+        long index=cheat_player_index(); short ticks=30*30;
+        tag_iterator_new(&iterator,'eqip');
+        while ((tag=tag_iterator_next(&iterator))!=NONE) {
+            const char *name=tag_get_name(tag),*leaf;
+            if(!name)continue;leaf=strrchr(name,'\\');leaf=leaf?leaf+1:name;
+            if(!strcmp(leaf,"active camouflage")) {
+                struct equipment_definition *definition=tag_get('eqip',tag);
+                real seconds=definition->equipment.powerup_time;
+                if(seconds>0 && seconds<=1092.f)ticks=(short)(seconds*30.f);
+                break;
+            }
+        }
+        player_handle_powerup_minor(index,_player_powerup_active_camouflage,ticks);
+        host_toast("Active Camo applied for the normal pickup duration");return;
+    }
     if (action >= 100 && action < 100 + NUMBEROF(weapons)) wanted = weapons[action - 100];
     else if (action >= 200 && action < 200 + NUMBEROF(vehicles)) { wanted = vehicles[action - 200]; group = 'vehi'; }
     else if (action == 2 || action == 3) { wanted = action == 2 ? "over shield" : "active camouflage"; group = 'eqip'; }

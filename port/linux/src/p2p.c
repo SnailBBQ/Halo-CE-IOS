@@ -2900,6 +2900,18 @@ static void *p2p_thread(void *unused)
 		update_joining();
 		update_upnp();
 		p2p_discord_update();
+#ifdef HALO_IOS_GUEST
+        /* Network-thread snapshot only; the game never waits on the Settings UI. */
+        {
+            extern void host_network_status(unsigned int,unsigned int,unsigned int);
+            unsigned int peers=0,ping=0,client=0;
+            for(index=0;index<P2P_MAXIMUM_PEERS;index++)if(p2p.peers[index].used && p2p.peers[index].connected) {
+                peers++;if(p2p.peers[index].is_host)client=1;
+                if(p2p.peers[index].round_trip && (!ping || p2p.peers[index].round_trip<ping))ping=(unsigned int)p2p.peers[index].round_trip;
+            }
+            host_network_status(client?2:p2p.hosting?1:p2p.joining?3:0,peers,ping);
+        }
+#endif
 #ifdef HALO_ANDROID
 		poll_invite_file();
 #endif

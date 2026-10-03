@@ -1119,6 +1119,10 @@ static real sound_manager_master_gain(
 	short class_index)
 {
 	real gain = sound_class_get_gain(class_index);
+#ifdef HALO_IOS_GUEST
+    extern float host_audio_class_gain(unsigned int category);
+    gain *= host_audio_class_gain((unsigned int)class_index);
+#endif
 
 	if (class_index != _sound_class_scripted_dialog_to_player &&
 		class_index != _sound_class_scripted_dialog_to_other &&

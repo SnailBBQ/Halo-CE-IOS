@@ -92,6 +92,7 @@ jobs:
           "$RUNNER_TEMP/halo-invite-file-test"
           python3 tools/tests/test_ios_first_person_remap.py
           python3 tools/tests/test_ios_geometry_mirror.py
+          python3 tools/tests/test_ios_powerups.py
           python3 tools/tests/test_ios_campaign_policy.py
           python3 tools/tests/test_ios_arena_fastpath.py
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_controls_layout.c -o "$RUNNER_TEMP/halo-controls-test" -lm
@@ -273,6 +274,11 @@ jobs:
           xcrun --sdk iphoneos --show-sdk-version
           clang --version
           ls -lh build/guest/halo_guest.elf
+
+      - name: Verify streaming backups and recovery
+        run: |
+          clang -fobjc-arc -DHALO_BACKUP_TEST -framework Foundation -Iport/ios/HaloIOS port/ios/HaloIOS/HaloBackupArchive.m tools/tests/test_ios_backup_archive.m -o "$RUNNER_TEMP/halo-backup-test"
+          "$RUNNER_TEMP/halo-backup-test"
 
       - name: Build device host app
         run: |

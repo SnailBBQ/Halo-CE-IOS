@@ -251,7 +251,8 @@ static const char *const kControlNames[HC_COUNT] = {
     BOOL dim = c->hidden;  /* hidden controls show faintly while editing, not at all in play */
     BOOL show = !c->hidden || self.editing;
     shape.hidden = !show;
-    shape.opacity = dim ? 0.3f : 1.0f;
+    float individual=(self.editing?_work:_settings.presets[_settings.active]).place[i].opacity;
+    shape.opacity = dim ? 0.3f : individual;
 
     CATextLayer *label = self.labels[i];
     CATextLayer *sub = self.subLabels[i];
@@ -282,7 +283,7 @@ static const char *const kControlNames[HC_COUNT] = {
         sub.hidden = YES;
     }
     label.hidden = (text.length == 0) || !show;
-    label.opacity = sub.opacity = dim ? 0.3f : 1.0f;
+    label.opacity = sub.opacity = dim ? 0.3f : individual;
 }
 
 - (void)refresh
@@ -576,6 +577,8 @@ static NSNumber *HaloTouchKey(UITouch *touch)
         [self toolbarButton:@"−" action:@selector(smaller)],
         [self toolbarButton:@"+" action:@selector(larger)],
         [self toolbarButton:@"Hide / Show" action:@selector(toggleHidden)],
+        [self toolbarButton:@"Opacity" action:@selector(cycleOpacity)],
+        [self toolbarButton:@"Reset selected" action:@selector(resetSelected)],
         [self toolbarButton:@"Reset all" action:@selector(resetAll)],
         [self toolbarButton:@"Done" action:@selector(finishEditing)]]];
     row.axis = UILayoutConstraintAxisHorizontal;
@@ -629,6 +632,12 @@ static NSNumber *HaloTouchKey(UITouch *touch)
     [self relayout];
 }
 
+- (void)cycleOpacity {
+ if(_selected<0)return;float *v=&_work.place[_selected].opacity;*v=*v<=.25f?1.f:MAX(.25f,*v-.25f);[self relayout];
+}
+- (void)resetSelected {
+ if(_selected<0)return;HsPlacement p={0};p.scale=p.opacity=1.f;_work.place[_selected]=p;[self updateToolbarTitle];[self relayout];
+}
 - (void)resetAll
 {
     hs_reset_layout(&_work);

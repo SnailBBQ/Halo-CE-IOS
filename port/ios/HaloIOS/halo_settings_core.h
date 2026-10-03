@@ -28,6 +28,7 @@ typedef struct
     float fx, fy; /* centre as a fraction of the safe area */
     float scale;  /* 0.6 ... 1.8 */
     int hidden;
+    float opacity; /* independent control opacity, multiplied by preset opacity */
 } HsPlacement;
 
 typedef struct
@@ -49,8 +50,17 @@ typedef struct
     int cheat_weapon; /* 0 none, 1..10 weapon choices */
 } HsPreset;
 
+#define HS_HUD_COUNT 5
+/* FPS, weapon HUD, health/shields/radar, navigation, damage indicators.
+ * Offsets are fractions of the game viewport; groupings follow engine draw ownership. */
+typedef struct { float x,y,scale,opacity; int hidden; } HsHud;
+typedef struct { char name[HS_NAME_MAX+1]; HsHud elements[HS_HUD_COUNT]; } HsHudPreset;
 typedef struct
 {
+    HsHud hud[HS_HUD_COUNT];
+    HsHudPreset hud_presets[3];
+    float music_volume, dialogue_volume, effects_volume;
+    int cheat_camo, cheat_overshield;
     int active;               /* 0 ... 4 */
     HsPreset presets[HS_PRESET_COUNT];
     float volume;             /* 0 ... 1 */
@@ -115,7 +125,7 @@ static inline void hs_default_preset(HsPreset *p, int index)
 
     memset(p, 0, sizeof(*p));
     hs_set_name(p->name, names[hs_clampi(index, 0, HS_PRESET_COUNT - 1)]);
-    for (int i = 0; i < HC_COUNT; i++) p->place[i].scale = 1.0f;
+    for (int i = 0; i < HC_COUNT; i++) { p->place[i].scale = 1.0f; p->place[i].opacity=1.f; }
     p->opacity = 0.85f;
     p->touch_look = 1;
     p->look_sensitivity = 1.0f;
@@ -154,6 +164,9 @@ static inline void hs_defaults(HsSettings *s)
     for (int i = 0; i < HS_PRESET_COUNT; i++) hs_default_preset(&s->presets[i], i);
     s->active = 0;
     s->volume = 1.0f;
+    s->music_volume=s->dialogue_volume=s->effects_volume=1.f;
+    for(int h=0;h<HS_HUD_COUNT;h++) { s->hud[h].scale=s->hud[h].opacity=1.f; }
+    for(int p=0;p<3;p++) { snprintf(s->hud_presets[p].name,HS_NAME_MAX+1,"HUD %d",p+1); memcpy(s->hud_presets[p].elements,s->hud,sizeof(s->hud)); }
     s->cheat_jump = s->cheat_speed = 1.0f;
     s->audio_enabled = 1;
     s->join_from_clipboard = 0; /* reading the clipboard shows an iOS paste prompt */
@@ -177,6 +190,7 @@ static inline void hs_sanitize_preset(HsPreset *p)
         p->place[i].fy = hs_clampf(p->place[i].fy, 0.0f, 1.0f);
         p->place[i].scale = hs_clampf(p->place[i].scale, 0.6f, 1.8f);
         p->place[i].hidden = p->place[i].hidden ? 1 : 0;
+        p->place[i].opacity=hs_clampf(p->place[i].opacity,0.1f,1.f);
     }
     p->opacity = hs_clampf(p->opacity, 0.25f, 1.0f);
     p->touch_look = p->touch_look ? 1 : 0;
@@ -188,17 +202,25 @@ static inline void hs_sanitize_preset(HsPreset *p)
     p->look_curve = hs_clampf(p->look_curve, 1.0f, 3.0f);
     p->haptics = p->haptics ? 1 : 0;
     p->face_style = hs_clampi(p->face_style,0,1);
-    p->cheat_flags &= 2047u; p->cheat_actions &= 15u;
+    p->cheat_flags &= 8191u; p->cheat_actions &= 15u;
     p->cheat_weapon=hs_clampi(p->cheat_weapon,0,10);
     p->cheat_jump=hs_clampf(p->cheat_jump,1,10);
     p->cheat_speed=hs_clampf(p->cheat_speed,1,5);
     p->cheat_fov=p->cheat_fov==0 ? 0 : hs_clampf(p->cheat_fov,20,90);
 }
 
+static inline void hs_sanitize_hud(HsHud *h) {
+ h->x=hs_clampf(h->x,-0.45f,0.45f);h->y=hs_clampf(h->y,-0.45f,0.45f);
+ h->scale=hs_clampf(h->scale,0.5f,1.5f);h->opacity=hs_clampf(h->opacity,0.f,1.f);h->hidden=!!h->hidden;
+}
 static inline void hs_sanitize(HsSettings *s)
 {
     for (int i = 0; i < HS_PRESET_COUNT; i++) hs_sanitize_preset(&s->presets[i]);
     s->active = hs_clampi(s->active, 0, HS_PRESET_COUNT - 1);
+    for(int h=0;h<HS_HUD_COUNT;h++) hs_sanitize_hud(&s->hud[h]);
+    for(int p=0;p<3;p++) { char name[HS_NAME_MAX+1];hs_set_name(name,s->hud_presets[p].name);memcpy(s->hud_presets[p].name,name,sizeof(name));for(int h=0;h<HS_HUD_COUNT;h++) hs_sanitize_hud(&s->hud_presets[p].elements[h]); }
+    s->music_volume=hs_clampf(s->music_volume,0,1);s->dialogue_volume=hs_clampf(s->dialogue_volume,0,1);s->effects_volume=hs_clampf(s->effects_volume,0,1);
+    s->cheat_camo=!!s->cheat_camo;s->cheat_overshield=!!s->cheat_overshield;
     s->volume = hs_clampf(s->volume, 0.0f, 1.0f);
     s->audio_enabled = s->audio_enabled ? 1 : 0;
     s->join_from_clipboard = s->join_from_clipboard ? 1 : 0;
@@ -294,6 +316,7 @@ static inline void hs_clear_cheats(HsSettings *s) {
     s->cheat_god=s->cheat_ammo=s->cheat_grenades=s->cheat_reload=0;
     s->cheat_one_hit=s->cheat_flashlight=s->cheat_no_fall=s->cheat_rapid=0;
     s->cheat_no_recoil=s->cheat_third_person=s->cheat_noclip=0;
+    s->cheat_camo=s->cheat_overshield=0;
     s->cheat_jump=s->cheat_speed=1.f;s->cheat_fov=0;
 }
 static inline void hs_apply_preset_cheats(HsSettings *s,int index) {
@@ -302,6 +325,7 @@ static inline void hs_apply_preset_cheats(HsSettings *s,int index) {
     s->cheat_god=!!(f&1);s->cheat_ammo=!!(f&2);s->cheat_grenades=!!(f&4);s->cheat_reload=!!(f&8);
     s->cheat_one_hit=!!(f&16);s->cheat_flashlight=!!(f&32);s->cheat_no_fall=!!(f&64);
     s->cheat_rapid=!!(f&128);s->cheat_no_recoil=!!(f&256);s->cheat_third_person=!!(f&512);s->cheat_noclip=!!(f&1024);
+    s->cheat_camo=!!(f&2048);s->cheat_overshield=!!(f&4096);
     s->cheat_jump=p->cheat_jump;s->cheat_speed=p->cheat_speed;s->cheat_fov=p->cheat_fov;
 }
 
@@ -318,6 +342,9 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
     size_t n = 0;
 #define EMIT(...) do { int w = snprintf(out + n, n < size ? size - n : 0, __VA_ARGS__); if (w < 0) return -1; n += (size_t)w; } while (0)
     EMIT("HALO1\n");
+    EMIT("music=%.3f\ndialogue=%.3f\neffects=%.3f\n",s->music_volume,s->dialogue_volume,s->effects_volume);
+    for(int h=0;h<HS_HUD_COUNT;h++) { const HsHud *q=&s->hud[h];EMIT("hud%d=%.4f,%.4f,%.3f,%.3f,%d\n",h,q->x,q->y,q->scale,q->opacity,q->hidden); }
+    for(int p=0;p<3;p++) { EMIT("hn%d=%s\n",p,s->hud_presets[p].name);for(int h=0;h<HS_HUD_COUNT;h++) { const HsHud *q=&s->hud_presets[p].elements[h];EMIT("hp%d.%d=%.4f,%.4f,%.3f,%.3f,%d\n",p,h,q->x,q->y,q->scale,q->opacity,q->hidden); } }
     EMIT("active=%d\nvolume=%.3f\naudio=%d\nclipboard=%d\nfps=%d\nprofiler=%d\nfpsmode=%d\nhireshud=%d\nhirestext=%d\ncontrols=%d\ncheatgod=%d\ncheatammo=%d\ncheatgrenades=%d\ncheatreload=%d\n", s->active, s->volume, s->audio_enabled,
          s->join_from_clipboard, s->show_fps, s->profiler, s->fps_mode, s->hires_hud, s->hires_text, s->controls_mode,
          s->cheat_god, s->cheat_ammo, s->cheat_grenades, s->cheat_reload);
@@ -344,8 +371,8 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
         {
             const HsPlacement *q = &p->place[c];
 
-            if (q->placed || q->scale != 1.0f || q->hidden)
-                EMIT("p%d.c.%s=%d,%.4f,%.4f,%.3f,%d\n", i, hs_control_keys[c], q->placed, q->fx, q->fy, q->scale, q->hidden);
+            if (q->placed || q->scale != 1.0f || q->hidden || q->opacity != 1.f)
+                EMIT("p%d.c.%s=%d,%.4f,%.4f,%.3f,%d,%.3f\n", i, hs_control_keys[c], q->placed, q->fx, q->fy, q->scale, q->hidden,q->opacity);
         }
     }
 #undef EMIT
@@ -383,6 +410,16 @@ static inline int hs_parse(HsSettings *s, const char *text)
                 else if (!strcmp(key, "volume")) s->volume = (float)atof(value);
                 else if (!strcmp(key, "audio")) s->audio_enabled = atoi(value);
                 else if (!strcmp(key, "clipboard")) s->join_from_clipboard = atoi(value);
+                else if (!strcmp(key,"music")) s->music_volume=(float)atof(value);
+                else if (!strcmp(key,"dialogue")) s->dialogue_volume=(float)atof(value);
+                else if (!strcmp(key,"effects")) s->effects_volume=(float)atof(value);
+                else if (!strncmp(key,"hud",3) || !strncmp(key,"hp",2)) {
+                    int h=-1,p=-1;HsHud *q=NULL;
+                    if (sscanf(key,"hud%d",&h)==1 && h>=0 && h<HS_HUD_COUNT) q=&s->hud[h];
+                    else if (sscanf(key,"hp%d.%d",&p,&h)==2 && p>=0 && p<3 && h>=0 && h<HS_HUD_COUNT) q=&s->hud_presets[p].elements[h];
+                    if(q) { HsHud v=*q;if(sscanf(value,"%f,%f,%f,%f,%d",&v.x,&v.y,&v.scale,&v.opacity,&v.hidden)==5)*q=v; }
+                }
+                else if (!strncmp(key,"hn",2)) { int p=-1;if(sscanf(key,"hn%d",&p)==1 && p>=0 && p<3)hs_set_name(s->hud_presets[p].name,value); }
                 else if (!strcmp(key, "fps")) s->show_fps = atoi(value);
                 else if (!strcmp(key, "profiler")) s->profiler = atoi(value);
                 else if (!strcmp(key, "smooth")) s->fps_mode = atoi(value) ? 1 : 0; /* M2.6.33-35 files */
@@ -436,11 +473,11 @@ static inline int hs_parse(HsSettings *s, const char *text)
                             {
                                 HsPlacement *q = &p->place[index];
                                 int placed = 0, hidden = 0;
-                                float fx = 0, fy = 0, scale = 1;
+                                float fx = 0, fy = 0, scale = 1,opacity=1;
 
-                                if (sscanf(value, "%d,%f,%f,%f,%d", &placed, &fx, &fy, &scale, &hidden) == 5)
+                                if (sscanf(value, "%d,%f,%f,%f,%d,%f", &placed, &fx, &fy, &scale, &hidden,&opacity) >= 5)
                                 {
-                                    q->placed = placed; q->fx = fx; q->fy = fy; q->scale = scale; q->hidden = hidden;
+                                    q->placed = placed; q->fx = fx; q->fy = fy; q->scale = scale; q->hidden = hidden; q->opacity=opacity;
                                 }
                                 break;
                             }

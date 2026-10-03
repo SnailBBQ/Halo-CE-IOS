@@ -1,6 +1,8 @@
 #import "HaloSettingsViewController.h"
 #import "HaloSettingsStore.h"
 #import "HaloUI.h"
+#import "HaloLibrary.h"
+#import "HaloHudEditor.h"
 #import "halo_ios_platform.h"
 #import "halo_guest_runner.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
@@ -30,7 +32,7 @@
 @end
 
 typedef NS_ENUM(NSInteger, HaloCategory) {
-    HaloCategoryMultiplayer = 0, HaloCategoryControls, HaloCategoryDisplay, HaloCategoryAudio, HaloCategoryCheats, HaloCategoryAdvanced,
+    HaloCategoryMultiplayer = 0, HaloCategoryControls, HaloCategoryDisplay, HaloCategoryAudio, HaloCategoryCheats, HaloCategoryMaps, HaloCategoryAdvanced,
     HaloCategoryLogs, HaloCategoryCount
 };
 
@@ -52,6 +54,7 @@ static NSString *HaloCategoryTitle(HaloCategory c)
         case HaloCategoryDisplay: return @"Display";
         case HaloCategoryAudio: return @"Audio";
         case HaloCategoryCheats: return @"Cheats";
+        case HaloCategoryMaps: return @"Maps";
         case HaloCategoryAdvanced: return @"Advanced";
         default: return @"Logs";
     }
@@ -65,6 +68,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         case HaloCategoryDisplay: return @"display";
         case HaloCategoryAudio: return @"speaker.wave.2.fill";
         case HaloCategoryCheats: return @"sparkles";
+        case HaloCategoryMaps: return @"map.fill";
         case HaloCategoryAdvanced: return @"wrench.and.screwdriver.fill";
         default: return @"doc.text.magnifyingglass";
     }
@@ -163,6 +167,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
 
 - (void)choose:(HaloCategory)category
 {
+    if(category==HaloCategoryMaps) { UIViewController *c=HaloMapsController();c.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:c animated:YES completion:nil];return; }
     if (category == HaloCategoryLogs) {
         void (^go)(void) = self.onShowLog;
         [self dismissViewControllerAnimated:YES completion:^{ if (go) go(); }];
@@ -211,6 +216,20 @@ static NSString *HaloCategorySymbol(HaloCategory c)
 
 - (void)buildMultiplayer:(const HsSettings *)settings
 {
+    [self add:HaloUICardView(@"Connection",@[
+        HaloUINote(HaloNetworkSummary()),
+        HaloUINote(@"Ping measures the encrypted peer tunnel; it is not server simulation time. LAN-only games may not provide a tunnel measurement."),
+        HaloUIButton(@"Refresh connection status",0,^(UIButton *b){ (void)b;[self renderSoon]; })])];
+    NSString *path=[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Halo/debug.txt"];
+    NSFileHandle *log=[NSFileHandle fileHandleForReadingAtPath:path];NSString *last=nil;
+    @try { unsigned long long size=[log seekToEndOfFile];[log seekToFileOffset:size>65536?size-65536:0];NSString *tail=[[NSString alloc] initWithData:[log readDataOfLength:65536] encoding:NSUTF8StringEncoding];
+        for(NSString *line in [tail componentsSeparatedByString:@"\n"]) { NSString *lower=line.lowercaseString;
+            if([lower containsString:@"timed out"])last=@"A peer stopped responding and timed out.";
+            else if([lower containsString:@"connection lost"])last=@"The game reported a lost connection.";
+            else if([lower containsString:@"failed to connect"])last=@"The game could not establish a connection.";
+        }
+    } @catch(NSException *e){(void)e;} @finally {[log closeFile];}
+    if(last)[self add:HaloUICardView(@"Last connection event in this log",@[HaloUINote(last)])];
     UITextField *paste = [[UITextField alloc] init];
     paste.placeholder = @"halo://join/…";
     paste.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"halo://join/…" attributes:@{ NSForegroundColorAttributeName: HaloUISecondaryText() }];
@@ -388,6 +407,9 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUINote(note),
         HaloUINote(@"Switching between 30 and the other two takes effect the next time you open the app. Switching between 60 and Uncapped takes effect now.")])];
 
+    [self add:HaloUICardView(@"HUD Editor",@[
+        HaloUINote(@"Customize FPS and supported game HUD groups independently, or together. Preview changes over the game and save named HUD layouts."),
+        HaloUIButton(@"Edit HUD over game",1,^(UIButton *b){(void)b;UIViewController *root=self.presentingViewController;[self dismissViewControllerAnimated:YES completion:^{UIViewController *editor=[HaloHudEditor new];editor.modalPresentationStyle=UIModalPresentationOverFullScreen;[root presentViewController:editor animated:YES completion:nil];}];})])];
     [self add:HaloUICardView(@"First-person view", @[
         HaloUISegmentRow(nil, @[@"Both", @"Weapon", @"Hands", @"Hidden"], settings->viewmodel_mode, ^(NSInteger i) {
             [self update:^(HsSettings *s) { s->viewmodel_mode = (int)i; }];
@@ -409,7 +431,10 @@ static NSString *HaloCategorySymbol(HaloCategory c)
 {
     [self add:HaloUICardView(@"Sound", @[
         HaloUISwitchRow(@"Sound", nil, settings->audio_enabled, ^(BOOL on) { [self update:^(HsSettings *s) { s->audio_enabled = on; }]; }),
-        HaloUISliderRow(@"Volume", 0.0f, 1.0f, settings->volume, @"%.2f", ^(float v) { [self update:^(HsSettings *s) { s->volume = v; }]; }),
+        HaloUISliderRow(@"Master volume", 0.0f, 1.0f, settings->volume, @"%.2f", ^(float v) { [self update:^(HsSettings *s) { s->volume = v; }]; }),
+        HaloUISliderRow(@"Music",0,1,settings->music_volume,@"%.2f",^(float v){[self update:^(HsSettings *s){s->music_volume=v;}];}),
+        HaloUISliderRow(@"Dialogue",0,1,settings->dialogue_volume,@"%.2f",^(float v){[self update:^(HsSettings *s){s->dialogue_volume=v;}];}),
+        HaloUISliderRow(@"Effects",0,1,settings->effects_volume,@"%.2f",^(float v){[self update:^(HsSettings *s){s->effects_volume=v;}];}),
         HaloUINote(@"Halo plays even when the ring/silent switch is on, like a game console.")])];
 }
 
@@ -441,10 +466,17 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUINote(@"Pickups appear in front of you. Only assets already loaded by the current map are supported; unavailable assets report a message."),
         HaloUIButton(@"Weapon giver", 0, ^(UIButton *b) { [self chooseCampaignAsset:@"Weapon" names:@[@"Pistol", @"Assault rifle", @"Shotgun", @"Sniper rifle", @"Rocket launcher", @"Plasma pistol", @"Plasma rifle", @"Needler", @"Flamethrower", @"Gravity rifle"] base:100]; }),
         HaloUIButton(@"Vehicle spawner", 0, ^(UIButton *b) { [self chooseCampaignAsset:@"Vehicle" names:@[@"Warthog", @"Ghost", @"Banshee", @"Scorpion"] base:200]; }),
-        HaloUIButton(@"Spawn Overshield", 0, ^(UIButton *b) { [self queueCampaignAction:2]; }),
-        HaloUIButton(@"Spawn Active Camo", 0, ^(UIButton *b) { [self queueCampaignAction:3]; }),
-        HaloUIButton(@"Apply Active Camo", 0, ^(UIButton *b) { [self queueCampaignAction:1]; }),
-        HaloUIButton(@"Apply Overshield",0,^(UIButton *b) { [self queueCampaignAction:4]; })])];
+        HaloUINote(@"Power-ups have dedicated sections below.")])];
+    [self add:HaloUICardView(@"Active Camo",@[
+        HaloUISwitchRow(@"Infinite Active Camo",@"Maintains camouflage while enabled in this campaign session.",settings->cheat_camo,^(BOOL on){[self update:^(HsSettings *s){s->cheat_camo=on;}];}),
+        HaloUIButton(@"Spawn Active Camo",0,^(UIButton *b){[self queueCampaignAction:3];}),
+        HaloUIButton(@"Apply Active Camo",0,^(UIButton *b){[self queueCampaignAction:1];}),
+        HaloUINote(@"Apply is a single timed pickup. Infinite is a separate toggle.")])];
+    [self add:HaloUICardView(@"Overshield",@[
+        HaloUISwitchRow(@"Infinite Overshield",@"Replenishes the reserve while enabled in this campaign session.",settings->cheat_overshield,^(BOOL on){[self update:^(HsSettings *s){s->cheat_overshield=on;}];}),
+        HaloUIButton(@"Spawn Overshield",0,^(UIButton *b){[self queueCampaignAction:2];}),
+        HaloUIButton(@"Apply Overshield",0,^(UIButton *b){[self queueCampaignAction:4];}),
+        HaloUINote(@"Apply charges once and follows Halo’s normal shield depletion rules. It does not continually refill.")])];
     [self add:HaloUICardView(nil, @[HaloUINote(@"Changes apply within a moment, also in the middle of a mission.")])];
 }
 
@@ -505,7 +537,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
     [rows addArrangedSubview:HaloUIButton(@"Done",1,^(UIButton *b) { [weakEditor dismissViewControllerAnimated:YES completion:nil];[self renderSoon]; })];
     [rows addArrangedSubview:HaloUINote(@"Edits save the recipe only. Use Apply this preset’s cheats during a solo campaign to activate it.")];
     [rows addArrangedSubview:HaloUISegmentRow(@"Face buttons",@[@"Classic Xbox UI",@"Playstation UI"],p.face_style,^(NSInteger value) { [self update:^(HsSettings *s) { s->presets[index].face_style=(int)value; }]; })];
-    NSArray<NSString *> *names=@[@"God mode",@"Infinite ammo",@"Infinite grenades",@"Bottomless clip",@"One-hit kills",@"Unlimited flashlight",@"No fall damage",@"Rapid fire",@"No recoil",@"Third person",@"Noclip"];
+    NSArray<NSString *> *names=@[@"God mode",@"Infinite ammo",@"Infinite grenades",@"Bottomless clip",@"One-hit kills",@"Unlimited flashlight",@"No fall damage",@"Rapid fire",@"No recoil",@"Third person",@"Noclip",@"Infinite Active Camo",@"Infinite Overshield"];
     for (NSUInteger bit=0;bit<names.count;++bit) {
         unsigned flag=1u<<(unsigned)bit;
         [rows addArrangedSubview:HaloUISwitchRow(names[bit],nil,!!(p.cheat_flags&flag),^(BOOL on) { [self update:^(HsSettings *s) { if (on) s->presets[index].cheat_flags|=flag;else s->presets[index].cheat_flags&=~flag; }]; })];
@@ -566,6 +598,9 @@ static NSString *HaloCategorySymbol(HaloCategory c)
             })])];
     }
 
+    [self add:HaloUICardView(@"Backups",@[
+        HaloUINote(@"Save profiles, progress, preferences and layouts. Maps are optional. Export through Files; restore safely on the next launch."),
+        HaloUIButton(@"Manage backups",1,^(UIButton *b){(void)b;UIViewController *c=HaloBackupsController();c.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:c animated:YES completion:nil];})])];
     NSString *version = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?";
     [self add:HaloUICardView(@"About", @[
         HaloUIValueRow(@"App version", version, nil),

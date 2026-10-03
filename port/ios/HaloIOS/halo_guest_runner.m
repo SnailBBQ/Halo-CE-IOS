@@ -702,6 +702,28 @@ int halo_ios_queue_campaign_action(uint32_t action)
     if (ok) { g_campaign_queue[(g_campaign_head+g_campaign_count)%16]=action;++g_campaign_count; }
     pthread_mutex_unlock(&g_campaign_lock);return ok;
 }
+/* Scalar audio controls are atomic: no Objective-C lock on a mixing hot path. */
+static _Atomic float g_music_gain=1.f,g_dialogue_gain=1.f,g_effects_gain=1.f;
+void halo_ios_set_channel_gains(float music,float dialogue,float effects) {
+ atomic_store(&g_music_gain,music);atomic_store(&g_dialogue_gain,dialogue);atomic_store(&g_effects_gain,effects);
+}
+static float ios_audio_class_gain(uint32_t category) {
+ return atomic_load(category==32?&g_music_gain:(category==19 || category==44 || category==46 || category==47)?&g_dialogue_gain:&g_effects_gain);
+}
+/* HUD packet is copied once per screen draw, with no guest pointers retained. */
+static void ios_hud_options(uint32_t packet) {
+ HsHud *out=gp(packet,sizeof(HsHud)*HS_HUD_COUNT);if(!out)return;
+ HsSettings s=[[HaloSettingsStore shared] snapshot];memcpy(out,s.hud,sizeof(s.hud));
+}
+static _Atomic uint32_t g_network_role,g_network_peers,g_network_ping;
+static void ios_network_status(uint32_t role,uint32_t peers,uint32_t ping) {
+ atomic_store(&g_network_role,role);atomic_store(&g_network_peers,peers);atomic_store(&g_network_ping,ping);
+}
+NSString *HaloNetworkSummary(void) {
+ unsigned role=atomic_load(&g_network_role),peers=atomic_load(&g_network_peers),ping=atomic_load(&g_network_ping);
+ NSString *status=role==1?@"Hosting":role==2?@"Client connected":role==3?@"Connecting":@"No active internet connection";
+ return [NSString stringWithFormat:@"%@ · %u connected peer%@ · %@",status,peers,peers==1?@"":@"s",ping?[NSString stringWithFormat:@"%u ms tunnel round trip",ping]:@"Ping unavailable"];
+}
 static void ios_campaign_options(uint32_t packet)
 {
     HaloCampaignOptions *out = (packet & 3u) ? NULL : gp(packet, sizeof(*out));
@@ -715,6 +737,8 @@ static void ios_campaign_options(uint32_t packet)
     if (s.cheat_no_recoil) result.flags |= IOS_CHEAT_NO_RECOIL;
     if (s.cheat_third_person) result.flags |= IOS_CHEAT_THIRD_PERSON;
     if (s.cheat_noclip) result.flags |= IOS_CHEAT_NOCLIP;
+    if (s.cheat_camo) result.flags |= IOS_CHEAT_CAMO;
+    if (s.cheat_overshield) result.flags |= IOS_CHEAT_OVERSHIELD;
     result.action = ios_campaign_take_action();
     memcpy(out, &result, sizeof(result));
 }
@@ -2548,6 +2572,9 @@ static void *resolve_host_import(const char *name)
     MAP("host_viewmodel_flags", ios_viewmodel_flags);
     MAP("host_active_invite", ios_active_invite);
     MAP("host_campaign_options", ios_campaign_options);
+    MAP("host_audio_class_gain",ios_audio_class_gain);
+    MAP("host_hud_options",ios_hud_options);
+    MAP("host_network_status",ios_network_status);
     MAP("host_campaign_state", ios_campaign_state);
     MAP("host_debug_state", ios_debug_state);
     MAP("host_cache_inflate", ios_cache_inflate_step);
@@ -3107,11 +3134,12 @@ static void *main_guest_thread(void *opaque)
     halo_ios_net_set_resolver(ios_net_resolver);
     halo_ios_net_set_logger(ios_net_log);
     signal(SIGPIPE, SIG_IGN); /* a peer closing a socket must not kill the app */
-    say("M2.6.43: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
+    say("M2.6.44: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
     say("Performance defaults: smooth 60 FPS follows the Settings switch; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.43: independent first-person meshes and bounded pose diagnostics; coordinated iCloud invite file support.");
-    say("M2.6.43 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
-    say("M2.6.43 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
+    say("M2.6.44: independent first-person meshes and bounded pose diagnostics; coordinated iCloud invite file support.");
+    say("M2.6.44: timed campaign power-ups, independent audio channels, HUD groups, map library and staged backups.");
+    say("M2.6.44 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.44 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
         g_header ? g_header->start : 0u,
         context.boot_va,
         halo_guest_base_is_4gb_aligned() ? "YES" : "NO");
@@ -3134,7 +3162,7 @@ static void *main_guest_thread(void *opaque)
         halo_guest_exec_guard_set_active(0);
         halo_guest_exec_stats st;
         halo_guest_exec_stats_get(&st);
-        say("M2.6.43 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
+        say("M2.6.44 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
             reason,
             (unsigned long long)st.pointer_upgrades,
             (unsigned long long)st.handled_faults,

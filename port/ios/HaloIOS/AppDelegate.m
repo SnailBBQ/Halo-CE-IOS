@@ -6,6 +6,7 @@
 #import "HaloSettingsViewController.h"
 #import "HaloLogViewController.h"
 #import "HaloSettingsStore.h"
+#import "HaloLibrary.h"
 #import "halo_ios_audio.h"
 #import "halo_ios_platform.h"
 #import "halo_crash_report.h"
@@ -302,7 +303,16 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 }
 - (void)updateFPS {
     HsSettings settings = [[HaloSettingsStore shared] snapshot];
-    self.fpsLabel.hidden = !settings.show_fps || !self.bootOverlay.hidden;
+    HsHud h=settings.hud[0];
+    self.fpsLabel.hidden = !settings.show_fps || h.hidden || !self.bootOverlay.hidden;
+    self.fpsLabel.alpha=h.opacity;
+    self.fpsLabel.font=[UIFont monospacedDigitSystemFontOfSize:13*h.scale weight:UIFontWeightBold];
+    [self.fpsLabel sizeToFit];
+    CGRect safe=UIEdgeInsetsInsetRect(self.fpsLabel.superview.bounds,self.fpsLabel.superview.safeAreaInsets);
+    CGPoint center=CGPointMake(CGRectGetMinX(safe)+safe.size.width*(.5+h.x),CGRectGetMinY(safe)+safe.size.height*(.14+h.y));
+    center.x=MAX(CGRectGetMinX(safe)+self.fpsLabel.bounds.size.width/2,MIN(CGRectGetMaxX(safe)-self.fpsLabel.bounds.size.width/2,center.x));
+    center.y=MAX(CGRectGetMinY(safe)+self.fpsLabel.bounds.size.height/2,MIN(CGRectGetMaxY(safe)-self.fpsLabel.bounds.size.height/2,center.y));
+    self.fpsLabel.center=center;
     if (self.fpsLabel.hidden) { self.fpsLastTime = 0; return; }
     uint64_t frames = halo_ios_presented_frames();
     CFTimeInterval now = CACurrentMediaTime();
@@ -357,6 +367,11 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 }
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+    NSError *restoreError=nil;
+    if(!HaloApplyPendingRestore(&restoreError)) {
+        self.window=[[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];UIViewController *blocked=[UIViewController new];blocked.view.backgroundColor=UIColor.blackColor;self.window.rootViewController=blocked;[self.window makeKeyAndVisible];
+        dispatch_async(dispatch_get_main_queue(),^{UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Restore stopped" message:restoreError.localizedDescription preferredStyle:UIAlertControllerStyleAlert];[alert addAction:[UIAlertAction actionWithTitle:@"Close Halo" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){(void)a;halo_ios_quit_app();}]];[blocked presentViewController:alert animated:YES completion:nil];});return YES;
+    }
     halo_ios_set_hosted_invite(NULL); /* discard any invite left by a terminated run */
     [self prepareLaunchState];
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
@@ -374,7 +389,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"HALO iOS — M2.6.43 · add your maps";
+    title.text = @"HALO iOS — M2.6.44 · add your maps";
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:18];
 
@@ -432,7 +447,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     self.loadingStatus = loading;  /* kept hidden: loading takes a moment, not a progress box */
 
     UILabel *fps = [UILabel new];
-    fps.translatesAutoresizingMaskIntoConstraints = NO;
+    fps.translatesAutoresizingMaskIntoConstraints = YES;
     fps.font = [UIFont monospacedDigitSystemFontOfSize:13 weight:UIFontWeightBold];
     fps.textColor = UIColor.greenColor;
     fps.backgroundColor = [UIColor colorWithWhite:0 alpha:0.55];
@@ -441,9 +456,6 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     fps.hidden = YES;
     [vc.view addSubview:fps];
     self.fpsLabel = fps;
-    [NSLayoutConstraint activateConstraints:@[
-        [fps.centerXAnchor constraintEqualToAnchor:vc.view.centerXAnchor],
-        [fps.topAnchor constraintEqualToAnchor:gear.bottomAnchor constant:4]]];
     __weak AppDelegate *fpsOwner = self;
     self.fpsTimer = [NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer *timer) { [fpsOwner updateFPS]; }];
     UIButton *import = [UIButton buttonWithType:UIButtonTypeSystem];

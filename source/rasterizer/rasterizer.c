@@ -314,6 +314,9 @@ symbols in this file:
 #include "rasterizer/xbox/rasterizer_xbox_models.h"
 #include "rasterizer/xbox/rasterizer_xbox_dynavobgeom.h"
 #include "render/render.h"
+#ifdef HALO_IOS_GUEST
+#include "halo_ios_hud_options.h"
+#endif
 #include "render/render_debug.h"
 #include "saved games/game_state.h"
 #include "tag_files/tag_groups.h"
@@ -1629,6 +1632,25 @@ void rasterizer_psuedo_dynamic_screen_quad_draw(
 	struct rasterizer_dynamic_screen_geometry_parameters *parameters,
 	struct dynamic_screen_vertex *vertices)
 {
+#ifdef HALO_IOS_GUEST
+    /* Stack copies prevent transforms from modifying reusable game geometry. */
+    extern int halo_ios_hud_group;
+    if(halo_ios_hud_group>0 && halo_ios_hud_group<5) {
+        extern HaloHudOptions halo_ios_hud[5];
+        HaloHudOptions h=halo_ios_hud[halo_ios_hud_group];
+        struct dynamic_screen_vertex copy[4];
+        struct rasterizer_dynamic_screen_geometry_parameters params=*parameters;
+        real fades[3];int i;
+        if(h.hidden || h.opacity<=0.f)return;
+        if(h.x==0.f && h.y==0.f && h.scale==1.f && h.opacity==1.f) { _rasterizer_psuedo_dynamic_screen_quad_draw(parameters,vertices);return; }
+        memcpy(copy,vertices,sizeof(copy));
+        for(i=0;i<4;i++) { copy[i].position.x=320.f+(copy[i].position.x-320.f)*h.scale+h.x*640.f;copy[i].position.y=240.f+(copy[i].position.y-240.f)*h.scale+h.y*480.f; }
+        for(i=0;i<3;i++) { fades[i]=(params.map_fade[i]?*params.map_fade[i]:1.f)*h.opacity;params.map_fade[i]=&fades[i]; }
+        params.plasma_fade.alpha*=h.opacity;
+        _rasterizer_psuedo_dynamic_screen_quad_draw(&params,copy);
+        return;
+    }
+#endif
 	_rasterizer_psuedo_dynamic_screen_quad_draw(parameters, vertices);
 	return;
 }

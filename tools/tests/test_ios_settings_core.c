@@ -196,6 +196,20 @@ int main(void)
     CHECK(!strcmp(ps[HC_A].label,"×") && !strcmp(ps[HC_X].label,"□") && ps[HC_A].button==HC_BTN_A,"PlayStation presentation retains input mapping");
     hs_apply_preset_cheats(&t,1);hs_clear_cheats(&t);
     CHECK(hs_cheat_mask(&t)==0 && t.cheat_jump==1 && t.cheat_fov==0 && t.presets[1].cheat_flags==2047,"lobby reset preserves recipes");
+    hs_defaults(&s);
+    s.hud[2].x=.125f;s.hud[2].scale=.8f;s.hud[2].opacity=.4f;s.hud[3].hidden=1;
+    memcpy(s.hud_presets[1].elements,s.hud,sizeof(s.hud));hs_set_name(s.hud_presets[1].name,"Quiet HUD");
+    s.music_volume=.3f;s.dialogue_volume=.7f;s.effects_volume=.5f;s.presets[2].place[HC_A].opacity=.25f;
+    s.presets[2].cheat_flags=2048u|4096u;hs_apply_preset_cheats(&s,2);
+    CHECK(s.cheat_camo&&s.cheat_overshield,"infinite powerups activate explicitly");
+    CHECK(hs_serialize(&s,text,sizeof(text))>0,"serialize HUD and audio");CHECK(hs_parse(&t,text),"parse HUD and audio");
+    CHECK(near(t.hud[2].x,.125f)&&near(t.hud[2].scale,.8f)&&near(t.hud[2].opacity,.4f)&&t.hud[3].hidden,"independent HUD settings persist");
+    CHECK(!strcmp(t.hud_presets[1].name,"Quiet HUD")&&near(t.hud_presets[1].elements[2].opacity,.4f),"named HUD recipes persist");
+    CHECK(near(t.music_volume,.3f)&&near(t.dialogue_volume,.7f)&&near(t.effects_volume,.5f),"audio channels persist");
+    CHECK(near(t.presets[2].place[HC_A].opacity,.25f)&&!t.cheat_camo&&!t.cheat_overshield,"individual control opacity persists but infinite effects do not");
+    hs_parse(&t,"HALO1\nhud2=nan,999,0,2,1\nmusic=nan\ndialogue=999\neffects=-3\n");
+    CHECK(t.hud[2].x==-.45f&&t.hud[2].y==.45f&&t.hud[2].scale==.5f&&t.hud[2].opacity==1,"hostile HUD values bounded");
+    CHECK(t.music_volume==0&&t.dialogue_volume==1&&t.effects_volume==0,"hostile audio gains bounded");
     if (!failures) printf("PASS: settings core: 5 named presets round-trip, hostile input is clamped, layouts stay on screen, stick feel\n");
     return failures ? 1 : 0;
 }
