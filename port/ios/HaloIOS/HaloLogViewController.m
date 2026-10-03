@@ -133,6 +133,13 @@ static NSString *HaloText(const char *c) { return [NSString stringWithUTF8String
     if (r->maps_total) [status addObject:HaloUIValueRow(@"Maps found", [NSString stringWithFormat:@"%d of %d", r->maps_found, r->maps_total], r->maps_found == r->maps_total ? HaloUIGreen() : HaloUIAmber())];
     [self.stack addArrangedSubview:HaloUICardView(@"Status", status)];
 
+    /* ---- where a fatal fault happened */
+    if (r->fault_count > 0) {
+        NSMutableArray<UIView *> *rows = [NSMutableArray arrayWithObject:HaloUINote(@"The game stopped in the first function below, called from the ones after it. Please share the logs.")];
+        for (int i = 0; i < r->fault_count; i++) [rows addObject:HaloUILabel(HaloText(r->fault[i]), 12.5, UIFontWeightRegular, HaloUISecondaryText())];
+        [self.stack addArrangedSubview:HaloUICardView(@"Where it stopped", rows)];
+    }
+
     /* ---- how the last start went */
     if (r->previous_start[0] || r->safe_start) {
         NSMutableArray<UIView *> *rows = [NSMutableArray array];
@@ -170,6 +177,23 @@ static NSString *HaloText(const char *c) { return [NSString stringWithUTF8String
         }
         [self.stack addArrangedSubview:HaloUICardView(@"Busiest game functions", rows)];
     }
+
+    /* ---- memory: a game that runs out of it stops, so this shows how close it is */
+    NSMutableArray<UIView *> *memory = [NSMutableArray array];
+    if (r->mem_used_mib >= 0 && r->mem_region_mib > 0) {
+        double share = (double)r->mem_used_mib / (double)r->mem_region_mib;
+        UIColor *tint = share > 0.9 ? HaloUIRed() : (share > 0.75 ? HaloUIAmber() : HaloUIGreen());
+        [memory addObject:HaloUIValueRow(@"Game address space", [NSString stringWithFormat:@"%ld of %ld MiB", r->mem_used_mib, r->mem_region_mib], tint)];
+        if (r->mem_peak_mib >= 0) [memory addObject:HaloUIValueRow(@"Highest so far", [NSString stringWithFormat:@"%ld MiB", r->mem_peak_mib], nil)];
+        if (r->mem_failures > 0) [memory addObject:HaloUIValueRow(@"Requests that found no room", [NSString stringWithFormat:@"%ld", r->mem_failures], HaloUIRed())];
+    }
+    if (r->device_left_mib >= 0) {
+        UIColor *tint = r->device_left_mib < 300 ? HaloUIRed() : (r->device_left_mib < 700 ? HaloUIAmber() : HaloUIGreen());
+        if (r->device_footprint_mib >= 0) [memory addObject:HaloUIValueRow(@"App memory", [NSString stringWithFormat:@"%ld MiB", r->device_footprint_mib], nil)];
+        [memory addObject:HaloUIValueRow(@"Left before iOS closes the app", [NSString stringWithFormat:@"%ld MiB", r->device_left_mib], tint)];
+    }
+    if (!memory.count) [memory addObject:HaloUINote(@"No memory report yet. It is reported every 10 seconds.")];
+    [self.stack addArrangedSubview:HaloUICardView(@"Memory", memory)];
 
     /* ---- sound and multiplayer */
     NSMutableArray<UIView *> *sound = [NSMutableArray array];

@@ -46,6 +46,7 @@ int main(void)
     CHECK(r.waiting_percent > 50 && r.waiting_percent < 70, "the game thread is mostly waiting for the display: median of the last five reports (%.1f%%)", r.waiting_percent);
     CHECK(r.profile_samples > 1000, "profile samples %d", r.profile_samples);
     CHECK(r.top_count > 0 && strstr(r.top[0], "%"), "top game functions listed (%d)", r.top_count);
+    CHECK(r.mem_used_mib == -1, "an older log with no memory lines reports none");
     CHECK(r.audio_open && strstr(r.audio_text, "speaker") && r.underruns == 0, "sound: open %d '%s' underruns %u", r.audio_open, r.audio_text, r.underruns);
     CHECK(!strcmp(r.build, "Halo CE (Xbox build 2342)"), "build '%s'", r.build);
     CHECK(!strcmp(r.map, "a10"), "last map '%s'", r.map);
@@ -85,6 +86,44 @@ int main(void)
     halo_report_build(&loader, "FULL GUEST: could not map the guest image (0x88000000..0x88a00000, 10 MiB).\nFULL GUEST IMAGE: 0x88000000-0x892ea038, start=0x883d11a0\nFULL GUEST STATUS: STILL RUNNING AFTER 5 SECONDS\n", "");
     CHECK(loader.problem_count == 1 && find(&loader, "The game engine could not start") && strstr(find(&loader, "The game engine could not start")->detail, "could not map"), "a loader failure is one problem; the IMAGE and STATUS lines are not problems");
     CHECK(find(&bad, "previous start") == NULL && find(&bad, "The last start crashed") == NULL, "last-start lines go to the Summary, not the list");
+
+    /* ---- memory report lines are measurements, never problems; a real failure is */
+    static HaloReport mem;
+    halo_report_build(&mem,
+        "guest memory: 212 of 768 MiB of the game's address space in use (highest 301 MiB, 14 MiB free in holes), 0 failed requests\n"
+        "device memory: app footprint 1873 MiB, 1190 MiB left before iOS ends the app\n", "");
+    CHECK(mem.mem_used_mib == 212 && mem.mem_region_mib == 768 && mem.mem_peak_mib == 301 && mem.mem_failures == 0, "guest memory parsed: %ld of %ld peak %ld failures %ld", mem.mem_used_mib, mem.mem_region_mib, mem.mem_peak_mib, mem.mem_failures);
+    CHECK(mem.device_footprint_mib == 1873 && mem.device_left_mib == 1190, "device memory parsed: %ld / %ld", mem.device_footprint_mib, mem.device_left_mib);
+    CHECK(mem.problem_count == 0, "the word 'failed requests' in a healthy memory line is not a problem (%d problems)", mem.problem_count);
+    halo_report_build(&mem, "guest memory: out of address space (the game asked for 131072 KiB; 760 of 768 MiB in use, 3 MiB free in holes, the largest 1 MiB)\n"
+                            "guest memory: 760 of 768 MiB of the game's address space in use (highest 768 MiB, 3 MiB free in holes), 7 failed requests\n", "");
+    CHECK(mem.problem_count == 1 && find(&mem, "The game ran out of memory space") && mem.mem_failures == 7, "out-of-memory is one error problem (%d problems, %ld failures)", mem.problem_count, mem.mem_failures);
+    CHECK(find(&mem, "The game ran out of memory space")->severity == 0, "and an error");
+    static HaloReport none;
+    halo_report_build(&none, "FULL GUEST STATUS: STILL RUNNING AFTER 5 SECONDS\n", "");
+    CHECK(none.mem_used_mib == -1 && none.device_left_mib == -1, "no memory report in the log gives -1");
+
+    /* ---- where a fatal fault happened */
+    static HaloReport fault;
+    halo_report_build(&fault,
+        "EXECUTION FAULT: guestPC=0x883d3e30 fault=0x300000010 insn=0x00000000 Rn=x8\n"
+        "FAULT FUNCTION (where the program counter was):\n"
+        "  in prepare_draw+0x1c4 (guest address 0x8836e2f8)\n"
+        "  called from (link register) D3DDevice_DrawIndexedVertices+0x88 (guest address 0x8835a110)\n"
+        "  then rasterizer_draw+0x40 (guest address 0x88123450)\n"
+        "M2.6.15 RESULT: FULL GUEST REACHED AN EXECUTION/HOST BOUNDARY ABOVE.\n", "");
+    CHECK(fault.fault_count == 3 && !strncmp(fault.fault[0], "in prepare_draw", 15) && strstr(fault.fault[1], "called from") && strstr(fault.fault[2], "then rasterizer_draw"), "fault frames kept (%d)", fault.fault_count);
+    CHECK(fault.fault_count == 3 && strstr(fault.fault[0], "0x8836e2f8"), "with their addresses");
+
+    /* ---- the counters of the M2.6.42 build are measurements: the 21 "problems" that screen showed were all these */
+    static HaloReport counters;
+    halo_report_build(&counters,
+        "native uniforms: 93744 comparisons, 2813 uploads, 3272 KiB compared, 21.0 ms total; invalid native inputs 0\n"
+        "native scene invalid inputs: 0; datum diagnostic fallbacks: 0\n"
+        "native uniforms: 218299 comparisons, 10227 uploads, 7698 KiB compared, 28.1 ms total; invalid native inputs 0\n", "");
+    CHECK(counters.problem_count == 0, "counter lines are not problems (%d)", counters.problem_count);
+    halo_report_build(&counters, "native uniforms: 5 comparisons, 1 uploads, 1 KiB compared, 1.0 ms total; invalid native inputs 4\n", "");
+    CHECK(counters.problem_count == 1 && counters.problems[0].severity == 1, "a counter above zero is one warning");
 
     /* ---- empty and hostile input */
     static HaloReport empty;

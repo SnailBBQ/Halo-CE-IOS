@@ -1,0 +1,36 @@
+name: Halo CE iOS — Memory and diagnostics tests
+
+# Fast checks (about a minute, no iOS toolchain) of the guest address-space allocator, the release of freed memory,
+# and the log report. They also run as part of "Halo CE iOS — Build IPA" when that workflow includes them.
+on:
+  push:
+    paths:
+      - 'port/ios/HaloIOS/halo_guest_vm.h'
+      - 'port/ios/HaloIOS/halo_guest_runtime.c'
+      - 'port/ios/HaloIOS/halo_guest_runtime.h'
+      - 'port/ios/HaloIOS/halo_log_report.h'
+      - 'port/ios/HaloIOS/halo_log_classify.h'
+      - 'tools/tests/test_ios_guest_vm.c'
+      - 'tools/tests/test_ios_log_report.c'
+      - 'tools/tests/test_ios_image_load.c'
+      - 'tools/tests/fixtures/**'
+      - '.github/workflows/ios-memory-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run the tests
+        run: |
+          set -euxo pipefail
+          cc -std=gnu11 -O1 -Wall -Wextra -Wno-unused-function -Wno-unused-variable -Iport/ios/HaloIOS \
+            tools/tests/test_ios_guest_vm.c -o "$RUNNER_TEMP/halo-vm-test"
+          "$RUNNER_TEMP/halo-vm-test"
+          cc -std=gnu11 -Wall -Wextra -Wno-unused-function tools/tests/test_ios_image_load.c -o "$RUNNER_TEMP/halo-image-test"
+          "$RUNNER_TEMP/halo-image-test"
+          cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_log_report.c -o "$RUNNER_TEMP/halo-report-test" -lm
+          "$RUNNER_TEMP/halo-report-test"

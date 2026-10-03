@@ -123,7 +123,14 @@ int halo_guest_decommit(halo_guest_va_t va, size_t size)
     if (!guest_page_range(va, size, &lo, &hi))
         return 0;
 
-    return mprotect(g_guest_base + lo, (size_t)(hi - lo), PROT_NONE) == 0;
+    /*
+     * munmap: give the memory back. Mapping fresh anonymous pages over the range releases what was in it to the system
+     * and makes the next commit of the same range hand out zeroed pages, which is what mmap promises. (This used to be
+     * only mprotect(PROT_NONE): the pages stayed resident and kept their contents, so freed memory was never returned
+     * and a long session grew until iOS ended the app.)
+     */
+    return mmap(g_guest_base + lo, (size_t)(hi - lo), PROT_NONE,
+                MAP_FIXED | MAP_PRIVATE | MAP_ANON, -1, 0) != MAP_FAILED;
 }
 
 int halo_guest_read(halo_guest_va_t va, void *dst, size_t size)

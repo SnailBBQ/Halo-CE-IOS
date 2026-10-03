@@ -24,6 +24,10 @@ typedef struct halo_guest_exec_stats
     uint32_t last_guest_pc;
     uint32_t last_instruction;
     uint32_t last_base_register;
+    /* at the last fault that ended the guest: the frame pointer, link register and stack pointer (host addresses) */
+    uint64_t last_fp;
+    uint64_t last_lr;
+    uint64_t last_sp;
 } halo_guest_exec_stats;
 
 int halo_guest_exec_bridge_install(void);

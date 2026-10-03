@@ -153,12 +153,24 @@ static void set_pc(ucontext_t *context, uint64_t value)
 }
 #endif
 
-static void abort_guest_from_signal(uint64_t fault_address, uint64_t pc, uint32_t instruction)
+static void abort_guest_from_signal(uint64_t fault_address, uint64_t pc, uint32_t instruction, void *opaque)
 {
     g_stats.unhandled_faults++;
     g_stats.last_fault_address = fault_address;
     g_stats.last_host_pc = pc;
     g_stats.last_instruction = instruction;
+#if defined(__arm64__) || defined(__aarch64__)
+    if (opaque)
+    {
+        ucontext_t *context = (ucontext_t *)opaque;
+
+        g_stats.last_fp = get_register(context, 29);
+        g_stats.last_lr = get_register(context, 30);
+        g_stats.last_sp = get_register(context, 31);
+    }
+#else
+    (void)opaque;
+#endif
 
     if (g_guard_active)
         siglongjmp(g_guard, HALO_GUEST_ABORT_SIGNAL);
@@ -219,11 +231,11 @@ static void bridge_signal(int signal_number, siginfo_t *info, void *opaque)
             return;
         }
 
-        abort_guest_from_signal(fault, pc, instruction);
+        abort_guest_from_signal(fault, pc, instruction, opaque);
         return;
     }
 
-    abort_guest_from_signal(fault, pc, 0);
+    abort_guest_from_signal(fault, pc, 0, opaque);
     if (g_guard_active)
         return;
 

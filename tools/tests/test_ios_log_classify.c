@@ -39,6 +39,14 @@ int main(void)
     CAT("  previous crash: signal=11", HALO_LOG_ERROR);
     CAT("FULL GUEST: could not map the guest image (0x88000000..0x88a00000, 10 MiB).", HALO_LOG_ERROR);
     CAT("guest image: segment 1 at 0x88850000, 0x100000 bytes in memory, 0x200 from the file, rw-", HALO_LOG_INFO);
+    CAT("native uniforms: 93744 comparisons, 2813 uploads, 3272 KiB compared, 21.0 ms total; invalid native inputs 0", HALO_LOG_PERFORMANCE);
+    CAT("native scene invalid inputs: 0; datum diagnostic fallbacks: 0", HALO_LOG_PERFORMANCE);
+    CAT("native uniforms: 93744 comparisons, 2813 uploads, 3272 KiB compared, 21.0 ms total; invalid native inputs 3", HALO_LOG_WARNING);
+    CAT("native scene invalid inputs: 2; datum diagnostic fallbacks: 0", HALO_LOG_WARNING);
+    CAT("native vertex colors: 4096 calls, 512 KiB, 1.2 ms total, 0 guest fallbacks", HALO_LOG_PERFORMANCE);
+    CAT("guest memory: 212 of 768 MiB of the game's address space in use (highest 301 MiB, 14 MiB free in holes), 0 failed requests", HALO_LOG_PERFORMANCE);
+    CAT("guest memory: out of address space (the game asked for 131072 KiB; 760 of 768 MiB in use)", HALO_LOG_ERROR);
+    CAT("device memory: app footprint 1873 MiB, 1190 MiB left before iOS ends the app", HALO_LOG_PERFORMANCE);
     CAT("", HALO_LOG_INFO);
     CAT("starting main menu music", HALO_LOG_INFO);
 

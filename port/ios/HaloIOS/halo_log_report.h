@@ -29,6 +29,8 @@ typedef struct
     char detail[HR_TEXT];
 } HrProblem;
 
+#define HR_MAX_FRAMES 5 /* frames of a fault backtrace kept */
+
 typedef struct
 {
     /* status */
@@ -51,6 +53,14 @@ typedef struct
     char build[48];           /* "Halo CE (Xbox build 2342)" */
     char map[48];             /* the last map the game loaded */
     int maps_found, maps_total;
+
+    /* memory (-1 where the log has no report) */
+    long mem_used_mib, mem_region_mib, mem_peak_mib, mem_failures;
+    long device_footprint_mib, device_left_mib;
+
+    /* where a fatal fault happened: the function it was in, then who called it */
+    char fault[HR_MAX_FRAMES][100];
+    int fault_count;
 
     /* sound and network */
     int audio_open;
@@ -113,6 +123,10 @@ static const HrKnown hr_known[] = {
     { "reference function:", "Diagnostic header", "", 1, 1 },
     { "reference address:", "Diagnostic header", "", 1, 1 },
     { "unlocking all solo levels", "Diagnostic message", "", 1, 1 },
+    { "guest memory: out of address space", "The game ran out of memory space",
+      "The game asked for memory and the space for it was used up. The game usually stops soon after. Please share the logs.", 0, 0 },
+    { "guest memory: could not map", "The game could not get memory",
+      "iOS refused memory the game asked for. The game usually stops soon after. Please share the logs.", 0, 0 },
     { "checksum failed on persistent storage", "Saved profile check failed",
       "The game could not verify the profile data it saved on this device. Playing is not affected, but a profile or progress may not carry over.", 0, 1 },
     { "already exists", "A map object was created twice",
@@ -216,7 +230,7 @@ static inline void hr_each_line(const char *text, void (*visit)(void *, const ch
     }
 }
 
-struct hr_state { HaloReport *report; double fps_history[5]; int fps_count; double waiting; int in_profile; double wait_history[5]; int wait_count; int have_block; };
+struct hr_state { int in_fault; HaloReport *report; double fps_history[5]; int fps_count; double waiting; int in_profile; double wait_history[5]; int wait_count; int have_block; };
 
 static inline double hr_median(const double *values, int count)
 {
@@ -254,6 +268,28 @@ static inline void hr_visit_boot(void *context, const char *line)
         const char *slash = strchr(line, '/');
         if (slash) r->maps_total = atoi(slash + 1);
     }
+    if (!strncmp(line, "guest memory:", 13) && strstr(line, "address space in use"))
+    {
+        r->mem_used_mib = hr_int_after(line, "guest memory:");
+        r->mem_region_mib = hr_int_after(line, " of ");
+        r->mem_peak_mib = hr_int_after(line, "highest ");
+        const char *tail = strstr(line, "), ");
+        r->mem_failures = tail ? atol(tail + 3) : 0;
+    }
+    if (!strncmp(line, "device memory:", 14))
+    {
+        r->device_footprint_mib = hr_int_after(line, "footprint");
+        r->device_left_mib = hr_int_after(line, "MiB, ");
+    }
+    if (!strncmp(line, "FAULT FUNCTION", 14))
+        state->in_fault = 1;
+    else if (state->in_fault && !strncmp(line, "  ", 2) && (!strncmp(line + 2, "in ", 3) || !strncmp(line + 2, "called from", 11) || !strncmp(line + 2, "then ", 5)))
+    {
+        if (r->fault_count < HR_MAX_FRAMES)
+            hr_copy(r->fault[r->fault_count++], sizeof(r->fault[0]), line + 2);
+    }
+    else
+        state->in_fault = 0;
     if (!strncmp(line, "FULL GUEST STOPPED", 18) || !strncmp(line, "FULL GUEST BLOCKED", 18))
     {
         r->stopped = 1;
@@ -357,6 +393,8 @@ static inline void halo_report_build(HaloReport *r, const char *boot_log, const 
     state.report = r;
     r->render_ms = -1.0;
     r->waiting_percent = -1.0;
+    r->mem_used_mib = r->mem_region_mib = r->mem_peak_mib = r->mem_failures = -1;
+    r->device_footprint_mib = r->device_left_mib = -1;
     hr_each_line(boot_log, hr_visit_boot, &state);
     hr_each_line(game_log, hr_visit_game, &state);
     if (state.fps_count)

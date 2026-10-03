@@ -22,6 +22,8 @@ enum
     HALO_LOG_NOISE        /* the guest renderer's per-frame chatter */
 };
 
+static inline double halo_log_number_after(const char *line, const char *marker);
+
 static inline int halo_log_contains(const char *line, const char *needle)
 {
     return strstr(line, needle) != NULL;
@@ -49,6 +51,16 @@ static inline int halo_log_category(const char *line)
     if (!strncmp(line, "[guest] ", 8) || !strncmp(line, "final back buffer", 17) || !strncmp(line, "screen fade", 11) ||
         !strncmp(line, "scene: tick=", 12))
         return HALO_LOG_NOISE;
+    /* counters: "native uniforms: 93744 comparisons, ...; invalid native inputs 0" is a measurement, a warning only when
+       the count it carries is not zero */
+    if (!strncmp(line, "native ", 7))
+        return halo_log_number_after(line, "invalid native inputs") > 0 || halo_log_number_after(line, "invalid inputs:") > 0
+                   ? HALO_LOG_WARNING : HALO_LOG_PERFORMANCE;
+    /* the heartbeat's memory lines say "failed requests" even when there were none: they are measurements */
+    if (!strncmp(line, "guest memory: out of address space", 34) || !strncmp(line, "guest memory: could not map", 27))
+        return HALO_LOG_ERROR;
+    if (!strncmp(line, "guest memory:", 13) || !strncmp(line, "device memory:", 14))
+        return HALO_LOG_PERFORMANCE;
     if (halo_log_contains(line, "ERROR") || !strncmp(line, "FULL GUEST:", 11) || halo_log_contains(line, "BLOCKED") || halo_log_contains(line, "STOPPED") ||
         halo_log_contains_nocase(line, "failed") || halo_log_contains_nocase(line, "cannot ") ||
         halo_log_contains_nocase(line, "unable to") || halo_log_contains_nocase(line, "could not") ||

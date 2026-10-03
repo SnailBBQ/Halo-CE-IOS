@@ -217,7 +217,11 @@ static int g_logged_tp_repair;
 static pthread_mutex_t g_futex_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t g_futex_cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t g_alloc_lock = PTHREAD_MUTEX_INITIALIZER;
-static uint32_t g_heap_next = UINT32_C(0xA0000000);
+/* the guest's mmap region, 0xA0000000..0xD0000000: freed ranges are reused (halo_guest_vm.h) */
+#include "halo_guest_vm.h"
+#include <os/proc.h>
+static HaloVm g_vm;
+static unsigned g_memory_failures_logged;
 static uint32_t g_thread_stack_next = UINT32_C(0xEC000000);
 
 static atomic_int g_guest_finished;
@@ -774,25 +778,101 @@ static void ios_loading_stage(uint32_t name_va, int done)
     }
 }
 
+/* the first few failures are written to the log; the game retries and would otherwise flood it */
+static void report_memory_failure(const char *what, uint32_t size)
+{
+    if (g_memory_failures_logged++ >= 6)
+        return;
+    pthread_mutex_lock(&g_alloc_lock);
+    uint64_t used = g_vm.used >> 20, holes = halo_vm_hole_bytes(&g_vm) >> 20, largest = halo_vm_largest_hole(&g_vm) >> 20;
+    uint64_t region = ((uint64_t)g_vm.limit - g_vm.base) >> 20;
+    pthread_mutex_unlock(&g_alloc_lock);
+    say("guest memory: %s (the game asked for %u KiB; %llu of %llu MiB in use, %llu MiB free in holes, the largest %llu MiB)",
+        what, size >> 10, (unsigned long long)used, (unsigned long long)region, (unsigned long long)holes, (unsigned long long)largest);
+}
+
 static uint32_t guest_alloc(uint32_t size, uint32_t alignment)
 {
     if (alignment < 0x4000)
         alignment = 0x4000;
 
     pthread_mutex_lock(&g_alloc_lock);
-    uint32_t aligned = (g_heap_next + alignment - 1) & ~(alignment - 1);
-    uint64_t end = (uint64_t)aligned + size;
-    if (end >= UINT32_C(0xD0000000))
+    uint32_t va = halo_vm_alloc(&g_vm, size, alignment);
+    pthread_mutex_unlock(&g_alloc_lock);
+    if (!va)
     {
-        pthread_mutex_unlock(&g_alloc_lock);
+        report_memory_failure("out of address space", size);
         return 0;
     }
-    g_heap_next = (uint32_t)((end + 0x3FFF) & ~UINT64_C(0x3FFF));
-    pthread_mutex_unlock(&g_alloc_lock);
-
-    if (!halo_guest_commit(aligned, size))
+    if (!halo_guest_commit(va, size))
+    {
+        pthread_mutex_lock(&g_alloc_lock);
+        halo_vm_free(&g_vm, va, size);
+        pthread_mutex_unlock(&g_alloc_lock);
+        report_memory_failure("could not map the memory", size);
         return 0;
-    return aligned;
+    }
+    return va;
+}
+
+/* One line of a guest backtrace: the function and offset an address in the guest's code is in. */
+static void say_guest_frame(const char *label, uint64_t host_address, uint64_t arena)
+{
+    if (host_address < arena || host_address - arena >= FOUR_GB)
+        return;
+    uint32_t va = (uint32_t)(host_address - arena), symbol_va = 0;
+    const char *name = symbol_name_nearest(va, &symbol_va);
+    say("  %s %s+0x%x (guest address 0x%08x)", label, name ? name : "unknown", name ? va - symbol_va : 0, va);
+}
+
+/* Where a fatal fault happened, and who called it: the function the program counter is in (the bridge's own "last
+ * guest pc" is only the last indirect call it translated, a neighbour), the link register, then the frame-pointer chain
+ * on the guest's stack. The chain is read only inside the guest stack area and only while it climbs. */
+static void say_fault_backtrace(const halo_guest_exec_stats *stats)
+{
+    uint64_t arena = (uint64_t)(uintptr_t)halo_guest_base_address();
+
+    if (!arena)
+        return;
+    say("FAULT FUNCTION (where the program counter was):");
+    say_guest_frame("in", stats->last_host_pc, arena);
+    say_guest_frame("called from (link register)", stats->last_lr, arena);
+    uint64_t fp = stats->last_fp, previous = 0;
+    for (int depth = 0; depth < 10; depth++)
+    {
+        if (fp < arena || fp - arena >= FOUR_GB)
+            break;
+        uint32_t fp_va = (uint32_t)(fp - arena);
+        if (fp_va < UINT32_C(0xD0000000) || fp_va > UINT32_C(0xEFFFFFF0) || (fp_va & 15u) || fp <= previous)
+            break;
+        const uint64_t *record = halo_guest_ptr(fp_va, 16);
+        if (!record)
+            break;
+        say_guest_frame("then", record[1], arena);
+        previous = fp;
+        fp = record[0];
+    }
+}
+
+/* "guest memory: ..." and "device memory: ..." lines for the heartbeat */
+static void report_memory(void)
+{
+    pthread_mutex_lock(&g_alloc_lock);
+    uint64_t used = g_vm.used >> 20, peak = ((uint64_t)g_vm.peak - g_vm.base) >> 20, holes = halo_vm_hole_bytes(&g_vm) >> 20;
+    uint64_t region = ((uint64_t)g_vm.limit - g_vm.base) >> 20, lost = g_vm.lost >> 20, failures = g_vm.failures;
+    pthread_mutex_unlock(&g_alloc_lock);
+    say("guest memory: %llu of %llu MiB of the game's address space in use (highest %llu MiB, %llu MiB free in holes%s), %llu failed requests",
+        (unsigned long long)used, (unsigned long long)region, (unsigned long long)peak, (unsigned long long)holes,
+        lost ? ", some space lost" : "", (unsigned long long)failures);
+
+    task_vm_info_data_t info;
+    mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
+    if (task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&info, &count) == KERN_SUCCESS)
+    {
+        unsigned long long left = (unsigned long long)os_proc_available_memory() >> 20;
+        say("device memory: app footprint %llu MiB, %llu MiB left before iOS ends the app",
+            (unsigned long long)info.phys_footprint >> 20, left);
+    }
 }
 
 static const char *symbol_name_exact(uint32_t value)
@@ -1680,7 +1760,12 @@ static long long ios_host_syscall(long long number, long long a, long long b, lo
             return -ENOMEM;
 
         case 215: /* munmap */
-            return halo_guest_decommit((uint32_t)a, (size_t)b) ? 0 : -EINVAL;
+            if (!halo_guest_decommit((uint32_t)a, (size_t)b))
+                return -EINVAL;
+            pthread_mutex_lock(&g_alloc_lock);
+            halo_vm_free(&g_vm, (uint32_t)a, (uint32_t)b);
+            pthread_mutex_unlock(&g_alloc_lock);
+            return 0;
 
         case 222: /* mmap */
         {
@@ -2944,6 +3029,7 @@ static int compare_rows(const void *a, const void *b)
 
 static void report_profile(void)
 {
+    report_memory();    /* every heartbeat, with or without profile samples */
     static uint64_t pcs[PROFILE_SAMPLES];
     static struct profile_row guest[512], host[512], modules[64];
     unsigned guest_count = 0, host_count = 0, module_count = 0;
@@ -3074,7 +3160,8 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
     g_main_host_thread_valid=0;
     g_logged_ioctl=0;
     g_logged_tp_repair=0;
-    g_heap_next=UINT32_C(0xA0000000);
+    halo_vm_init(&g_vm, UINT32_C(0xA0000000), UINT32_C(0xD0000000), 0x4000u);
+    g_memory_failures_logged=0;
     g_thread_stack_next=UINT32_C(0xEC000000);
 
     halo_crash_phase("guest start");
@@ -3298,6 +3385,7 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
         const char *symbol=symbol_name_nearest(stats.last_guest_pc,&symbol_va);
         if(symbol)
             say("FAULT PC SYMBOL: %s+0x%x",symbol,stats.last_guest_pc-symbol_va);
+        say_fault_backtrace(&stats);
 
         uint64_t base=(uint64_t)(uintptr_t)halo_guest_base_address();
         if(stats.last_fault_address>=base &&
