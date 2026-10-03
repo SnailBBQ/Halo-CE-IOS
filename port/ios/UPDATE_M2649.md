@@ -52,3 +52,14 @@ and audio hooks.
 device build includes. The test build had its own `extern` line, so only the device build failed. `tools/tests/test_ios_header_declarations.py`
 now follows each file's real includes (with the test-only branch removed) and fails on a call to a project function that nothing it includes
 declares. It was run on the whole tree: this was the only one.
+
+## Fix 2 (third CI error: the link step)
+
+`HaloSettingsViewController.m` makes the invite QR code with CoreImage (`CIFilter`, `CIContext`), but CoreImage was not linked, so the link
+step failed with "Undefined symbols". `-framework CoreImage` is now in `OTHER_LDFLAGS` of both configurations (CoreMotion, for gyro, was added
+in M2.6.48 and was linked). Two checks now guard this kind of error, both run in CI:
+
+- `tools/tests/test_ios_frameworks_linked.py`: every framework the sources import or name a class or function of must be linked by the project
+  (checked against the original mistake; it flags CoreImage and nothing else, and all 10 frameworks in use are linked).
+- `tools/tests/test_ios_import_coverage.py`: every host function the game can call (`port/android/host_imports.list`) must be mapped by the
+  runner (all 51 are; checked to fail when one mapping is removed).
