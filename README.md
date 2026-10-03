@@ -19,8 +19,8 @@ That project is a fork of [punpckhdq/halo](https://github.com/punpckhdq/halo).
 This fork is based on Halo CE Universal **build 73** and adds an experimental native iOS app (arm64 host, arm64_32 guest, OpenGL ES 3).
 The iOS build has on-screen Xbox controls with five named schemes, touch-look, physical controller support, sound, a readable log and
 invite-link multiplayer that follows the other ports' protocol. See [iOS port status](IOS_PORT_STATUS.md), the
-[M2.6.47 release notes](port/ios/UPDATE_M2647.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
-Previous iOS milestone: **M2.6.42**. M2.6.42 replaces M2.6.41’s costly upload-every-draw fallback with exact native geometry comparisons: unchanged pages avoid GPU uploads while modified/reused pages remain fresh. Active cheats are session-only; presets have gear editors, campaign recipes and Xbox/PlayStation face-button styles. Advanced adds explicit Quit, manual Restart instructions and GitHub Credits. Device FPS, visuals and client stability need validation.
+[M2.6.50 release notes](port/ios/UPDATE_M2650.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
+Current iOS update: **M2.6.50** adds picture aspect/detail choices and opt-in touch aiming to the regular and mod-test apps; device validation is pending. Previous iOS milestone: **M2.6.42**. M2.6.42 replaces M2.6.41’s costly upload-every-draw fallback with exact native geometry comparisons: unchanged pages avoid GPU uploads while modified/reused pages remain fresh. Active cheats are session-only; presets have gear editors, campaign recipes and Xbox/PlayStation face-button styles. Advanced adds explicit Quit, manual Restart instructions and GitHub Credits. Device FPS, visuals and client stability need validation.
 Release downloads below are the upstream project's; the iOS build is an Actions artifact (**Halo CE iOS — Build IPA**).
 
 ## Download

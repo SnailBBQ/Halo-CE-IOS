@@ -762,6 +762,10 @@ static void ios_campaign_options(uint32_t packet)
     result.action = ios_campaign_take_action();
     memcpy(out, &result, sizeof(result));
 }
+static _Atomic int g_touch_auto_fire, g_touch_controller_connected;
+void halo_ios_set_touch_auto_fire(int enabled) { atomic_store(&g_touch_auto_fire, !!enabled); }
+void halo_ios_set_touch_controller_connected(int connected) { atomic_store(&g_touch_controller_connected, !!connected); }
+static int ios_touch_auto_fire(void) { return atomic_load(&g_touch_auto_fire) && !atomic_load(&g_touch_controller_connected); }
 static _Atomic uint32_t g_viewmodel_flags = 3;
 void halo_ios_set_viewmodel_flags(uint32_t flags) { atomic_store_explicit(&g_viewmodel_flags, flags & 3u, memory_order_relaxed); }
 static uint32_t ios_viewmodel_flags(void) { return atomic_load_explicit(&g_viewmodel_flags, memory_order_relaxed); }
@@ -2195,6 +2199,7 @@ void halo_ios_pad_axis(int axis, int value)
 
 void halo_ios_menu_reset(void)
 {
+    halo_ios_set_touch_auto_fire(0);
     atomic_store(&g_menu_held, 0);
     atomic_store(&g_menu_pending, 0);
     for (int i = 0; i < 6; i++) atomic_store(&g_touch_axis[i], 0);
@@ -2614,6 +2619,7 @@ static void *resolve_host_import(const char *name)
     MAP("host_audio_push", ios_audio_push);
     MAP("host_cheat_flags", ios_cheat_flags);
     MAP("host_viewmodel_flags", ios_viewmodel_flags);
+    MAP("host_touch_auto_fire", ios_touch_auto_fire);
     MAP("host_active_invite", ios_active_invite);
     MAP("host_campaign_options", ios_campaign_options);
     MAP("host_audio_class_gain",ios_audio_class_gain);
@@ -3009,9 +3015,19 @@ static uint32_t build_boot(void)
     snprintf(hires_text,sizeof(hires_text),"HALO_HIGH_RES_TEXT=%s",launch_settings.hires_text?"true":"false");
     char menus[32];
     snprintf(menus,sizeof(menus),"HALO_MENUS=%s",launch_settings.menu_style?"xbox":"pc");
-    const char *values[16]; unsigned count=0;
+    /* Capture screen shape on the UI thread; the guest boot runs on its own thread. */
+    __block CGSize display_size;
+    dispatch_sync(dispatch_get_main_queue(), ^{ display_size = UIScreen.mainScreen.bounds.size; });
+    int picture_width = hs_display_width(launch_settings.display_mode, display_size.width, display_size.height);
+    char picture[48], detail[48];
+    snprintf(picture,sizeof(picture),"HALO_DISPLAY_WIDTH=%d",g_safe_level?640:picture_width);
+    snprintf(detail,sizeof(detail),"HALO_RENDER_SCALE=%.1f",g_safe_level?1.0:hs_render_scale(launch_settings.render_quality));
+    const char *values[20]; unsigned count=0;
     values[count++]=data;
     values[count++]=save;
+    say("picture: logical=%dx480, target scale=%.1f; touch aiming options are opt-in", g_safe_level?640:picture_width, g_safe_level?1.0:hs_render_scale(launch_settings.render_quality));
+    values[count++]=picture;
+    values[count++]=detail;
     values[count++]="HALO_GPU_STATS=1";
     values[count++]=g_safe_level?"HALO_NET_ONLINE=false":"HALO_NET_ONLINE=true";
     values[count++]="HALO_NET_ALLOW_UPNP=false";
@@ -3184,12 +3200,12 @@ static void *main_guest_thread(void *opaque)
     halo_ios_net_set_resolver(ios_net_resolver);
     halo_ios_net_set_logger(ios_net_log);
     signal(SIGPIPE, SIG_IGN); /* a peer closing a socket must not kill the app */
-    say("M2.6.49: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
+    say("M2.6.50: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
     say("Performance defaults: smooth 60 FPS follows the Settings switch; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.49: independent first-person meshes and bounded pose diagnostics; coordinated iCloud invite file support.");
-    say("M2.6.49: timed campaign power-ups, independent audio channels, HUD groups, map library and staged backups.");
-    say("M2.6.49 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
-    say("M2.6.49 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
+    say("M2.6.50: independent first-person meshes and bounded pose diagnostics; coordinated iCloud invite file support.");
+    say("M2.6.50: timed campaign power-ups, independent audio channels, HUD groups, map library and staged backups.");
+    say("M2.6.50 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.50 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
         g_header ? g_header->start : 0u,
         context.boot_va,
         halo_guest_base_is_4gb_aligned() ? "YES" : "NO");
@@ -3212,7 +3228,7 @@ static void *main_guest_thread(void *opaque)
         halo_guest_exec_guard_set_active(0);
         halo_guest_exec_stats st;
         halo_guest_exec_stats_get(&st);
-        say("M2.6.49 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
+        say("M2.6.50 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
             reason,
             (unsigned long long)st.pointer_upgrades,
             (unsigned long long)st.handled_faults,

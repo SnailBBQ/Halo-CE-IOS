@@ -36,6 +36,7 @@ typedef struct
     char name[HS_NAME_MAX + 1];
     HsPlacement place[HC_COUNT];
     float opacity;            /* 0.25 ... 1.0 */
+    int auto_fire, fire_drag, stick_fire; /* opt-in touch aiming, saved per profile */
     int touch_look;           /* drag on empty screen to look */
     float look_sensitivity;   /* 0.25 ... 3.0 */
     int invert_look_y;
@@ -79,6 +80,7 @@ typedef struct
     int maps_show_files, maps_mp_alpha, maps_mp_only;          /* Mods: installed game files shown, multiplayer A-Z, campaign hidden */
     float ambient_volume;     /* device and ambient sound classes */
     int perf_overlay, thermal_cap;
+    int display_mode, render_quality; /* 0 4:3 / 1 16:9 / 2 screen aspect; 480 / 720 / 960 lines */
     int menu_style;           /* 0 the PC menus (server browser, Direct Link, Create Game), 1 the Xbox menus; read at launch */
     float pad_dead, pad_curve; unsigned char pad_map[14]; /* physical controller: stick shaping and button remap */
     int active;               /* 0 ... 4 */
@@ -106,6 +108,21 @@ typedef struct
     int hires_text;           /* build 73: menu and HUD text from the Overpass fonts at display resolution; applies at launch */
     int profiler;             /* sample the game thread for the log (about 1% of one core) */
 } HsSettings;
+
+/* Logical scene dimensions stay at 480 lines; target scale supplies extra detail.
+ * The even width matches the renderer's surface requirements. Invalid metrics
+ * fall back to the established 4:3 path, including NaN and zero-sized windows. */
+static inline int hs_display_width(int mode, double width, double height)
+{
+    if (mode == 1) return 854;
+    if (mode != 2 || !isfinite(width) || !isfinite(height) || width <= 0 || height <= 0) return 640;
+    double short_side = fmin(width, height), long_side = fmax(width, height);
+    double wanted = 480.0 * (long_side / short_side);
+    if (wanted < 640) return 640;
+    if (wanted > 1600) return 1600;
+    return ((int)wanted) & ~1;
+}
+static inline double hs_render_scale(int quality) { return quality == 1 ? 1.5 : quality == 2 ? 2.0 : 1.0; }
 
 static inline float hs_clampf(float v, float lo, float hi)
 {
@@ -236,6 +253,7 @@ static inline void hs_sanitize_preset(HsPreset *p)
         p->place[i].opacity=hs_clampf(p->place[i].opacity,0.1f,1.f);
     }
     p->opacity = hs_clampf(p->opacity, 0.25f, 1.0f);
+    p->auto_fire = !!p->auto_fire; p->fire_drag = !!p->fire_drag; p->stick_fire = !!p->stick_fire;
     p->touch_look = p->touch_look ? 1 : 0;
     p->look_sensitivity = hs_clampf(p->look_sensitivity, 0.25f, 3.0f);
     p->invert_look_y = p->invert_look_y ? 1 : 0;
@@ -280,6 +298,8 @@ static inline void hs_sanitize(HsSettings *s)
     s->profiler = s->profiler ? 1 : 0;
     s->gear_scale=hs_clampf(s->gear_scale,.75f,1.75f);s->ui_theme=hs_clampi(s->ui_theme,0,4);
     s->gear_placed=!!s->gear_placed;s->gear_x=hs_clampf(s->gear_x,0,1);s->gear_y=hs_clampf(s->gear_y,0,1);
+    s->display_mode = hs_clampi(s->display_mode, 0, 2);
+    s->render_quality = hs_clampi(s->render_quality, 0, 2);
     s->fps_mode = hs_clampi(s->fps_mode, 0, 2);
     s->controls_mode = hs_clampi(s->controls_mode, 0, 2);
     s->cheat_god = s->cheat_god ? 1 : 0;
@@ -420,7 +440,7 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
          s->maps_show_files, s->maps_mp_alpha, s->maps_mp_only, s->ambient_volume, s->perf_overlay, s->thermal_cap, s->pad_dead, s->pad_curve);
     EMIT("padmap=");
     for (int b = 0; b < 14; b++) EMIT("%u%s", (unsigned)s->pad_map[b], b + 1 < 14 ? "," : "\n");
-    EMIT("menus=%d\n", s->menu_style);
+    EMIT("menus=%d\ndisplaymode=%d\nrenderquality=%d\n", s->menu_style, s->display_mode, s->render_quality);
     EMIT("cheatone_hit=%d\n", s->cheat_one_hit);
     EMIT("cheatflashlight=%d\n", s->cheat_flashlight);
     EMIT("cheatno_fall=%d\n", s->cheat_no_fall);
@@ -438,6 +458,7 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
         EMIT("p%d.face=%d\np%d.cheats=%u\np%d.actions=%u\np%d.weapon=%d\np%d.jump=%.3f\np%d.speed=%.3f\np%d.fov=%.3f\n",i,p->face_style,i,p->cheat_flags,i,p->cheat_actions,i,p->cheat_weapon,i,p->cheat_jump,i,p->cheat_speed,i,p->cheat_fov);
         EMIT("p%d.slow=%d\np%d.mirror=%d\np%d.toggle=%u\np%d.gyro=%d\np%d.gyrosens=%.3f\np%d.gyroflipy=%d\np%d.gyroflipp=%d\n",
              i, p->cheat_slow, i, p->mirror, i, p->toggle_mask, i, p->gyro, i, p->gyro_sens, i, p->gyro_flip_yaw, i, p->gyro_flip_pitch);
+        EMIT("p%d.autofire=%d\np%d.firedrag=%d\np%d.stickfire=%d\n", i, p->auto_fire, i, p->fire_drag, i, p->stick_fire);
         EMIT("p%d.opacity=%.3f\np%d.look=%d\np%d.sens=%.3f\np%d.invert=%d\np%d.float=%d\n", i, p->opacity, i, p->touch_look,
              i, p->look_sensitivity, i, p->invert_look_y, i, p->floating_sticks);
         EMIT("p%d.dead=%.3f\np%d.movecurve=%.3f\np%d.lookcurve=%.3f\np%d.haptics=%d\n", i, p->stick_dead_zone, i, p->move_curve,
@@ -530,6 +551,8 @@ static inline int hs_parse(HsSettings *s, const char *text)
                 else if (!strcmp(key, "ambient")) s->ambient_volume = (float)atof(value);
                 else if (!strcmp(key, "perf")) s->perf_overlay = atoi(value);
                 else if (!strcmp(key, "thermal")) s->thermal_cap = atoi(value);
+                else if (!strcmp(key, "displaymode")) s->display_mode = atoi(value);
+                else if (!strcmp(key, "renderquality")) s->render_quality = atoi(value);
                 else if (!strcmp(key, "menus")) s->menu_style = atoi(value);
                 else if (!strcmp(key, "paddead")) s->pad_dead = (float)atof(value);
                 else if (!strcmp(key, "padcurve")) s->pad_curve = (float)atof(value);
@@ -568,6 +591,9 @@ static inline int hs_parse(HsSettings *s, const char *text)
                     else if (!strcmp(field,"speed")) p->cheat_speed=(float)atof(value);
                     else if (!strcmp(field,"fov")) p->cheat_fov=(float)atof(value);
                     else if (!strcmp(field, "opacity")) p->opacity = (float)atof(value);
+                    else if (!strcmp(field, "autofire")) p->auto_fire = atoi(value);
+                    else if (!strcmp(field, "firedrag")) p->fire_drag = atoi(value);
+                    else if (!strcmp(field, "stickfire")) p->stick_fire = atoi(value);
                     else if (!strcmp(field, "look")) p->touch_look = atoi(value);
                     else if (!strcmp(field, "sens")) p->look_sensitivity = (float)atof(value);
                     else if (!strcmp(field, "invert")) p->invert_look_y = atoi(value);

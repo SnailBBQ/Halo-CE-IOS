@@ -42,6 +42,9 @@ uint64_t halo_ios_presented_frames(void);
 
 /* Touch-look: finger motion in points; delivered to the game as mouse motion. */
 void halo_ios_touch_look(float dx, float dy);
+/* Touch-only assistance; reset on cancellation, settings, background and controller connection. */
+void halo_ios_set_touch_auto_fire(int enabled);
+void halo_ios_set_touch_controller_connected(int connected);
 /* Makes the game look at the clipboard (an invite link) on its next event poll. */
 void halo_ios_post_focus_event(void);
 

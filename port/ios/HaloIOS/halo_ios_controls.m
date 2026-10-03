@@ -104,6 +104,7 @@ static const char *const kControlNames[HC_COUNT] = {
     HsPreset _work;              /* the scheme being edited */
     int _selected;
     HcRect _stickBase[2];        /* where each stick's ring is right now (floating sticks move it) */
+    BOOL _stickFireHeld; /* separate hold ownership: releasing the stick cannot release manual Fire */
     BOOL _stickActive[2];
     HcRect _stickHome[2];
     CGSize _laidOutSize;
@@ -515,6 +516,13 @@ static NSNumber *HaloTouchKey(UITouch *touch)
                 index == 0 ? preset->move_curve : preset->look_curve, &dx, &dy, &ax, &ay);
     halo_ios_pad_axis(c->axis, ax);
     halo_ios_pad_axis(c->axis + 1, ay);
+    if (index == 1) {
+        BOOL firing = preset->stick_fire && (ax != 0 || ay != 0);
+        if (firing != _stickFireHeld) {
+            _stickFireHeld = firing;
+            if (firing) [self press:HC_RT]; else [self lift:HC_RT];
+        }
+    }
     [self moveStick:index knobDx:dx dy:dy];
 }
 
@@ -523,6 +531,7 @@ static NSNumber *HaloTouchKey(UITouch *touch)
     const HcControl *c = &_controls[index == 0 ? HC_LSTICK : HC_RSTICK];
     halo_ios_pad_axis(c->axis, 0);
     halo_ios_pad_axis(c->axis + 1, 0);
+    if (index == 1 && _stickFireHeld) { _stickFireHeld = NO; [self lift:HC_RT]; }
     _stickBase[index] = _stickHome[index];
     _stickActive[index] = NO;
     [self moveStick:index knobDx:0 dy:0];
@@ -557,6 +566,7 @@ static NSNumber *HaloTouchKey(UITouch *touch)
         NSNumber *key = HaloTouchKey(touch);
         if (self.editing) { [self editBegan:touch at:p]; continue; }
         const HsPreset *preset = [self preset];
+        halo_ios_set_touch_auto_fire(preset->auto_fire);
         int index = hc_hit(_controls, (float)p.x, (float)p.y, _scale);
         if (index >= 0) {
             const HcControl *c = &_controls[index];
@@ -565,6 +575,10 @@ static NSNumber *HaloTouchKey(UITouch *touch)
             if (c->kind == HC_KIND_STICK) [self startStick:(index == HC_LSTICK ? 0 : 1) at:p];
             else if (c->kind == HC_KIND_DPAD) [self updateDpadAt:p];
             else [self press:index];
+            if (index == HC_RT && preset->fire_drag) {
+                self.lastPoints[key] = [NSValue valueWithCGPoint:p];
+                self.lastTimes[key] = @(touch.timestamp);
+            }
             continue;
         }
         if (preset->floating_sticks && !_controls[HC_LSTICK].hidden && [self inLeftStickZone:p] && ![self someTouchHasRole:HC_LSTICK]) {
@@ -590,7 +604,7 @@ static NSNumber *HaloTouchKey(UITouch *touch)
         CGPoint p = [touch locationInView:self];
         int role = owner.intValue;
         if (role >= kRoleEditDrag) { [self editMoved:role - kRoleEditDrag touch:touch at:p]; continue; }
-        if (role == kRoleLook) {
+        if (role == kRoleLook || (role == HC_RT && [self preset]->fire_drag)) {
             CGPoint last = self.lastPoints[key].CGPointValue;
             double dt = touch.timestamp - self.lastTimes[key].doubleValue;
             const HsPreset *preset = [self preset];
@@ -627,6 +641,7 @@ static NSNumber *HaloTouchKey(UITouch *touch)
         else if (c->kind == HC_KIND_DPAD) [self updateDpadAt:CGPointMake(hc_cx(c->r), hc_cy(c->r))]; /* centre: releases all */
         else [self lift:role];
     }
+    if (self.owners.count == 0) halo_ios_set_touch_auto_fire(0);
     [self refresh];
 }
 
@@ -635,6 +650,8 @@ static NSNumber *HaloTouchKey(UITouch *touch)
 
 - (void)releaseAll
 {
+    _stickFireHeld = NO;
+    halo_ios_set_touch_auto_fire(0);
     [self.owners removeAllObjects];
     [self.lastPoints removeAllObjects];
     [self.lastTimes removeAllObjects];
@@ -883,6 +900,7 @@ static void HaloReportControllers(void)
         int32_t zero[6] = { 0, 0, 0, 0, 0, 0 };
         halo_ios_physical_pad_state(0, zero);
     }
+    halo_ios_set_touch_controller_connected(connected);
     if (g_controllers_changed) g_controllers_changed(connected);
 }
 

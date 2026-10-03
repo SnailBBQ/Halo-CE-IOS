@@ -10,6 +10,22 @@ int main(void)
     HsSettings s, t;
     char text[16384];
 
+    /* Display geometry, legacy defaults and touch profile persistence. */
+    hs_defaults(&s);
+    CHECK(s.display_mode == 0 && s.render_quality == 0, "legacy performance picture remains default");
+    for (int i=0;i<HS_PRESET_COUNT;i++) CHECK(!s.presets[i].auto_fire && !s.presets[i].fire_drag && !s.presets[i].stick_fire, "touch assists are opt-in");
+    CHECK(hs_display_width(0,2778,1284)==640 && hs_display_width(1,2778,1284)==854, "fixed aspect choices");
+    CHECK(hs_display_width(2,2778,1284)==1038 && hs_display_width(2,1284,2778)==1038, "fullscreen is orientation-independent and even");
+    CHECK(hs_display_width(2,0,480)==640 && hs_display_width(2,NAN,480)==640 && hs_display_width(2,10000,1)==1600, "invalid and extreme metrics are bounded");
+    CHECK(hs_render_scale(0)==1 && hs_render_scale(1)==1.5 && hs_render_scale(2)==2 && hs_render_scale(99)==1, "bounded target scale");
+    s.display_mode=2;s.render_quality=1;s.presets[3].auto_fire=1;s.presets[3].fire_drag=1;s.presets[3].stick_fire=1;
+    CHECK(hs_serialize(&s,text,sizeof(text))>0 && hs_parse(&t,text), "new options round trip");
+    CHECK(t.display_mode==2 && t.render_quality==1 && t.presets[3].auto_fire && t.presets[3].fire_drag && t.presets[3].stick_fire && !t.presets[0].auto_fire, "aim settings remain independent per profile");
+    hs_parse(&t,"HALO1\ndisplaymode=99\nrenderquality=-2\np0.autofire=8\n");
+    CHECK(t.display_mode==2 && t.render_quality==0 && t.presets[0].auto_fire==1, "imported options sanitized");
+    hs_parse(&t,"HALO1\nactive=0\n");
+    CHECK(t.display_mode==0 && t.render_quality==0 && !t.presets[0].auto_fire, "old backups retain existing behavior");
+
     /* defaults: five named presets, sensible values */
     hs_defaults(&s);
     CHECK(!strcmp(s.presets[0].name, "Classic Xbox UI") && !strcmp(s.presets[4].name, "Preset 5"), "default names");
