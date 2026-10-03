@@ -431,9 +431,21 @@ void dispose_global_network_game_server(
 	return;
 }
 
+#ifdef HALO_IOS_GUEST
+extern void host_network_details(const char *map, unsigned int mode);
+static void ios_report_network_details(void) {
+    struct network_game *game=network_game_get_game();
+    host_network_details(game?game->map.name:NULL,game?(unsigned int)game->variant.game_engine_index:0);
+}
+#endif
+
 boolean network_game_server_start_frame(
 	void)
 {
+#ifdef HALO_IOS_GUEST
+    ios_report_network_details();
+#endif
+
 	boolean result;
 
 	if (bss_004566dc.server)
@@ -485,6 +497,10 @@ void dispose_global_network_game_client(
 boolean network_game_client_start_frame(
 	void)
 {
+#ifdef HALO_IOS_GUEST
+    ios_report_network_details();
+#endif
+
 	short state;
 	short state_data;
 	boolean result;

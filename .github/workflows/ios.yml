@@ -280,6 +280,13 @@ jobs:
           clang -fobjc-arc -DHALO_BACKUP_TEST -framework Foundation -Iport/ios/HaloIOS port/ios/HaloIOS/HaloBackupArchive.m tools/tests/test_ios_backup_archive.m -o "$RUNNER_TEMP/halo-backup-test"
           "$RUNNER_TEMP/halo-backup-test"
 
+      - name: Verify automatic campaign recipes and map picture parsing
+        run: |
+          clang -fobjc-arc -DHALO_SETTINGS_TEST -framework Foundation -Iport/ios/HaloIOS port/ios/HaloIOS/HaloSettingsStore.m tools/tests/test_ios_preset_activation.m -o "$RUNNER_TEMP/halo-recipes-test"
+          "$RUNNER_TEMP/halo-recipes-test"
+          clang -fobjc-arc -DHALO_MAP_PICTURE_TEST -framework Foundation -Iport/ios/HaloIOS port/ios/HaloIOS/HaloMapPictures.m tools/tests/test_ios_map_pictures.m -lz -o "$RUNNER_TEMP/halo-pictures-test"
+          "$RUNNER_TEMP/halo-pictures-test"
+
       - name: Build device host app
         run: |
           set -euxo pipefail

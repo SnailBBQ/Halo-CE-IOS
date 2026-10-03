@@ -31,6 +31,7 @@ static const char *const kControlNames[HC_COUNT] = {
 @interface HaloControlsView ()
 @property(nonatomic, strong) NSMutableArray<CAShapeLayer *> *shapes;
 @property(nonatomic, strong) NSMutableArray<CATextLayer *> *labels;
+@property(nonatomic,strong) NSMutableArray<CAShapeLayer *> *faceSymbols;
 @property(nonatomic, strong) NSMutableArray<CATextLayer *> *subLabels;
 @property(nonatomic, strong) NSMutableArray<CAShapeLayer *> *dpadArms;
 @property(nonatomic, strong) NSMutableArray<CAShapeLayer *> *knobs;
@@ -69,6 +70,7 @@ static const char *const kControlNames[HC_COUNT] = {
         self.backgroundColor = UIColor.clearColor;
         self.shapes = [NSMutableArray array];
         self.labels = [NSMutableArray array];
+        self.faceSymbols = [NSMutableArray array];
         self.subLabels = [NSMutableArray array];
         self.dpadArms = [NSMutableArray array];
         self.knobs = [NSMutableArray array];
@@ -131,6 +133,7 @@ static const char *const kControlNames[HC_COUNT] = {
         [self.layer addSublayer:label];
         [self.layer addSublayer:sub];
         [self.labels addObject:label];
+        CAShapeLayer *symbol=[CAShapeLayer layer];symbol.fillColor=nil;[self.layer addSublayer:symbol];[self.faceSymbols addObject:symbol];
         [self.subLabels addObject:sub];
     }
     for (int i = 0; i < 4; i++) {
@@ -258,7 +261,7 @@ static const char *const kControlNames[HC_COUNT] = {
     CATextLayer *sub = self.subLabels[i];
     NSString *text = [NSString stringWithUTF8String:c->label];
     NSString *subText = [NSString stringWithUTF8String:c->sub];
-    BOOL darkText = (c->color == HC_COLOR_YELLOW || c->color == HC_COLOR_WHITE);
+    BOOL darkText = (c->color == HC_COLOR_WHITE);
     label.foregroundColor = (darkText ? UIColor.blackColor : UIColor.whiteColor).CGColor;
     sub.foregroundColor = (darkText ? UIColor.blackColor : UIColor.whiteColor).CGColor;
     label.string = text;
@@ -282,7 +285,21 @@ static const char *const kControlNames[HC_COUNT] = {
         label.frame = CGRectMake(r.origin.x, CGRectGetMidY(r) - lf * 0.62, r.size.width, lf * 1.3);
         sub.hidden = YES;
     }
+    /* Geometry avoids font-specific baselines and mismatched Unicode glyphs. */
+    CAShapeLayer *symbol=self.faceSymbols[i];
+    BOOL playstation=[self preset]->face_style && i>=HC_A && i<=HC_Y;
+    symbol.hidden=!playstation || !show;symbol.opacity=dim?.3f:individual;
+    if(playstation) {
+        CGFloat cx=CGRectGetMidX(r),cy=CGRectGetMidY(r),d=r.size.width*.18;
+        UIBezierPath *p=[UIBezierPath bezierPath];
+        if(i==HC_A){[p moveToPoint:CGPointMake(cx-d,cy-d)];[p addLineToPoint:CGPointMake(cx+d,cy+d)];[p moveToPoint:CGPointMake(cx+d,cy-d)];[p addLineToPoint:CGPointMake(cx-d,cy+d)];}
+        else if(i==HC_B)p=[UIBezierPath bezierPathWithOvalInRect:CGRectMake(cx-d,cy-d,d*2,d*2)];
+        else if(i==HC_X)p=[UIBezierPath bezierPathWithRect:CGRectMake(cx-d,cy-d,d*2,d*2)];
+        else{[p moveToPoint:CGPointMake(cx,cy-d*1.15)];[p addLineToPoint:CGPointMake(cx+d*1.1,cy+d*.85)];[p addLineToPoint:CGPointMake(cx-d*1.1,cy+d*.85)];[p closePath];}
+        symbol.path=p.CGPath;symbol.strokeColor=UIColor.whiteColor.CGColor;symbol.lineWidth=MAX(1.5,r.size.width*.035);symbol.lineCap=kCALineCapRound;symbol.lineJoin=kCALineJoinRound;
+    }
     label.hidden = (text.length == 0) || !show;
+    if(playstation)label.hidden=YES;
     label.opacity = sub.opacity = dim ? 0.3f : individual;
 }
 
@@ -574,16 +591,16 @@ static NSNumber *HaloTouchKey(UITouch *touch)
     title.numberOfLines = 2;
     self.toolbarTitle = title;
     UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:@[
-        [self toolbarButton:@"−" action:@selector(smaller)],
-        [self toolbarButton:@"+" action:@selector(larger)],
+        [self toolbarButton:@"Smaller" action:@selector(smaller)],
+        [self toolbarButton:@"Larger" action:@selector(larger)],
         [self toolbarButton:@"Hide / Show" action:@selector(toggleHidden)],
-        [self toolbarButton:@"Opacity" action:@selector(cycleOpacity)],
+        [self toolbarButton:@"Opacity" action:@selector(cycleOpacity)]]];
+    UIStackView *actions=[[UIStackView alloc] initWithArrangedSubviews:@[
         [self toolbarButton:@"Reset selected" action:@selector(resetSelected)],
         [self toolbarButton:@"Reset all" action:@selector(resetAll)],
         [self toolbarButton:@"Done" action:@selector(finishEditing)]]];
-    row.axis = UILayoutConstraintAxisHorizontal;
-    row.spacing = 8;
-    UIStackView *column = [[UIStackView alloc] initWithArrangedSubviews:@[title, row]];
+    row.spacing=actions.spacing=6;row.distribution=actions.distribution=UIStackViewDistributionFillEqually;
+    UIStackView *column = [[UIStackView alloc] initWithArrangedSubviews:@[title,row,actions]];
     column.axis = UILayoutConstraintAxisVertical;
     column.spacing = 6;
     column.translatesAutoresizingMaskIntoConstraints = NO;
@@ -595,6 +612,8 @@ static NSNumber *HaloTouchKey(UITouch *touch)
         [column.topAnchor constraintEqualToAnchor:bar.topAnchor constant:8],
         [column.bottomAnchor constraintEqualToAnchor:bar.bottomAnchor constant:-8],
         [bar.centerXAnchor constraintEqualToAnchor:self.centerXAnchor],
+        [bar.widthAnchor constraintEqualToConstant:380],
+        [bar.widthAnchor constraintLessThanOrEqualToAnchor:self.safeAreaLayoutGuide.widthAnchor constant:-16],
         [bar.topAnchor constraintEqualToAnchor:self.safeAreaLayoutGuide.topAnchor constant:6]]];
     self.toolbar = bar;
     [self updateToolbarTitle];

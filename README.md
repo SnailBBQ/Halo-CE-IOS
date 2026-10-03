@@ -1,6 +1,6 @@
 # Halo: Combat Evolved for Linux, Windows, Android and iOS
 
-Current iOS update: **M2.6.44** — timed Apply Active Camo, dedicated power-up sections with separate Infinite toggles, HUD/layout customization, audio channels, connection information, maps and staged backups. See [release notes](port/ios/UPDATE_M2644.md). Device validation is pending.
+Current iOS update: **M2.6.45** — clean launch screens, touch editor access, centered controller symbols, automatic campaign recipes, compact multiplayer status and ui.map menu pictures. See [release notes](port/ios/UPDATE_M2645.md). Device validation is pending.
 
 [![Join our Discord](https://invidget.switchblade.xyz/9gqcHyr5km)](https://discord.gg/9gqcHyr5km)
 

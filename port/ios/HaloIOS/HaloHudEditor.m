@@ -24,7 +24,7 @@
     for(UIView *v in self.rows.arrangedSubviews){[self.rows removeArrangedSubview:v];[v removeFromSuperview];}
     HsSettings s=[[HaloSettingsStore shared] snapshot];HsHud h=s.hud[self.selected==5?0:self.selected];
     NSArray *names=@[@"FPS",@"Weapon HUD",@"Health / shields / radar",@"Navigation",@"Damage indicators",@"All elements"];
-    [self.rows addArrangedSubview:HaloUILabel(@"HUD Editor",20,UIFontWeightBold,nil)];
+    [self.rows addArrangedSubview:HaloUILabel(@"Game HUD",20,UIFontWeightBold,nil)];
     [self.rows addArrangedSubview:HaloUIButton(@"Done",1,^(UIButton *b){(void)b;[weakSelf dismissViewControllerAnimated:YES completion:nil];})];
     [self.rows addArrangedSubview:HaloUINote(@"Live preview over the game. Elements follow the engine’s draw groups; text and some special overlays retain their original placement.")];
     [self.rows addArrangedSubview:HaloUIButton(names[(NSUInteger)self.selected],0,^(UIButton *b){(void)b;

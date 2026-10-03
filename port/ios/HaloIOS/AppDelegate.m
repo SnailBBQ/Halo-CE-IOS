@@ -7,6 +7,7 @@
 #import "HaloLogViewController.h"
 #import "HaloSettingsStore.h"
 #import "HaloLibrary.h"
+#import "HaloUI.h"
 #import "halo_ios_audio.h"
 #import "halo_ios_platform.h"
 #import "halo_crash_report.h"
@@ -27,6 +28,9 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
 @interface AppDelegate () <UIDocumentPickerDelegate>
 @property(nonatomic, strong) UIView *bootOverlay;
+@property(nonatomic,strong) UILabel *launchHeading;
+@property(nonatomic,strong) UILabel *launchDescription;
+@property(nonatomic,strong) UIActivityIndicatorView *launchSpinner;
 @property(nonatomic, strong) UIView *menuControls;
 @property(nonatomic, strong) UILabel *loadingStatus;
 @property(nonatomic, copy) NSString *loadingName;
@@ -96,13 +100,15 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     if (self.engineStarted || self.importing || !self.foldersReady) return;
     BOOL ready = [self hasStartupMap];
     self.startButton.enabled = ready;
-    self.bootLog.text = ready ? @"Maps are ready. Tap Start Halo.\n" :
-        @"Add your Halo maps\n\nTap Import maps to choose your .map files, including ui.map.\n\nYou can also copy them in Files to:\nOn My iPhone → this app → Halo → maps\n\nThe folder is ready. Halo will start after ui.map has been added. Existing map files are kept.\n";
+    self.launchHeading.text=ready?@"Ready to play":@"Add your maps";
+    self.launchDescription.text=ready?@"Your map library is ready. Start Halo when you’re ready to play.":@"Import your compatible .map files, including ui.map. You can also copy them in Files → On My iPhone → Halo CE → Halo → maps.";
+
 }
 - (void)startHalo:(UIButton *)sender {
     (void)sender;
     if (self.engineStarted || self.importing || !self.foldersReady || ![self hasStartupMap]) return;
     self.engineStarted = YES;
+    self.launchHeading.text=@"Starting Halo";self.launchDescription.text=@"Preparing your game…";[self.launchSpinner startAnimating];
     halo_crash_phase("engine boot");
     /* The game is shown first. If it has drawn nothing after 25 seconds the screen is just black, so open the log
        (its Summary says how far the start got) instead of leaving a black screen with no explanation. */
@@ -114,10 +120,10 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
         halo_ios_toast("The game has not drawn anything yet - opening the log");
         [owner showLog:nil];
     });
-    self.logSource.hidden = NO;
+    self.logSource.hidden = YES;
     self.importButton.hidden = YES;
     self.startButton.hidden = YES;
-    self.bootOverlay.hidden = YES;   /* the game is what you see first */
+    self.bootOverlay.hidden = NO;   /* clean launch card until the first presented frame */
     [self updateControlsVisibility];
     if (self.startBoot) self.startBoot();
     self.startBoot = nil;
@@ -137,7 +143,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     self.importing = YES;
     self.importButton.enabled = NO;
     self.startButton.enabled = NO;
-    self.bootLog.text = @"Importing maps… Please keep Halo open.\n";
+    self.launchHeading.text=@"Importing maps";self.launchDescription.text=@"Keep Halo open while files are copied. Existing maps are preserved.";[self.launchSpinner startAnimating];
     NSString *destination = [self mapsFolder];
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         NSUInteger imported = 0, kept = 0;
@@ -171,7 +177,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
             else imported++;
         }
         dispatch_async(dispatch_get_main_queue(), ^{
-            self.importing = NO;
+            self.importing = NO;[self.launchSpinner stopAnimating];
             self.importButton.enabled = YES;
             [self refreshSetup];
             NSString *message = [NSString stringWithFormat:@"Imported %lu maps. Kept %lu existing files.", (unsigned long)imported, (unsigned long)kept];
@@ -305,6 +311,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     [top presentViewController:settings animated:YES completion:nil];
 }
 - (void)updateFPS {
+    if(self.engineStarted && !self.bootOverlay.hidden && halo_ios_presented_frames()>0){self.bootOverlay.hidden=YES;[self.launchSpinner stopAnimating];[self updateControlsVisibility];}
     HsSettings settings = [[HaloSettingsStore shared] snapshot];
     HsHud h=settings.hud[0];
     self.fpsLabel.hidden = !settings.show_fps || h.hidden || !self.bootOverlay.hidden;
@@ -398,17 +405,18 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     UIView *bootOverlay = [UIView new];
     bootOverlay.translatesAutoresizingMaskIntoConstraints = NO;
-    bootOverlay.backgroundColor = UIColor.blackColor;
+    bootOverlay.backgroundColor = HaloUIBackground();
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"HALO iOS — M2.6.44 · add your maps";
+    title.text = @"Halo CE";
     title.textColor = UIColor.whiteColor;
-    title.font = [UIFont boldSystemFontOfSize:18];
+    title.font = [UIFont systemFontOfSize:28 weight:UIFontWeightBold];
 
     UITextView *log = [[UITextView alloc] initWithFrame:CGRectZero];
     log.translatesAutoresizingMaskIntoConstraints = NO;
-    log.backgroundColor = UIColor.blackColor;
+    log.backgroundColor = HaloUIBackground();
+    log.hidden=YES;
     log.textColor = UIColor.greenColor;
     log.editable = NO;
     log.alwaysBounceVertical = YES;
@@ -416,15 +424,24 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     UILabel *notice = [UILabel new];
     notice.translatesAutoresizingMaskIntoConstraints = NO;
-    notice.text = @"Bink movie playback is not implemented; videos are skipped. Audio is muted.\nImportant messages are available in Game log and Share logs.";
+    notice.text = [NSString stringWithFormat:@"UNIVERSAL · iOS %@",[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"]?:@""];
     notice.numberOfLines = 2;
     notice.font = [UIFont systemFontOfSize:11];
-    notice.textColor = UIColor.systemOrangeColor;
+    notice.textColor = HaloUISecondaryText();
     [bootOverlay addSubview:notice];
     [bootOverlay addSubview:title];
     [bootOverlay addSubview:log];
     [vc.view addSubview:bootOverlay];
     self.bootOverlay = bootOverlay;
+    UIView *card=[UIView new];card.translatesAutoresizingMaskIntoConstraints=NO;card.backgroundColor=HaloUICard();card.layer.cornerRadius=20;[bootOverlay addSubview:card];
+    UILabel *heading=HaloUILabel(@"Welcome to Halo CE",24,UIFontWeightSemibold,nil);
+    UILabel *description=HaloUILabel(@"Prepare your map library to get started.",15,UIFontWeightRegular,HaloUISecondaryText());description.numberOfLines=0;
+    UILabel *pathHint=HaloUILabel(@"Your maps and saves stay in Documents/Halo. Settings and logs are always available.",12,UIFontWeightRegular,HaloUISecondaryText());pathHint.numberOfLines=0;
+    UIActivityIndicatorView *spinner=[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];spinner.hidesWhenStopped=YES;
+    UIStackView *content=[[UIStackView alloc] initWithArrangedSubviews:@[heading,description,spinner,pathHint]];content.axis=UILayoutConstraintAxisVertical;content.spacing=14;content.translatesAutoresizingMaskIntoConstraints=NO;[card addSubview:content];
+    [NSLayoutConstraint activateConstraints:@[[card.centerYAnchor constraintEqualToAnchor:bootOverlay.centerYAnchor],[card.leadingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.leadingAnchor constant:32],[card.trailingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.trailingAnchor constant:-32],[content.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:24],[content.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-24],[content.topAnchor constraintEqualToAnchor:card.topAnchor constant:22],[content.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-22]]];
+    self.launchHeading=heading;self.launchDescription=description;self.launchSpinner=spinner;
+
 
     UIButton *gear = [UIButton buttonWithType:UIButtonTypeSystem];
     gear.translatesAutoresizingMaskIntoConstraints = NO;
@@ -486,6 +503,8 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     actions.translatesAutoresizingMaskIntoConstraints = NO;
     actions.axis = UILayoutConstraintAxisHorizontal;
     actions.spacing = 24;
+    actions.distribution=UIStackViewDistributionFillEqually;actions.spacing=12;
+    for(UIButton *button in @[import,start,share]){button.backgroundColor=button==start?HaloUIAccent():HaloUICard();button.layer.cornerRadius=12;[button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];button.titleLabel.font=[UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];}
     [bootOverlay addSubview:actions];
     UISegmentedControl *source = [[UISegmentedControl alloc] initWithItems:@[@"Boot log", @"Game log"]];
     source.translatesAutoresizingMaskIntoConstraints = NO;
@@ -508,8 +527,8 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
         [bootOverlay.bottomAnchor constraintEqualToAnchor:vc.view.bottomAnchor],
 
         [title.leadingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.leadingAnchor constant:14],
-        [title.trailingAnchor constraintLessThanOrEqualToAnchor:gear.leadingAnchor constant:-8],
-        [gear.centerXAnchor constraintEqualToAnchor:vc.view.centerXAnchor],
+        [title.trailingAnchor constraintLessThanOrEqualToAnchor:bootOverlay.safeAreaLayoutGuide.trailingAnchor constant:-80],
+        [gear.trailingAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.trailingAnchor constant:-16],
         [gear.topAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.topAnchor constant:4],
         [gear.widthAnchor constraintEqualToConstant:48],
         [gear.heightAnchor constraintEqualToConstant:36],
@@ -525,7 +544,8 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
         [source.widthAnchor constraintEqualToConstant:240],
         [source.heightAnchor constraintEqualToConstant:32],
         [source.bottomAnchor constraintEqualToAnchor:actions.topAnchor constant:-8],
-        [actions.leadingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.leadingAnchor constant:14],
+        [actions.leadingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.leadingAnchor constant:32],
+        [actions.trailingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.trailingAnchor constant:-32],
         [actions.bottomAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.bottomAnchor constant:-8],
         [actions.heightAnchor constraintEqualToConstant:44]
     ]];
@@ -606,11 +626,12 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
     };
     if (!self.foldersReady) {
-        log.text = [NSString stringWithFormat:@"Could not create the maps folder: %@", folderError.localizedDescription];
+        self.launchHeading.text=@"Could not prepare your library";
+        self.launchDescription.text=folderError.localizedDescription;
         import.enabled = NO;
         start.enabled = NO;
     } else if ([self hasStartupMap]) {
-        [self startHalo:nil];
+        [self refreshSetup];
     } else {
         halo_crash_phase("waiting for maps");
         [self refreshSetup];

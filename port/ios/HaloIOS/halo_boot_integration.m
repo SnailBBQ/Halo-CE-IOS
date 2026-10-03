@@ -20,7 +20,7 @@ static void say(void (^line)(const char *), const char *fmt, ...)
 
 void halo_ios_start_game_boot(void (^line)(const char *text))
 {
-    line("Halo iOS - M2.6.15 Visible Renderer Startup");
+    line("Halo CE iOS — starting engine");
     line("");
 
     if (!halo_guest_runtime_init())
@@ -57,7 +57,7 @@ void halo_ios_start_game_boot(void (^line)(const char *text))
 
     line("");
     line("[3/3] Launching the full recovered arm64_32 Halo guest image...");
-    line("Mode: real engine execution + iOS OpenGL ES renderer; audio disabled.");
+    line("Mode: real engine execution + iOS OpenGL ES renderer; audio follows Settings.");
     line("The guest receives Documents/Halo as its data root and runs its own main().");
     line("");
 

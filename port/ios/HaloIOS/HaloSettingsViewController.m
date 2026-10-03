@@ -42,6 +42,8 @@ typedef NS_ENUM(NSInteger, HaloCategory) {
 @property(nonatomic, strong) NSArray<UIButton *> *sidebar;
 @property(nonatomic) HaloCategory selected;
 @property(nonatomic,strong) id campaignObserver;
+@property(nonatomic,strong) NSTimer *connectionTimer;
+@property(nonatomic,strong) UILabel *connectionLabel;
 @end
 
 @implementation HaloSettingsViewController
@@ -159,11 +161,12 @@ static NSString *HaloCategorySymbol(HaloCategory c)
     self.stack = HaloUIScrollingStack(self.detail, 12);
     __weak HaloSettingsViewController *weakSelf=self;
     self.campaignObserver=[[NSNotificationCenter defaultCenter] addObserverForName:HaloCampaignStateChangedNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) { (void)note;[weakSelf renderSoon]; }];
+    self.connectionTimer=[NSTimer scheduledTimerWithTimeInterval:2 repeats:YES block:^(NSTimer *t){(void)t;weakSelf.connectionLabel.text=HaloNetworkSummary();}];
     self.selected = HaloCategoryMultiplayer;
     [self renderDetail];
 }
 
-- (void)dealloc { if (self.campaignObserver) [[NSNotificationCenter defaultCenter] removeObserver:self.campaignObserver]; }
+- (void)dealloc { [self.connectionTimer invalidate]; if (self.campaignObserver) [[NSNotificationCenter defaultCenter] removeObserver:self.campaignObserver]; }
 
 - (void)choose:(HaloCategory)category
 {
@@ -216,10 +219,11 @@ static NSString *HaloCategorySymbol(HaloCategory c)
 
 - (void)buildMultiplayer:(const HsSettings *)settings
 {
-    [self add:HaloUICardView(@"Connection",@[
-        HaloUINote(HaloNetworkSummary()),
-        HaloUINote(@"Ping measures the encrypted peer tunnel; it is not server simulation time. LAN-only games may not provide a tunnel measurement."),
-        HaloUIButton(@"Refresh connection status",0,^(UIButton *b){ (void)b;[self renderSoon]; })])];
+    self.connectionLabel=HaloUILabel(HaloNetworkSummary(),13,UIFontWeightRegular,HaloUISecondaryText());
+    UIButton *refresh=HaloUIButton(@"Refresh",0,^(UIButton *b){(void)b;self.connectionLabel.text=HaloNetworkSummary();});
+    [refresh.widthAnchor constraintEqualToConstant:80].active=YES;
+    UIStackView *connection=[[UIStackView alloc] initWithArrangedSubviews:@[self.connectionLabel,refresh]];connection.spacing=12;connection.alignment=UIStackViewAlignmentCenter;
+    [self add:HaloUICardView(@"Connection status",@[connection])];
     NSString *path=[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Halo/debug.txt"];
     NSFileHandle *log=[NSFileHandle fileHandleForReadingAtPath:path];NSString *last=nil;
     @try { unsigned long long size=[log seekToEndOfFile];[log seekToFileOffset:size>65536?size-65536:0];NSString *tail=[[NSString alloc] initWithData:[log readDataOfLength:65536] encoding:NSUTF8StringEncoding];
@@ -284,7 +288,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
     });
     share.enabled = invite != nil;
     [self add:HaloUICardView(@"Host a game", @[
-        HaloUINote(invite ? @"Your game is ready to share." : @"In the game, choose Multiplayer > System Link and start a game. The invite link is made and copied for you; it then appears here."),
+        HaloUINote(invite ? @"Your current invite is written automatically to game_invite.txt in your selected folder. Share it below." : @"In the game, choose Multiplayer > System Link and start a game. The invite link is made and copied for you; it then appears here."),
         share])];
 
     [self add:HaloUICardView(@"Options", @[
@@ -407,9 +411,12 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUINote(note),
         HaloUINote(@"Switching between 30 and the other two takes effect the next time you open the app. Switching between 60 and Uncapped takes effect now.")])];
 
-    [self add:HaloUICardView(@"HUD Editor",@[
-        HaloUINote(@"Customize FPS and supported game HUD groups independently, or together. Preview changes over the game and save named HUD layouts."),
-        HaloUIButton(@"Edit HUD over game",1,^(UIButton *b){(void)b;UIViewController *root=self.presentingViewController;[self dismissViewControllerAnimated:YES completion:^{UIViewController *editor=[HaloHudEditor new];editor.modalPresentationStyle=UIModalPresentationOverFullScreen;[root presentViewController:editor animated:YES completion:nil];}];})])];
+    [self add:HaloUICardView(@"Touch controls",@[
+        HaloUINote(@"Drag on-screen buttons to move them. Select a button to resize, hide or adjust opacity. Changes save to your current control preset."),
+        HaloUIButton(@"Edit touch layout",1,^(UIButton *b){(void)b;void(^go)(void)=self.onEditLayout;[self dismissViewControllerAnimated:YES completion:^{if(go)go();}];})])];
+    [self add:HaloUICardView(@"Game HUD and FPS",@[
+        HaloUINote(@"Separate controls for the game’s meters and FPS counter."),
+        HaloUIButton(@"Edit game HUD",0,^(UIButton *b){(void)b;UIViewController *root=self.presentingViewController;[self dismissViewControllerAnimated:YES completion:^{UIViewController *editor=[HaloHudEditor new];editor.modalPresentationStyle=UIModalPresentationOverFullScreen;[root presentViewController:editor animated:YES completion:nil];}];})])];
     [self add:HaloUICardView(@"First-person view", @[
         HaloUISegmentRow(nil, @[@"Both", @"Weapon", @"Hands", @"Hidden"], settings->viewmodel_mode, ^(NSInteger i) {
             [self update:^(HsSettings *s) { s->viewmodel_mode = (int)i; }];
@@ -442,9 +449,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
 
 - (void)buildCheats:(const HsSettings *)settings
 {
-    [self add:HaloUICardView(@"Preset recipe", @[
-        HaloUINote([[HaloSettingsStore shared] campaignActive] ? @"Active cheats last only for this campaign session. Preset recipes are edited with the gear in Controls." : @"Cheats are off. Start a solo campaign to enable them. Saved recipes never activate automatically."),
-        HaloUIButton(@"Apply this preset’s cheats",1,^(UIButton *b) { [self applyPresetCheats]; })])];
+    [self add:HaloUINote(@"The selected control preset activates its saved cheat recipe automatically in solo campaign. Multiplayer disables all cheats.")];
     [self add:HaloUICardView(@"Campaign cheats", @[
         HaloUINote(@"These use the game's own cheat flags. They work only in the campaign and switch off by themselves in multiplayer and network games, so nobody cheats where others play."),
         HaloUISwitchRow(@"God mode", @"You cannot die.", settings->cheat_god, ^(BOOL on) { [self update:^(HsSettings *s) { s->cheat_god = on; }]; }),
@@ -514,17 +519,6 @@ static NSString *HaloCategorySymbol(HaloCategory c)
     navigation.modalPresentationStyle=UIModalPresentationFullScreen;
     [presenter presentViewController:navigation animated:YES completion:nil];
 }
-- (void)applyPresetCheats {
-    if (![[HaloSettingsStore shared] campaignActive]) { halo_ios_toast("Start a solo campaign first");return; }
-    HsSettings current=[[HaloSettingsStore shared] snapshot];HsPreset recipe=current.presets[current.active];
-    [self update:^(HsSettings *s) { hs_apply_preset_cheats(s,s->active); }];
-    if (recipe.cheat_actions&1u) [self queueCampaignAction:3];
-    if (recipe.cheat_actions&2u) [self queueCampaignAction:2];
-    if (recipe.cheat_actions&4u) [self queueCampaignAction:1];
-    if (recipe.cheat_actions&8u) [self queueCampaignAction:4];
-    if (recipe.cheat_weapon) [self queueCampaignAction:99u+(uint32_t)recipe.cheat_weapon];
-    [self renderSoon];
-}
 - (void)editPreset:(int)index {
     HsSettings current=[[HaloSettingsStore shared] snapshot];HsPreset p=current.presets[index];
     UIViewController *editor=[UIViewController new];editor.title=[NSString stringWithUTF8String:p.name];
@@ -535,7 +529,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
     UIStackView *rows=HaloUIScrollingStack(content,12);
     [rows addArrangedSubview:HaloUILabel([NSString stringWithUTF8String:p.name],22,UIFontWeightBold,nil)];
     [rows addArrangedSubview:HaloUIButton(@"Done",1,^(UIButton *b) { [weakEditor dismissViewControllerAnimated:YES completion:nil];[self renderSoon]; })];
-    [rows addArrangedSubview:HaloUINote(@"Edits save the recipe only. Use Apply this preset’s cheats during a solo campaign to activate it.")];
+    [rows addArrangedSubview:HaloUINote(@"Recipes activate when you select this preset or enter a solo campaign. One-shot items run once per activation; multiplayer always disables cheats.")];
     [rows addArrangedSubview:HaloUISegmentRow(@"Face buttons",@[@"Classic Xbox UI",@"Playstation UI"],p.face_style,^(NSInteger value) { [self update:^(HsSettings *s) { s->presets[index].face_style=(int)value; }]; })];
     NSArray<NSString *> *names=@[@"God mode",@"Infinite ammo",@"Infinite grenades",@"Bottomless clip",@"One-hit kills",@"Unlimited flashlight",@"No fall damage",@"Rapid fire",@"No recoil",@"Third person",@"Noclip",@"Infinite Active Camo",@"Infinite Overshield"];
     for (NSUInteger bit=0;bit<names.count;++bit) {
@@ -581,8 +575,8 @@ static NSString *HaloCategorySymbol(HaloCategory c)
 - (void)buildAdvanced:(const HsSettings *)settings
 {
     [self add:HaloUICardView(@"Game",@[
-        HaloUIButton(@"Quit Game",2,^(UIButton *b) { [self confirmAppQuit:NO]; }),
-        HaloUIButton(@"Restart Game",0,^(UIButton *b) { [self confirmAppQuit:YES]; })])];
+        HaloUIButton(@"Restart Game",0,^(UIButton *b) { [self confirmAppQuit:YES]; }),
+        HaloUIButton(@"Quit Game",2,^(UIButton *b) { [self confirmAppQuit:NO]; })])];
     NSMutableArray<UIView *> *diag = [NSMutableArray array];
     [diag addObject:HaloUISwitchRow(@"Performance profiler", @"Samples the game thread so Diagnostics can show where the time goes. About 1% of one CPU core.", settings->profiler, ^(BOOL on) { [self update:^(HsSettings *s) { s->profiler = on; }]; })];
     [diag addObject:HaloUIButton(@"Share log files", 0, ^(UIButton *b) { if (self.onShareLogs) self.onShareLogs(b); })];
@@ -611,7 +605,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUIButton(@"Halo-CE-IOS on GitHub",0,^(UIButton *b) { [UIApplication.sharedApplication openURL:[NSURL URLWithString:@"https://github.com/xSkullHD/Halo-CE-IOS"] options:@{} completionHandler:nil]; })])];
 }
 - (void)confirmAppQuit:(BOOL)restart {
-    UIAlertController *alert=[UIAlertController alertControllerWithTitle:restart?@"Restart Halo":@"Quit Halo" message:restart?@"Halo will close. Tap its app icon to start a fresh run; iOS cannot automatically reopen it. Unsaved progress will be lost.":@"Close Halo completely? Unsaved progress will be lost." preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertController *alert=[UIAlertController alertControllerWithTitle:restart?@"Restart Halo":@"Quit Halo" message:restart?@"Halo will close to reset the engine safely. Reopen the app to return to Start Halo. Unsaved progress will be lost.":@"Close Halo completely? Unsaved progress will be lost." preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:restart?@"Close for restart":@"Quit" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a) { halo_ios_quit_app(); }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
