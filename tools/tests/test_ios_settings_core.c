@@ -210,6 +210,13 @@ int main(void)
     hs_parse(&t,"HALO1\nhud2=nan,999,0,2,1\nmusic=nan\ndialogue=999\neffects=-3\n");
     CHECK(t.hud[2].x==-.45f&&t.hud[2].y==.45f&&t.hud[2].scale==.5f&&t.hud[2].opacity==1,"hostile HUD values bounded");
     CHECK(t.music_volume==0&&t.dialogue_volume==1&&t.effects_volume==0,"hostile audio gains bounded");
+    hs_defaults(&s);CHECK(s.presets[4].startup_auto==1,"default direct boot");
+    s.presets[2].hud_choice=3;s.presets[2].startup_auto=0;s.gear_placed=1;s.gear_x=.75f;s.gear_y=.25f;
+    CHECK(hs_serialize(&s,text,sizeof(text))>0 && hs_parse(&t,text),"profile links serialize");
+    CHECK(t.presets[2].hud_choice==3 && !t.presets[2].startup_auto && t.gear_placed && near(t.gear_x,.75f),"HUD link, startup and floating settings persist");
+    hc_layout(0,0,800,390,ps);hs_apply_preset(&t.presets[1],0,0,800,390,ps);
+    CHECK(!strcmp(ps[HC_LT].label,"L2") && !strcmp(ps[HC_RT].label,"R2") && !strcmp(ps[HC_LS].label,"L3") && !strcmp(ps[HC_RS].label,"R3"),"PlayStation trigger/stick labels");
+    hs_parse(&t,"HALO1\np2.hudchoice=999\np2.startauto=7\ngear=1,nan,999\n");CHECK(t.presets[2].hud_choice==3 && t.presets[2].startup_auto==1 && t.gear_x==0 && t.gear_y==1,"new settings bounded");
     if (!failures) printf("PASS: settings core: 5 named presets round-trip, hostile input is clamped, layouts stay on screen, stick feel\n");
     return failures ? 1 : 0;
 }

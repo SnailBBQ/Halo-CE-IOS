@@ -288,7 +288,8 @@ static const char *const kControlNames[HC_COUNT] = {
     /* Geometry avoids font-specific baselines and mismatched Unicode glyphs. */
     CAShapeLayer *symbol=self.faceSymbols[i];
     BOOL playstation=[self preset]->face_style && i>=HC_A && i<=HC_Y;
-    symbol.hidden=!playstation || !show;symbol.opacity=dim?.3f:individual;
+    BOOL utility=i==HC_BLACK || i==HC_WHITE;
+    symbol.hidden=(!playstation && !utility) || !show;symbol.opacity=dim?.3f:individual;
     if(playstation) {
         CGFloat cx=CGRectGetMidX(r),cy=CGRectGetMidY(r),d=r.size.width*.18;
         UIBezierPath *p=[UIBezierPath bezierPath];
@@ -298,8 +299,26 @@ static const char *const kControlNames[HC_COUNT] = {
         else{[p moveToPoint:CGPointMake(cx,cy-d*1.15)];[p addLineToPoint:CGPointMake(cx+d*1.1,cy+d*.85)];[p addLineToPoint:CGPointMake(cx-d*1.1,cy+d*.85)];[p closePath];}
         symbol.path=p.CGPath;symbol.strokeColor=UIColor.whiteColor.CGColor;symbol.lineWidth=MAX(1.5,r.size.width*.035);symbol.lineCap=kCALineCapRound;symbol.lineJoin=kCALineJoinRound;
     }
+    if(utility) {
+        CGFloat cx=CGRectGetMidX(r),cy=CGRectGetMidY(r),d=r.size.width*.19;
+        UIBezierPath *p=[UIBezierPath bezierPath];
+        if(i==HC_WHITE) {
+            /* Flashlight body, bezel and three light rays, centered as one icon. */
+            [p moveToPoint:CGPointMake(cx-d,cy+d*.45)];[p addLineToPoint:CGPointMake(cx,cy+d*.45)];[p addLineToPoint:CGPointMake(cx+d*.45,cy+d*.8)];[p addLineToPoint:CGPointMake(cx+d*.45,cy-d*.8)];[p addLineToPoint:CGPointMake(cx,cy-d*.45)];[p addLineToPoint:CGPointMake(cx-d,cy-d*.45)];[p closePath];
+            for(int ray=-1;ray<=1;ray++){[p moveToPoint:CGPointMake(cx+d*.75,cy+ray*d*.4)];[p addLineToPoint:CGPointMake(cx+d*1.2,cy+ray*d*.8)];}
+        } else {
+            /* Grenade plus opposed arrows: swap grenade type, not weapon. */
+            [p appendPath:[UIBezierPath bezierPathWithOvalInRect:CGRectMake(cx-d*.45,cy-d*.4,d*.9,d*1.1)]];
+            [p moveToPoint:CGPointMake(cx-d*.25,cy-d*.45)];[p addLineToPoint:CGPointMake(cx-d*.25,cy-d*.8)];[p addLineToPoint:CGPointMake(cx+d*.4,cy-d*.8)];
+            [p moveToPoint:CGPointMake(cx-d*1.25,cy-d*.75)];[p addLineToPoint:CGPointMake(cx+d,cy-d*.75)];[p addLineToPoint:CGPointMake(cx+d*.7,cy-d*1.05)];
+            [p moveToPoint:CGPointMake(cx+d,cy-d*.75)];[p addLineToPoint:CGPointMake(cx+d*.7,cy-d*.45)];
+            [p moveToPoint:CGPointMake(cx+d*1.25,cy+d*.9)];[p addLineToPoint:CGPointMake(cx-d,cy+d*.9)];[p addLineToPoint:CGPointMake(cx-d*.7,cy+d*.6)];
+            [p moveToPoint:CGPointMake(cx-d,cy+d*.9)];[p addLineToPoint:CGPointMake(cx-d*.7,cy+d*1.2)];
+        }
+        symbol.path=p.CGPath;symbol.strokeColor=(i==HC_WHITE?UIColor.blackColor:UIColor.whiteColor).CGColor;symbol.lineWidth=MAX(1.5,r.size.width*.03);symbol.lineCap=kCALineCapRound;symbol.lineJoin=kCALineJoinRound;
+    }
     label.hidden = (text.length == 0) || !show;
-    if(playstation)label.hidden=YES;
+    if(playstation || utility)label.hidden=YES;
     label.opacity = sub.opacity = dim ? 0.3f : individual;
 }
 

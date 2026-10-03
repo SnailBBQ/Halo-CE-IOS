@@ -86,6 +86,13 @@ static NSString *const kSettingsKey = @"HaloSettingsV1";
     block(&next);
     hs_sanitize(&next);
     if (!_campaignActive) hs_clear_cheats(&next);
+    /* Resolve a profile link only when selecting a profile or changing its link.
+       Touch editing cannot modify a saved Game HUD recipe. */
+    if(next.active!=previousPreset || next.presets[next.active].hud_choice!=_settings.presets[previousPreset].hud_choice) {
+        int choice=next.presets[next.active].hud_choice;
+        if(choice)memcpy(next.hud,next.hud_presets[choice-1].elements,sizeof(next.hud));
+        else { for(int h=0;h<HS_HUD_COUNT;h++)next.hud[h]=(HsHud){0,0,1,1,0}; }
+    }
     BOOL activate=_campaignActive && next.active!=previousPreset;
     if(activate)hs_apply_preset_cheats(&next,next.active);
     _settings = next;

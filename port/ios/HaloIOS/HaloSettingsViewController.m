@@ -32,7 +32,7 @@
 @end
 
 typedef NS_ENUM(NSInteger, HaloCategory) {
-    HaloCategoryMultiplayer = 0, HaloCategoryControls, HaloCategoryDisplay, HaloCategoryAudio, HaloCategoryCheats, HaloCategoryMaps, HaloCategoryAdvanced,
+    HaloCategoryMultiplayer = 0, HaloCategoryControls, HaloCategoryDisplay, HaloCategoryAudio, HaloCategoryCheats, HaloCategoryMods, HaloCategoryAdvanced,
     HaloCategoryLogs, HaloCategoryCount
 };
 
@@ -56,7 +56,7 @@ static NSString *HaloCategoryTitle(HaloCategory c)
         case HaloCategoryDisplay: return @"Display";
         case HaloCategoryAudio: return @"Audio";
         case HaloCategoryCheats: return @"Cheats";
-        case HaloCategoryMaps: return @"Maps";
+        case HaloCategoryMods: return @"Mods";
         case HaloCategoryAdvanced: return @"Advanced";
         default: return @"Logs";
     }
@@ -70,7 +70,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         case HaloCategoryDisplay: return @"display";
         case HaloCategoryAudio: return @"speaker.wave.2.fill";
         case HaloCategoryCheats: return @"sparkles";
-        case HaloCategoryMaps: return @"map.fill";
+        case HaloCategoryMods: return @"square.stack.3d.up.fill";
         case HaloCategoryAdvanced: return @"wrench.and.screwdriver.fill";
         default: return @"doc.text.magnifyingglass";
     }
@@ -170,7 +170,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
 
 - (void)choose:(HaloCategory)category
 {
-    if(category==HaloCategoryMaps) { UIViewController *c=HaloMapsController();c.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:c animated:YES completion:nil];return; }
+    if(category==HaloCategoryMods) { UIViewController *c=HaloMapsController();c.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:c animated:YES completion:nil];return; }
     if (category == HaloCategoryLogs) {
         void (^go)(void) = self.onShowLog;
         [self dismissViewControllerAnimated:YES completion:^{ if (go) go(); }];
@@ -398,6 +398,15 @@ static NSString *HaloCategorySymbol(HaloCategory c)
 
 #pragma mark - Display
 
+- (UIView *)hudChoiceRow:(int)index {
+    HsSettings current=[HaloSettingsStore.shared snapshot];NSMutableArray *names=[NSMutableArray arrayWithObject:@"Default"];
+    for(int i=0;i<3;i++)[names addObject:[NSString stringWithUTF8String:current.hud_presets[i].name]];
+    return HaloUISegmentRow(@"Game HUD preset",names,current.presets[index].hud_choice,^(NSInteger choice){[self update:^(HsSettings *s){s->presets[index].hud_choice=(int)choice;}];});
+}
+- (UIView *)startupRow:(int)index {
+    HsSettings current=[HaloSettingsStore.shared snapshot];
+    return HaloUISegmentRow(@"On app launch",@[@"Start Halo screen",@"Boot Halo immediately"],current.presets[index].startup_auto,^(NSInteger choice){[self update:^(HsSettings *s){s->presets[index].startup_auto=(int)choice;}];});
+}
 - (void)buildDisplay:(const HsSettings *)settings
 {
     NSString *note = settings->fps_mode == 0 ? @"The original game's 30 frames a second."
@@ -409,27 +418,25 @@ static NSString *HaloCategorySymbol(HaloCategory c)
             [self renderSoon];
         }),
         HaloUINote(note),
+        HaloUISwitchRow(@"Show FPS", @"Display the frame-rate counter.", settings->show_fps, ^(BOOL on) { [self update:^(HsSettings *s) { s->show_fps = on; }]; }),
         HaloUINote(@"Switching between 30 and the other two takes effect the next time you open the app. Switching between 60 and Uncapped takes effect now.")])];
 
-    [self add:HaloUICardView(@"Touch controls",@[
-        HaloUINote(@"Drag on-screen buttons to move them. Select a button to resize, hide or adjust opacity. Changes save to your current control preset."),
-        HaloUIButton(@"Edit touch layout",1,^(UIButton *b){(void)b;void(^go)(void)=self.onEditLayout;[self dismissViewControllerAnimated:YES completion:^{if(go)go();}];})])];
+    [self add:HaloUICardView(@"Game HUD profile",@[[self hudChoiceRow:settings->active]])];
     [self add:HaloUICardView(@"Game HUD and FPS",@[
         HaloUINote(@"Separate controls for the game’s meters and FPS counter."),
-        HaloUIButton(@"Edit game HUD",0,^(UIButton *b){(void)b;UIViewController *root=self.presentingViewController;[self dismissViewControllerAnimated:YES completion:^{UIViewController *editor=[HaloHudEditor new];editor.modalPresentationStyle=UIModalPresentationOverFullScreen;[root presentViewController:editor animated:YES completion:nil];}];})])];
+        HaloUIButton(@"Edit game HUD",1,^(UIButton *b){(void)b;UIViewController *root=self.presentingViewController;[self dismissViewControllerAnimated:YES completion:^{UIViewController *editor=[HaloHudEditor new];editor.modalPresentationStyle=UIModalPresentationOverFullScreen;[root presentViewController:editor animated:YES completion:nil];}];})])];
     [self add:HaloUICardView(@"First-person view", @[
         HaloUISegmentRow(nil, @[@"Both", @"Weapon", @"Hands", @"Hidden"], settings->viewmodel_mode, ^(NSInteger i) {
             [self update:^(HsSettings *s) { s->viewmodel_mode = (int)i; }];
         }),
-        HaloUINote(@"Changes immediately. Try Weapon and Hands separately to identify the stretched mesh; Hidden gives a clear view if it is either one. Your HUD, attacks and other players stay active.")])];
+        HaloUINote(@"Choose which first-person models are visible. Changes apply immediately and do not affect your HUD, attacks or other players.")])];
 
     [self add:HaloUICardView(@"HUD and text", @[
         HaloUISwitchRow(@"High-res HUD", @"Sharper meters, radar and reticles.", settings->hires_hud, ^(BOOL on) { [self update:^(HsSettings *s) { s->hires_hud = on; }]; }),
         HaloUISwitchRow(@"High-res text", @"Menus and HUD text at the screen's resolution.", settings->hires_text, ^(BOOL on) { [self update:^(HsSettings *s) { s->hires_text = on; }]; }),
         HaloUINote(@"New in Halo CE Universal build 73 and off until you try them. They apply the next time you open the app; turn them off again if menus or the HUD stutter.")])];
 
-    [self add:HaloUICardView(@"On screen", @[
-        HaloUISwitchRow(@"Show frame rate", @"A small counter under the Settings button.", settings->show_fps, ^(BOOL on) { [self update:^(HsSettings *s) { s->show_fps = on; }]; })])];
+
 }
 
 #pragma mark - Audio
@@ -530,6 +537,8 @@ static NSString *HaloCategorySymbol(HaloCategory c)
     [rows addArrangedSubview:HaloUILabel([NSString stringWithUTF8String:p.name],22,UIFontWeightBold,nil)];
     [rows addArrangedSubview:HaloUIButton(@"Done",1,^(UIButton *b) { [weakEditor dismissViewControllerAnimated:YES completion:nil];[self renderSoon]; })];
     [rows addArrangedSubview:HaloUINote(@"Recipes activate when you select this preset or enter a solo campaign. One-shot items run once per activation; multiplayer always disables cheats.")];
+    [rows addArrangedSubview:[self hudChoiceRow:index]];
+    [rows addArrangedSubview:[self startupRow:index]];
     [rows addArrangedSubview:HaloUISegmentRow(@"Face buttons",@[@"Classic Xbox UI",@"Playstation UI"],p.face_style,^(NSInteger value) { [self update:^(HsSettings *s) { s->presets[index].face_style=(int)value; }]; })];
     NSArray<NSString *> *names=@[@"God mode",@"Infinite ammo",@"Infinite grenades",@"Bottomless clip",@"One-hit kills",@"Unlimited flashlight",@"No fall damage",@"Rapid fire",@"No recoil",@"Third person",@"Noclip",@"Infinite Active Camo",@"Infinite Overshield"];
     for (NSUInteger bit=0;bit<names.count;++bit) {
@@ -575,8 +584,8 @@ static NSString *HaloCategorySymbol(HaloCategory c)
 - (void)buildAdvanced:(const HsSettings *)settings
 {
     [self add:HaloUICardView(@"Game",@[
-        HaloUIButton(@"Restart Game",0,^(UIButton *b) { [self confirmAppQuit:YES]; }),
-        HaloUIButton(@"Quit Game",2,^(UIButton *b) { [self confirmAppQuit:NO]; })])];
+        HaloUIButton(@"Quit Game",2,^(UIButton *b) { [self confirmAppQuit]; })])];
+    [self add:HaloUICardView(@"Startup",@[[self startupRow:settings->active],HaloUINote(@"Saved with the current control profile. A recovery start always pauses at Start Halo.")])];
     NSMutableArray<UIView *> *diag = [NSMutableArray array];
     [diag addObject:HaloUISwitchRow(@"Performance profiler", @"Samples the game thread so Diagnostics can show where the time goes. About 1% of one CPU core.", settings->profiler, ^(BOOL on) { [self update:^(HsSettings *s) { s->profiler = on; }]; })];
     [diag addObject:HaloUIButton(@"Share log files", 0, ^(UIButton *b) { if (self.onShareLogs) self.onShareLogs(b); })];
@@ -604,9 +613,9 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUINote(@"Halo CE Universal and the iOS port contributors."),
         HaloUIButton(@"Halo-CE-IOS on GitHub",0,^(UIButton *b) { [UIApplication.sharedApplication openURL:[NSURL URLWithString:@"https://github.com/xSkullHD/Halo-CE-IOS"] options:@{} completionHandler:nil]; })])];
 }
-- (void)confirmAppQuit:(BOOL)restart {
-    UIAlertController *alert=[UIAlertController alertControllerWithTitle:restart?@"Restart Halo":@"Quit Halo" message:restart?@"Halo will close to reset the engine safely. Reopen the app to return to Start Halo. Unsaved progress will be lost.":@"Close Halo completely? Unsaved progress will be lost." preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:restart?@"Close for restart":@"Quit" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a) { halo_ios_quit_app(); }]];
+- (void)confirmAppQuit {
+    UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Quit Halo" message:@"Close Halo completely? Unsaved progress will be lost." preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Quit" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a) { halo_ios_quit_app(); }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }

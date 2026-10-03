@@ -44,6 +44,8 @@ typedef struct
     float move_curve;         /* 1 ... 3 */
     float look_curve;         /* 1 ... 3 */
     int haptics;
+    int hud_choice; /* 0 Default, 1..3 saved HUD recipe; never edits recipes */
+    int startup_auto; /* launch immediately when maps are ready */
     int face_style; /* 0 Xbox, 1 PlayStation; input mapping is unchanged */
     unsigned cheat_flags, cheat_actions;
     float cheat_jump, cheat_speed, cheat_fov;
@@ -57,6 +59,7 @@ typedef struct { float x,y,scale,opacity; int hidden; } HsHud;
 typedef struct { char name[HS_NAME_MAX+1]; HsHud elements[HS_HUD_COUNT]; } HsHudPreset;
 typedef struct
 {
+    int gear_placed; float gear_x, gear_y; /* safe-area fractions */
     HsHud hud[HS_HUD_COUNT];
     HsHudPreset hud_presets[3];
     float music_volume, dialogue_volume, effects_volume;
@@ -136,6 +139,7 @@ static inline void hs_default_preset(HsPreset *p, int index)
     p->look_curve = 1.5f;
     p->haptics = 1;
     p->face_style = index == 1;
+    p->startup_auto = 1;
     p->cheat_jump = p->cheat_speed = 1.f;
 }
 
@@ -201,6 +205,7 @@ static inline void hs_sanitize_preset(HsPreset *p)
     p->move_curve = hs_clampf(p->move_curve, 1.0f, 3.0f);
     p->look_curve = hs_clampf(p->look_curve, 1.0f, 3.0f);
     p->haptics = p->haptics ? 1 : 0;
+    p->hud_choice=hs_clampi(p->hud_choice,0,3);p->startup_auto=!!p->startup_auto;
     p->face_style = hs_clampi(p->face_style,0,1);
     p->cheat_flags &= 8191u; p->cheat_actions &= 15u;
     p->cheat_weapon=hs_clampi(p->cheat_weapon,0,10);
@@ -226,6 +231,7 @@ static inline void hs_sanitize(HsSettings *s)
     s->join_from_clipboard = s->join_from_clipboard ? 1 : 0;
     s->show_fps = s->show_fps ? 1 : 0;
     s->profiler = s->profiler ? 1 : 0;
+    s->gear_placed=!!s->gear_placed;s->gear_x=hs_clampf(s->gear_x,0,1);s->gear_y=hs_clampf(s->gear_y,0,1);
     s->fps_mode = hs_clampi(s->fps_mode, 0, 2);
     s->controls_mode = hs_clampi(s->controls_mode, 0, 2);
     s->cheat_god = s->cheat_god ? 1 : 0;
@@ -255,6 +261,8 @@ static inline void hs_apply_preset(const HsPreset *preset, float left, float top
                                    HcControl controls[HC_COUNT])
 {
     if (preset->face_style) {
+        controls[HC_LT].label="L2";controls[HC_RT].label="R2";
+        controls[HC_LS].label="L3";controls[HC_RS].label="R3";
         controls[HC_A].label="×"; controls[HC_A].color=HC_COLOR_BLUE;
         controls[HC_B].label="○"; controls[HC_B].color=HC_COLOR_RED;
         controls[HC_X].label="□"; controls[HC_X].color=HC_COLOR_PINK;
@@ -342,6 +350,7 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
     size_t n = 0;
 #define EMIT(...) do { int w = snprintf(out + n, n < size ? size - n : 0, __VA_ARGS__); if (w < 0) return -1; n += (size_t)w; } while (0)
     EMIT("HALO1\n");
+    EMIT("gear=%d,%.4f,%.4f\n",s->gear_placed,s->gear_x,s->gear_y);
     EMIT("music=%.3f\ndialogue=%.3f\neffects=%.3f\n",s->music_volume,s->dialogue_volume,s->effects_volume);
     for(int h=0;h<HS_HUD_COUNT;h++) { const HsHud *q=&s->hud[h];EMIT("hud%d=%.4f,%.4f,%.3f,%.3f,%d\n",h,q->x,q->y,q->scale,q->opacity,q->hidden); }
     for(int p=0;p<3;p++) { EMIT("hn%d=%s\n",p,s->hud_presets[p].name);for(int h=0;h<HS_HUD_COUNT;h++) { const HsHud *q=&s->hud_presets[p].elements[h];EMIT("hp%d.%d=%.4f,%.4f,%.3f,%.3f,%d\n",p,h,q->x,q->y,q->scale,q->opacity,q->hidden); } }
@@ -362,6 +371,7 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
         const HsPreset *p = &s->presets[i];
 
         EMIT("p%d.name=%s\n", i, p->name);
+        EMIT("p%d.hudchoice=%d\np%d.startauto=%d\n",i,p->hud_choice,i,p->startup_auto);
         EMIT("p%d.face=%d\np%d.cheats=%u\np%d.actions=%u\np%d.weapon=%d\np%d.jump=%.3f\np%d.speed=%.3f\np%d.fov=%.3f\n",i,p->face_style,i,p->cheat_flags,i,p->cheat_actions,i,p->cheat_weapon,i,p->cheat_jump,i,p->cheat_speed,i,p->cheat_fov);
         EMIT("p%d.opacity=%.3f\np%d.look=%d\np%d.sens=%.3f\np%d.invert=%d\np%d.float=%d\n", i, p->opacity, i, p->touch_look,
              i, p->look_sensitivity, i, p->invert_look_y, i, p->floating_sticks);
@@ -420,6 +430,7 @@ static inline int hs_parse(HsSettings *s, const char *text)
                     if(q) { HsHud v=*q;if(sscanf(value,"%f,%f,%f,%f,%d",&v.x,&v.y,&v.scale,&v.opacity,&v.hidden)==5)*q=v; }
                 }
                 else if (!strncmp(key,"hn",2)) { int p=-1;if(sscanf(key,"hn%d",&p)==1 && p>=0 && p<3)hs_set_name(s->hud_presets[p].name,value); }
+                else if (!strcmp(key,"gear")) { int placed;float x,y;if(sscanf(value,"%d,%f,%f",&placed,&x,&y)==3){s->gear_placed=placed;s->gear_x=x;s->gear_y=y;} }
                 else if (!strcmp(key, "fps")) s->show_fps = atoi(value);
                 else if (!strcmp(key, "profiler")) s->profiler = atoi(value);
                 else if (!strcmp(key, "smooth")) s->fps_mode = atoi(value) ? 1 : 0; /* M2.6.33-35 files */
@@ -449,6 +460,8 @@ static inline int hs_parse(HsSettings *s, const char *text)
                     const char *field = key + 3;
 
                     if (!strcmp(field, "name")) hs_set_name(p->name, value);
+                    else if (!strcmp(field,"hudchoice")) p->hud_choice=atoi(value);
+                    else if (!strcmp(field,"startauto")) p->startup_auto=atoi(value);
                     else if (!strcmp(field,"face")) p->face_style=atoi(value);
                     else if (!strcmp(field,"cheats")) p->cheat_flags=(unsigned)strtoul(value,NULL,10);
                     else if (!strcmp(field,"actions")) p->cheat_actions=(unsigned)strtoul(value,NULL,10);

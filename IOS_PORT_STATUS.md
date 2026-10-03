@@ -1,8 +1,8 @@
 # Halo CE iOS — Port Status
 
-Current iOS update: **M2.6.45** — clean launch screens, touch editor access, centered controller symbols, automatic campaign recipes, compact multiplayer status and ui.map menu pictures. See [release notes](port/ios/UPDATE_M2645.md). Device validation is pending.
+Current iOS update: **M2.6.46** — prioritized draggable Settings, linked HUD/control profiles, startup preferences, corrected controller labels and a compiled-map mod manager. See [release notes](port/ios/UPDATE_M2646.md). Device validation is pending.
 
-Updated October 3, 2026. Current development milestone: **M2.6.45** (device testing pending).
+Updated October 3, 2026. Current development milestone: **M2.6.46** (device testing pending).
 
 ## Current status
 

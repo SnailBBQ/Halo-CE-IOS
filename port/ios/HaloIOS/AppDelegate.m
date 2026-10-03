@@ -7,6 +7,7 @@
 #import "HaloLogViewController.h"
 #import "HaloSettingsStore.h"
 #import "HaloLibrary.h"
+#import "HaloMods.h"
 #import "HaloUI.h"
 #import "halo_ios_audio.h"
 #import "halo_ios_platform.h"
@@ -49,6 +50,8 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 @property(nonatomic,strong) NSURL *deferredInvite;
 @property(nonatomic) BOOL physicalPadConnected;
 @property(nonatomic, strong) UIButton *settingsButton;
+@property(nonatomic) CGPoint gearDragOffset;
+@property(nonatomic) BOOL draggingGear;
 @property(nonatomic, strong) UILabel *fpsLabel;
 @property(nonatomic, strong) NSTimer *fpsTimer;
 @property(nonatomic) uint64_t fpsLastFrames;
@@ -254,7 +257,32 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 }
 - (void)menuPress:(UIButton *)sender { halo_ios_menu_button((int)sender.tag, 1); }
 - (void)menuRelease:(UIButton *)sender { halo_ios_menu_button((int)sender.tag, 0); }
+/* Settings owns the last hit-test layer, above every gameplay control. */
+- (void)layoutSettingsButton {
+    UIView *root=self.window.rootViewController.view;if(!self.settingsButton)return;
+    CGRect safe=UIEdgeInsetsInsetRect(root.bounds,root.safeAreaInsets);
+    HsSettings settings=[HaloSettingsStore.shared snapshot];
+    CGFloat x=settings.gear_placed?CGRectGetMinX(safe)+settings.gear_x*safe.size.width:CGRectGetMidX(safe);
+    CGFloat y=settings.gear_placed?CGRectGetMinY(safe)+settings.gear_y*safe.size.height:CGRectGetMinY(safe)+26;
+    self.settingsButton.bounds=CGRectMake(0,0,48,44);
+    self.settingsButton.center=CGPointMake(MAX(CGRectGetMinX(safe)+24,MIN(CGRectGetMaxX(safe)-24,x)),MAX(CGRectGetMinY(safe)+22,MIN(CGRectGetMaxY(safe)-22,y)));
+    [root bringSubviewToFront:self.settingsButton];
+}
+- (void)dragSettings:(UILongPressGestureRecognizer *)gesture {
+    UIView *root=self.settingsButton.superview;CGPoint point=[gesture locationInView:root];
+    if(gesture.state==UIGestureRecognizerStateBegan){self.draggingGear=YES;self.gearDragOffset=CGPointMake(self.settingsButton.center.x-point.x,self.settingsButton.center.y-point.y);[(HaloControlsView *)self.menuControls releaseAll];}
+    if(gesture.state==UIGestureRecognizerStateChanged || gesture.state==UIGestureRecognizerStateBegan){
+        CGRect safe=UIEdgeInsetsInsetRect(root.bounds,root.safeAreaInsets);
+        self.settingsButton.center=CGPointMake(MAX(CGRectGetMinX(safe)+24,MIN(CGRectGetMaxX(safe)-24,point.x+self.gearDragOffset.x)),MAX(CGRectGetMinY(safe)+22,MIN(CGRectGetMaxY(safe)-22,point.y+self.gearDragOffset.y)));
+    }
+    if(gesture.state==UIGestureRecognizerStateEnded || gesture.state==UIGestureRecognizerStateCancelled){
+        CGRect safe=UIEdgeInsetsInsetRect(root.bounds,root.safeAreaInsets);CGPoint center=self.settingsButton.center;
+        if(safe.size.width>0 && safe.size.height>0)[HaloSettingsStore.shared update:^(HsSettings *s){s->gear_placed=1;s->gear_x=(center.x-safe.origin.x)/safe.size.width;s->gear_y=(center.y-safe.origin.y)/safe.size.height;}];
+        self.draggingGear=NO;
+    }
+}
 - (void)updateControlsVisibility {
+    if(!self.draggingGear)[self layoutSettingsButton];
     /* On-screen controls only while the game is showing and no physical controller is connected. */
     BOOL editing = [(HaloControlsView *)self.menuControls editing];
     int mode = [[HaloSettingsStore shared] snapshot].controls_mode;   /* 0 auto, 1 always, 2 hidden */
@@ -311,6 +339,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
     [top presentViewController:settings animated:YES completion:nil];
 }
 - (void)updateFPS {
+    if(!self.draggingGear)[self layoutSettingsButton];
     if(self.engineStarted && !self.bootOverlay.hidden && halo_ios_presented_frames()>0){self.bootOverlay.hidden=YES;[self.launchSpinner stopAnimating];[self updateControlsVisibility];}
     HsSettings settings = [[HaloSettingsStore shared] snapshot];
     HsHud h=settings.hud[0];
@@ -379,12 +408,12 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     NSString *pending=[[[NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask].firstObject.path stringByAppendingPathComponent:@"HaloBackups"] stringByAppendingPathComponent:@"pending.plist"];
-    if(![NSFileManager.defaultManager fileExistsAtPath:pending])return [self finishLaunch:application options:launchOptions];
+    if(![NSFileManager.defaultManager fileExistsAtPath:pending] && !HaloModsPending())return [self finishLaunch:application options:launchOptions];
     self.restoringBackup=YES;
     self.window=[[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];UIViewController *screen=[UIViewController new];screen.view.backgroundColor=UIColor.blackColor;self.window.rootViewController=screen;
-    UILabel *message=[UILabel new];message.text=@"Restoring Halo…\nKeep the app open. Large map backups may take a while.";message.textColor=UIColor.whiteColor;message.textAlignment=NSTextAlignmentCenter;message.numberOfLines=0;message.translatesAutoresizingMaskIntoConstraints=NO;[screen.view addSubview:message];[NSLayoutConstraint activateConstraints:@[[message.centerXAnchor constraintEqualToAnchor:screen.view.centerXAnchor],[message.centerYAnchor constraintEqualToAnchor:screen.view.centerYAnchor],[message.widthAnchor constraintLessThanOrEqualToAnchor:screen.view.widthAnchor constant:-40]]];[self.window makeKeyAndVisible];
+    UILabel *message=[UILabel new];message.text=@"Preparing Halo…\nApplying library changes. Keep the app open.";message.textColor=UIColor.whiteColor;message.textAlignment=NSTextAlignmentCenter;message.numberOfLines=0;message.translatesAutoresizingMaskIntoConstraints=NO;[screen.view addSubview:message];[NSLayoutConstraint activateConstraints:@[[message.centerXAnchor constraintEqualToAnchor:screen.view.centerXAnchor],[message.centerYAnchor constraintEqualToAnchor:screen.view.centerYAnchor],[message.widthAnchor constraintLessThanOrEqualToAnchor:screen.view.widthAnchor constant:-40]]];[self.window makeKeyAndVisible];
     /* Large map hashing/copies must not block application launch or the UI thread. */
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{NSError *error=nil;BOOL restored=HaloApplyPendingRestore(&error);
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{NSError *error=nil;BOOL restored=HaloApplyPendingRestore(&error);if(restored)restored=HaloModsApply(&error);
         dispatch_async(dispatch_get_main_queue(),^{
             if(restored){self.restoringBackup=NO;[self finishLaunch:application options:launchOptions];if(self.deferredInvite){HaloSetPendingInvite(self.deferredInvite.absoluteString);self.deferredInvite=nil;}return;}
             UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Restore stopped" message:error.localizedDescription preferredStyle:UIAlertControllerStyleAlert];[alert addAction:[UIAlertAction actionWithTitle:@"Close Halo" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){(void)a;halo_ios_quit_app();}]];[screen presentViewController:alert animated:YES completion:nil];
@@ -444,10 +473,13 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
 
     UIButton *gear = [UIButton buttonWithType:UIButtonTypeSystem];
-    gear.translatesAutoresizingMaskIntoConstraints = NO;
+    gear.translatesAutoresizingMaskIntoConstraints = YES;
     gear.backgroundColor = [UIColor colorWithWhite:0.15 alpha:0.9];
     gear.layer.cornerRadius = 8;
-    [gear setTitle:@"⚙︎" forState:UIControlStateNormal];
+    [gear setImage:[UIImage systemImageNamed:@"gearshape.fill"] forState:UIControlStateNormal];
+    gear.tintColor=UIColor.whiteColor;
+    gear.accessibilityHint=@"Tap to open settings. Touch and hold to move.";
+    UILongPressGestureRecognizer *move=[[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(dragSettings:)];move.minimumPressDuration=.35;move.allowableMovement=20;move.cancelsTouchesInView=YES;[gear addGestureRecognizer:move];
     gear.titleLabel.font = [UIFont systemFontOfSize:20];
     [gear setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
     gear.accessibilityLabel = @"Settings";
@@ -528,10 +560,6 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 
         [title.leadingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.leadingAnchor constant:14],
         [title.trailingAnchor constraintLessThanOrEqualToAnchor:bootOverlay.safeAreaLayoutGuide.trailingAnchor constant:-80],
-        [gear.trailingAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.trailingAnchor constant:-16],
-        [gear.topAnchor constraintEqualToAnchor:vc.view.safeAreaLayoutGuide.topAnchor constant:4],
-        [gear.widthAnchor constraintEqualToConstant:48],
-        [gear.heightAnchor constraintEqualToConstant:36],
         [title.topAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.topAnchor constant:8],
         [log.leadingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.leadingAnchor constant:12],
         [log.trailingAnchor constraintEqualToAnchor:bootOverlay.safeAreaLayoutGuide.trailingAnchor constant:-12],
@@ -632,10 +660,13 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
         start.enabled = NO;
     } else if ([self hasStartupMap]) {
         [self refreshSetup];
+        HsSettings settings=[HaloSettingsStore.shared snapshot];
+        if(settings.presets[settings.active].startup_auto && !halo_ios_safe_level())[self startHalo:nil];
     } else {
         halo_crash_phase("waiting for maps");
         [self refreshSetup];
     }
+    [vc.view layoutIfNeeded];[self layoutSettingsButton];
     return YES;
 }
 @end

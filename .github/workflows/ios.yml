@@ -41,6 +41,7 @@ on:
       - 'tools/tests/test_ios_settings_core.c'
       - 'tools/tests/test_ios_preset_activation.m'
       - 'tools/tests/test_ios_map_pictures.m'
+      - 'tools/tests/test_ios_mods.m'
       - 'tools/tests/test_ios_log_classify.c'
       - 'tools/tests/test_ios_net.c'
       - 'tools/tests/test_ios_hash.c'
@@ -288,6 +289,11 @@ jobs:
           "$RUNNER_TEMP/halo-recipes-test"
           clang -fobjc-arc -DHALO_MAP_PICTURE_TEST -framework Foundation -Iport/ios/HaloIOS port/ios/HaloIOS/HaloMapPictures.m tools/tests/test_ios_map_pictures.m -lz -o "$RUNNER_TEMP/halo-pictures-test"
           "$RUNNER_TEMP/halo-pictures-test"
+
+      - name: Verify mod loading and recovery
+        run: |
+          clang -fobjc-arc -DHALO_BACKUP_TEST -framework Foundation -Iport/ios/HaloIOS port/ios/HaloIOS/HaloMods.m port/ios/HaloIOS/HaloBackupArchive.m tools/tests/test_ios_mods.m -o "$RUNNER_TEMP/halo-mods-test"
+          "$RUNNER_TEMP/halo-mods-test"
 
       - name: Build device host app
         run: |

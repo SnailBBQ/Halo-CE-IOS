@@ -1,4 +1,5 @@
 #import "HaloLibrary.h"
+#import "HaloMods.h"
 #import "HaloMapPictures.h"
 #import "HaloBackupArchive.h"
 #import "HaloSettingsStore.h"
@@ -17,7 +18,7 @@
 @property(nonatomic,strong) NSURL *temporaryExport;
 @end
 @implementation HaloLibraryController
-- (void)viewDidLoad { [super viewDidLoad];self.view.backgroundColor=HaloUIBackground();self.title=self.maps?@"Installed Maps":@"Backups";self.mask=7;self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(close)];self.rows=HaloUIScrollingStack(self.view,12);[self render]; }
+- (void)viewDidLoad { [super viewDidLoad];self.view.backgroundColor=HaloUIBackground();self.title=self.maps?@"Mods":@"Backups";self.mask=7;self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(close)];self.rows=HaloUIScrollingStack(self.view,12);[self render]; }
 - (void)close { if(!self.busy)[self dismissViewControllerAnimated:YES completion:nil]; }
 - (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
     (void)controller;if(self.temporaryExport){[NSFileManager.defaultManager removeItemAtURL:self.temporaryExport error:nil];self.temporaryExport=nil;}
@@ -63,8 +64,22 @@
 - (void)renderMaps {
     [self loadMapPictures];
     __weak typeof(self) weakSelf=self;
+    NSArray *mods=nil;@try{mods=HaloModsList();}@catch(NSException *exception){[self.rows addArrangedSubview:HaloUINote(exception.reason)];return;}
+    [self.rows addArrangedSubview:HaloUICardView(@"Mod library",@[
+        HaloUINote(@"Import compiled Xbox version 5 map mods. Weapon, character and other tag changes must be compiled into these maps; loose tags and executable plugins are not supported. Changes load on the next app launch. Later enabled entries override earlier entries with the same filename. Original maps are preserved for unloading."),
+        HaloUIButton(@"Import mods",1,^(UIButton *button){(void)button;weakSelf.pickerKind=5;UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:YES];picker.allowsMultipleSelection=YES;picker.delegate=weakSelf;[weakSelf presentViewController:picker animated:YES completion:nil];}),
+        HaloUINote(HaloModsPending()?@"Changes pending — quit and reopen Halo to apply safely.":@"The selected mod order is installed.")])];
+    for(NSUInteger index=0;index<mods.count;index++){
+        NSDictionary *mod=mods[index];NSMutableArray *items=[NSMutableArray array];
+        [items addObject:HaloUISwitchRow(@"Loaded on next launch",nil,[mod[@"enabled"] boolValue],^(BOOL enabled){@try{HaloModsSetEnabled(index,enabled);[weakSelf render];}@catch(NSException *exception){[weakSelf message:exception.reason];}})];
+        if(index)[items addObject:HaloUIButton(@"Move earlier",0,^(UIButton *button){(void)button;@try{HaloModsMove(index,-1);[weakSelf render];}@catch(NSException *exception){[weakSelf message:exception.reason];}})];
+        if(index+1<mods.count)[items addObject:HaloUIButton(@"Move later",0,^(UIButton *button){(void)button;@try{HaloModsMove(index,1);[weakSelf render];}@catch(NSException *exception){[weakSelf message:exception.reason];}})];
+        [items addObject:HaloUIButton(@"Export mod",0,^(UIButton *button){(void)button;@try{UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForExportingURLs:@[HaloModsExport(index)] asCopy:YES];picker.delegate=weakSelf;weakSelf.pickerKind=6;[weakSelf presentViewController:picker animated:YES completion:nil];}@catch(NSException *exception){[weakSelf message:exception.reason];}})];
+        [self.rows addArrangedSubview:HaloUICardView([NSString stringWithFormat:@"%lu · %@",(unsigned long)index+1,mod[@"file"]],items)];
+    }
+    if(!mods.count)[self.rows addArrangedSubview:HaloUINote(@"No mods imported. Your installed game maps remain available below.")];
 
-    [self.rows addArrangedSubview:HaloUICardView(@"Maps",@[
+    [self.rows addArrangedSubview:HaloUICardView(@"Installed game files",@[
         HaloUINote(@"Halo loads the same Documents/Halo/maps directory. This build requires Xbox version 5 maps, including ui.map. Header checks do not prove every asset is intact. Matching builds are required for multiplayer. Menu pictures are read from ui.map where its layout is supported; custom pictures override them."),
         HaloUIButton(@"Import maps",1,^(UIButton *b){(void)b;weakSelf.pickerKind=2;UIDocumentPickerViewController *p=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:YES];p.allowsMultipleSelection=YES;p.delegate=weakSelf;[weakSelf presentViewController:p animated:YES completion:nil];}),
         HaloUIButton(@"Refresh installed maps",0,^(UIButton *b){(void)b;[weakSelf render];})])];
@@ -97,6 +112,8 @@
             } @catch(NSException *e){[fm removeItemAtURL:stage error:nil];@throw e;}
         } completion:^(NSURL *result){(void)result;[weakSelf message:@"Backup verified. Close and reopen Halo to restore before the game starts."];}];}]];
         [a addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];[self presentViewController:a animated:YES completion:nil];
+    } else if(kind==5) {
+        [self run:^NSURL *{HaloModsImport(urls);return urls.firstObject;} completion:^(NSURL *result){(void)result;[weakSelf render];}];
     } else if(kind==2) {
         UIAlertController *confirm=[UIAlertController alertControllerWithTitle:@"Import maps on next launch?" message:@"Matching filenames will be replaced after a recovery backup. Existing maps remain usable until you close and reopen Halo." preferredStyle:UIAlertControllerStyleAlert];
         [confirm addAction:[UIAlertAction actionWithTitle:@"Stage import" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){(void)action;[weakSelf run:^NSURL *{

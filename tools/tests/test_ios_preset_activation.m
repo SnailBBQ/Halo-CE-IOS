@@ -24,5 +24,10 @@ int main(void){@autoreleasepool{
     NSString *saved=[NSUserDefaults.standardUserDefaults stringForKey:@"HaloSettingsV1"];HsSettings parsed;hs_parse(&parsed,saved.UTF8String);
     CHECK(!hs_cheat_mask(&parsed) && parsed.presets[0].cheat_flags==1);
     [store setCampaignActive:YES];CHECK(flags==1 && actions==3);
+    [store setCampaignActive:NO];
+    [store update:^(HsSettings *s){s->hud_presets[2].elements[1].scale=.7f;s->presets[2].hud_choice=3;s->active=2;}];
+    HsSettings linked=[store snapshot];CHECK(linked.hud[1].scale==.7f && linked.hud_presets[2].elements[1].scale==.7f);
+    [store update:^(HsSettings *s){s->presets[2].place[HC_A].scale=1.2f;}];CHECK([store snapshot].hud_presets[2].elements[1].scale==.7f);
+    [store update:^(HsSettings *s){s->presets[2].hud_choice=0;}];CHECK([store snapshot].hud[1].scale==1 && [store snapshot].hud_presets[2].elements[1].scale==.7f);
     puts("PASS: recipes activate on campaign entry/preset selection only, one-shots do not repeat, multiplayer clears runtime state, saves contain recipes only");
 }return 0;}
