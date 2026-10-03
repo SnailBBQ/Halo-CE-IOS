@@ -1364,7 +1364,7 @@ static void temporary_hud_draw(
 }
 
 #ifdef HALO_IOS_GUEST
-#include "halo_ios_hud_options.h"
+#include "../../port/include/halo_ios_hud_options.h"
 HaloHudOptions halo_ios_hud[5];
 int halo_ios_hud_group;
 extern void host_hud_options(HaloHudOptions *options);

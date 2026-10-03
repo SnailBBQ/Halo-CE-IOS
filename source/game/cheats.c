@@ -580,7 +580,7 @@ void cheat_all_vehicles(
 
 #ifdef HALO_IOS_GUEST
 /* Infinite effects only refresh the living, local solo player. Releasing camo
- * leaves at most two simulation ticks, so the ordinary expiry clears its flag.
+ * stops refreshing its timer; an existing normal pickup can still run its course.
  * Overshield remains a normal damage-consumable reserve after disabling. */
 static void ios_powerups_tick(void) {
     long index=cheat_player_index();

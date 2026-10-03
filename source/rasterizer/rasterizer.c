@@ -315,7 +315,7 @@ symbols in this file:
 #include "rasterizer/xbox/rasterizer_xbox_dynavobgeom.h"
 #include "render/render.h"
 #ifdef HALO_IOS_GUEST
-#include "halo_ios_hud_options.h"
+#include "../../port/include/halo_ios_hud_options.h"
 #endif
 #include "render/render_debug.h"
 #include "saved games/game_state.h"

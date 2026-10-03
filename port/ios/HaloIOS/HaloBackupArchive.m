@@ -5,7 +5,7 @@
 /* Versioned streaming archive: 8-byte magic, LE manifest size, JSON manifest,
  * then exact file bytes. No compression or all-map allocation. Paths are never
  * accepted from an archive without whitelist, duplicate and traversal checks. */
-NSString *HaloBackupRoot(void) { 
+NSString *HaloBackupRoot(void) {
 #ifdef HALO_BACKUP_TEST
 return [NSString stringWithUTF8String:getenv("HALO_BACKUP_TEST_ROOT")];
 #else
@@ -155,4 +155,3 @@ BOOL HaloApplyPendingRestore(NSError **error) {
         if(recovered)[fm removeItemAtURL:request error:nil];if(error)*error=HaloBackupFailure([e.reason stringByAppendingString:recovered?@" Changes were rolled back. Recovery files remain in app storage.":@" Recovery needs another attempt; recovery files remain in app storage."]);return NO;
     }
 }
-
