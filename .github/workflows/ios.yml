@@ -42,6 +42,11 @@ on:
       - 'tools/tests/test_ios_map_order.c'
       - 'tools/tests/test_ios_pad_input.c'
       - 'tools/tests/test_ios_color.c'
+      - 'tools/tests/test_ios_scancodes.c'
+      - 'tools/tests/test_ios_store_build_modes.py'
+      - 'tools/ce_menus.py'
+      - 'tools/port_settings.py'
+      - 'port/third_party/**'
       - 'tools/tests/test_ios_world_cheats.py'
       - 'tools/tests/test_ios_preset_activation.m'
       - 'tools/tests/test_ios_map_pictures.m'
@@ -101,6 +106,7 @@ jobs:
           python3 tools/tests/test_ios_geometry_mirror.py
           python3 tools/tests/test_ios_powerups.py
           python3 tools/tests/test_ios_world_cheats.py
+          python3 tools/tests/test_ios_store_build_modes.py
           python3 tools/tests/test_ios_campaign_policy.py
           python3 tools/tests/test_ios_arena_fastpath.py
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_controls_layout.c -o "$RUNNER_TEMP/halo-controls-test" -lm
@@ -115,6 +121,8 @@ jobs:
           "$RUNNER_TEMP/halo-padinput-test"
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_color.c -o "$RUNNER_TEMP/halo-color-test" -lm
           "$RUNNER_TEMP/halo-color-test"
+          cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_scancodes.c -o "$RUNNER_TEMP/halo-scancodes-test"
+          "$RUNNER_TEMP/halo-scancodes-test"
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_log_classify.c -o "$RUNNER_TEMP/halo-log-test" -lm
           "$RUNNER_TEMP/halo-log-test"
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_sdl_events.c -o "$RUNNER_TEMP/halo-events-test"

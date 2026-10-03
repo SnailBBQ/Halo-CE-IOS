@@ -271,6 +271,12 @@ int main(void)
         for(int i=0;i<HC_COUNT;i++){ if(b[i].r.x<10-.01f||b[i].r.x+b[i].r.w>810+.01f) ok=0; }
         CHECK(ok,"the mirrored layout stays on screen");
     }
+    /* which menus */
+    hs_defaults(&s);CHECK(s.menu_style==0,"the PC menus are the default");
+    s.menu_style=1;CHECK(hs_serialize(&s,text,sizeof(text))>0 && hs_parse(&t,text) && t.menu_style==1,"the Xbox menus choice persists");
+    hs_parse(&t,"HALO1\nmenus=9\n");CHECK(t.menu_style==1,"a hostile value is bounded");
+    hs_parse(&t,"HALO1\nmenus=-4\n");CHECK(t.menu_style==0,"a negative value is bounded");
+    hs_parse(&t,"HALO1\nactive=1\n");CHECK(t.menu_style==0,"a file from before this setting reads as the PC menus");
     /* heat-aware frame cap */
     hs_defaults(&s);s.fps_mode=1;s.thermal_cap=1;
     CHECK(hs_effective_cap(&s,0,0)==60 && hs_effective_cap(&s,1,0)==60,"smooth 60 is held at 60 while the phone is cool or warm");

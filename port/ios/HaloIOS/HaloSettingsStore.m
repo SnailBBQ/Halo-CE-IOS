@@ -13,13 +13,14 @@ extern int halo_ios_queue_campaign_action(uint32_t);
 #import "halo_ios_audio.h"
 #import "halo_guest_runner.h"
 #import "halo_ios_gl_host.h"
+#endif
 
+/* Foundation only, so the CI test build (which has no audio or GL headers) gets it too. */
 static int HaloEffectiveCap(const HsSettings *settings)
 {
     NSProcessInfo *info = NSProcessInfo.processInfo;
     return hs_effective_cap(settings, (int)info.thermalState, info.isLowPowerModeEnabled ? 1 : 0);
 }
-#endif
 
 NSString *const HaloSettingsChangedNotification = @"HaloSettingsChanged";
 NSString *const HaloCampaignStateChangedNotification = @"HaloCampaignStateChanged";

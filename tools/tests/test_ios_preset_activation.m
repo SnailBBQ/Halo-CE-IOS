@@ -6,6 +6,7 @@ void halo_ios_set_channel_gains(float a,float b,float c){(void)a;(void)b;(void)c
 void halo_ios_audio_set_volume(float v){(void)v;}
 void halo_ios_set_profiler_enabled(int v){(void)v;}
 void halo_ios_gl_set_frame_cap(int v){(void)v;}
+void halo_ios_set_ambient_gain(float v){(void)v;}
 void halo_ios_set_cheat_flags(uint32_t v){flags=v;}
 void halo_ios_set_viewmodel_flags(uint32_t v){(void)v;}
 int halo_ios_queue_campaign_action(uint32_t v){if(v)actions++;return 1;}

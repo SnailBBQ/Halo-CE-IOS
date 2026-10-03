@@ -79,6 +79,7 @@ typedef struct
     int maps_show_files, maps_mp_alpha, maps_mp_only;          /* Mods: installed game files shown, multiplayer A-Z, campaign hidden */
     float ambient_volume;     /* device and ambient sound classes */
     int perf_overlay, thermal_cap;
+    int menu_style;           /* 0 the PC menus (server browser, Direct Link, Create Game), 1 the Xbox menus; read at launch */
     float pad_dead, pad_curve; unsigned char pad_map[14]; /* physical controller: stick shaping and button remap */
     int active;               /* 0 ... 4 */
     HsPreset presets[HS_PRESET_COUNT];
@@ -269,7 +270,7 @@ static inline void hs_sanitize(HsSettings *s)
     s->cheat_jetpack=!!s->cheat_jetpack;s->cheat_ai_ignore=!!s->cheat_ai_ignore;s->cheat_slow=hs_clampi(s->cheat_slow,0,4);
     s->accent_mode=hs_clampi(s->accent_mode,0,2);s->accent_rgb&=0xFFFFFFu;s->chroma_seconds=hs_clampf(s->chroma_seconds,3.f,60.f);
     s->maps_show_files=!!s->maps_show_files;s->maps_mp_alpha=!!s->maps_mp_alpha;s->maps_mp_only=!!s->maps_mp_only;
-    s->ambient_volume=hs_clampf(s->ambient_volume,0,1);s->perf_overlay=!!s->perf_overlay;s->thermal_cap=!!s->thermal_cap;
+    s->ambient_volume=hs_clampf(s->ambient_volume,0,1);s->perf_overlay=!!s->perf_overlay;s->thermal_cap=!!s->thermal_cap;s->menu_style=hs_clampi(s->menu_style,0,1);
     s->pad_dead=hs_clampf(s->pad_dead,0,.4f);s->pad_curve=hs_clampf(s->pad_curve,1,3);
     for(int b=0;b<14;b++) if(s->pad_map[b]>13) s->pad_map[b]=(unsigned char)b;
     s->volume = hs_clampf(s->volume, 0.0f, 1.0f);
@@ -419,6 +420,7 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
          s->maps_show_files, s->maps_mp_alpha, s->maps_mp_only, s->ambient_volume, s->perf_overlay, s->thermal_cap, s->pad_dead, s->pad_curve);
     EMIT("padmap=");
     for (int b = 0; b < 14; b++) EMIT("%u%s", (unsigned)s->pad_map[b], b + 1 < 14 ? "," : "\n");
+    EMIT("menus=%d\n", s->menu_style);
     EMIT("cheatone_hit=%d\n", s->cheat_one_hit);
     EMIT("cheatflashlight=%d\n", s->cheat_flashlight);
     EMIT("cheatno_fall=%d\n", s->cheat_no_fall);
@@ -528,6 +530,7 @@ static inline int hs_parse(HsSettings *s, const char *text)
                 else if (!strcmp(key, "ambient")) s->ambient_volume = (float)atof(value);
                 else if (!strcmp(key, "perf")) s->perf_overlay = atoi(value);
                 else if (!strcmp(key, "thermal")) s->thermal_cap = atoi(value);
+                else if (!strcmp(key, "menus")) s->menu_style = atoi(value);
                 else if (!strcmp(key, "paddead")) s->pad_dead = (float)atof(value);
                 else if (!strcmp(key, "padcurve")) s->pad_curve = (float)atof(value);
                 else if (!strcmp(key, "padmap"))

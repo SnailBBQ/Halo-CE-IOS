@@ -29,6 +29,7 @@
 #include "halo_hash_native.h"
 #include "halo_geometry_cache.h"
 #include "halo_crash_report.h"
+#include "halo_scancodes.h"
 #include "halo_launch_state.h"
 #import "HaloSettingsStore.h"
 #include "../../include/halo_ios_campaign_options.h"
@@ -2115,6 +2116,30 @@ static int ios_sdl_set_clipboard_text(uint32_t text)
     return 1;
 }
 
+/* The game's key bindings ask for a key's name and for a name's key (halo_scancodes.h). */
+static void ios_sdl_scancode_name(int32_t scancode, uint32_t buffer_va, uint32_t size)
+{
+    char *buffer = gp(buffer_va, size);
+    if (!buffer || !size) return;
+    const char *name = hsc_name(scancode);
+    size_t length = strlen(name);
+    if (length >= size) length = size - 1;
+    memcpy(buffer, name, length);
+    buffer[length] = 0;
+}
+
+static int32_t ios_sdl_scancode_from_name(uint32_t name_va)
+{
+    char copy[64];
+    for (size_t i = 0; i < sizeof(copy); ++i) {
+        const char *ch = gp((uint64_t)name_va + i, 1);
+        if (!ch) return 0;
+        copy[i] = *ch;
+        if (!copy[i]) return hsc_from_name(copy);
+    }
+    return 0;
+}
+
 static void ios_sdl_get_clipboard_text(uint32_t buffer_va, uint32_t size)
 {
     char *buffer = gp(buffer_va, size);
@@ -2625,6 +2650,8 @@ static void *resolve_host_import(const char *name)
     MAP("host_sdl_poll_event", ios_sdl_poll_event);
     MAP("host_sdl_set_clipboard_text", ios_sdl_set_clipboard_text);
     MAP("host_sdl_get_clipboard_text", ios_sdl_get_clipboard_text);
+    MAP("host_sdl_scancode_name", ios_sdl_scancode_name);
+    MAP("host_sdl_scancode_from_name", ios_sdl_scancode_from_name);
     MAP("host_sdl_show_toast", ios_sdl_show_toast);
     MAP("host_sdl_show_simple_message_box", ios_sdl_show_simple_message_box);
     MAP("host_sdl_get_gamepads", ios_sdl_get_gamepads);
@@ -2980,6 +3007,8 @@ static uint32_t build_boot(void)
     char hires_hud[32], hires_text[32];
     snprintf(hires_hud,sizeof(hires_hud),"HALO_HIGH_RES_HUD=%s",launch_settings.hires_hud?"true":"false");
     snprintf(hires_text,sizeof(hires_text),"HALO_HIGH_RES_TEXT=%s",launch_settings.hires_text?"true":"false");
+    char menus[32];
+    snprintf(menus,sizeof(menus),"HALO_MENUS=%s",launch_settings.menu_style?"xbox":"pc");
     const char *values[16]; unsigned count=0;
     values[count++]=data;
     values[count++]=save;
@@ -2990,6 +3019,7 @@ static uint32_t build_boot(void)
     values[count++]=g_safe_level?"HALO_INTERPOLATION=false":interpolation;
     values[count++]=g_safe_level?"HALO_HIGH_RES_HUD=false":hires_hud;
     values[count++]=g_safe_level?"HALO_HIGH_RES_TEXT=false":hires_text;
+    values[count++]=g_safe_level?"HALO_MENUS=xbox":menus;   /* a safe start uses the menus known to work */
     if(g_safe_level) values[count++]="HALO_NO_AUDIO=1";
     values[count++]="HOME=/tmp";
     values[count++]="TZ=UTC0";
@@ -3154,12 +3184,12 @@ static void *main_guest_thread(void *opaque)
     halo_ios_net_set_resolver(ios_net_resolver);
     halo_ios_net_set_logger(ios_net_log);
     signal(SIGPIPE, SIG_IGN); /* a peer closing a socket must not kill the app */
-    say("M2.6.48: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
+    say("M2.6.49: arena fast path (PC-derived base, x15 scratch) when built with it; signal bridge stays active as fallback.");
     say("Performance defaults: smooth 60 FPS follows the Settings switch; draw tracing and GL polling follow config.toml (off by default).");
-    say("M2.6.48: independent first-person meshes and bounded pose diagnostics; coordinated iCloud invite file support.");
-    say("M2.6.48: timed campaign power-ups, independent audio channels, HUD groups, map library and staged backups.");
-    say("M2.6.48 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
-    say("M2.6.48 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
+    say("M2.6.49: independent first-person meshes and bounded pose diagnostics; coordinated iCloud invite file support.");
+    say("M2.6.49: timed campaign power-ups, independent audio channels, HUD groups, map library and staged backups.");
+    say("M2.6.49 visible-render runtime: null renderer disabled; iOS EAGL/OpenGL ES 3 + real guest GL bridge");
+    say("M2.6.49 breadcrumb: header start=0x%08x boot_va=0x%08x arena_aligned=%s",
         g_header ? g_header->start : 0u,
         context.boot_va,
         halo_guest_base_is_4gb_aligned() ? "YES" : "NO");
@@ -3182,7 +3212,7 @@ static void *main_guest_thread(void *opaque)
         halo_guest_exec_guard_set_active(0);
         halo_guest_exec_stats st;
         halo_guest_exec_stats_get(&st);
-        say("M2.6.48 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
+        say("M2.6.49 abort breadcrumb: reason=%d upgrades=%llu faults=%llu last_fault=0x%llx last_guest_pc=0x%08x last_host_pc=0x%llx insn=0x%08x",
             reason,
             (unsigned long long)st.pointer_upgrades,
             (unsigned long long)st.handled_faults,

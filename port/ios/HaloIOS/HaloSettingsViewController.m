@@ -560,6 +560,13 @@ static NSString *HaloCategorySymbol(HaloCategory c)
     [self add:HaloUICardView(@"Heat and battery", @[
         HaloUISwitchRow(@"Lower the frame rate when the phone is hot", @"Smooth 60 and Uncapped drop to 45 when iOS reports serious heat or Low Power Mode, and to 30 when it is critical, and return when the phone cools. The original 30 FPS mode is never changed.", settings->thermal_cap, ^(BOOL on) { [self update:^(HsSettings *s) { s->thermal_cap = on; }]; }),
         HaloUISwitchRow(@"Performance overlay", @"Under the frame rate: how long a frame takes, the app's memory and what is left before iOS closes it, and how hot the phone is.", settings->perf_overlay, ^(BOOL on) { [self update:^(HsSettings *s) { s->perf_overlay = on; }]; })])];
+    [self add:HaloUICardView(@"Menus", @[
+        HaloUISegmentRow(nil, @[@"PC menus (new)", @"Xbox menus"], settings->menu_style, ^(NSInteger index) {
+            [self update:^(HsSettings *s) { s->menu_style = (int)index; }]; [self renderSoon]; }),
+        HaloUINote(settings->menu_style == 0
+            ? @"The Halo Custom Edition menus from Halo CE Universal: the server browser, Direct Link (paste an invite), Create Game for the Internet or your LAN, and the redrawn screens. Move with the on-screen D-pad and A, or drag to move the pointer."
+            : @"The original Xbox menus, including System Link."),
+        HaloUINote(@"Takes effect the next time you open the app. If the game ever fails to start, the next start (Safe Start) uses the Xbox menus automatically.")])];
 }
 
 #pragma mark - Audio
