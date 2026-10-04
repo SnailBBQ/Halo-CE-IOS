@@ -19,7 +19,7 @@ See the [Multiplayer guide](MULTIPLAYER.md) for how each part works.
 | --- | --- |
 | Connection status | Whether you are hosting, joined or connecting, the tunnel ping, connected peers, the current map and mode. Refreshes every two seconds. |
 | Join this invite / Join the invite on the clipboard | Join a `halo://join/` link, or the bare 64-character hexadecimal code. |
-| Invite file · iCloud Drive | Choose an iCloud Drive folder for `game_invite.txt`, and **Join from game_invite.txt**. |
+| Alternate way of using invite codes: iCloud Drive | Choose an iCloud Drive folder for `game_invite.txt`, paste a compatible invite shared by any player, and press **Join from game_invite.txt**. |
 | Host a game | Shows your current invite, which is also written to the invite file, and lets you share it or show a QR code. |
 | Join links on the clipboard automatically | Off by default, because iOS may request permission when the clipboard is read. Opening a `halo://` link joins without it. |
 | Finding games on your Wi-Fi | Help for LAN discovery and the Local Network permission. |

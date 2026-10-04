@@ -10,7 +10,7 @@ The game can play system link games on a local network and over the internet, an
 
 ## Compatibility
 
-For reliable cross-play, use matching tested Halo CE Universal builds and compatible map content. The network protocol and content must be compatible; the app version alone does not prove compatibility. Update the app and your PC game together. If you use mods or custom maps,
+For reliable cross-play, use matching tested Halo CE Universal builds and compatible map content. The network protocol and content must be compatible; the app version alone does not prove compatibility. Keep every player’s Halo CE Universal installation updated together. If you use mods or custom maps,
 keep every player on matching content. Settings → Advanced → About shows the version of the app and the game build it was made from.
 
 The two apps use separate invite schemes: the regular app opens `halo://` links and the [Mod Test app](MOD_TEST.md) opens `halomodtest://` links.
@@ -26,10 +26,10 @@ The two apps use separate invite schemes: the regular app opens `halo://` links 
 | --- | --- |
 | Invite link | In **Settings → Multiplayer**, paste a `halo://join/` link (or just its 64-character hexadecimal code) into **Join this invite**, or use **Join the invite on the clipboard**. Tapping a `halo://` link in another app also joins. |
 | Clipboard automatically | Turn on *Join links on the clipboard automatically*. It is off by default because iOS may request permission when the clipboard is read. Opening a link does not need it. |
-| Invite file | Choose an iCloud Drive folder; a PC player can paste an invite into the file, and you press **Join from game_invite.txt**. See below. |
+| iCloud Drive | Choose an iCloud Drive folder and paste an invite shared by any player into `game_invite.txt`, then press **Join from game_invite.txt**. See [Alternate way of using invite codes: iCloud Drive](#alternate-way-of-using-invite-codes-icloud-drive). |
 | Recent games | **Join again** reuses a game you hosted or joined. It only works while that game is still running. |
 | LAN | Games on the same Wi-Fi appear in the LAN list. Allow **Local Network** for Halo CE in iOS Settings. |
-| PC menus | **Join Game → Direct Link** accepts manual invites; use native Settings to paste or read an invite file on iOS. Discord-client integration is not available on iOS. **Join Game → LAN** lists local games. **Join Game → Server Browser** lists compatible public Internet games; Refresh and Join use upstream’s invite system. |
+| In-game Menus | **Join Game → Direct Link** accepts manual invites; use native Settings to paste or read an invite file on iOS. Discord-client integration is not available on iOS. **Join Game → LAN** lists local games. **Join Game → Server Browser** lists compatible public Internet games; Refresh and Join use upstream’s invite system. |
 
 ## Hosting a game
 
@@ -48,16 +48,16 @@ Ending hosting clears this app's owned invite export. A stopped lobby cannot be 
 
 Until that update is built and tested, use manual invites or LAN. Public discovery depends on upstream signalling infrastructure and an active public host; it does not list every stock Halo PC or MCC server.
 
-## The invite file
+## Alternate way of using invite codes: iCloud Drive
 
 `game_invite.txt` holds the invite of the game you are hosting.
 
 1. In **Settings → Multiplayer**, choose **Choose iCloud Drive folder** and pick iCloud Drive or a folder inside it. The app remembers the folder and writes the file there. Until you choose one,
    the file is in the app's own `Documents/Halo` folder.
 2. When you host, the app writes the current invite into the file.
-3. To join a PC player's game, paste their invite into the same file, wait for iCloud to sync, and press **Join from game_invite.txt**. It reads the file once when you press the button and never joins by itself.
+3. To join any player’s game, paste their invite into the same file, wait for iCloud to sync, and press **Join from game_invite.txt**. It reads the file once when you press the button and never joins by itself.
 
-Ending a game, or the next launch, clears the file only if it still holds the code this app wrote, so an invite you pasted from a PC is kept. The file holds a single link of at most 1,024 bytes.
+Ending a game, or the next launch, clears the file only if it still holds the code this app wrote, so an invite you pasted from another player is kept. The file holds a single link of at most 1,024 bytes.
 iCloud syncs eventually, and a force-quit app may clean up on its next launch. If access stops working, choose the folder again.
 
 ## Connection status
@@ -68,7 +68,7 @@ A peer count is not a player count. It refreshes every two seconds while Setting
 ## Good to know
 
 - All cheats are switched off when you host or join a game.
-- Cross-play with a PC is easiest when you pick maps both sides have.
+- **Crossplay with other platforms** works best when all players use compatible Halo CE Universal builds and matching maps.
 - Smooth, stable play depends on the phone: see [Display → Heat and battery](SETTINGS.md#display) and the [troubleshooting](TROUBLESHOOTING.md) page if a game drops.
 
 ## Public Internet games (build 84)

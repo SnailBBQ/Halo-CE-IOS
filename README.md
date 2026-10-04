@@ -28,7 +28,7 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 - **Touch controls.** Five named control schemes (Xbox and PlayStation styles), a drag-to-edit layout, touch look, floating sticks, left-handed
   layout, toggle crouch and zoom, gyro aiming and optional touch-aiming helpers. [Controls guide](docs/ios/CONTROLS.md)
 - **Controller support.** Xbox, PlayStation and other controllers supported by Apple's GameController framework, with stick tuning and button remapping.
-- **Multiplayer.** Cross-play with Halo CE Universal on PC: invite links, an invite file in iCloud Drive or the app's folder, a QR code,
+- **Multiplayer.** Crossplay with compatible Halo CE Universal clients on other platforms: invite links, an invite file in iCloud Drive or the app's folder, a QR code,
   recent games, LAN games, and build 84’s public Server Browser, Direct Link and Create Game screens. [Multiplayer guide](docs/ios/MULTIPLAYER.md)
 - **Display.** 30 FPS original, a 60 FPS target or uncapped; 4:3, widescreen or fullscreen; three render-detail levels; a live HUD editor;
   first-person view options; AirPlay mirroring. [Display / AirPlay](docs/ios/DISPLAY_AIRPLAY.md), [Settings reference](docs/ios/SETTINGS.md)

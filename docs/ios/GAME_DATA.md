@@ -60,7 +60,7 @@ The app checks that `ui.map` is present and not tiny; the engine does the real v
 | `map_thumbnails/` | Map pictures you chose in the library |
 | `save/` | Profiles and saved campaign progress |
 | `config.toml` | The engine's own configuration (most settings are in the app's Settings instead) |
-| `game_invite.txt` | The current multiplayer invite, when no iCloud Drive folder is chosen. See [Multiplayer](MULTIPLAYER.md#the-invite-file) |
+| `game_invite.txt` | The current multiplayer invite, when no iCloud Drive folder is chosen. See [Multiplayer](MULTIPLAYER.md#alternate-way-of-using-invite-codes-icloud-drive) |
 | log files | Diagnostics shared from Settings → Logs. See [Troubleshooting](TROUBLESHOOTING.md) |
 
 The mod library keeps its originals and recovery copies in the app's private storage, not in Files, and that takes extra space.
