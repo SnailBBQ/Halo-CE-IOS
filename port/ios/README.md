@@ -54,7 +54,7 @@ cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_settin
 
 ## Following the upstream project
 
-New Halo CE Universal builds are merged with a three-way merge of the previous upstream build, this repository and the new build, then checked locally where possible and by the Apple workflow before release. The current build 89 integration has local checks but still needs an Apple build and device tests. Files that are only upstream's are taken as they are. See
+New Halo CE Universal builds are merged with a three-way merge of the previous upstream build, this repository and the new build, then checked locally where possible and by the Apple workflow before release. The current build 94 integration has local checks but still needs an Apple build and device tests. Files that are only upstream's are taken as they are. See
 [the official project and credits](../../docs/UPSTREAM.md).
 
 ## Release notes

@@ -99,6 +99,7 @@ void ui_widget_port_go_back(struct widget_instance *widget);
 short ui_widget_port_list_index(struct widget_instance *list_widget);
 boolean ui_widget_port_saved_game(char const **map_name, short *level, short *difficulty);
 short main_get_solo_level_from_name(char const *name);
+boolean player_name_clean(wchar_t *name, long count);
 
 boolean pc_menu_event_function_invoke(struct widget_instance *widget, struct event_record *event,
 	long function_index, boolean *widget_deleted);
@@ -2321,8 +2322,17 @@ static void browser_focus(struct widget_instance *list)
 {
 	char const *const choices[] = { "server_item_1", "join_game_button_bar" };
 	struct widget_instance *focused = list->focused_child;
+	struct widget_instance *row;
 	short index;
 
+	/* (the rows' backgrounds: the focused one's outlined frame. The engine
+	shows a list item's focus only on a bitmap of two frames, and theirs has
+	three: normal, focused, selected) */
+	for (row = list->child; row; row = row->next)
+	{
+		if (browser_row_index(row) != NONE)
+			row->animation.current_frame_index = row == focused ? 1 : 0;
+	}
 	focus_off_hidden(named(list, "join_game_button_bar", 0));
 	if (focused && focused->visible && !focused->disabled)
 		return;
@@ -2487,6 +2497,34 @@ static void text_to_wide(char const *text, wchar_t *wide, short size)
 	wide[index] = 0;
 }
 
+/* the games whose names are valid, as a host keeps the names of the
+machines and players that join it (network_game_server_clean_name): each
+name cleaned (player_name_clean), and a game whose name has nothing left
+that names it left out; returns how many are left */
+static short lobby_browser_valid_games(struct p2p_listing *games, short count)
+{
+	short read;
+	short written = 0;
+
+	for (read = 0; read < count; read++)
+	{
+		wchar_t name[P2P_LISTING_NAME_SIZE + 1];
+		short index;
+
+		text_to_wide(games[read].name, name, NUMBEROF(name));
+		if (!player_name_clean(name, NUMBEROF(name)))
+			continue;
+		/* (ASCII still: the listing's names are) */
+		for (index = 0; name[index]; index++)
+			games[read].name[index] = (char)name[index];
+		games[read].name[index] = 0;
+		if (written != read)
+			games[written] = games[read];
+		written++;
+	}
+	return written;
+}
+
 /* the game being joined, once its host is reached (the client's game from
 it), else NULL */
 static struct advertised_game *lobby_browser_joined_game(void)
@@ -2536,7 +2574,8 @@ static void lobby_browser_update(struct widget_instance *list)
 	unsigned long now = system_milliseconds();
 	short chosen;
 
-	lobby_browser.count = (short)p2p_lobby_games(lobby_browser.games, LOBBY_BROWSER_GAMES);
+	lobby_browser.count = lobby_browser_valid_games(lobby_browser.games,
+		(short)p2p_lobby_games(lobby_browser.games, LOBBY_BROWSER_GAMES));
 	if (focused == BROWSER_ROWS - 1 && lobby_browser.first + BROWSER_ROWS < lobby_browser.count)
 	{
 		lobby_browser.first++;

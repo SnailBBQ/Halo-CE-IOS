@@ -4,8 +4,8 @@ This is an unofficial community iOS port, not a Microsoft, Bungie or Halo CE Uni
 
 ## Current publication state
 
-- `main` contains M2.6.53 / Universal build 89. The maintainer reports playable campaign and PC multiplayer, but the newest display and touch options still need device validation.
-- M2.6.53 / Universal build 89 is integrated into `main` and `ios/modtest`; Apple builds and device testing remain required.
+- `main` contains M2.6.54 / Universal build 94. The maintainer reports playable campaign and PC multiplayer, but the newest display and touch options still need device validation.
+- M2.6.54 / Universal build 94 is integrated into `main` and `ios/modtest`; Apple builds and device testing remain required.
 - No GitHub release or release IPA attachment exists yet. Successful Actions artifacts are temporary downloads, not permanent release assets.
 - The Mod Test app is experimental. Converted Cursed Halo attempts have failed; general PC/MCC mod compatibility is not established.
 

@@ -32,7 +32,7 @@ The Linux page also describes the controls, settings and multiplayer functions, 
 
 ## Staying compatible
 
-Multiplayer needs compatible protocol versions and map content. M2.6.53 integrates Universal build 89 (`39350fb81fda3bdf08693961d4ff2cece603e7f3`) while preserving the iOS host. Matching tested builds are recommended. Update your other clients alongside the app; Apple compilation and cross-platform device testing are still required for this update. See [Multiplayer](ios/MULTIPLAYER.md#compatibility).
+Multiplayer needs compatible protocol versions and map content. M2.6.54 integrates Universal build 94 (`d578f88bd0ef447b9039353a3f04affea55295a5`) while preserving the iOS host. Matching tested builds are recommended. Update your other clients alongside the app; Apple compilation and cross-platform device testing are still required for this update. See [Multiplayer](ios/MULTIPLAYER.md#compatibility).
 
 ## What this fork adds
 

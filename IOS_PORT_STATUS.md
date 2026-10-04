@@ -1,9 +1,9 @@
 # Halo CE iOS — Project status
 
-**Status: playable.** **Current update: M2.6.53** (regular app 0.2.53, Mod Test app 0.2.53.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
+**Status: playable.** **Current update: M2.6.54** (regular app 0.2.54, Mod Test app 0.2.54.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
 are still waiting for device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
 
-**Source update:** M2.6.53 integrates Halo CE Universal build 89 on `main` and `ios/modtest`, alongside campaign tools, direct checkpoint editing and smaller, separate save/profile backups. This source update still requires Apple compilation and device validation.
+**Source update:** M2.6.54 integrates Halo CE Universal build 94 on `main` and `ios/modtest`, alongside campaign tools, direct checkpoint editing and smaller, separate save/profile backups. This source update still requires Apple compilation and device validation.
 
 ## Two apps
 
@@ -22,12 +22,12 @@ Both share the same features and are updated together. The Mod Test app adds an 
 
 ## Implemented, waiting for build/device validation
 
-- Halo CE Universal build 89 baseline, including multiplayer pause Settings/End Game, HUD name filtering and vehicle-seat fixes. Earlier build 84 integration added: signed public lobby discovery, public/private hosting and multiplayer join/leave fixes (M2.6.51).
+- Halo CE Universal build 94 baseline, including multiplayer pause Settings/End Game, HUD name filtering and vehicle-seat fixes. Earlier build 84 integration added: signed public lobby discovery, public/private hosting and multiplayer join/leave fixes (M2.6.51).
 - The Settings additions of M2.6.48 (cheat sections and new cheats, left-handed layout, gyro, controller remap, heat-aware frame cap, performance overlay, Ambient volume, recent games and QR, Profiles, problem report, custom accent colours).
 - Picture options, touch aiming and AirPlay mirroring (M2.6.50).
 - The Mod Test loader has offline structural checks. Device attempts with converted Cursed Halo maps have failed; playable mod compatibility is not established.
 
-- M2.6.53 campaign modifiers, flying camera, wireframe, bounded checkpoint editor and separate cache-free save/profile exports.
+- M2.6.54 campaign modifiers, flying camera, wireframe, bounded checkpoint editor and separate cache-free save/profile exports.
 
 ## Known limits
 
