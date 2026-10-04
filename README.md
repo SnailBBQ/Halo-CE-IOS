@@ -96,7 +96,7 @@ This port exists because of the work of others:
 - **[bnunu/halo-1](https://github.com/bnunu/halo-1)**, the decompilation of the Xbox build 2342 (`cachebeta.exe`) that Halo CE Universal starts from,
   and **[punpckhdq/halo](https://github.com/punpckhdq/halo)**, the project it was forked from.
 - **Bungie**, who created *Halo: Combat Evolved*, and **Microsoft / Xbox Game Studios** and **343 Industries**, its later owners and stewards.
-- The open-source libraries bundled in [`port/third_party`](port/third_party): expat, extract-xiso, kcp, mbedtls, miniupnpc, musl math, stb and
+- The open-source libraries bundled in [`port/third_party`](port/third_party): expat, extract-xiso, kcp, mbedtls, miniupnpc, Monocypher, musl math, stb and
   tomlc17, each under its own license.
 - The iOS port in this repository is maintained by [xSkullHD](https://github.com/xSkullHD/Halo-CE-IOS).
 

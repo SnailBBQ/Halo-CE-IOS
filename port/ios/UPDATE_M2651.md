@@ -22,3 +22,7 @@ Source/import/build-configuration checks are run locally. Native Apple compilati
 6. Recheck the previous picture/touch options and Mod Test identity/cache limits.
 
 Public brokers can be unavailable or blocked. Build success is not a claim that cross-network iOS discovery has been device-tested.
+
+## Current verification result
+
+Source structure, all 51 host imports, header declarations, framework linkage, workflow transformation and 1,172 arena-conversion cases passed locally. The upstream signature/listing harness passed (0 failures) using native Windows single-thread adapters; that does not test real network threads. The iOS invite rotation regression test passed. GitHub Actions failed before any build step due to the account billing/spending-limit condition; no new IPA is available yet.

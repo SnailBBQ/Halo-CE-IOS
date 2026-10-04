@@ -5,9 +5,9 @@ statements about "current" behaviour in it describe the milestone they were writ
 
 ## Part 1 — Status log (the former project status page)
 
-Current iOS update: **M2.6.50** — picture aspect/detail choices, opt-in touch aiming and AirPlay mirroring guidance, shared by the regular and separate mod-test apps. See [release notes](../../port/ios/UPDATE_M2650.md). Device validation is pending.
+Current iOS update: **M2.6.51** — Universal build 84 public server discovery and multiplayer lifecycle fixes, shared by the regular and separate mod-test apps. See [release notes](../../port/ios/UPDATE_M2651.md). Build/device validation is pending.
 
-Updated October 3, 2026. Current development milestone: **M2.6.50** (device testing pending).
+Updated October 3, 2026. Current development milestone: **M2.6.51** (device testing pending).
 
 ### Current status
 
@@ -326,3 +326,7 @@ M2.6.42 replaces M2.6.41’s costly upload-every-draw fallback with exact native
 Settings → Display provides Default 4:3, Widescreen 16:9, Fullscreen and 480/720/960-line render detail. These choices apply on the next launch; 640×480 remains the default and Safe Start fallback. Settings → Controls → Touch aiming has per-profile enemy auto-fire, Fire-button dragging and right-stick firing, all off by default.
 
 Use iOS Control Center → Screen Mirroring for AirPlay, or a supported display adapter. Game and controls are mirrored together; a separate TV-only renderer is not implemented. Higher render detail can reduce FPS and use more memory. See the M2.6.50 device checklist before enabling it for normal play.
+
+### M2.6.51 — Universal build 84
+
+Integrated the upstream signed public lobby browser and multiplayer lifecycle fixes. Public-to-private invite rotation updates the iOS active invite file and sharing UI. The native signature/listing harness passed with single-thread Windows test adapters, and the iOS invite-rotation regression test passed. GitHub Actions did not start compilation: account billing/spending-limit error. Apple build and cross-network device testing are pending.
