@@ -23,6 +23,8 @@ on:
       - 'port/android/host_imports.list'
       - 'tools/ios_gl_stubs.py'
       - 'tools/android_build.py'
+      - 'port/third_party/monocypher/**'
+      - 'tools/tests/test_ios_public_lobby.py'
       - 'tools/android_asm_convert.py'
       - 'tools/tests/test_ios_pointer_fastpath.py'
       - 'tools/tests/test_ios_arena_fastpath.py'
