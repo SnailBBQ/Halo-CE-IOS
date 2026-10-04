@@ -29,7 +29,7 @@ extern NSString * const HaloIOSFirstFramePresentedNotification;
 - (BOOL)prefersStatusBarHidden { return YES; }
 @end
 
-/* The second line of the performance overlay: the app's memory, what is left before iOS closes it, and how hot the phone is. */
+/* The second line of the performance overlay: the app's memory, estimated available memory, and how hot the phone is. */
 static NSString *HaloPerfLine(void)
 {
     task_vm_info_data_t info;
@@ -357,20 +357,30 @@ static NSString *HaloPerfLine(void)
     [(HaloControlsView *)self.menuControls releaseAll];
     [top presentViewController:settings animated:YES completion:nil];
 }
+/* The touch-layout editor can move the overlay directly. Save only HUD[0],
+ * leaving the engine HUD and the control scheme's button placements intact. */
+- (void)movePerformanceOverlay:(UIPanGestureRecognizer *)gesture {
+    if(!((HaloControlsView *)self.menuControls).editing)return;
+    if(gesture.state!=UIGestureRecognizerStateChanged&&gesture.state!=UIGestureRecognizerStateEnded)return;
+    UIView *parent=self.fpsLabel.superview;CGRect safe=UIEdgeInsetsInsetRect(parent.bounds,parent.safeAreaInsets);
+    if(safe.size.width<=0||safe.size.height<=0)return;
+    CGPoint delta=[gesture translationInView:parent];CGPoint center=self.fpsLabel.center;
+    center.x+=delta.x;center.y+=delta.y;[gesture setTranslation:CGPointZero inView:parent];
+    float x=(float)((center.x-CGRectGetMinX(safe))/safe.size.width-.5);
+    float y=(float)((center.y-CGRectGetMinY(safe))/safe.size.height-.14);
+    [[HaloSettingsStore shared] update:^(HsSettings *next){next->hud[0].x=x;next->hud[0].y=y;}];
+    self.fpsLabel.center=center;
+}
 - (void)updateFPS {
     if(!self.draggingGear)[self layoutSettingsButton];
     if(self.engineStarted && !self.bootOverlay.hidden && halo_ios_presented_frames()>0){self.bootOverlay.hidden=YES;[self.launchSpinner stopAnimating];[self updateControlsVisibility];}
     HsSettings settings = [[HaloSettingsStore shared] snapshot];
     HsHud h=settings.hud[0];
-    self.fpsLabel.hidden = !(settings.show_fps || settings.perf_overlay) || h.hidden || !self.bootOverlay.hidden;
-    self.fpsLabel.alpha=h.opacity;
+    BOOL editing=((HaloControlsView *)self.menuControls).editing;
+    self.fpsLabel.userInteractionEnabled=editing;
+    self.fpsLabel.hidden = (!editing && (!(settings.show_fps || settings.perf_overlay) || h.hidden)) || !self.bootOverlay.hidden;
+    self.fpsLabel.alpha=editing?MAX(.3f,h.opacity):h.opacity;
     self.fpsLabel.font=[UIFont monospacedDigitSystemFontOfSize:13*h.scale weight:UIFontWeightBold];
-    [self.fpsLabel sizeToFit];
-    CGRect safe=UIEdgeInsetsInsetRect(self.fpsLabel.superview.bounds,self.fpsLabel.superview.safeAreaInsets);
-    CGPoint center=CGPointMake(CGRectGetMinX(safe)+safe.size.width*(.5+h.x),CGRectGetMinY(safe)+safe.size.height*(.14+h.y));
-    center.x=MAX(CGRectGetMinX(safe)+self.fpsLabel.bounds.size.width/2,MIN(CGRectGetMaxX(safe)-self.fpsLabel.bounds.size.width/2,center.x));
-    center.y=MAX(CGRectGetMinY(safe)+self.fpsLabel.bounds.size.height/2,MIN(CGRectGetMaxY(safe)-self.fpsLabel.bounds.size.height/2,center.y));
-    self.fpsLabel.center=center;
     if (self.fpsLabel.hidden) { self.fpsLastTime = 0; return; }
     uint64_t frames = halo_ios_presented_frames();
     CFTimeInterval now = CACurrentMediaTime();
@@ -383,6 +393,12 @@ static NSString *HaloPerfLine(void)
             ? [NSString stringWithFormat:@" %.0f FPS · %.1f ms \n %@ ", fps, 1000.0 / fps, HaloPerfLine()]
             : [NSString stringWithFormat:@" %.0f FPS ", fps];
     }
+    [self.fpsLabel sizeToFit];
+    CGRect safe=UIEdgeInsetsInsetRect(self.fpsLabel.superview.bounds,self.fpsLabel.superview.safeAreaInsets);
+    CGPoint center=CGPointMake(CGRectGetMinX(safe)+safe.size.width*(.5+h.x),CGRectGetMinY(safe)+safe.size.height*(.14+h.y));
+    center.x=MAX(CGRectGetMinX(safe)+self.fpsLabel.bounds.size.width/2,MIN(CGRectGetMaxX(safe)-self.fpsLabel.bounds.size.width/2,center.x));
+    center.y=MAX(CGRectGetMinY(safe)+self.fpsLabel.bounds.size.height/2,MIN(CGRectGetMaxY(safe)-self.fpsLabel.bounds.size.height/2,center.y));
+    self.fpsLabel.center=center;
     self.fpsLastFrames = frames;
     self.fpsLastTime = now;
 }
@@ -535,6 +551,7 @@ static NSString *HaloPerfLine(void)
     self.loadingStatus = loading;  /* kept hidden: loading takes a moment, not a progress box */
 
     UILabel *fps = [UILabel new];
+    [fps addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(movePerformanceOverlay:)]];
     fps.translatesAutoresizingMaskIntoConstraints = YES;
     fps.font = [UIFont monospacedDigitSystemFontOfSize:13 weight:UIFontWeightBold];
     fps.textColor = UIColor.greenColor;

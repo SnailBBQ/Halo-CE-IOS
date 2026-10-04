@@ -51,14 +51,12 @@ Each option is explained, with a screenshot, in [Display / AirPlay](DISPLAY_AIRP
 | Card | Options |
 | --- | --- |
 | Frame rate | **30 · Original**, **60 · Smooth** (targets a maximum of 60 FPS when the device keeps up) or **Uncapped**. **Show FPS** shows a counter. Moving between 30 and the others applies *next launch*; between 60 and Uncapped, immediately. |
-| Game picture | **Aspect ratio**: Default · 4:3, Widescreen · 16:9 or Fullscreen (the device's own shape). **Render detail**: Standard · 480p, High · 720p or Very high · 960p. Both apply *next launch*. Default stays 640×480, and Safe Start always uses it. Higher detail uses more GPU and memory. |
-| AirPlay and external screens | How to show the game on a TV. See [Display / AirPlay](DISPLAY_AIRPLAY.md#airplay-and-external-displays). |
-| Game HUD profile | Choose the default HUD or a saved recipe for the current scheme. |
-| Game HUD and FPS | **Edit game HUD** opens a live editor over the game for the FPS counter, weapon HUD, health/shields/radar, navigation and damage indicators. Position, scale, opacity and visibility can be changed per group or all together. Three named recipes can be saved. |
+| Game picture | **Aspect ratio**: Default · 4:3, Widescreen · 16:9 or Fullscreen (the device's own shape). **Render resolution**: 480p, 720p, 960p or 1080p. Both apply *next launch*. Default stays 640×480, and Safe Start always uses it. Higher detail uses more GPU and memory. |
+| Game HUD | Choose the default HUD or a saved recipe for the current scheme. **Edit game HUD** opens a live editor over the game for the FPS counter, weapon HUD, health/shields/radar, navigation and damage indicators. Position, scale, opacity and visibility can be changed per group or all together. Three named recipes can be saved. |
 | First-person view | **Both**, **Weapon**, **Hands** or **Hidden**: which first-person models are drawn. Applies at once and does not affect the HUD, attacks or other players. |
 | HUD and text | **High-res HUD** and **High-res text**, the upstream options for crisper HUD and menu text. *Next launch*. |
-| Heat and battery | **Lower the frame rate when the phone is hot**: Smooth 60 and Uncapped drop to 45 under serious heat or Low Power Mode and to 30 when critical, and return when the phone cools (30 · Original is never changed). **Performance overlay** adds frame time, memory in use, estimated memory headroom, and heat under the FPS counter. |
 | Menus | **PC menus (new)**: the Halo Custom Edition menus from Halo CE Universal, with Join Game (LAN and Direct Link), Create Game (Internet or LAN) and redrawn screens. **Xbox menus**: the original menus, including System Link. *Next launch*; Safe Start uses the Xbox menus. |
+| AirPlay and external screens | How to show the game on a TV. See [Display / AirPlay](DISPLAY_AIRPLAY.md#airplay-and-external-displays). |
 
 The public **Server Browser** in the PC menus lists compatible public Internet games through upstream’s signalling brokers. Refresh and select a lobby to join using the existing invite connection path. iOS device validation is pending.
 
@@ -135,6 +133,7 @@ A profile is your whole setup: control schemes with their layouts and recipes, H
 | --- | --- |
 | Quit Game | Closes the app after a confirmation. iOS cannot reopen an app by itself, so tap its icon to start again. |
 | Startup | **Start Halo screen** or **Boot Halo immediately**, saved with the current control scheme. |
+| Heat and battery | **Lower the frame rate when the phone is hot**: Smooth 60 and Uncapped drop to 45 under serious heat or Low Power Mode and to 30 when critical, and return when the phone cools (30 · Original is never changed). **Performance overlay** adds frame time, memory in use, estimated memory headroom, and heat under the FPS counter. |
 | Diagnostics | **Performance profiler** adds timing diagnostics. |
 | Share log files / Report a problem… | Share the logs, or make one text file with your device, settings (never running cheats) and the end of the logs. See [Troubleshooting](TROUBLESHOOTING.md). |
 | Safe Start | Appears when the last start did not finish. Sound, internet play, smooth 60 FPS, hi-res HUD and text, the profiler, the PC menus and the picture options are disabled for that launch. Running for 15 seconds after the first frame marks the launch as successful; normal options return on the next launch. **Leave safe mode** makes the next start normal. |
@@ -145,3 +144,11 @@ A profile is your whole setup: control schemes with their layouts and recipes, H
 ## Logs
 
 **Logs** opens Diagnostics with a **Summary** (including memory) and a **Problems** tab. Logs can be shared from here and from Advanced.
+
+## Release preparation: settings organization
+
+The sidebar ends with Cheats, Profiles, Options, Mods, Advanced and Logs. Display groups the Game HUD preset selector and editor in one card, and places AirPlay and external screens last. Heat and battery controls are in Advanced immediately below Startup. Render resolution offers 480p, 720p, 960p and 1080p; 480p remains the default and changes apply on the next launch. Resolution describes vertical pixels; width follows the selected aspect ratio.
+
+The performance overlay shares the FPS layout's saved position, scale, visibility and opacity. Its memory headroom is an estimate, not an iOS termination threshold. Apple builds and device validation are required for these changes.
+
+In Controls → Edit Button Layout, drag the FPS/performance overlay directly. **FPS / Stats** opens its existing scale, opacity and visibility controls. These edits share the saved FPS layout.

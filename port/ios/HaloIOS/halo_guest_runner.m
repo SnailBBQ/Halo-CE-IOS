@@ -3021,11 +3021,11 @@ static uint32_t build_boot(void)
     int picture_width = hs_display_width(launch_settings.display_mode, display_size.width, display_size.height);
     char picture[48], detail[48];
     snprintf(picture,sizeof(picture),"HALO_DISPLAY_WIDTH=%d",g_safe_level?640:picture_width);
-    snprintf(detail,sizeof(detail),"HALO_RENDER_SCALE=%.1f",g_safe_level?1.0:hs_render_scale(launch_settings.render_quality));
+    snprintf(detail,sizeof(detail),"HALO_RENDER_SCALE=%.2f",g_safe_level?1.0:hs_render_scale(launch_settings.render_quality));
     const char *values[20]; unsigned count=0;
     values[count++]=data;
     values[count++]=save;
-    say("picture: logical=%dx480, target scale=%.1f; touch aiming options are opt-in", g_safe_level?640:picture_width, g_safe_level?1.0:hs_render_scale(launch_settings.render_quality));
+    say("picture: logical=%dx480, target scale=%.2f; touch aiming options are opt-in", g_safe_level?640:picture_width, g_safe_level?1.0:hs_render_scale(launch_settings.render_quality));
     values[count++]=picture;
     values[count++]=detail;
     values[count++]="HALO_GPU_STATS=1";

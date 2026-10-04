@@ -80,3 +80,9 @@ In **Create Game → Internet → Server Setup**, **LISTING** selects PUBLIC or 
 Listings are signed by the host, periodically refreshed and expired; closing a lobby publishes its end. Making a public game private rotates its invite, and iOS updates Settings, sharing and `game_invite.txt` to the replacement code. Private games remain available through manual invites. All players should use Universal build 84-compatible clients; older or incompatible listings are filtered.
 
 The browser depends on upstream’s public MQTT brokers. An empty list may mean no compatible public games, blocked/unavailable brokers, or no Internet connection. It is not evidence that a local game failed. Verify public iPhone/PC hosting and joining on devices before treating discovery as tested on iOS.
+
+## Local Network permission
+
+If Halo CE is missing from iOS Settings → Privacy & Security → Local Network, open Settings → Multiplayer → Finding games on your Wi-Fi and select **Request Local Network access** while connected to Wi-Fi. This runs a Bonjour permission check; it does not replace the game's UDP discovery. Accept the system request, then try the in-game LAN list. The app name may differ for ModTest. You can also open the app's iOS settings from that card.
+
+Permission alone does not guarantee discovery: guest-network isolation, firewalls and broadcast/multicast signing restrictions can prevent LAN traffic. If discovery remains unavailable, use a compatible invite link. Verify LAN discovery with the final signed IPA on a physical device.

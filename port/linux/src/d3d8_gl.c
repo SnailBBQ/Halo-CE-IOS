@@ -113,7 +113,7 @@ static void screen_mode_choose(long *width, float scale[2])
 	const char *detail = getenv("HALO_RENDER_SCALE");
 	float factor = detail ? (float)atof(detail) : 1.0f;
 	/* Whitelist scales so malformed settings cannot request an unbounded target. */
-	if (factor == 1.5f || factor == 2.0f) scale[0] = scale[1] = factor;
+	if (factor == 1.5f || factor == 2.0f || factor == 2.25f) scale[0] = scale[1] = factor;
 #endif
 #else
 	long display_width, display_height;

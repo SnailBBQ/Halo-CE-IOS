@@ -2,6 +2,7 @@
 #import "halo_guest_runner.h"
 #import "halo_controls_layout.h"
 #import "HaloSettingsStore.h"
+#import "HaloHudEditor.h"
 
 #import <GameController/GameController.h>
 #import <QuartzCore/QuartzCore.h>
@@ -684,6 +685,13 @@ static NSNumber *HaloTouchKey(UITouch *touch)
     return button;
 }
 
+- (void)editPerformanceLayout {
+    UIViewController *host=self.window.rootViewController;
+    while(host.presentedViewController)host=host.presentedViewController;
+    if(!host)return;
+    HaloHudEditor *editor=[HaloHudEditor new];editor.modalPresentationStyle=UIModalPresentationOverFullScreen;
+    [host presentViewController:editor animated:YES completion:nil];
+}
 - (void)beginEditing
 {
     if (self.editing) return;
@@ -709,6 +717,7 @@ static NSNumber *HaloTouchKey(UITouch *touch)
         [self toolbarButton:@"Hide / Show" action:@selector(toggleHidden)],
         [self toolbarButton:@"Opacity" action:@selector(cycleOpacity)]]];
     UIStackView *actions=[[UIStackView alloc] initWithArrangedSubviews:@[
+        [self toolbarButton:@"FPS / Stats" action:@selector(editPerformanceLayout)],
         [self toolbarButton:@"Reset selected" action:@selector(resetSelected)],
         [self toolbarButton:@"Reset all" action:@selector(resetAll)],
         [self toolbarButton:@"Done" action:@selector(finishEditing)]]];

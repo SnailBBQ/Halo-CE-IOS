@@ -44,3 +44,11 @@ A restore merges the chosen parts into the app: files with matching names are re
 - **Settings → Profiles** exports and imports your settings (not saves) as a small `.haloprofile` file. See [Settings → Profiles](SETTINGS.md#profiles).
 - **Settings → Mods** exports an individual mod.
 - Removing the app deletes its data, so export a backup first.
+
+## Keep saves when deleting Halo
+
+iOS does not let Halo intercept app deletion or add a keep-saves prompt. Deleting the app removes its local container. To retain progress, use Advanced → Backups → Manage backups → Saves outside the app. Choose a folder in iCloud Drive or another location outside Halo, save in the game, and select **Back up saves and profiles now**. These are manual, versioned `.halobackup` files; maps and active invites are excluded. Confirm the file has uploaded before deleting the app. Previous backups are kept.
+
+After reinstalling, select the external folder again and choose **Restore external saves…**. Pick a backup, stage the restore, then close and reopen Halo. The existing validated restore flow places files back under `Documents/Halo/save` and creates a recovery backup before replacing matching files. With no backup, start normally.
+
+Installing an update over the existing app keeps the same save path and app identity. Do not delete the app first, and preserve the signing identity when updating. The regular and ModTest apps keep separate storage and distinctly named external backups. External folder permissions must be selected again after deletion; the app cannot silently rediscover an arbitrary Files folder.

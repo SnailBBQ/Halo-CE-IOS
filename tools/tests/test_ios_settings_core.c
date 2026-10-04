@@ -17,7 +17,7 @@ int main(void)
     CHECK(hs_display_width(0,2778,1284)==640 && hs_display_width(1,2778,1284)==854, "fixed aspect choices");
     CHECK(hs_display_width(2,2778,1284)==1038 && hs_display_width(2,1284,2778)==1038, "fullscreen is orientation-independent and even");
     CHECK(hs_display_width(2,0,480)==640 && hs_display_width(2,NAN,480)==640 && hs_display_width(2,10000,1)==1600, "invalid and extreme metrics are bounded");
-    CHECK(hs_render_scale(0)==1 && hs_render_scale(1)==1.5 && hs_render_scale(2)==2 && hs_render_scale(99)==1, "bounded target scale");
+    CHECK(hs_render_scale(0)==1 && hs_render_scale(1)==1.5 && hs_render_scale(2)==2 && hs_render_scale(3)==2.25 && hs_render_scale(99)==1, "bounded target scale");
     s.display_mode=2;s.render_quality=1;s.presets[3].auto_fire=1;s.presets[3].fire_drag=1;s.presets[3].stick_fire=1;
     CHECK(hs_serialize(&s,text,sizeof(text))>0 && hs_parse(&t,text), "new options round trip");
     CHECK(t.display_mode==2 && t.render_quality==1 && t.presets[3].auto_fire && t.presets[3].fire_drag && t.presets[3].stick_fire && !t.presets[0].auto_fire, "aim settings remain independent per profile");
@@ -25,6 +25,9 @@ int main(void)
     CHECK(t.display_mode==2 && t.render_quality==0 && t.presets[0].auto_fire==1, "imported options sanitized");
     hs_parse(&t,"HALO1\nactive=0\n");
     CHECK(t.display_mode==0 && t.render_quality==0 && !t.presets[0].auto_fire, "old backups retain existing behavior");
+
+    s.render_quality=3;
+    CHECK(hs_serialize(&s,text,sizeof(text))>0 && hs_parse(&t,text) && t.render_quality==3, "1080p survives settings and backup round trip");
 
     /* defaults: five named presets, sensible values */
     hs_defaults(&s);

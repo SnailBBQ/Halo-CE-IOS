@@ -6,6 +6,48 @@
 #import "HaloUI.h"
 #import "halo_map_order.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+/* Folder permission is opt-in and separate from the invite-file folder. The
+ * bookmark lives in app storage; after deletion, the user selects it again. */
+static NSURL *HaloExternalSaveFolder(void) {
+    NSData *data=[NSUserDefaults.standardUserDefaults dataForKey:@"HaloExternalSaveFolder"];
+    if(!data)return nil;
+    BOOL stale=NO;NSError *error=nil;
+    NSURL *url=[NSURL URLByResolvingBookmarkData:data options:0 relativeToURL:nil bookmarkDataIsStale:&stale error:&error];
+    if(stale||error)return nil;
+    return url;
+}
+static NSURL *HaloExportExternalSaves(void) {
+    NSURL *folder=HaloExternalSaveFolder();
+    HaloBackupRequire(folder!=nil,@"Choose your external backup folder again.");
+    BOOL access=[folder startAccessingSecurityScopedResource];
+    NSURL *archive=nil;__block NSURL *result=nil;NSError *coordinationError=nil;
+    @try {
+        NSURL *save=[NSURL fileURLWithPath:[HaloBackupRoot() stringByAppendingPathComponent:@"save"] isDirectory:YES];
+        BOOL hasSaves=NO;
+        NSDirectoryEnumerator *saved=[NSFileManager.defaultManager enumeratorAtURL:save includingPropertiesForKeys:@[NSURLIsSymbolicLinkKey] options:0 errorHandler:nil];
+        for(NSURL *file in saved){NSNumber *link=nil;[file getResourceValue:&link forKey:NSURLIsSymbolicLinkKey error:nil];if(link.boolValue){[saved skipDescendants];continue;}if(HaloBackupRegular(file)){hasSaves=YES;break;}}
+        HaloBackupRequire(hasSaves,@"No saved profiles or progress found. Save in Halo before backing up.");
+        archive=HaloBackupExport(1); /* saves/profiles only; preserves save/ paths */
+        NSString *app=[NSBundle.mainBundle.bundleIdentifier hasSuffix:@".modtest"]?@"HaloCE-ModTest":@"HaloCE";
+        NSString *name=[NSString stringWithFormat:@"%@-Saves-%@.halobackup",app,NSUUID.UUID.UUIDString];
+        NSURL *target=[folder URLByAppendingPathComponent:name];
+        NSFileCoordinator *coordinator=[[NSFileCoordinator alloc] initWithFilePresenter:nil];
+        [coordinator coordinateWritingItemAtURL:target options:0 error:&coordinationError byAccessor:^(NSURL *dest){
+            NSFileManager *fm=NSFileManager.defaultManager;
+            NSURL *temp=[dest.URLByDeletingLastPathComponent URLByAppendingPathComponent:[@".halo-save-" stringByAppendingString:NSUUID.UUID.UUIDString]];
+            @try {
+                HaloBackupRequire([fm copyItemAtURL:archive toURL:temp error:nil],@"Cannot write backup; check folder access and free space.");
+                HaloBackupRequire([fm moveItemAtURL:temp toURL:dest error:nil],@"Cannot finish the external save backup.");
+                result=dest;
+            } @finally { [fm removeItemAtURL:temp error:nil]; }
+        }];
+        HaloBackupRequire(!coordinationError&&result!=nil,coordinationError.localizedDescription?:@"Cannot access the external folder.");
+        return result;
+    } @finally {
+        if(archive)[NSFileManager.defaultManager removeItemAtURL:archive error:nil];
+        if(access)[folder stopAccessingSecurityScopedResource];
+    }
+}
 @interface HaloLibraryController:UIViewController<UIDocumentPickerDelegate>
 @property BOOL maps;
 @property unsigned mask;
@@ -46,6 +88,14 @@
         HaloUIButton(@"Export selected backup",1,^(UIButton *b){(void)b;unsigned mask=weakSelf.mask;if(!mask){[weakSelf message:@"Choose at least one section."];return;}[weakSelf run:^NSURL *{return HaloBackupExport(mask);} completion:^(NSURL *url){weakSelf.temporaryExport=url;UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForExportingURLs:@[url] asCopy:YES];picker.delegate=weakSelf;weakSelf.pickerKind=4;[weakSelf presentViewController:picker animated:YES completion:nil];}];}),
         HaloUIButton(@"Restore selected sections…",0,^(UIButton *b){(void)b;if(!weakSelf.mask){[weakSelf message:@"Choose sections to restore first."];return;}weakSelf.pickerKind=1;UIDocumentPickerViewController *p=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:YES];p.delegate=weakSelf;[weakSelf presentViewController:p animated:YES completion:nil];}),
         HaloUINote(@"Restore merges selected files and replaces matching names. Extra files remain. Restores apply before Halo starts on your next launch, with a recovery backup first.")])];
+    NSURL *external=HaloExternalSaveFolder();
+    [self.rows addArrangedSubview:HaloUICardView(@"Saves outside the app",@[
+        HaloUINote(@"External backups survive app deletion when stored in iCloud Drive or another folder outside Halo. Save in the game, then back up here before deleting. Backups are manual; iCloud upload may take time."),
+        HaloUIValueRow(@"Folder",external.lastPathComponent?:@"Not selected",nil),
+        HaloUIButton(@"Choose external backup folder",0,^(UIButton *b){(void)b;weakSelf.pickerKind=5;UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeFolder] asCopy:NO];picker.delegate=weakSelf;[weakSelf presentViewController:picker animated:YES completion:nil];}),
+        HaloUIButton(@"Back up saves and profiles now",1,^(UIButton *b){(void)b;[weakSelf run:^NSURL *{return HaloExportExternalSaves();} completion:^(NSURL *url){(void)url;[weakSelf message:@"Save backup written to the selected folder. Confirm iCloud has uploaded it before deleting Halo. Previous backups are kept."];}];}),
+        HaloUIButton(@"Restore external saves…",0,^(UIButton *b){(void)b;weakSelf.mask=1;weakSelf.pickerKind=1;UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:YES];picker.directoryURL=external;picker.delegate=weakSelf;[weakSelf presentViewController:picker animated:YES completion:nil];}),
+        HaloUINote(@"After reinstalling, select your folder again and restore a .halobackup file. Files return to Halo/save with a recovery backup before replacement. If no backup exists, Halo starts normally. Updates installed over the same app retain local saves.")])];
     NSString *recovery=[NSUserDefaults.standardUserDefaults stringForKey:@"HaloLastRecoveryBackup"];
     if(recovery&&[NSFileManager.defaultManager fileExistsAtPath:recovery])[self.rows addArrangedSubview:HaloUIButton(@"Export last recovery backup",0,^(UIButton *b){(void)b;UIDocumentPickerViewController *p=[[UIDocumentPickerViewController alloc] initForExportingURLs:@[[NSURL fileURLWithPath:recovery]] asCopy:YES];weakSelf.pickerKind=4;p.delegate=weakSelf;[weakSelf presentViewController:p animated:YES completion:nil];})];
 }
@@ -110,6 +160,17 @@
     __weak typeof(self) weakSelf=self;
 
     (void)controller;if(!urls.count)return;NSInteger kind=self.pickerKind;if(kind==4){if(self.temporaryExport){[NSFileManager.defaultManager removeItemAtURL:self.temporaryExport error:nil];self.temporaryExport=nil;}return;}
+    if(kind==5) {
+        NSURL *url=urls.firstObject;BOOL access=[url startAccessingSecurityScopedResource];NSError *error=nil;
+        NSString *home=[NSHomeDirectory().stringByStandardizingPath stringByAppendingString:@"/"];
+        if([url.URLByResolvingSymlinksInPath.path.stringByStandardizingPath hasPrefix:home]) {
+            if(access)[url stopAccessingSecurityScopedResource];[self message:@"Choose iCloud Drive or a folder outside this app so backups survive deletion."];return;
+        }
+        NSData *bookmark=[url bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil relativeToURL:nil error:&error];
+        if(access)[url stopAccessingSecurityScopedResource];
+        if(!bookmark){[self message:error.localizedDescription?:@"Cannot remember this folder."];return;}
+        [NSUserDefaults.standardUserDefaults setObject:bookmark forKey:@"HaloExternalSaveFolder"];[self render];return;
+    }
     if(kind==1) {
         NSURL *url=urls.firstObject;unsigned mask=self.mask;
         UIAlertController *a=[UIAlertController alertControllerWithTitle:@"Restore on next launch?" message:@"Selected files will replace matching saves, profiles, settings or maps. A recovery backup will be created first. Close and reopen Halo after staging." preferredStyle:UIAlertControllerStyleAlert];

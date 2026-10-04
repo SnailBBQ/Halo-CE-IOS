@@ -1,6 +1,6 @@
 # Display / AirPlay
 
-Everything that changes how the game looks, how fast it runs and where it is shown lives in **Settings → Display**. This page explains each option and ends with showing the game on a TV with AirPlay.
+Picture, frame rate, HUD and mirroring options live in **Settings → Display**. Heat and battery controls are in **Settings → Advanced**. This page explains each option and ends with showing the game on a TV with AirPlay.
 
 <p align="center">
   <img src="images/display-settings.png" alt="Settings → Display: frame rate and game picture" width="720"><br>
@@ -12,11 +12,11 @@ Everything that changes how the game looks, how fast it runs and where it is sho
 | Option | Choices | Applies |
 | --- | --- | --- |
 | [Frame rate](#frame-rate) | 30 · Original, 60 · Smooth, Uncapped; Show FPS | Between 30 and the others: next launch. Between 60 and Uncapped: at once |
-| [Game picture](#game-picture) | Aspect ratio and Render detail | Next launch |
+| [Game picture](#game-picture) | Aspect ratio and Render resolution | Next launch |
 | [Game HUD](#game-hud) | HUD profile and the live HUD editor | When you edit it |
 | [First-person view](#first-person-view) | Both, Weapon, Hands, Hidden | At once |
 | [HUD and text](#hud-and-text) | High-res HUD, High-res text | Next launch |
-| [Heat and battery](#heat-and-battery) | Lower the frame rate when hot, Performance overlay | At once |
+| [Heat and battery](#heat-and-battery) (Advanced) | Lower the frame rate when hot, Performance overlay | At once |
 | [Menus](#menus) | PC menus (new) or Xbox menus | Next launch |
 | [AirPlay](#airplay-and-external-displays) | System screen mirroring | n/a |
 
@@ -32,7 +32,7 @@ Moving between 30 and either of the others takes effect the next time you open t
 ## Game picture
 
 - **Aspect ratio:** **Default · 4:3** (the original 640×480 picture), **Widescreen · 16:9**, or **Fullscreen**, which follows your device's own shape. The game image is not stretched: the engine's own widescreen camera and viewport are used, and the original menus and HUD are centred.
-- **Render detail:** **Standard · 480p**, **High · 720p** or **Very high · 960p**. Higher detail uses more GPU and memory and can lower the frame rate or warm the phone.
+- **Render resolution:** **480p**, **720p**, **960p** or **1080p**. Higher detail uses more GPU and memory and can lower the frame rate or warm the phone.
 
 Both apply the next time you open the app. The default is 640×480, and [Safe Start](TROUBLESHOOTING.md#safe-start) always uses it.
 
@@ -51,6 +51,8 @@ Choose which first-person models are drawn: **Both**, **Weapon**, **Hands** or *
 **High-res HUD** and **High-res text** are the upstream options that draw the HUD and the menu and HUD text from higher-resolution assets. They apply the next time you open the app.
 
 ## Heat and battery
+
+These controls are in **Advanced → Heat and battery**, immediately below Startup.
 
 - **Lower the frame rate when the phone is hot.** Smooth 60 and Uncapped drop to 45 when iOS reports serious heat or Low Power Mode and to 30 when the phone is critically hot, and they return when it cools. **30 · Original** is never changed.
 - **Performance overlay** adds, under the frame counter, how long a frame takes, the memory the app is using and estimated memory headroom (not a guaranteed termination threshold), and how hot the phone is.

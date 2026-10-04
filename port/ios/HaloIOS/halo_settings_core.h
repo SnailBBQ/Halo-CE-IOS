@@ -80,7 +80,7 @@ typedef struct
     int maps_show_files, maps_mp_alpha, maps_mp_only;          /* Mods: installed game files shown, multiplayer A-Z, campaign hidden */
     float ambient_volume;     /* device and ambient sound classes */
     int perf_overlay, thermal_cap;
-    int display_mode, render_quality; /* 0 4:3 / 1 16:9 / 2 screen aspect; 480 / 720 / 960 lines */
+    int display_mode, render_quality; /* 0 4:3 / 1 16:9 / 2 screen aspect; 480 / 720 / 960 / 1080 lines */
     int menu_style;           /* 0 the PC menus (server browser, Direct Link, Create Game), 1 the Xbox menus; read at launch */
     float pad_dead, pad_curve; unsigned char pad_map[14]; /* physical controller: stick shaping and button remap */
     int active;               /* 0 ... 4 */
@@ -122,7 +122,7 @@ static inline int hs_display_width(int mode, double width, double height)
     if (wanted > 1600) return 1600;
     return ((int)wanted) & ~1;
 }
-static inline double hs_render_scale(int quality) { return quality == 1 ? 1.5 : quality == 2 ? 2.0 : 1.0; }
+static inline double hs_render_scale(int quality) { return quality == 1 ? 1.5 : quality == 2 ? 2.0 : quality == 3 ? 2.25 : 1.0; }
 
 static inline float hs_clampf(float v, float lo, float hi)
 {
@@ -299,7 +299,7 @@ static inline void hs_sanitize(HsSettings *s)
     s->gear_scale=hs_clampf(s->gear_scale,.75f,1.75f);s->ui_theme=hs_clampi(s->ui_theme,0,4);
     s->gear_placed=!!s->gear_placed;s->gear_x=hs_clampf(s->gear_x,0,1);s->gear_y=hs_clampf(s->gear_y,0,1);
     s->display_mode = hs_clampi(s->display_mode, 0, 2);
-    s->render_quality = hs_clampi(s->render_quality, 0, 2);
+    s->render_quality = hs_clampi(s->render_quality, 0, 3);
     s->fps_mode = hs_clampi(s->fps_mode, 0, 2);
     s->controls_mode = hs_clampi(s->controls_mode, 0, 2);
     s->cheat_god = s->cheat_god ? 1 : 0;

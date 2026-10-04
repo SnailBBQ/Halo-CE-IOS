@@ -39,12 +39,13 @@ static NSString *HaloAge(NSTimeInterval stamp);   /* defined further down; the M
 @end
 
 typedef NS_ENUM(NSInteger, HaloCategory) {
-    HaloCategoryMultiplayer = 0, HaloCategoryControls, HaloCategoryDisplay, HaloCategoryAudio, HaloCategoryCheats, HaloCategoryMods, HaloCategoryProfiles, HaloCategoryOptions, HaloCategoryAdvanced,
+    HaloCategoryMultiplayer = 0, HaloCategoryControls, HaloCategoryDisplay, HaloCategoryAudio, HaloCategoryCheats, HaloCategoryProfiles, HaloCategoryOptions, HaloCategoryMods, HaloCategoryAdvanced,
     HaloCategoryLogs, HaloCategoryCount
 };
 
-@interface HaloSettingsViewController () <UITextFieldDelegate, UIDocumentPickerDelegate, UIColorPickerViewControllerDelegate>
+@interface HaloSettingsViewController () <UITextFieldDelegate, UIDocumentPickerDelegate, UIColorPickerViewControllerDelegate, NSNetServiceBrowserDelegate>
 @property(nonatomic, strong) UIView *detail;
+@property(nonatomic,strong) NSNetServiceBrowser *localNetworkProbe;
 @property(nonatomic, strong) UIStackView *stack;
 @property(nonatomic, strong) NSArray<UIButton *> *sidebar;
 @property(nonatomic) HaloCategory selected;
@@ -193,7 +194,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
     }
 }
 
-- (void)dealloc { [self.chromaTimer invalidate];[self.connectionTimer invalidate]; if (self.campaignObserver) [[NSNotificationCenter defaultCenter] removeObserver:self.campaignObserver]; }
+- (void)dealloc { [self.localNetworkProbe stop]; [self.chromaTimer invalidate];[self.connectionTimer invalidate]; if (self.campaignObserver) [[NSNotificationCenter defaultCenter] removeObserver:self.campaignObserver]; }
 
 - (void)choose:(HaloCategory)category
 {
@@ -326,7 +327,9 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUISwitchRow(@"Join links on the clipboard automatically", @"Off by default: reading the clipboard makes iOS ask for permission each time. Opening a halo:// link joins without it.",
                         settings->join_from_clipboard, ^(BOOL on) { [self update:^(HsSettings *s) { s->join_from_clipboard = on; }]; })])];
     [self add:HaloUICardView(@"Finding games on your Wi-Fi", @[
-        HaloUINote(@"If games on the same network are not found, check iOS Settings > Privacy & Security > Local Network > Halo CE is on, and that both devices are on the same Wi-Fi.")])];
+        HaloUIButton(@"Request Local Network access",0,^(UIButton *b){(void)b;[self requestLocalNetworkAccess];}),
+        HaloUIButton(@"Open iOS app settings",0,^(UIButton *b){(void)b;[UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];}),
+        HaloUINote(@"Open the in-game LAN list while connected to Wi-Fi to request Local Network access. After iOS requests access, Halo CE should appear in Settings > Privacy & Security > Local Network. If it is listed, enable it. If no prompt appears, use an invite link and report the issue; guest-network isolation or signing restrictions can also prevent LAN discovery.")])];
 
     NSString *hostingInvite = HaloLastHostedInvite();
     if (hostingInvite) {
@@ -549,13 +552,12 @@ static NSString *HaloCategorySymbol(HaloCategory c)
 
     [self add:HaloUICardView(@"Game picture", @[
         HaloUISegmentRow(@"Aspect ratio", @[@"Default · 4:3", @"Widescreen · 16:9", @"Fullscreen"], settings->display_mode, ^(NSInteger i) { [self update:^(HsSettings *s) { s->display_mode = (int)i; }]; }),
-        HaloUISegmentRow(@"Render detail", @[@"Standard · 480p", @"High · 720p", @"Very high · 960p"], settings->render_quality, ^(NSInteger i) { [self update:^(HsSettings *s) { s->render_quality = (int)i; }]; }),
-        HaloUINote(@"A wider picture shows more of the scene without stretching it. Fullscreen matches your device. Higher detail draws more pixels and uses more power; Standard is the performance default. Picture changes apply on the next app launch.")])];
-    [self add:HaloUICardView(@"AirPlay and external screens", @[
-        HaloUINote(@"Open iOS Control Center, choose Screen Mirroring, then select your Apple TV or compatible AirPlay display. You can also connect a supported display adapter. The game and touch controls are mirrored together. Use a physical controller for a clearer TV view. Your device and AirPlay receiver must be on a network that supports discovery; latency depends on the connection.")])];
+        HaloUISegmentRow(@"Render resolution", @[@"480p", @"720p", @"960p", @"1080p"], settings->render_quality, ^(NSInteger i) { [self update:^(HsSettings *s) { s->render_quality = (int)i; }]; }),
+        HaloUINote(@"A wider picture shows more of the scene without stretching it. Fullscreen matches your device. Higher detail draws more pixels and uses more power; 480p is the performance default. The selected resolution specifies vertical pixels; width follows the aspect ratio. Picture changes apply on the next app launch.")])];
 
-    [self add:HaloUICardView(@"Game HUD profile",@[[self hudChoiceRow:settings->active]])];
-    [self add:HaloUICardView(@"Game HUD and FPS",@[
+
+    [self add:HaloUICardView(@"Game HUD",@[
+        [self hudChoiceRow:settings->active],
         HaloUINote(@"Separate controls for the game’s meters and FPS counter."),
         HaloUIButton(@"Edit game HUD",1,^(UIButton *b){(void)b;UIViewController *root=self.presentingViewController;[self dismissViewControllerAnimated:YES completion:^{UIViewController *editor=[HaloHudEditor new];editor.modalPresentationStyle=UIModalPresentationOverFullScreen;[root presentViewController:editor animated:YES completion:nil];}];})])];
     [self add:HaloUICardView(@"First-person view", @[
@@ -570,9 +572,6 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUINote(@"New in Halo CE Universal build 73 and off until you try them. They apply the next time you open the app; turn them off again if menus or the HUD stutter.")])];
 
 
-    [self add:HaloUICardView(@"Heat and battery", @[
-        HaloUISwitchRow(@"Lower the frame rate when the phone is hot", @"Smooth 60 and Uncapped drop to 45 when iOS reports serious heat or Low Power Mode, and to 30 when it is critical, and return when the phone cools. The original 30 FPS mode is never changed.", settings->thermal_cap, ^(BOOL on) { [self update:^(HsSettings *s) { s->thermal_cap = on; }]; }),
-        HaloUISwitchRow(@"Performance overlay", @"Under the frame rate: how long a frame takes, the app's memory and what is left before iOS closes it, and how hot the phone is.", settings->perf_overlay, ^(BOOL on) { [self update:^(HsSettings *s) { s->perf_overlay = on; }]; })])];
     [self add:HaloUICardView(@"Menus", @[
         HaloUISegmentRow(nil, @[@"PC menus (new)", @"Xbox menus"], settings->menu_style, ^(NSInteger index) {
             [self update:^(HsSettings *s) { s->menu_style = (int)index; }]; [self renderSoon]; }),
@@ -580,6 +579,8 @@ static NSString *HaloCategorySymbol(HaloCategory c)
             ? @"The Halo Custom Edition menus from Halo CE Universal: Join Game (public Server Browser, LAN and Direct Link), Create Game for the Internet or your LAN, and the redrawn screens. Navigate with the on-screen D-pad, A and B, or a controller."
             : @"The original Xbox menus, including System Link."),
         HaloUINote(@"Takes effect the next time you open the app. If the game ever fails to start, the next start (Safe Start) uses the Xbox menus automatically.")])];
+    [self add:HaloUICardView(@"AirPlay and external screens", @[
+        HaloUINote(@"Open iOS Control Center, choose Screen Mirroring, then select your Apple TV or compatible AirPlay display. You can also connect a supported display adapter. The game and touch controls are mirrored together. Use a physical controller for a clearer TV view. Your device and AirPlay receiver must be on a network that supports discovery; latency depends on the connection.")])];
 }
 
 #pragma mark - Audio
@@ -1011,6 +1012,9 @@ static UIColor *HaloColorFromRGB(unsigned rgb) {
     [self add:HaloUICardView(@"Game",@[
         HaloUIButton(@"Quit Game",2,^(UIButton *b) { [self confirmAppQuit]; })])];
     [self add:HaloUICardView(@"Startup",@[[self startupRow:settings->active],HaloUINote(@"Saved with the current control profile. A recovery start always pauses at Start Halo.")])];
+    [self add:HaloUICardView(@"Heat and battery", @[
+        HaloUISwitchRow(@"Lower the frame rate when the phone is hot", @"Smooth 60 and Uncapped drop to 45 when iOS reports serious heat or Low Power Mode, and to 30 when it is critical, and return when the phone cools. The original 30 FPS mode is never changed.", settings->thermal_cap, ^(BOOL on) { [self update:^(HsSettings *s) { s->thermal_cap = on; }]; }),
+        HaloUISwitchRow(@"Performance overlay", @"Frame rate, frame interval, memory use, estimated available memory and thermal state. Position, size and opacity follow the FPS layout; available memory is not a crash threshold.", settings->perf_overlay, ^(BOOL on) { [self update:^(HsSettings *s) { s->perf_overlay = on; }]; })])];
     NSMutableArray<UIView *> *diag = [NSMutableArray array];
     [diag addObject:HaloUISwitchRow(@"Performance profiler", @"Samples the game thread so Diagnostics can show where the time goes. About 1% of one CPU core.", settings->profiler, ^(BOOL on) { [self update:^(HsSettings *s) { s->profiler = on; }]; })];
     [diag addObject:HaloUIButton(@"Share log files", 0, ^(UIButton *b) { if (self.onShareLogs) self.onShareLogs(b); })];
@@ -1039,6 +1043,23 @@ static UIColor *HaloColorFromRGB(unsigned rgb) {
     [self add:HaloUICardView(@"Credits",@[
         HaloUINote(@"Halo CE Universal and the iOS port contributors."),
         HaloUIButton(@"Halo-CE-IOS on GitHub",0,^(UIButton *b) { [UIApplication.sharedApplication openURL:[NSURL URLWithString:@"https://github.com/SnailBBQ/Halo-CE-IOS"] options:@{} completionHandler:nil]; })])];
+}
+/* Bonjour browsing invokes the system's Local Network privacy flow. This
+ * diagnostic does not replace Halo's existing UDP LAN discovery transport. */
+- (void)requestLocalNetworkAccess {
+    [self.localNetworkProbe stop];
+    NSNetServiceBrowser *probe=[NSNetServiceBrowser new];self.localNetworkProbe=probe;probe.delegate=self;
+    [probe searchForServicesOfType:@"_haloce._udp." inDomain:@"local."];
+    __weak typeof(self) weakSelf=self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,20*NSEC_PER_SEC),dispatch_get_main_queue(),^{
+        if(weakSelf.localNetworkProbe==probe){[probe stop];weakSelf.localNetworkProbe=nil;}
+    });
+}
+- (void)netServiceBrowser:(NSNetServiceBrowser *)browser didNotSearch:(NSDictionary<NSString *,NSNumber *> *)errorDict {
+    if(browser!=self.localNetworkProbe)return;
+    [browser stop];self.localNetworkProbe=nil;
+    halo_ios_toast("Local Network check stopped. Check Wi-Fi and iOS app permissions.");
+    (void)errorDict;
 }
 - (void)confirmAppQuit {
     UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Quit Halo" message:@"Close Halo completely? Unsaved progress will be lost." preferredStyle:UIAlertControllerStyleAlert];
