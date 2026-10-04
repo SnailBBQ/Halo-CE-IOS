@@ -65,6 +65,7 @@ on:
       - 'tools/tests/test_ios_log_classify.c'
       - 'tools/tests/test_ios_net.c'
       - 'tools/tests/test_ios_hash.c'
+      - 'tools/tests/test_ios_texture_check.c'
       - 'tools/tests/test_ios_sdl_events.c'
       - 'tools/tests/test_ios_audio_ring.c'
       - 'tools/tests/test_ios_sdl_event_numbers.c'
@@ -347,6 +348,8 @@ jobs:
 
       - name: Verify disc extraction, cancellation and mod originals
         run: |
+          clang -std=c11 -O2 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_texture_check.c -o "$RUNNER_TEMP/halo-texture-test"
+          "$RUNNER_TEMP/halo-texture-test"
           clang -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_coop_input.c -o "$RUNNER_TEMP/halo-coop-test"
           "$RUNNER_TEMP/halo-coop-test"
           python3 tools/tests/test_ios_xiso.py

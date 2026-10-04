@@ -1,3 +1,4 @@
+#include "halo_texture_check.h"
 #include "halo_coop_input.h"
 #import "halo_guest_runner.h"
 #import "halo_ios_controls.h"
@@ -296,6 +297,11 @@ static double g_phase_started[24];
 static uint64_t g_phase_upgrade_start[24];
 static _Atomic int g_waiting_frame, g_frame_present_ok;
 static _Atomic uint64_t g_presented_frames;
+/* Actual successful-present spacing, not the ten-second average. Long gaps
+ * (loading/background) are reported separately rather than hidden in FPS. */
+static _Atomic uint64_t g_frame_interval_bins[6],g_frame_interval_max_us;
+static double g_last_successful_present;
+
 static _Atomic uint32_t g_frame_draws;
 static double g_last_candidate_report;
 static pthread_mutex_t g_timing_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -1332,11 +1338,25 @@ static int ios_texture_decode_dxt(uint32_t kind, uint32_t source, uint32_t width
     return 1;
 }
 
+static HtCache g_texture_checks;
+static pthread_mutex_t g_texture_check_lock=PTHREAD_MUTEX_INITIALIZER;
+static _Atomic uint64_t g_texture_check_calls,g_texture_check_hits,g_texture_check_compared,g_texture_check_hashed;
+static void ios_texture_checks_reset(void) {
+    pthread_mutex_lock(&g_texture_check_lock);ht_reset(&g_texture_checks);pthread_mutex_unlock(&g_texture_check_lock);
+}
 static uint32_t ios_texture_hash(uint32_t source, uint32_t size)
 {
     const unsigned char *bytes = gp(source, size);
     if (!bytes) return 1;
-    return halo_hash_bytes(bytes, size);
+    pthread_mutex_lock(&g_texture_check_lock);
+    uint64_t hits=g_texture_checks.hits,compared=g_texture_checks.compared,hashed=g_texture_checks.hashed;
+    uint32_t hash=ht_hash(&g_texture_checks,source,bytes,size);
+    atomic_fetch_add(&g_texture_check_calls,1);
+    atomic_fetch_add(&g_texture_check_hits,g_texture_checks.hits-hits);
+    atomic_fetch_add(&g_texture_check_compared,g_texture_checks.compared-compared);
+    atomic_fetch_add(&g_texture_check_hashed,g_texture_checks.hashed-hashed);
+    pthread_mutex_unlock(&g_texture_check_lock);
+    return hash;
 }
 
 static int ios_cache_inflate_init(uint32_t va)
@@ -2038,7 +2058,7 @@ static const void *ios_geometry_resolve(void *context, uint32_t address, size_t 
     (void)context; return gp(address,size);
 }
 static uint32_t ios_geometry_pages(uint32_t first,uint32_t count,uint32_t dirty_va) {
-    if (!count && first==UINT32_MAX) { hg_reset(&g_geometry_cache);return 1; }
+    if (!count && first==UINT32_MAX) { hg_reset(&g_geometry_cache);ios_texture_checks_reset();return 1; }
     if (!count || count>256 || first>=HG_PAGE_COUNT || count>HG_PAGE_COUNT-first) return 0;
     uint64_t source=0x80000000ull+(uint64_t)first*HG_PAGE_SIZE, end=source+(uint64_t)count*HG_PAGE_SIZE;
     if ((uint64_t)dirty_va<end && (uint64_t)dirty_va+count>source) return 0;
@@ -2050,12 +2070,14 @@ static uint32_t ios_geometry_pages(uint32_t first,uint32_t count,uint32_t dirty_
     atomic_fetch_add(&g_geometry_bytes,g_geometry_cache.compared-bytes);
     return ok;
 }
-static void ios_memory_watch_initialize(void) {}
+static void ios_memory_watch_initialize(void) {ios_texture_checks_reset();}
 static void ios_memory_watch_protect(uint32_t a, uint32_t b) { (void)a; (void)b; }
 static uint32_t ios_memory_watch_generation(uint32_t a, uint32_t b) { (void)a; (void)b; return 0; }
 static uint32_t ios_memory_watch_serial(void) { return 1; }
 static void ios_memory_watch_prepare_write(uint32_t a, uint32_t b) { (void)a; (void)b; }
-static void ios_memory_watch_forget(uint32_t a, uint32_t b) { (void)a; (void)b; }
+static void ios_memory_watch_forget(uint32_t a,uint32_t b) {
+    pthread_mutex_lock(&g_texture_check_lock);ht_forget(&g_texture_checks,a,b);pthread_mutex_unlock(&g_texture_check_lock);
+}
 
 static void ios_host_android_path(int which, uint32_t buffer_va, uint32_t size)
 {
@@ -2148,7 +2170,20 @@ static int ios_sdl_gl_swap_window(uint32_t window)
 {
     int ok=halo_ios_gl_swap_window(window);
     g_frame_present_ok=ok;
-    if (ok) atomic_fetch_add_explicit(&g_presented_frames,1,memory_order_relaxed);
+    if(ok) {
+        double now=loading_seconds();
+        if(g_last_successful_present>0) {
+            double ms=(now-g_last_successful_present)*1000.;
+            unsigned bin=ms<=18.?0:ms<=25.?1:ms<=33.4?2:ms<=50.?3:ms<=250.?4:5;
+            atomic_fetch_add_explicit(&g_frame_interval_bins[bin],1,memory_order_relaxed);
+            if(bin<5) {
+                uint64_t us=(uint64_t)(ms*1000.),old=atomic_load(&g_frame_interval_max_us);
+                while(us>old && !atomic_compare_exchange_weak(&g_frame_interval_max_us,&old,us)){}
+            }
+        }
+        g_last_successful_present=now;
+        atomic_fetch_add_explicit(&g_presented_frames,1,memory_order_relaxed);
+    }
     return ok;
 }
 
@@ -3486,6 +3521,12 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                 if (interval > 0) say("presentation rate: %.2f FPS (%llu successful drawable presents in %.2f s; loading durations reported separately)",
                     (double)(presented-previous_presented)/interval,
                     (unsigned long long)(presented-previous_presented),interval);
+                uint64_t bins[6];
+                for(int b=0;b<6;b++)bins[b]=atomic_exchange(&g_frame_interval_bins[b],0);
+                say("frame intervals: <=18ms %llu, 18-25ms %llu, 25-33ms %llu, 33-50ms %llu, 50-250ms %llu; long gaps >250ms %llu; longest active %.2fms",
+                    (unsigned long long)bins[0],(unsigned long long)bins[1],(unsigned long long)bins[2],
+                    (unsigned long long)bins[3],(unsigned long long)bins[4],(unsigned long long)bins[5],
+                    atomic_exchange(&g_frame_interval_max_us,0)/1000.);
                 previous_presented=presented;
                 previous_frame_sample=frame_sample;
                 halo_guest_exec_stats_get(&stats);
@@ -3551,6 +3592,9 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                 static const char *scene_names[]={"datum lookup/iteration","BSP index triangles","BSP bit triangles","material ranges","visibility surface lists","visibility leaf references","object list filter"};
                 for(unsigned kind=0;kind<7;kind++)say("native scene %s: %llu calls, %llu items, %.1f ms total",scene_names[kind],
                     (unsigned long long)atomic_load(&g_scene_calls[kind]),(unsigned long long)atomic_load(&g_scene_items[kind]),atomic_load(&g_scene_ns[kind])/1e6);
+                say("texture content checks: %llu calls, %llu exact reuse hits, %llu MiB compared, %llu MiB hashed; snapshot budget 8 MiB",
+                    (unsigned long long)atomic_load(&g_texture_check_calls),(unsigned long long)atomic_load(&g_texture_check_hits),
+                    (unsigned long long)(atomic_load(&g_texture_check_compared)>>20),(unsigned long long)(atomic_load(&g_texture_check_hashed)>>20));
                 say("geometry cache: %llu comparisons, %llu KiB checked, %llu changed pages (exact byte comparison)",
                     (unsigned long long)atomic_load(&g_geometry_calls),
                     (unsigned long long)(atomic_load(&g_geometry_bytes)/1024),

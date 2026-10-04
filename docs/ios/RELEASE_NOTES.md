@@ -1,13 +1,15 @@
 # Release notes
 
-The current update is **M2.6.57**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.58**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.57](../../port/ios/UPDATE_M2657.md) integrates Universal build 95 and local two-player split-screen campaign co-op. Touch plus one controller or two controllers are supported. Device validation remains required.
+**Latest:** [M2.6.58](../../port/ios/UPDATE_M2658.md) adds exact texture-content reuse and frame-interval measurements; device performance validation remains required.
+
+**Previous:** [M2.6.57](../../port/ios/UPDATE_M2657.md) integrates Universal build 95 and local two-player split-screen campaign co-op. Touch plus one controller or two controllers are supported. Device validation remains required.
 
 **Previous source update:** [M2.6.56](../../port/ios/UPDATE_M2656.md) adds on-device Xbox disc import with validated staging, Keep/Replace, progress, cancellation and interrupted-install recovery. Import maps and mod-original restoration are preserved. Both apps remain on Halo CE Universal build 94. Disc-import device validation is still required.
 
