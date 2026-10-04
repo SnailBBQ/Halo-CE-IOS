@@ -26,8 +26,8 @@ static void HaloPadReload(void)
 /* Shortcuts observe discrete presses without consuming gameplay input. State
  * lives on the main queue and no guest pointers cross this boundary. */
 static HaloShortcutState g_shortcuts[4];
-static unsigned g_shortcut_pad_previous;
-static void HaloResetShortcuts(void) { memset(g_shortcuts,0,sizeof(g_shortcuts));g_shortcut_pad_previous=0; }
+static unsigned g_pad_previous[2];
+static void HaloResetShortcuts(void) { memset(g_shortcuts,0,sizeof(g_shortcuts));memset(g_pad_previous,0,sizeof(g_pad_previous)); }
 void halo_ios_shortcut_button(int button)
 {
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -914,8 +914,12 @@ static int32_t HaloAxisValue(float value, BOOL invert)
 }
 
 /* Maps an extended gamepad onto the original Xbox layout the guest expects. */
+static __weak GCController *g_input_controllers[2];
 static void HaloPushGamepad(GCExtendedGamepad *pad)
 {
+    int slot=-1;
+    for(int i=0;i<2;i++)if(g_input_controllers[i].extendedGamepad==pad)slot=i;
+    if(slot<0)return;
     uint32_t b = 0;
     if (pad.buttonA.isPressed) b |= 1u << HC_BTN_A;
     if (pad.buttonB.isPressed) b |= 1u << HC_BTN_B;
@@ -934,9 +938,9 @@ static void HaloPushGamepad(GCExtendedGamepad *pad)
     unsigned shortcuts = b;
     if (pad.leftTrigger.value > .5f) shortcuts |= 1u << 15;
     if (pad.rightTrigger.value > .5f) shortcuts |= 1u << 16;
-    for (int k = 0; k < 17; k++)
-        if ((shortcuts & ~g_shortcut_pad_previous) & (1u << k)) halo_ios_shortcut_button(k);
-    g_shortcut_pad_previous = shortcuts;
+    for(int k=0;k<17;k++)
+        if(slot==0 && !halo_ios_coop_touch_primary() && ((shortcuts & ~g_pad_previous[slot]) & (1u<<k)))halo_ios_shortcut_button(k);
+    g_pad_previous[slot]=shortcuts;
     b = hp_remap(b, g_pad.map);
     int32_t axes[6];
     float lx = pad.leftThumbstick.xAxis.value, ly = pad.leftThumbstick.yAxis.value;
@@ -952,36 +956,38 @@ static void HaloPushGamepad(GCExtendedGamepad *pad)
     axes[HC_AXIS_RY] = HaloAxisValue(ry, YES);
     axes[HC_AXIS_LT] = HaloAxisValue(pad.leftTrigger.value, NO);
     axes[HC_AXIS_RT] = HaloAxisValue(pad.rightTrigger.value, NO);
-    halo_ios_physical_pad_state(b, axes);
+    halo_ios_physical_pad_state_at(slot,1,b,axes);
 }
 
-static CHHapticEngine *g_controller_haptics;
-static id<CHHapticPatternPlayer> g_controller_rumble;
-static __weak GCController *g_rumble_controller;
+static CHHapticEngine *g_controller_haptics[2];
+static id<CHHapticPatternPlayer> g_controller_rumble[2];
+static __weak GCController *g_rumble_controller[2];
 
-void halo_ios_controller_rumble(unsigned low, unsigned high, unsigned milliseconds)
+void halo_ios_controller_rumble(unsigned low,unsigned high,unsigned milliseconds) {
+    for(int i=0;i<2;i++)halo_ios_controller_rumble_at(i,low,high,milliseconds);
+}
+void halo_ios_controller_rumble_at(int slot,unsigned low,unsigned high,unsigned milliseconds)
 {
+    if(slot<0 || slot>=2)return;
     dispatch_async(dispatch_get_main_queue(), ^{
-        GCController *controller = nil;
-        for (GCController *candidate in GCController.controllers)
-            if (candidate.extendedGamepad && candidate.haptics) { controller=candidate; break; }
-        if (controller != g_rumble_controller) {
-            [g_controller_rumble stopAtTime:CHHapticTimeImmediate error:nil];
-            [g_controller_haptics stopWithCompletionHandler:nil];
-            g_controller_rumble=nil;
-            g_controller_haptics=[controller.haptics createEngineWithLocality:GCHapticsLocalityDefault];
-            g_rumble_controller=controller;
+        GCController *controller=g_input_controllers[slot];
+        if (controller != g_rumble_controller[slot]) {
+            [g_controller_rumble[slot] stopAtTime:CHHapticTimeImmediate error:nil];
+            [g_controller_haptics[slot] stopWithCompletionHandler:nil];
+            g_controller_rumble[slot]=nil;
+            g_controller_haptics[slot]=[controller.haptics createEngineWithLocality:GCHapticsLocalityDefault];
+            g_rumble_controller[slot]=controller;
         }
-        [g_controller_rumble stopAtTime:CHHapticTimeImmediate error:nil];
-        g_controller_rumble=nil;
-        if (!g_controller_haptics || !milliseconds || !(low || high)) return;
-        if (![g_controller_haptics startAndReturnError:nil]) return;
+        [g_controller_rumble[slot] stopAtTime:CHHapticTimeImmediate error:nil];
+        g_controller_rumble[slot]=nil;
+        if (!g_controller_haptics[slot] || !milliseconds || !(low || high)) return;
+        if (![g_controller_haptics[slot] startAndReturnError:nil]) return;
         float intensity=MIN(65535u,MAX(low,high))/65535.f;
         CHHapticEventParameter *gain=[[CHHapticEventParameter alloc] initWithParameterID:CHHapticEventParameterIDHapticIntensity value:intensity];
         CHHapticEvent *event=[[CHHapticEvent alloc] initWithEventType:CHHapticEventTypeHapticContinuous parameters:@[gain] relativeTime:0 duration:MIN(milliseconds,5000u)/1000.];
         CHHapticPattern *pattern=[[CHHapticPattern alloc] initWithEvents:@[event] parameters:@[] error:nil];
-        g_controller_rumble=[g_controller_haptics createPlayerWithPattern:pattern error:nil];
-        [g_controller_rumble startAtTime:CHHapticTimeImmediate error:nil];
+        g_controller_rumble[slot]=[g_controller_haptics[slot] createPlayerWithPattern:pattern error:nil];
+        [g_controller_rumble[slot] startAtTime:CHHapticTimeImmediate error:nil];
     });
 }
 
@@ -989,7 +995,11 @@ static void HaloAttachController(GCController *controller)
 {
     controller.handlerQueue = dispatch_get_main_queue();
     GCExtendedGamepad *pad = controller.extendedGamepad;
-    if (!pad) return;
+    if(!pad)return;
+    int slot=-1;
+    for(int i=0;i<2;i++)if(g_input_controllers[i]==controller)slot=i;
+    if(slot<0)for(int i=0;i<2;i++)if(!g_input_controllers[i]){slot=i;g_input_controllers[i]=controller;break;}
+    if(slot<0)return;
     pad.valueChangedHandler = ^(GCExtendedGamepad *gamepad, GCControllerElement *element) {
         (void)element;
         HaloPushGamepad(gamepad);
@@ -999,13 +1009,15 @@ static void HaloAttachController(GCController *controller)
 
 static void HaloReportControllers(void)
 {
-    BOOL connected = NO;
-    for (GCController *controller in GCController.controllers)
-        if (controller.extendedGamepad) connected = YES;
+    BOOL connected=NO;
+    for(int i=0;i<2;i++) {
+        GCController *controller=g_input_controllers[i];
+        if(controller && [GCController.controllers containsObject:controller])connected=YES;
+        else {g_input_controllers[i]=nil;g_pad_previous[i]=0;halo_ios_physical_pad_state_at(i,0,0,NULL);halo_ios_controller_rumble_at(i,0,0,0);}
+    }
     if (!connected) {
         halo_ios_controller_rumble(0,0,0);
-        int32_t zero[6] = { 0, 0, 0, 0, 0, 0 };
-        halo_ios_physical_pad_state(0, zero);
+
     }
     halo_ios_set_touch_controller_connected(connected);
     if (g_controllers_changed) g_controllers_changed(connected);
@@ -1016,6 +1028,7 @@ void halo_ios_controllers_start(void (^changed)(BOOL connected))
     g_controllers_changed = [changed copy];
     NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
     HaloPadReload();
+    [center addObserverForName:@"HaloCoopInputChanged" object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note){(void)note;HaloReportControllers();}];
     for (NSString *name in @[HaloCampaignStateChangedNotification,UIApplicationDidEnterBackgroundNotification,GCControllerDidDisconnectNotification])
         [center addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) { (void)note; HaloResetShortcuts(); halo_ios_controller_rumble(0,0,0); }];
     [center addObserverForName:HaloSettingsChangedNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) { (void)note; HaloPadReload(); }];

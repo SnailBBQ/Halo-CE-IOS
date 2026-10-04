@@ -44,7 +44,7 @@ Ending hosting clears this app's owned invite export. A stopped lobby cannot be 
 
 ## Public discovery update
 
-**Source update:** M2.6.54 integrates Halo CE Universal build 94 on `main` and `ios/modtest`, alongside campaign tools, direct checkpoint editing and smaller, separate save/profile backups. This source update still requires Apple compilation and device validation.
+**Source update:** M2.6.57 integrates Halo CE Universal build 95 on `main` and `ios/modtest`, alongside campaign tools, direct checkpoint editing and smaller, separate save/profile backups. This source update still requires Apple compilation and device validation.
 
 Until that update is built and tested, use manual invites or LAN. Public discovery depends on upstream signalling infrastructure and an active public host; it does not list every stock Halo PC or MCC server.
 
@@ -92,3 +92,7 @@ Permission alone does not guarantee discovery: guest-network isolation, firewall
 With the PC-style menus, the multiplayer pause menu now offers Settings; the host also gets End Game, which finishes the match and keeps players for the next game. Opening these menus does not pause the network clock. Enemy name labels obey the motion tracker’s range and player-filter rules. Unarmed melee and grenades remain disabled from vehicle seats. These upstream changes need validation with iOS and build 94 clients.
 
 Local Network access can be checked in Settings → Multiplayer. The diagnostic publishes and browses a temporary Bonjour service, reporting success or the actual error. A missing iOS privacy entry is not evidence that permission is granted. UDP broadcast discovery also depends on signing with Apple’s multicast entitlement; ordinary sideloading may not provide it. Manual invites remain available when LAN discovery is unavailable.
+
+## Local campaign co-op
+
+Universal build 95 adds two-player split-screen campaign play on one device. Choose Multiplayer → Co-op Campaign. Connect one controller for player two while player one uses touch, or connect two controllers before entering co-op. Select player two’s profile using their controller. This is local campaign play, separate from online multiplayer invites and the public server browser. See [M2.6.57](../../port/ios/UPDATE_M2657.md) for setup and testing.

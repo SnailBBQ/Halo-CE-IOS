@@ -347,6 +347,8 @@ jobs:
 
       - name: Verify disc extraction, cancellation and mod originals
         run: |
+          clang -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_coop_input.c -o "$RUNNER_TEMP/halo-coop-test"
+          "$RUNNER_TEMP/halo-coop-test"
           python3 tools/tests/test_ios_xiso.py
           clang -fobjc-arc -DHALO_BACKUP_TEST -framework Foundation -Iport/ios/HaloIOS port/ios/HaloIOS/HaloDiscImport.m port/ios/HaloIOS/HaloMods.m port/ios/HaloIOS/HaloBackupArchive.m tools/tests/test_ios_disc_install.m -o "$RUNNER_TEMP/halo-disc-test"
           "$RUNNER_TEMP/halo-disc-test"

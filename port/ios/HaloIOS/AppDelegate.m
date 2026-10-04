@@ -422,7 +422,7 @@ static NSString *HaloPerfLine(void)
     /* On-screen controls only while the game is showing and no physical controller is connected. */
     BOOL editing = [(HaloControlsView *)self.menuControls editing];
     int mode = [[HaloSettingsStore shared] snapshot].controls_mode;   /* 0 auto, 1 always, 2 hidden */
-    BOOL wanted = mode == 1 || (mode == 0 && !self.physicalPadConnected);
+    BOOL wanted = mode == 1 || (mode == 0 && (!self.physicalPadConnected || halo_ios_coop_touch_primary()));
     BOOL show = self.bootOverlay.hidden && (wanted || editing);
     self.menuControls.hidden = !show;
     if (!show) [(HaloControlsView *)self.menuControls releaseAll];

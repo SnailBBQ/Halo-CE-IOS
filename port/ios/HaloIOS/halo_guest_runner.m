@@ -1,3 +1,4 @@
+#include "halo_coop_input.h"
 #import "halo_guest_runner.h"
 #import "halo_ios_controls.h"
 
@@ -729,7 +730,30 @@ void halo_ios_engine_settings_changed(const void *before, const void *after) {
     pthread_mutex_unlock(&g_settings_sync_lock);
 }
 /* Each slot is a 64-byte text value; validate before reading or writing. */
+static _Atomic int g_local_coop;
+static _Atomic int g_phys_present[2];
+static _Atomic int g_coop_primary = -1, g_coop_secondary = 0;
+int halo_ios_coop_touch_primary(void) { return atomic_load(&g_local_coop) && atomic_load(&g_coop_primary)<0; }
+static int physical_slot(uint32_t pad) {
+    if(pad!=1 && pad!=2)return -1;
+    if(atomic_load(&g_local_coop))return atomic_load(pad==1?&g_coop_primary:&g_coop_secondary);
+    return pad==1?(atomic_load(&g_phys_present[0])?0:atomic_load(&g_phys_present[1])?1:-1):-1;
+}
 static int ios_settings_value(uint32_t index,uint32_t address,uint32_t profile) {
+    if(index==UINT32_MAX-1) {
+        int coop=profile>=2;
+        if(coop!=atomic_load(&g_local_coop)) {
+            int a=atomic_load(&g_phys_present[0]),b=atomic_load(&g_phys_present[1]);
+            int primary,secondary;halo_coop_route(a,b,&primary,&secondary);
+            atomic_store(&g_coop_primary,primary);
+            atomic_store(&g_coop_secondary,secondary);
+            atomic_store(&g_local_coop,coop);
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [NSNotificationCenter.defaultCenter postNotificationName:@"HaloCoopInputChanged" object:nil];
+            });
+        }
+        return 0;
+    }
     if(index==UINT32_MAX) {
         pthread_mutex_lock(&g_settings_sync_lock);
         BOOL changed=profile!=g_settings_profile;
@@ -838,7 +862,7 @@ static void ios_campaign_options(uint32_t packet)
 static _Atomic int g_touch_auto_fire, g_touch_controller_connected;
 void halo_ios_set_touch_auto_fire(int enabled) { atomic_store(&g_touch_auto_fire, !!enabled); }
 void halo_ios_set_touch_controller_connected(int connected) { atomic_store(&g_touch_controller_connected, !!connected); }
-static int ios_touch_auto_fire(void) { return atomic_load(&g_touch_auto_fire) && !atomic_load(&g_touch_controller_connected); }
+static int ios_touch_auto_fire(void) { return atomic_load(&g_touch_auto_fire) && (!atomic_load(&g_touch_controller_connected) || halo_ios_coop_touch_primary()); }
 static _Atomic uint32_t g_viewmodel_flags = 3;
 void halo_ios_set_viewmodel_flags(uint32_t flags) { atomic_store_explicit(&g_viewmodel_flags, flags & 3u, memory_order_relaxed); }
 static uint32_t ios_viewmodel_flags(void) { return atomic_load_explicit(&g_viewmodel_flags, memory_order_relaxed); }
@@ -2242,9 +2266,9 @@ static int ios_sdl_show_simple_message_box(uint32_t flags, uint32_t title, uint3
 
 static _Atomic(uint32_t) g_menu_held;
 static _Atomic(uint32_t) g_menu_pending;
-static _Atomic(uint32_t) g_phys_held;
+static _Atomic(uint32_t) g_phys_held[2];
 static _Atomic(int32_t) g_touch_axis[6];
-static _Atomic(int32_t) g_phys_axis[6];
+static _Atomic(int32_t) g_phys_axis[2][6];
 
 static int32_t clamp_axis(int32_t value, int axis)
 {
@@ -2276,57 +2300,69 @@ void halo_ios_menu_reset(void)
     atomic_store(&g_menu_held, 0);
     atomic_store(&g_menu_pending, 0);
     for (int i = 0; i < 6; i++) atomic_store(&g_touch_axis[i], 0);
+    for(int slot=0;slot<2;slot++){atomic_store(&g_phys_held[slot],0);for(int i=0;i<6;i++)atomic_store(&g_phys_axis[slot][i],0);}
 }
 
 void halo_ios_physical_pad_state(uint32_t buttons, const int32_t axes[6])
 {
-    atomic_store(&g_phys_held, buttons);
-    for (int i = 0; i < 6; i++)
-        atomic_store(&g_phys_axis[i], axes ? clamp_axis(axes[i], i) : 0);
+    halo_ios_physical_pad_state_at(0,1,buttons,axes);
+}
+void halo_ios_physical_pad_state_at(int slot,int connected,uint32_t buttons,const int32_t axes[6]) {
+    if(slot<0 || slot>=2)return;
+    atomic_store(&g_phys_present[slot],connected!=0);
+    atomic_store(&g_phys_held[slot],connected?buttons:0);
+    for(int i=0;i<6;i++)atomic_store(&g_phys_axis[slot][i],connected&&axes?clamp_axis(axes[i],i):0);
 }
 
 static int ios_sdl_get_gamepads(uint32_t ids, int capacity)
 {
     if (capacity < 1) return 0;
-    uint32_t *out = gp(ids, sizeof(*out));
-    if (!out) return 0;
-    out[0] = 1; /* the native menu pad */
-    return 1;
+    int second=physical_slot(2);
+    int count=capacity>=2 && second>=0 && atomic_load(&g_phys_present[second])?2:1;
+    uint32_t *out=gp(ids,(size_t)count*sizeof(*out));
+    if(!out)return 0;
+    out[0]=1; /* Touch always owns logical port zero. */
+    if(count==2)out[1]=2;
+    return count;
 }
 
 static uint32_t ios_sdl_open_gamepad(uint32_t id)
 {
-    return id == 1 ? 1 : 0;
+    return id==1 || (id==2 && atomic_load(&g_local_coop))?id:0;
 }
 
 static int ios_sdl_gamepad_axis(uint32_t gamepad, int axis)
 {
-    if (gamepad != 1 || axis < 0 || axis >= 6) return 0;
+    if ((gamepad != 1 && gamepad != 2) || axis < 0 || axis >= 6) return 0;
     /* Touch and a physical controller are merged: the larger deflection wins. */
-    int32_t touch = atomic_load(&g_touch_axis[axis]);
-    int32_t physical = atomic_load(&g_phys_axis[axis]);
+    int slot=physical_slot(gamepad);
+    int32_t touch=gamepad==1?atomic_load(&g_touch_axis[axis]):0;
+    int32_t physical=slot>=0?atomic_load(&g_phys_axis[slot][axis]):0;
     int32_t value = abs(touch) >= abs(physical) ? touch : physical;
     return (int)clamp_axis(value, axis);
 }
 
 static int ios_sdl_gamepad_button(uint32_t gamepad, int button)
 {
-    if (gamepad != 1 || button < 0 || button >= 32) return 0;
+    if ((gamepad != 1 && gamepad != 2) || button < 0 || button >= 32) return 0;
     uint32_t bit = UINT32_C(1) << button;
     /* A quick tap is delivered at least once even between slow frames. */
-    uint32_t pending = atomic_fetch_and(&g_menu_pending, ~bit);
-    return ((atomic_load(&g_menu_held) | pending | atomic_load(&g_phys_held)) & bit) != 0;
+    int slot=physical_slot(gamepad);
+    uint32_t pending=gamepad==1?atomic_fetch_and(&g_menu_pending,~bit):0;
+    uint32_t touch=gamepad==1?atomic_load(&g_menu_held):0;
+    return ((touch|pending|(slot>=0?atomic_load(&g_phys_held[slot]):0))&bit)!=0;
 }
 
 static int ios_sdl_gamepad_type(uint32_t gamepad)
 {
-    return gamepad == 1 ? 1 : 0; /* SDL_GAMEPAD_TYPE_STANDARD */
+    return gamepad==1 || gamepad==2?1:0; /* SDL_GAMEPAD_TYPE_STANDARD */
 }
 
 static int ios_sdl_rumble(uint32_t gamepad, uint32_t low, uint32_t high, uint32_t milliseconds)
 {
-    if (gamepad != 1) return 0;
-    halo_ios_controller_rumble(low,high,milliseconds);
+    int slot=physical_slot(gamepad);
+    if(slot<0)return 0;
+    halo_ios_controller_rumble_at(slot,low,high,milliseconds);
     return 1;
 }
 

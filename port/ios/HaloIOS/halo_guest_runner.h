@@ -48,6 +48,8 @@ void halo_ios_set_touch_controller_connected(int connected);
 /* Makes the game look at the clipboard (an invite link) on its next event poll. */
 void halo_ios_post_focus_event(void);
 
+int halo_ios_coop_touch_primary(void);
+void halo_ios_physical_pad_state_at(int slot,int connected,uint32_t buttons,const int32_t axes[6]);
 void halo_ios_set_channel_gains(float music,float dialogue,float effects);
 /* Host-side copies only. Changes are applied on the guest game thread. */
 void halo_ios_engine_settings_changed(const void *before, const void *after);

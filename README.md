@@ -6,11 +6,11 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 
 > **You are on the regular app branch.** A separate **Mod Test** app lives on the [`ios/modtest`](https://github.com/SnailBBQ/Halo-CE-IOS/tree/ios/modtest) branch.
 
-> **Status: playable.** The current update is **M2.6.56**. The campaign and cross-play multiplayer work on a physical iPhone:
+> **Status: playable.** The current update is **M2.6.57**. The campaign and cross-play multiplayer work on a physical iPhone:
 > The maintainer reports playable `a10` and PC cross-play in earlier builds; results vary by device and scene. Some of the newest features are still being
 > validated on a device; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
-**Source update:** [M2.6.56](port/ios/UPDATE_M2656.md) adds on-device Xbox ISO/XISO map extraction with progress, cancellation, Keep/Replace and recovery. Import maps remains available. Both apps remain on Halo CE Universal build 94. Device validation of disc import is still required.
+**Source update:** [M2.6.57](port/ios/UPDATE_M2657.md) integrates Halo CE Universal build 95 and local two-player split-screen campaign co-op. Use touch plus one controller, or two controllers. On-device Xbox ISO/XISO map import remains available. Device validation of co-op is still required.
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of Halo CE Universal on PC" width="760"><br>
