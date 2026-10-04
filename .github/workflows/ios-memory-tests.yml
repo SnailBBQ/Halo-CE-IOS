@@ -33,7 +33,8 @@ jobs:
           python3 tools/tests/test_ios_header_declarations.py
           python3 tools/tests/test_ios_frameworks_linked.py
           python3 tools/tests/test_ios_import_coverage.py
-          for t in settings_core map_order pad_input color scancodes wireframe checkpoint timing_sample; do
+          python3 tools/tests/test_ios_gl_timing_wrappers.py
+          for t in settings_core map_order pad_input color scancodes wireframe checkpoint timing_sample gl_wait_stats map_name; do
             cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS "tools/tests/test_ios_$t.c" -o "$RUNNER_TEMP/halo-$t-test" -lm
             "$RUNNER_TEMP/halo-$t-test"
           done

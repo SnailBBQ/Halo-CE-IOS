@@ -6,11 +6,11 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 
 > **You are on the regular app branch.** A separate **Mod Test** app lives on the [`ios/modtest`](https://github.com/SnailBBQ/Halo-CE-IOS/tree/ios/modtest) branch.
 
-> **Status: playable.** The current update is **M2.6.62**. The campaign and cross-play multiplayer work on a physical iPhone:
+> **Status: playable.** The current update is **M2.6.64**. The campaign and cross-play multiplayer work on a physical iPhone:
 > The maintainer reports playable `a10` and PC cross-play in earlier builds; results vary by device and scene. Some of the newest features are still being
 > validated on a device; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
-**Source update:** [M2.6.63](port/ios/UPDATE_M2663.md) reduces frequent diagnostic clock reads and adds slow-frame and presentation-wait reporting. Gameplay, resolution, signing and validated renderer behavior are unchanged. Device testing is required to measure the performance improvement; ordinary sideloading compatibility remains unverified.
+**Source update:** [M2.6.64](port/ios/UPDATE_M2664.md) adds per-call OpenGL wall-time reporting and campaign map names to the performance log, so the cause of the frame drops in heavy scenes can be measured. It changes no gameplay, rendering, resolution or signing behavior and has not yet been built or tested on a device; see the [release notes](docs/ios/RELEASE_NOTES.md).
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of Halo CE Universal on PC" width="760"><br>

@@ -1,6 +1,7 @@
 #include "halo_texture_check.h"
 #include "halo_timing_sample.h"
 #include "halo_frame_diagnostics.h"
+#include "halo_map_name.h"
 #include "halo_coop_input.h"
 #import "halo_guest_runner.h"
 #import "halo_ios_controls.h"
@@ -860,6 +861,36 @@ static _Atomic uint32_t g_network_role,g_network_peers,g_network_ping;
 static void ios_network_status(uint32_t role,uint32_t peers,uint32_t ping) {
  atomic_store(&g_network_role,role);atomic_store(&g_network_peers,peers);atomic_store(&g_network_ping,ping);
 }
+/* The last map file the game opened (through the syscall bridge). It names the campaign map in the diagnostics when the
+ * network layer has no map details, which it never has outside multiplayer. It is a hint, not proof: the menus can open other
+ * map files too. Host strings only; no guest pointers are kept. */
+static pthread_mutex_t g_last_map_lock = PTHREAD_MUTEX_INITIALIZER;
+static char g_last_map[32];
+static CFAbsoluteTime g_last_map_time;
+static void ios_note_opened_path(const char *path)
+{
+    char name[32];
+    if (!halo_map_name_from_path(path, name, sizeof(name)))
+        return;
+    pthread_mutex_lock(&g_last_map_lock);
+    strlcpy(g_last_map, name, sizeof(g_last_map));
+    g_last_map_time = CFAbsoluteTimeGetCurrent();
+    pthread_mutex_unlock(&g_last_map_lock);
+}
+static int ios_last_map_copy(char *out, size_t size, double *age_seconds)
+{
+    int have;
+    pthread_mutex_lock(&g_last_map_lock);
+    have = g_last_map[0] != 0;
+    if (have)
+    {
+        strlcpy(out, g_last_map, size);
+        if (age_seconds)
+            *age_seconds = CFAbsoluteTimeGetCurrent() - g_last_map_time;
+    }
+    pthread_mutex_unlock(&g_last_map_lock);
+    return have;
+}
 static NSLock *NetworkDetailsLock(void) { static NSLock *lock;static dispatch_once_t once;dispatch_once(&once,^{lock=[NSLock new];});return lock; }
 static NSString *g_network_map;
 static unsigned g_network_mode;
@@ -894,6 +925,8 @@ static void ios_record_frame(void) {
                 strlcpy(frame->map,g_network_map.UTF8String,sizeof(frame->map));frame->mode=g_network_mode;
             }
             [NetworkDetailsLock() unlock];
+            if(frame->map[0])frame->map_source=1;
+            else if(ios_last_map_copy(frame->map,sizeof(frame->map),NULL))frame->map_source=2;
         }
         pthread_mutex_unlock(&g_timing_lock);
     }
@@ -907,10 +940,25 @@ static void ios_report_slow_frames(void) {
     say("slow frames: %llu intervals >25ms and <=250ms; %llu longer gaps excluded; retained worst %u",(unsigned long long)frames.slow_count,(unsigned long long)frames.long_gaps,frames.count);
     for(unsigned i=0;i<frames.count;i++) {
         HaloSlowFrame *f=&frames.frames[i];
-        say("slow frame #%llu: interval %.3f ms; update %.3f ms; render %.3f ms; present %.3f ms; cap wait %.3f ms; drawable %.3f ms; map=%s mode=%u role=%u peers=%u reported ping=%u ms",
+        say("slow frame #%llu: interval %.3f ms; update %.3f ms; render %.3f ms; present %.3f ms; cap wait %.3f ms; drawable %.3f ms; map=%s mode=%u role=%u peers=%u reported ping=%u ms; map source=%s",
             (unsigned long long)f->number,f->interval_ns/1e6,f->update_ns/1e6,f->render_ns/1e6,f->present_ns/1e6,f->display.cap_wait_ns/1e6,f->display.drawable_ns/1e6,
-            f->map[0]?f->map:"unknown",f->mode,f->role,f->peers,f->ping);
+            f->map[0]?f->map:"unknown",f->mode,f->role,f->peers,f->ping,f->map_source==1?"network":f->map_source==2?"last map file opened":"none");
     }
+}
+static void ios_report_gl_waits(void) {
+    HaloGlWaitSnapshot waits;
+    int any = 0;
+    halo_ios_gl_wait_stats_take(&waits);
+    say("gl wall time by call type this window (calls are counted exactly; rare calls are timed every time, draws and buffer data on ~1 call in 64):");
+    for(int c=0;c<HALO_GLW_COUNT;c++) {
+        if(!waits.calls[c])continue;
+        any=1;
+        if(halo_glw_exact(c))
+            say("  gl %-20s %8llu calls, %9.2f ms total, worst %7.3f ms, %llu calls over 2 ms",halo_glw_name(c),(unsigned long long)waits.calls[c],halo_gl_wait_total_ms(&waits,c),waits.max_ns[c]/1e6,(unsigned long long)waits.long_calls[c]);
+        else
+            say("  gl %-20s %8llu calls, %9.2f ms estimated from %llu samples, worst sampled %7.3f ms, %llu sampled calls over 2 ms",halo_glw_name(c),(unsigned long long)waits.calls[c],halo_gl_wait_total_ms(&waits,c),(unsigned long long)waits.samples[c],waits.max_ns[c]/1e6,(unsigned long long)waits.long_calls[c]);
+    }
+    if(!any)say("  gl no calls timed this window");
 }
 NSString *HaloNetworkSummary(void) {
  unsigned role=atomic_load(&g_network_role),peers=atomic_load(&g_network_peers),ping=atomic_load(&g_network_ping);
@@ -1689,6 +1737,8 @@ static long long ios_host_syscall(long long number, long long a, long long b, lo
                 return -EFAULT;
             int flags = (int)linux_to_darwin_open_flags((uint32_t)c);
             int fd = open(path, flags, (mode_t)d);
+            if (fd >= 0)
+                ios_note_opened_path(path);
             return fd < 0 ? -errno : fd;
         }
 
@@ -3627,6 +3677,12 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                 ios_report_slow_frames();
                 say("timing policy: exact call/item/fault counters; native helper clocks ~1/1024, overlapping sub-phase clocks ~1/64; full update/render/upload/present clocks");
                 say("device thermal state: %ld; low power mode: %s",(long)NSProcessInfo.processInfo.thermalState,NSProcessInfo.processInfo.isLowPowerModeEnabled?"on":"off");
+                {
+                    char last_map[32];double map_age=0;
+                    if(ios_last_map_copy(last_map,sizeof(last_map),&map_age))say("map file last opened by the game: %s (%.1f s ago); fresh network map details are used instead when there are any",last_map,map_age);
+                    else say("map file last opened by the game: none seen yet");
+                }
+                ios_report_gl_waits();
                 previous_presented=presented;
                 previous_frame_sample=frame_sample;
                 halo_guest_exec_stats_get(&stats);

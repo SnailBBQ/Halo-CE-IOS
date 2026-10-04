@@ -1,5 +1,6 @@
 #ifndef HALO_IOS_GL_HOST_H
 #define HALO_IOS_GL_HOST_H
+#include "halo_gl_wait_stats.h"
 
 #include <stdint.h>
 #include "halo_frame_diagnostics.h"
@@ -33,5 +34,7 @@ uint32_t halo_ios_gl_read_buffer_word(uint32_t buffer, uint32_t offset);
 void halo_ios_gl_buffer_write(uint32_t target, uint32_t offset, uint32_t size, const void *data);
 void halo_ios_gl_fence_frame(uint32_t slot);
 void halo_ios_gl_wait_frame(uint32_t slot);
+/* How long OpenGL calls took since the last call (see halo_gl_wait_stats.h); the next call starts a new window. */
+void halo_ios_gl_wait_stats_take(HaloGlWaitSnapshot *out);
 
 #endif

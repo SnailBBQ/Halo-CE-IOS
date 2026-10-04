@@ -1,13 +1,17 @@
 # Release notes
 
-The current update is **M2.6.61**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.64**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.62](../../port/ios/UPDATE_M2662.md) adds a button-based shortcut editor, clearer cheat summaries, grenade giving, organized controls and corrected gyro yaw. Allocation testing now uses the existing Mod Test app.
+**Latest:** [M2.6.64](../../port/ios/UPDATE_M2664.md) adds per-call OpenGL wall-time reporting and campaign map names to the performance log. It measures only and has not been built or tested on a device.
+
+**Previous:** [M2.6.63](../../port/ios/UPDATE_M2663.md) lowers the cost of the diagnostic clocks and adds worst-frame reports; no measured FPS gain is claimed.
+
+**Previous:** [M2.6.62](../../port/ios/UPDATE_M2662.md) adds a button-based shortcut editor, clearer cheat summaries, grenade giving, organized controls and corrected gyro yaw. Allocation testing now uses the existing Mod Test app.
 
 **Previous:** [M2.6.60](../../port/ios/UPDATE_M2660.md) preserves held touch and controller input during unrelated settings synchronization.
 
@@ -23,6 +27,9 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.64 | Per-call OpenGL wall-time reporting and campaign map names in the performance log; measurement only. Device validation pending. |
+| M2.6.63 | Lower-overhead sampled timing and worst-frame reports in the performance log; no measured FPS gain claimed. |
+| M2.6.62 | Button-based cheat shortcut editor, clearer cheat summaries, grenade giving, organized controls and corrected gyro yaw. |
 | M2.6.56 | On-device Xbox ISO/XISO map extraction, Keep/Replace, cancellation and mod-original preservation. |
 | M2.6.55 | Input shortcuts, icon customization, Jetpack Jump thrust, shared settings and separate save/profile imports. |
 | M2.6.54 | Universal build 94: campaign melee, weapon pickup/swap, scoreboard and browser fixes. |

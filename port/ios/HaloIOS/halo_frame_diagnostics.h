@@ -8,7 +8,7 @@ typedef struct { uint64_t cap_wait_ns,drawable_ns; } HaloPresentTiming;
 typedef struct {
     uint64_t number,interval_ns,update_ns,render_ns,present_ns;
     HaloPresentTiming display;
-    unsigned role,peers,ping,mode;
+    unsigned role,peers,ping,mode,map_source;   /* map_source: 0 none, 1 network details, 2 the last map file the game opened */
     char map[64];
 } HaloSlowFrame;
 typedef struct { uint64_t slow_count,long_gaps;unsigned count;HaloSlowFrame frames[HALO_SLOW_FRAME_COUNT]; } HaloSlowFrames;

@@ -8,6 +8,7 @@
 #include <dlfcn.h>
 #include <time.h>
 #include "halo_frame_pacer.h"
+#include "halo_gl_wait_stats.h"
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdio.h>
@@ -395,6 +396,50 @@ static void halo_glDrawElementsBaseVertex_fallback(GLenum mode, GLsizei count, G
         glDrawElements(mode, count, type, indices);
 }
 
+/* Timing wrappers (telemetry only). Each has exactly the prototype of the OpenGL function it forwards to, with the same
+ * arguments, and calls it unchanged; it only counts the call and, for the categories in halo_gl_wait_stats.h, measures how long
+ * the call took. Anything not listed here is resolved exactly as before. */
+static HaloGlWaitStats g_gl_wait;
+static double halo_gl_wait_clock(void)
+{
+    return (double)clock_gettime_nsec_np(CLOCK_UPTIME_RAW) / 1e9;
+}
+
+#define HALO_TIMED_GL(CATEGORY, NAME, PARAMS, ARGS) \
+    static void (*g_real_##NAME) PARAMS; \
+    static void halo_timed_##NAME PARAMS \
+    { \
+        static _Thread_local HaloTimingSampler sampler; \
+        HaloGlWaitTimer timer = halo_gl_wait_begin(&g_gl_wait, &sampler, CATEGORY, halo_gl_wait_clock); \
+        g_real_##NAME ARGS; \
+        halo_gl_wait_end(&g_gl_wait, timer, halo_gl_wait_clock); \
+    }
+
+HALO_TIMED_GL(HALO_GLW_DRAW, glDrawElements, (GLenum mode, GLsizei count, GLenum type, const void *indices), (mode, count, type, indices))
+HALO_TIMED_GL(HALO_GLW_DRAW, glDrawArrays, (GLenum mode, GLint first, GLsizei count), (mode, first, count))
+HALO_TIMED_GL(HALO_GLW_BUFFER, glBufferData, (GLenum target, GLsizeiptr size, const void *data, GLenum usage), (target, size, data, usage))
+HALO_TIMED_GL(HALO_GLW_BUFFER, glBufferSubData, (GLenum target, GLintptr offset, GLsizeiptr size, const void *data), (target, offset, size, data))
+HALO_TIMED_GL(HALO_GLW_TEXTURE, glTexImage2D, (GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void *pixels), (target, level, internalformat, width, height, border, format, type, pixels))
+HALO_TIMED_GL(HALO_GLW_TEXTURE, glTexSubImage2D, (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const void *pixels), (target, level, xoffset, yoffset, width, height, format, type, pixels))
+HALO_TIMED_GL(HALO_GLW_TEXTURE, glCompressedTexImage2D, (GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, const void *data), (target, level, internalformat, width, height, border, imageSize, data))
+HALO_TIMED_GL(HALO_GLW_TEXTURE, glCompressedTexSubImage2D, (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const void *data), (target, level, xoffset, yoffset, width, height, format, imageSize, data))
+HALO_TIMED_GL(HALO_GLW_TEXTURE, glGenerateMipmap, (GLenum target), (target))
+HALO_TIMED_GL(HALO_GLW_PROGRAM, glLinkProgram, (GLuint program), (program))
+HALO_TIMED_GL(HALO_GLW_PROGRAM, glCompileShader, (GLuint shader), (shader))
+HALO_TIMED_GL(HALO_GLW_FLUSH, glFlush, (void), ())
+HALO_TIMED_GL(HALO_GLW_FLUSH, glFinish, (void), ())
+HALO_TIMED_GL(HALO_GLW_READBACK, glReadPixels, (GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, void *pixels), (x, y, width, height, format, type, pixels))
+HALO_TIMED_GL(HALO_GLW_QUERY, glGetQueryObjectuiv, (GLuint id, GLenum pname, GLuint *params), (id, pname, params))
+HALO_TIMED_GL(HALO_GLW_CLEAR, glClear, (GLbitfield mask), (mask))
+
+#define HALO_RESOLVE_TIMED(NAME) \
+    if (!strcmp(name, #NAME)) \
+    { \
+        *(void **)&g_real_##NAME = dlsym(RTLD_DEFAULT, #NAME); \
+        if (g_real_##NAME) \
+            return (void *)halo_timed_##NAME; \
+    }
+
 static uint64_t halo_gl_unavailable(void)
 {
     return 0;
@@ -412,6 +457,23 @@ void *halo_ios_gl_resolve_import(const char *import_name)
 
     if (!strcmp(name, "glBlitFramebuffer"))
         return (void *)halo_glBlitFramebuffer;
+
+    HALO_RESOLVE_TIMED(glDrawElements)
+    HALO_RESOLVE_TIMED(glDrawArrays)
+    HALO_RESOLVE_TIMED(glBufferData)
+    HALO_RESOLVE_TIMED(glBufferSubData)
+    HALO_RESOLVE_TIMED(glTexImage2D)
+    HALO_RESOLVE_TIMED(glTexSubImage2D)
+    HALO_RESOLVE_TIMED(glCompressedTexImage2D)
+    HALO_RESOLVE_TIMED(glCompressedTexSubImage2D)
+    HALO_RESOLVE_TIMED(glGenerateMipmap)
+    HALO_RESOLVE_TIMED(glLinkProgram)
+    HALO_RESOLVE_TIMED(glCompileShader)
+    HALO_RESOLVE_TIMED(glFlush)
+    HALO_RESOLVE_TIMED(glFinish)
+    HALO_RESOLVE_TIMED(glReadPixels)
+    HALO_RESOLVE_TIMED(glGetQueryObjectuiv)
+    HALO_RESOLVE_TIMED(glClear)
 
     void *function = dlsym(RTLD_DEFAULT, name);
     if (function)
@@ -528,9 +590,17 @@ void halo_ios_gl_wait_frame(uint32_t slot)
     if (slot >= FRAME_FENCE_SLOTS || !g_frame_fences[slot])
         return;
 
+    static _Thread_local HaloTimingSampler fence_sampler;   /* the fence wait is timed on every call */
+    HaloGlWaitTimer wait_timer = halo_gl_wait_begin(&g_gl_wait, &fence_sampler, HALO_GLW_FENCE, halo_gl_wait_clock);
     glClientWaitSync(g_frame_fences[slot],
                      GL_SYNC_FLUSH_COMMANDS_BIT,
                      1000000000ull);
+    halo_gl_wait_end(&g_gl_wait, wait_timer, halo_gl_wait_clock);
     glDeleteSync(g_frame_fences[slot]);
     g_frame_fences[slot] = NULL;
+}
+
+void halo_ios_gl_wait_stats_take(HaloGlWaitSnapshot *out)
+{
+    halo_gl_wait_take(&g_gl_wait, out);
 }
