@@ -6,7 +6,7 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 
 > **You are on the regular app branch.** A separate **Mod Test** app lives on the [`ios/cursed-a10-mod-test`](https://github.com/xSkullHD/Halo-CE-IOS/tree/ios/cursed-a10-mod-test) branch.
 
-> **Status: playable.** The current update is **M2.6.50**. The campaign and cross-play multiplayer work on a physical iPhone:
+> **Status: playable.** The current update is **M2.6.51**. The campaign and cross-play multiplayer work on a physical iPhone:
 > `a10` and multiplayer are fully working, and the other campaign maps tried so far load fine. Some of the newest features are still being
 > validated on a device; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
@@ -27,7 +27,7 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
   layout, toggle crouch and zoom, gyro aiming and optional touch-aiming helpers. [Controls guide](docs/ios/CONTROLS.md)
 - **Controller support.** Xbox, PlayStation and other controllers supported by Apple's GameController framework, with stick tuning and button remapping.
 - **Multiplayer.** Cross-play with Halo CE Universal on PC: invite links, an invite file in iCloud Drive or the app's folder, a QR code,
-  recent games, LAN games, and the Direct Link and Create Game screens. [Multiplayer guide](docs/ios/MULTIPLAYER.md)
+  recent games, LAN games, and build 84’s public Server Browser, Direct Link and Create Game screens. [Multiplayer guide](docs/ios/MULTIPLAYER.md)
 - **Display.** 30 FPS original, smooth 60 or uncapped; 4:3, widescreen or fullscreen; three render-detail levels; a live HUD editor;
   first-person view options; AirPlay mirroring. [Display / AirPlay](docs/ios/DISPLAY_AIRPLAY.md), [Settings reference](docs/ios/SETTINGS.md)
 - **Sound.** Native audio with separate Master, Music, Dialogue, Effects and Ambient volumes.

@@ -1,6 +1,6 @@
 # Halo CE iOS — Project status
 
-**Status: playable.** **Current update: M2.6.50** (regular app 0.2.50, Mod Test app 0.2.50.1). `a10` and cross-play multiplayer are fully working on a physical iPhone, and the other campaign maps tried so far load fine. Some of the newest features are built and checked by automated tests and
+**Status: playable.** **Current update: M2.6.51** (regular app 0.2.51, Mod Test app 0.2.51.1). `a10` and cross-play multiplayer are fully working on a physical iPhone, and the other campaign maps tried so far load fine. Some of the newest features are built and checked by automated tests and
 are still waiting for device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
 
 ## Two apps
@@ -18,16 +18,16 @@ Both share the same features and are updated together. The Mod Test app adds an 
 - Cross-play multiplayer with Halo CE Universal clients (fully working), including joining by invite link.
 - On-screen Xbox-style controls with five schemes, touch look, and physical controllers.
 
-## Built and tested locally, waiting for device validation
+## Implemented, waiting for build/device validation
 
-- The PC menus from the newer Halo CE Universal build (M2.6.49).
+- Halo CE Universal build 84: signed public lobby discovery, public/private hosting and multiplayer join/leave fixes (M2.6.51).
 - The Settings additions of M2.6.48 (cheat sections and new cheats, left-handed layout, gyro, controller remap, heat-aware frame cap, performance overlay, Ambient volume, recent games and QR, Profiles, problem report, custom accent colours).
 - Picture options, touch aiming and AirPlay mirroring (M2.6.50).
 - The Mod Test loader, offline-validated only.
 
 ## Known limits
 
-- The PC menus' public **Server Browser** is empty, because the upstream project has not built a public server list yet. LAN, Direct Link and Create Game work.
+- Build 84 public server discovery is integrated; iOS public browsing/hosting and cross-play need device validation. Discovery uses public MQTT signalling brokers and requires network connectivity.
 - The app imports `.map` files only. It does not open ISO or XISO disc images; extract the maps first (see [Game data](docs/ios/GAME_DATA.md)).
 - AirPlay is system screen mirroring. A separate TV-only game window is not implemented.
 - Bink videos are skipped.

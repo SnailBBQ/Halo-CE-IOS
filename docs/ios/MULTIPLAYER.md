@@ -29,7 +29,7 @@ The two apps use separate invite schemes: the regular app opens `halo://` links 
 | Invite file | Choose an iCloud Drive folder; a PC player can paste an invite into the file, and you press **Join from game_invite.txt**. See below. |
 | Recent games | **Join again** reuses a game you hosted or joined. It only works while that game is still running. |
 | LAN | Games on the same Wi-Fi appear in the LAN list. Allow **Local Network** for Halo CE in iOS Settings. |
-| PC menus | **Join Game → Direct Link** takes an invite from a link, the clipboard or Discord. **Join Game → LAN** lists local games. The public **Server Browser** is empty for now because upstream has not built a public server list. |
+| PC menus | **Join Game → Direct Link** takes an invite from a link, the clipboard or Discord. **Join Game → LAN** lists local games. **Join Game → Server Browser** lists compatible public Internet games; Refresh and Join use upstream’s invite system. |
 
 ## Hosting a game
 
@@ -64,3 +64,13 @@ A peer count is not a player count. It refreshes every two seconds while Setting
 - All cheats are switched off when you host or join a game.
 - Cross-play with a PC is easiest when you pick maps both sides have.
 - Smooth, stable play depends on the phone: see [Display → Heat and battery](SETTINGS.md#display) and the [troubleshooting](TROUBLESHOOTING.md) page if a game drops.
+
+## Public Internet games (build 84)
+
+With PC menus selected, open **Multiplayer → Join Game → Server Browser**. The list shows compatible public games with map, mode and occupancy. Refresh it and select a game to join without copying an invite. It uses the same invite transport as Direct Link.
+
+In **Create Game → Internet → Server Setup**, **LISTING** selects PUBLIC or PRIVATE. Upstream defaults new Internet games to PUBLIC; LAN games are never publicly listed. `network.host_public = false` in the engine config changes that default, and `network.public_lobby = false` disables discovery. Xbox menus retain their existing System Link flow; public setup and browsing are provided by the PC menus.
+
+Listings are signed by the host, periodically refreshed and expired; closing a lobby publishes its end. Making a public game private rotates its invite, and iOS updates Settings, sharing and `game_invite.txt` to the replacement code. Private games remain available through manual invites. All players should use Universal build 84-compatible clients; older or incompatible listings are filtered.
+
+The browser depends on upstream’s public MQTT brokers. An empty list may mean no compatible public games, blocked/unavailable brokers, or no Internet connection. It is not evidence that a local game failed. Verify public iPhone/PC hosting and joining on devices before treating discovery as tested on iOS.

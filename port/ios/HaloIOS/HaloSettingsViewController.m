@@ -577,7 +577,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUISegmentRow(nil, @[@"PC menus (new)", @"Xbox menus"], settings->menu_style, ^(NSInteger index) {
             [self update:^(HsSettings *s) { s->menu_style = (int)index; }]; [self renderSoon]; }),
         HaloUINote(settings->menu_style == 0
-            ? @"The Halo Custom Edition menus from Halo CE Universal: Join Game (LAN and Direct Link; the public Server Browser list is still empty upstream), Create Game for the Internet or your LAN, and the redrawn screens. Navigate with the on-screen D-pad, A and B, or a controller."
+            ? @"The Halo Custom Edition menus from Halo CE Universal: Join Game (public Server Browser, LAN and Direct Link), Create Game for the Internet or your LAN, and the redrawn screens. Navigate with the on-screen D-pad, A and B, or a controller."
             : @"The original Xbox menus, including System Link."),
         HaloUINote(@"Takes effect the next time you open the app. If the game ever fails to start, the next start (Safe Start) uses the Xbox menus automatically.")])];
 }
@@ -1034,7 +1034,7 @@ static UIColor *HaloColorFromRGB(unsigned rgb) {
     NSString *version = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?";
     [self add:HaloUICardView(@"About", @[
         HaloUIValueRow(@"App version", version, nil),
-        HaloUIValueRow(@"Game", @"Halo CE Universal (PC menus update)", nil),
+        HaloUIValueRow(@"Game", @"Halo CE Universal build 84", nil),
         HaloUINote(@"Everyone in a multiplayer game must be on the same game build.")])];
     [self add:HaloUICardView(@"Credits",@[
         HaloUINote(@"Halo CE Universal and the iOS port contributors."),

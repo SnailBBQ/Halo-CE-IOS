@@ -12,7 +12,7 @@ features of the regular app and receives every update at the same time.
 | Name on the device | Halo CE | Halo CE Mod Test |
 | Bundle ID | `com.haloceuniversal.ios.m0` | `com.haloceuniversal.ios.modtest` |
 | Invite scheme | `halo://` | `halomodtest://` |
-| Version | 0.2.50 | 0.2.50.1 |
+| Version | 0.2.51 | 0.2.51.1 |
 | Workflow | Halo CE iOS — Build IPA | Halo CE iOS — Mod Loading Test |
 | Output | `HaloCE.ipa`, artifact `HaloCE-iOS` | `HaloCE-ModTest.ipa`, artifact `HaloCE-iOS-ModTest` |
 | Data | Its own maps, saves and settings | Its own, completely separate |
@@ -55,5 +55,5 @@ The offline checks prove structure only. They do not prove scripts, audio, anima
 - The headroom for tags and geometry is small, so the map has little room for further changes.
 - The BSP safety check runs for **every** map, stock maps included, and is stricter than the original loader. If a stock map is rejected, look for `MOD TEST: rejected BSP range` and report it.
 - You need over 1 GB of free storage: the map, its expansion and the cache slots.
-- Public server discovery is unfinished in the upstream project and is not part of this experiment.
+- Build 84 public server discovery is shared with the regular app; both need iOS device testing.
 - The branch contains no copyrighted maps or extracted tags. Supply your own.

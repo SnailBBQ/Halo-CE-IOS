@@ -116,6 +116,7 @@ jobs:
           python3 tools/tests/test_ios_touch_aiming.py
           python3 tools/tests/test_ios_frameworks_linked.py
           python3 tools/tests/test_ios_import_coverage.py
+          python3 tools/tests/test_ios_public_lobby.py
           python3 tools/tests/test_ios_campaign_policy.py
           python3 tools/tests/test_ios_arena_fastpath.py
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_controls_layout.c -o "$RUNNER_TEMP/halo-controls-test" -lm

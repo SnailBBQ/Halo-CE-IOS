@@ -1,12 +1,13 @@
 # Release notes
 
-The current update is **M2.6.50**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.51**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Recent updates at a glance
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.51 | Universal build 84: public server browser, signed lobby listings and multiplayer lifecycle fixes. Device validation pending. |
 | M2.6.50 | Picture options (4:3, widescreen, fullscreen; three render-detail levels), opt-in touch aiming, AirPlay mirroring guidance. |
 | M2.6.49 | Updated to the newer Halo CE Universal: the PC menus (Join Game, Create Game, Direct Link), a Menus choice in Display, new engine imports. Build-error fixes. |
 | M2.6.48 | Collapsible Cheats sections with slow motion, AI ignore, jetpack, checkpoints and teleports; left-handed layout, toggle crouch and zoom, gyro, controller remap; heat-aware frame cap and performance overlay; Ambient volume; recent games and QR; Profiles; problem report; custom and chroma accent colours; map library ordering. |
@@ -19,6 +20,7 @@ cannot prove how the app looks or feels on a device, so every note says what sti
 
 | Update | Title | Notes |
 | --- | --- | --- |
+| M2.6.51 | Universal build 84 and public server browser | [notes](../../port/ios/UPDATE_M2651.md) |
 | M2.6.50 | Picture options and touch aiming | [notes](../../port/ios/UPDATE_M2650.md) |
 | M2.6.49 | Halo CE Universal update (PC menus) and build fixes | [notes](../../port/ios/UPDATE_M2649.md) |
 | M2.6.48 | Settings polish, cheat sections, controls, display, audio, multiplayer, profiles, diagnostics | [notes](../../port/ios/UPDATE_M2648.md) |

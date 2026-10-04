@@ -60,7 +60,7 @@ Each option is explained, with a screenshot, in [Display / AirPlay](DISPLAY_AIRP
 | Heat and battery | **Lower the frame rate when the phone is hot**: Smooth 60 and Uncapped drop to 45 under serious heat or Low Power Mode and to 30 when critical, and return when the phone cools (30 · Original is never changed). **Performance overlay** adds frame time, memory in use and remaining, and heat under the FPS counter. |
 | Menus | **PC menus (new)**: the Halo Custom Edition menus from Halo CE Universal, with Join Game (LAN and Direct Link), Create Game (Internet or LAN) and redrawn screens. **Xbox menus**: the original menus, including System Link. *Next launch*; Safe Start uses the Xbox menus. |
 
-The public **Server Browser** entry in the PC menus is empty for now because the upstream project has not built the public server list yet.
+The public **Server Browser** in the PC menus lists compatible public Internet games through upstream’s signalling brokers. Refresh and select a lobby to join using the existing invite connection path. iOS device validation is pending.
 
 ## Audio
 
