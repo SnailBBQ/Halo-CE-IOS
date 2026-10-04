@@ -3648,7 +3648,7 @@ void WINAPI D3DDevice_SetIndices(D3DIndexBuffer *index_data, UINT base_vertex_in
 }
 
 #ifdef HALO_IOS_GUEST
-#include "halo_wireframe_edges.h"
+#include "../../include/halo_wireframe_edges.h"
 /* GLES has no polygon-mode wireframe. Convert only diagnostic polygon draws
  * to edges; existing line/point draws keep their original behavior. */
 static BOOL ios_draw_wireframe(D3DPRIMITIVETYPE type,UINT count,const WORD *source,WORD minimum) {
