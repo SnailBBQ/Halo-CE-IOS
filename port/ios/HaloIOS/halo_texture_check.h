@@ -37,7 +37,6 @@ static inline uint32_t ht_hash(HtCache *c,uint32_t address,const void *bytes,siz
         if(!memcmp(entry->snapshot,bytes,size)){++c->hits;return entry->hash;}
     }
     c->hashed+=size;
-    uint32_t hash=halo_hash_bytes(bytes,size);
     if(!entry) {
         /* Evict the least recently used snapshot until both limits fit. */
         for(;;) {
@@ -51,10 +50,14 @@ static inline uint32_t ht_hash(HtCache *c,uint32_t address,const void *bytes,siz
             c->allocated-=oldest->size;free(oldest->snapshot);memset(oldest,0,sizeof(*oldest));entry=NULL;
         }
         entry->snapshot=malloc(size);
-        if(!entry->snapshot)return hash; /* Original full hash remains usable. */
+        if(!entry->snapshot)return halo_hash_bytes(bytes,size); /* Original full hash remains usable. */
         entry->address=address;entry->size=size;c->allocated+=size;
     }
-    memcpy(entry->snapshot,bytes,size);entry->hash=hash;entry->used=++c->clock;
-    return hash;
+    /* Hash the owned snapshot, not a second read of live data. Even if a
+     * worker writes during capture, the saved hash matches the saved bytes;
+     * the next full comparison will detect the live data's new contents. */
+    memcpy(entry->snapshot,bytes,size);
+    entry->hash=halo_hash_bytes(entry->snapshot,size);entry->used=++c->clock;
+    return entry->hash;
 }
 #endif

@@ -10,7 +10,7 @@ Heartbeat logs now report actual successful-present interval counts (up to 18, 2
 
 ## Validation and limits
 
-Portable checks cover exact hash identity, every-byte mutations, trailing data, bounded eviction, address overlap, resets and fallback inputs. Apple CI runs the same check and reports an unchanged-texture microbenchmark. The Windows benchmark is slower on its C library's comparison path, so Apple results must be examined before treating this as a performance win. On-device frame measurements remain necessary.
+Portable checks cover exact hash identity, every-byte mutations, trailing data, bounded eviction, address overlap, resets and fallback inputs. Apple CI runs the same check and reports an unchanged-texture microbenchmark. The Windows benchmark is slower on its C library's comparison path, so The initial Apple runner batch measured 55.2 ms for repeated 64 KiB full hashes versus 21.8 ms for exact reuse (about 2.5× faster for that operation). This does not establish whole-game FPS gains. On-device frame measurements remain necessary.
 
 Resolution, simulation, network updates, visual effects, signing, the ELF loader and the PAGEZERO bridge are unchanged. Universal remains build 95. Regular and Mod Test source updates stay synchronized. A fixed 1080p / 60 FPS guarantee is not established.
 

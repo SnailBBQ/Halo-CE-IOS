@@ -1,4 +1,9 @@
+#include <stdlib.h>
+static int fail_allocation;
+static void *test_allocate(size_t size) {if(fail_allocation){fail_allocation=0;return NULL;}return malloc(size);}
+#define malloc test_allocate
 #include "halo_texture_check.h"
+#undef malloc
 #undef NDEBUG
 #include <assert.h>
 #include <stdio.h>
@@ -27,6 +32,15 @@ int main(void) {
     ht_forget(&cache,0x80010000u,1);ht_hash(&cache,0x80000000u,data,65536);assert(cache.hits==hits+1);
     ht_forget(&cache,0x8000ffffu,1);assert(cache.allocated==0);
     assert(ht_hash(&cache,0,NULL,4096)==1);
+    ht_reset(&cache);
+    fail_allocation=1;
+    assert(ht_hash(&cache,0x80000000u,data,65536)==halo_hash_bytes(data,65536));
+    assert(cache.allocated==0);
+    /* A free low-index slot must not prevent eviction at the byte limit. */
+    for(unsigned i=0;i<8;i++)ht_hash(&cache,0x80000000u+i*HT_MAX_ITEM,data,HT_MAX_ITEM);
+    ht_forget(&cache,0x80000000u,1);
+    ht_hash(&cache,0x90000000u,data,HT_MAX_ITEM);
+    for(unsigned i=0;i<40;i++){ht_hash(&cache,0xa0000000u+i*4096u,data,65536);assert(cache.allocated<=HT_BUDGET);}
     ht_reset(&cache);
     volatile uint32_t sink=0;clock_t a=clock();
     for(unsigned i=0;i<10000;i++)sink^=halo_hash_bytes(data,65536);
