@@ -1,7 +1,7 @@
 # Halo CE iOS — Project status
 
-**Current update: M2.6.50** (regular app 0.2.50, Mod Test app 0.2.50.1). The core game has been tested on a physical iPhone; the newest features are built and checked by automated tests and
-are waiting for device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
+**Status: playable.** **Current update: M2.6.50** (regular app 0.2.50, Mod Test app 0.2.50.1). `a10` and cross-play multiplayer are fully working on a physical iPhone, and the other campaign maps tried so far load fine. Some of the newest features are built and checked by automated tests and
+are still waiting for device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
 
 ## Two apps
 
@@ -14,8 +14,8 @@ Both share the same features and are updated together. The Mod Test app adds an 
 
 ## What works (reported from device testing)
 
-- The Halo main menu, campaign start (`a10` and onward), 60 FPS menus and gameplay, native audio.
-- Cross-play multiplayer with Halo CE Universal clients, including joining by invite link.
+- The Halo main menu, `a10` (fully working), and the other campaign maps tried so far, which load fine; 60 FPS menus and gameplay; native audio.
+- Cross-play multiplayer with Halo CE Universal clients (fully working), including joining by invite link.
 - On-screen Xbox-style controls with five schemes, touch look, and physical controllers.
 
 ## Built and tested locally, waiting for device validation

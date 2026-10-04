@@ -3,6 +3,13 @@
 You can play with the on-screen touch controls, a physical controller, or both. Options live in **Settings → Controls**; see the
 [Settings reference](SETTINGS.md#controls).
 
+<table>
+  <tr>
+    <td align="center" width="50%"><img src="images/main-menu-xbox-ui.jpg" alt="The Xbox UI control scheme: LT, RT, LS and RS labels, A, B, X and Y" width="100%"><br><em>Xbox UI</em></td>
+    <td align="center" width="50%"><img src="images/main-menu-playstation-ui.jpg" alt="The PlayStation UI control scheme: L2, R2, L3 and R3 labels, triangle, square, circle and cross" width="100%"><br><em>PlayStation UI</em></td>
+  </tr>
+</table>
+
 ## Touch controls
 
 The on-screen controls follow the original Xbox controller: the D-pad, both sticks, LT and RT, A, B, X and Y in their usual colours, Black and White,

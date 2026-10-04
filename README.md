@@ -6,9 +6,19 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 
 > **You are on the regular app branch.** A separate **Mod Test** app lives on the [`ios/cursed-a10-mod-test`](https://github.com/xSkullHD/Halo-CE-IOS/tree/ios/cursed-a10-mod-test) branch.
 
-> **Status: experimental.** The current update is **M2.6.50**. The core game (menus, campaign, multiplayer, audio)
-> has been tested on a physical iPhone. The newest features are built and checked by automated tests but still wait for
-> on-device validation; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
+> **Status: playable.** The current update is **M2.6.50**. The campaign and cross-play multiplayer work on a physical iPhone:
+> `a10` and multiplayer are fully working, and the other campaign maps tried so far load fine. Some of the newest features are still being
+> validated on a device; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
+
+<p align="center">
+  <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of Halo CE Universal on PC" width="760"><br>
+  <em>Main menu on PC (Halo CE Universal)</em>
+</p>
+
+<p align="center">
+  <img src="docs/ios/images/main-menu-xbox-ui.jpg" alt="The same main menu on iPhone with the Xbox UI controls" width="760"><br>
+  <em>Main menu on iPhone — Xbox UI controls</em>
+</p>
 
 ## Highlights
 
@@ -19,7 +29,7 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 - **Multiplayer.** Cross-play with Halo CE Universal on PC: invite links, an invite file in iCloud Drive or the app's folder, a QR code,
   recent games, LAN games, and the Direct Link and Create Game screens. [Multiplayer guide](docs/ios/MULTIPLAYER.md)
 - **Display.** 30 FPS original, smooth 60 or uncapped; 4:3, widescreen or fullscreen; three render-detail levels; a live HUD editor;
-  first-person view options; AirPlay mirroring. [Settings reference](docs/ios/SETTINGS.md), [AirPlay](docs/ios/AIRPLAY.md)
+  first-person view options; AirPlay mirroring. [Display / AirPlay](docs/ios/DISPLAY_AIRPLAY.md), [Settings reference](docs/ios/SETTINGS.md)
 - **Sound.** Native audio with separate Master, Music, Dialogue, Effects and Ambient volumes.
 - **Campaign tools.** An optional, campaign-only Cheats menu organised into sections (survival, weapons, power-ups, movement, world,
   checkpoints, teleport, spawn), with a saved cheat recipe for each control scheme.
@@ -60,7 +70,7 @@ Both apps share the same features and are kept up to date together. They install
 | [Settings reference](docs/ios/SETTINGS.md) | Every Settings screen and option |
 | [Controls](docs/ios/CONTROLS.md) | Touch controls, controllers, gyro, touch aiming |
 | [Multiplayer](docs/ios/MULTIPLAYER.md) | Invites, iCloud Drive and folder invite files, LAN, cross-play |
-| [AirPlay](docs/ios/AIRPLAY.md) | Showing the game on a TV or display |
+| [Display / AirPlay](docs/ios/DISPLAY_AIRPLAY.md) | Frame rate, picture shape and detail, the HUD editor, first-person view, heat and battery, menus, and showing the game on a TV |
 | [Troubleshooting](docs/ios/TROUBLESHOOTING.md) | Safe Start, logs, problem reports, common problems |
 | [Mod Test](docs/ios/MOD_TEST.md) | The separate Mod Test app |
 | [Release notes](docs/ios/RELEASE_NOTES.md) | Every update, with its device checklist |

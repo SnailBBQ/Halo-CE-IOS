@@ -46,11 +46,13 @@ See the [Controls guide](CONTROLS.md) for details. Most options here are **saved
 
 ## Display
 
+Each option is explained, with a screenshot, in [Display / AirPlay](DISPLAY_AIRPLAY.md).
+
 | Card | Options |
 | --- | --- |
 | Frame rate | **30 · Original**, **60 · Smooth** (a frame for every refresh, held at 60) or **Uncapped**. **Show FPS** shows a counter. Moving between 30 and the others applies *next launch*; between 60 and Uncapped, immediately. |
 | Game picture | **Aspect ratio**: Default · 4:3, Widescreen · 16:9 or Fullscreen (the device's own shape). **Render detail**: Standard · 480p, High · 720p or Very high · 960p. Both apply *next launch*. Default stays 640×480, and Safe Start always uses it. Higher detail uses more GPU and memory. |
-| AirPlay and external screens | How to show the game on a TV. See [AirPlay](AIRPLAY.md). |
+| AirPlay and external screens | How to show the game on a TV. See [Display / AirPlay](DISPLAY_AIRPLAY.md#airplay-and-external-displays). |
 | Game HUD profile | Choose the default HUD or a saved recipe for the current scheme. |
 | Game HUD and FPS | **Edit game HUD** opens a live editor over the game for the FPS counter, weapon HUD, health/shields/radar, navigation and damage indicators. Position, scale, opacity and visibility can be changed per group or all together. Three named recipes can be saved. |
 | First-person view | **Both**, **Weapon**, **Hands** or **Hidden**: which first-person models are drawn. Applies at once and does not affect the HUD, attacks or other players. |
@@ -77,6 +79,11 @@ Bink videos are skipped. Engine-rendered cinematics play normally.
 **Cheats work in the solo campaign only.** They switch off by themselves in multiplayer and network games. You can open the sections at any time to read
 them, but their controls are disabled outside a solo campaign. **Running cheats are never saved:** they clear when you relaunch, leave the campaign, or host
 or join a game. Cheats that spawn things use only assets the current map has already loaded; if one is missing, the app says so.
+
+<p align="center">
+  <img src="images/cheats-menu.png" alt="Settings → Cheats: collapsible sections" width="720"><br>
+  <em>Settings → Cheats</em>
+</p>
 
 | Section | Contents |
 | --- | --- |

@@ -15,6 +15,11 @@ keep every player on matching content. Settings → Advanced → About shows the
 
 The two apps use separate invite schemes: the regular app opens `halo://` links and the [Mod Test app](MOD_TEST.md) opens `halomodtest://` links.
 
+<p align="center">
+  <img src="images/multiplayer-settings.png" alt="Settings → Multiplayer: connection status and Join a game" width="720"><br>
+  <em>Settings → Multiplayer</em>
+</p>
+
 ## Joining a game
 
 | Way | How |
