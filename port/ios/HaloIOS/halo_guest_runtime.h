@@ -7,6 +7,8 @@
 typedef uint32_t halo_guest_va_t;
 
 int halo_guest_runtime_init(void);
+/* Diagnostic only; describes the most recent initialization failure. */
+const char *halo_guest_runtime_last_error(void);
 void halo_guest_runtime_shutdown(void);
 
 void *halo_guest_ptr(halo_guest_va_t va, size_t size);

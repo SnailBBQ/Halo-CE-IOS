@@ -1,6 +1,8 @@
 #include "halo_guest_runtime.h"
 
 #include <stdint.h>
+#include <errno.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -10,6 +12,9 @@
 
 static uint8_t *g_guest_base;
 static size_t g_page_size;
+static char g_init_error[256];
+const char *halo_guest_runtime_last_error(void) { return g_init_error; }
+
 
 static int guest_page_range(halo_guest_va_t va, size_t size,
                             uint64_t *lo_out, uint64_t *hi_out)
@@ -35,12 +40,15 @@ static int guest_page_range(halo_guest_va_t va, size_t size,
 
 int halo_guest_runtime_init(void)
 {
+    g_init_error[0]=0;
     if (g_guest_base)
         return 1;
 
     long page = sysconf(_SC_PAGESIZE);
-    if (page <= 0 || ((size_t)page & ((size_t)page - 1)) != 0)
+    if (page <= 0 || ((size_t)page & ((size_t)page - 1)) != 0) {
+        snprintf(g_init_error,sizeof(g_init_error),"invalid system page size: %ld",page);
         return 0;
+    }
 
     /*
      * The execution bridge depends on this property:
@@ -53,8 +61,11 @@ int halo_guest_runtime_init(void)
      */
     void *raw = mmap(NULL, (size_t)HALO_RESERVE_SPAN, PROT_NONE,
                      MAP_PRIVATE | MAP_ANON, -1, 0);
-    if (raw == MAP_FAILED)
+    if(raw==MAP_FAILED) {
+        int error=errno; /* Preserve the original error before any logging. */
+        snprintf(g_init_error,sizeof(g_init_error),"8 GiB virtual reservation failed: mmap errno=%d (%s)",error,strerror(error));
         return 0;
+    }
 
     uintptr_t raw_address = (uintptr_t)raw;
     uintptr_t aligned =
@@ -65,6 +76,7 @@ int halo_guest_runtime_init(void)
     uintptr_t aligned_end = aligned + (uintptr_t)HALO_GUEST_SPAN;
     if (aligned_end > raw_end)
     {
+        snprintf(g_init_error,sizeof(g_init_error),"aligned 4 GiB window did not fit reserved virtual range");
         munmap(raw, (size_t)HALO_RESERVE_SPAN);
         return 0;
     }

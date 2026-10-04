@@ -4,7 +4,7 @@
 
 - An iPhone or iPad running **iOS or iPadOS 15.0 or later**. The app needs a physical device; the iOS Simulator does not run the engine.
 - Your own Xbox *Halo: Combat Evolved* map files. See [Game data](GAME_DATA.md).
-- A way to install an app signed with your own identity (see step 2). No Mac is required.
+- A compatible installation/signing environment (see step 2). Installation alone does not establish engine compatibility; the runtime needs sufficient virtual address space and authorization to execute loaded engine code. No Mac is required for downloading the IPA.
 - Free storage for the app, your maps and your saves. The [Mod Test app](MOD_TEST.md) needs well over 1 GB free.
 - On iOS and iPadOS 16 or later, **Developer Mode** may be required for development-signed apps, depending on the installation method (see below).
 
@@ -23,7 +23,7 @@ The **Mod Test** app is a separate download, `HaloCE-ModTest.ipa` from the Mod L
 ## 2. Sideload it
 
 The IPA is ad-hoc signed, which is not enough for iOS to run it on a device. You re-sign it with your own Apple ID or developer account
-as you install it, using a sideloading tool of your choice (for example Sideloadly, AltStore or SideStore). Follow your tool's setup instructions. The general process is:
+as you install it. Tools such as Sideloadly, AltStore or SideStore may install the app, but engine compatibility is not yet established for every signer, account or OS version. Follow your tool's setup instructions. The general process is:
 
 1. Connect your iPhone or iPad, or follow your tool's wireless setup.
 2. Choose `HaloCE.ipa` in the tool and sign in with your Apple ID.
@@ -67,3 +67,15 @@ Invite links use different schemes (`halo://` and `halomodtest://`), so each app
 ## Removing the app
 
 Deleting the app also deletes its maps, saves and settings. Export a [backup](BACKUPS.md) first if you want to keep your progress.
+
+## Diagnosing signing-dependent startup failures
+
+M2.6.59 records the app/version, OS/device, physical RAM, process memory allowance when available, and signed values of `extended-virtual-addressing`, `increased-memory-limit` and `get-task-allow` when optional inspection is available. Unknown is not evidence that a capability is absent. Do not share Apple account credentials or full provisioning profiles.
+
+The app requests both memory capabilities in its entitlements file. An installer must sign using a provisioning profile that authorizes the requested capabilities; adding keys to Info.plist or retaining unauthorized keys does not grant them. App Groups are not requested by this app.
+
+A failed initial 8 GiB virtual reservation now records the underlying allocation error. It happens before map loading and does not mean 8 GiB of physical RAM is needed. An executable-page failure is reported separately with protection flags and the OS error. Memory capabilities alone do not authorize guest code execution. `get-task-allow` alone does not prove that execution authorization is active.
+
+Compare the same diagnostic IPA installed through a known-working environment and the failing signer. Preserve the bundle identity and back up saves before any installer change. Share ios-boot.log, launch-phase.txt, the exact OS version and installer version; redact private paths if needed. Maps do not need to be replaced for this startup comparison.
+
+[GetMoreRam](https://github.com/hugeBlack/GetMoreRam) requests `INCREASED_MEMORY_LIMIT` for an App ID and instructs users to reinstall afterward. It does not request extended virtual addressing or establish guest-code execution authorization. Results depend on Apple account/provisioning eligibility and the installer. A standard-sideloading compatibility claim requires successful device tests, not just an IPA build.
