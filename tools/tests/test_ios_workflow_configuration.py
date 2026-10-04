@@ -56,4 +56,8 @@ assert "if: github.ref == 'refs/heads/main'" in memory
 native=(r/'.github/workflows/build.yml').read_text()
 assert '  push:' not in native and '  workflow_dispatch:' in native
 assert 'pull_request:' not in native and 'schedule:' not in native
-print('PASS: main-only automatic IPA, diagnostics dependency, latest-run cancellation and manual-only native workflows')
+# CI never publishes or deletes releases: upstream's native release job (it marks a build 'latest' and prunes build-* releases) stays off.
+release_job=native.split('\n  release:\n',1)[1].split('\n  notify:\n',1)[0]
+assert 'if: ${{ false }}' in release_job and 'contents: write' not in release_job
+assert 'gh release' not in wf and 'gh release' not in memory
+print('PASS: main-only automatic IPA, diagnostics dependency, latest-run cancellation, manual-only native workflows and no CI-published releases')

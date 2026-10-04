@@ -26,3 +26,11 @@ Public brokers can be unavailable or blocked. Build success is not a claim that 
 ## Current verification result
 
 Source structure, all 51 host imports, header declarations, framework linkage, workflow transformation and 1,172 arena-conversion cases passed locally. The upstream signature/listing harness passed (0 failures) using native Windows single-thread adapters; that does not test real network threads. The iOS invite rotation regression test passed. GitHub Actions failed before any build step due to the account billing/spending-limit condition; no new IPA is available yet.
+
+## Pre-build review fixes
+
+- `.github/workflows/build.yml`: upstream's `release` job is switched off (`if: ${{ false }}`, read-only permission). Run manually on `main` it would have published native builds as the *latest* release and deleted older `build-*` releases and tags. `test_ios_workflow_configuration.py` now fails if it is switched back on.
+- Settings → Advanced → Credits opened the original repository; it now opens this one.
+- `docs/UPSTREAM_README.md`: seven links back into the repository were repaired.
+- README and `docs/UPSTREAM.md` credit the maintainer as SnailBBQ.
+- No build or device test has been run for these changes. The Credits change is a string in `HaloSettingsViewController.m`, so the next IPA includes it.

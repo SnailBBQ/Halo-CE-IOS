@@ -15,10 +15,10 @@ name: Native ports — manual build
 # - Windows, whose minutes cost twice Linux's, builds only Windows;
 # - artifacts are kept for three days.
 #
-# A successful build of main is also published as a GitHub release, the
-# newest marked latest, so that
-# https://github.com/<repository>/releases/latest/download/<file> always
-# gives the latest build; the last five are kept.
+# This fork never publishes from CI. Upstream's release job (below) is switched
+# off: it would mark a native build as the "latest" release, which is where the
+# README links to the iOS app, and delete older build-* releases and their tags.
+# IPA releases are made by hand after a successful run; see docs/ios/BUILD.md.
 on:
   workflow_dispatch:
 
@@ -218,11 +218,11 @@ jobs:
     # latest/download links); then all but the newest five build-* releases
     # go, tags and all. Only for main, and only when every platform built.
     needs: [linux, android, windows]
-    if: ${{ github.ref == 'refs/heads/main' }}
+    if: ${{ false }}  # switched off in this fork: releases are made by hand
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
-      contents: write
+      contents: read
     outputs:
       tag: ${{ steps.publish.outputs.tag }}
     env:

@@ -1038,7 +1038,7 @@ static UIColor *HaloColorFromRGB(unsigned rgb) {
         HaloUINote(@"Everyone in a multiplayer game must be on the same game build.")])];
     [self add:HaloUICardView(@"Credits",@[
         HaloUINote(@"Halo CE Universal and the iOS port contributors."),
-        HaloUIButton(@"Halo-CE-IOS on GitHub",0,^(UIButton *b) { [UIApplication.sharedApplication openURL:[NSURL URLWithString:@"https://github.com/xSkullHD/Halo-CE-IOS"] options:@{} completionHandler:nil]; })])];
+        HaloUIButton(@"Halo-CE-IOS on GitHub",0,^(UIButton *b) { [UIApplication.sharedApplication openURL:[NSURL URLWithString:@"https://github.com/SnailBBQ/Halo-CE-IOS"] options:@{} completionHandler:nil]; })])];
 }
 - (void)confirmAppQuit {
     UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Quit Halo" message:@"Close Halo completely? Unsaved progress will be lost." preferredStyle:UIAlertControllerStyleAlert];

@@ -100,7 +100,7 @@ This port exists because of the work of others:
 - **Bungie**, who created *Halo: Combat Evolved*, and **Microsoft / Xbox Game Studios** and **343 Industries**, its later owners and stewards.
 - The open-source libraries bundled in [`port/third_party`](port/third_party): expat, extract-xiso, kcp, mbedtls, miniupnpc, Monocypher, musl math, stb and
   tomlc17, each under its own license.
-- The iOS port in this repository is maintained by [xSkullHD](https://github.com/SnailBBQ/Halo-CE-IOS).
+- The iOS port in this repository is maintained by [SnailBBQ](https://github.com/SnailBBQ).
 
 See [Official project and other platforms](docs/UPSTREAM.md#credits) for details.
 

@@ -101,7 +101,7 @@ The workflow does not publish releases by itself. No iOS release is currently pu
 
 1. Run the workflow on the exact release commit and wait for both jobs to succeed. Complete the relevant device checklist, including campaign, multiplayer, save/reload and app relaunch.
 2. Download the **HaloCE-iOS** artifact and extract `HaloCE.ipa`.
-3. Verify the IPA version matches that commit. On GitHub, open **Releases → Draft a new release**, create a tag at the tested commit, such as `ios-M2.6.50`, attach `HaloCE.ipa`, and describe the changes
+3. Verify the IPA version matches that commit. On GitHub, open **Releases → Draft a new release**, create a tag at the tested commit, such as `ios-M2.6.51`, attach `HaloCE.ipa`, and describe the changes
    (the [release notes](RELEASE_NOTES.md) are a good start).
 4. If publishing `HaloCE-ModTest.ipa`, use its own tested commit and tag and mark it as a **prerelease**. Do not describe converted mods as playable without device evidence.
 5. Update the download instructions only after the corresponding release and IPA attachment exist. Follow the [public release checklist](PUBLIC_RELEASE.md).

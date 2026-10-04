@@ -61,7 +61,7 @@ This port would not exist without the people below.
 | stb | `port/third_party/stb` |
 | tomlc17 (TOML configuration) | `port/third_party/tomlc17` |
 
-- **The iOS port** in this repository is maintained by [xSkullHD](https://github.com/xSkullHD).
+- **The iOS port** in this repository is maintained by [SnailBBQ](https://github.com/SnailBBQ).
 
 Project code is released under [CC0 1.0](../LICENSE.md); third-party components retain their own licenses. Fonts include Overpass and OpenCE under the SIL Open Font License and Newtown under its documented public-domain terms; see [font credits and notices](../port/assets/fonts/README.md). Menu artwork is described in the [menu asset guide](../port/assets/menus/README.md).
 
