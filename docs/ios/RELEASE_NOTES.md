@@ -1,18 +1,19 @@
 # Release notes
 
-The current update is **M2.6.52**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.53**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Source update:** M2.6.51 integrates Halo CE Universal build 84, including public server discovery, on `main` and `ios/modtest`. Apple builds and device validation are still required before publishing an IPA.
+**Source update:** M2.6.53 integrates Halo CE Universal build 89 on `main` and `ios/modtest`, alongside campaign tools, direct checkpoint editing and smaller, separate save/profile backups. This source update still requires Apple compilation and device validation.
 
 ## Recent updates at a glance
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.53 | Universal build 89, campaign tools, direct checkpoint edits and separate cache-free backups. Apple/device validation pending. |
 | M2.6.52 | Settings organization, optional 1080p, draggable performance overlay, LAN permission check and external save backups. Apple/device validation pending. |
 | M2.6.51 | Universal build 84: public server browser, signed lobby listings and multiplayer lifecycle fixes. Device validation pending. |
 | M2.6.50 | Picture options (4:3, widescreen, fullscreen; three render-detail levels), opt-in touch aiming, AirPlay mirroring guidance. |
@@ -27,7 +28,8 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Title | Notes |
 | --- | --- | --- |
-| M2.6.52 | Settings organization, optional 1080p, draggable performance overlay, LAN permission check and external save backups. Apple/device validation pending. |
+| M2.6.53 | Universal build 89, campaign tools, direct checkpoint edits and separate cache-free backups | [notes](../../port/ios/UPDATE_M2653.md) |
+| M2.6.52 | Settings organization, 1080p and external save backups | [notes](../../port/ios/UPDATE_M2652.md) |
 | M2.6.51 | Universal build 84 and public server browser | [notes](../../port/ios/UPDATE_M2651.md) |
 | M2.6.50 | Picture options and touch aiming | [notes](../../port/ios/UPDATE_M2650.md) |
 | M2.6.49 | Halo CE Universal update (PC menus) and build fixes | [notes](../../port/ios/UPDATE_M2649.md) |

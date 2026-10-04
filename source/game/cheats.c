@@ -51,6 +51,11 @@ symbols in this file:
 #include "cseries.h"
 #include "cseries/errors.h"
 #include "cheats.h"
+#ifdef HALO_IOS_GUEST
+#include "ai/ai.h"
+#include "game/game.h"
+#include "physics/physics.h"
+#endif
 #include "cache/cache_files.h"
 #include "camera/director.h"
 #include "camera/observer.h"
@@ -241,6 +246,33 @@ boolean ios_cheat_local_unit(long index)
 }
 boolean ios_cheat_enabled(long index, unsigned int flag)
 { return (ios_options.flags & flag) && ios_cheat_local_unit(index); }
+/* Cache salted tag IDs only, never pointers. Cleared at every map boundary.
+ * Missing map-local assets leave the original projectile untouched. */
+static long ios_projectile_tag=NONE;
+static unsigned ios_projectile_mode;
+static boolean ios_projectile_scanned;
+long ios_cheat_projectile(long index,long original) {
+    static const char *names[6]={"weapons\\pistol\\bullet","weapons\\plasma rifle\\bolt",
+        "weapons\\needler\\mp_needle","weapons\\rocket launcher\\rocket",
+        "weapons\\frag grenade\\frag grenade","weapons\\plasma grenade\\plasma grenade"};
+    unsigned mode=(ios_options.flags & IOS_CHEAT_PROJECTILE_MASK)>>IOS_CHEAT_PROJECTILE_SHIFT;
+    if(!mode || mode>6 || !ios_cheat_local_unit(index))return original;
+    if(mode!=ios_projectile_mode){ios_projectile_mode=mode;ios_projectile_scanned=FALSE;ios_projectile_tag=NONE;}
+    if(!ios_projectile_scanned){struct tag_iterator iterator;long tag;
+        ios_projectile_scanned=TRUE;tag_iterator_new(&iterator,0x70726f6a);
+        while((tag=tag_iterator_next(&iterator))!=NONE){const char *name=tag_get_name(tag);
+            if(name && !strcmp(name,names[mode-1])){ios_projectile_tag=tag;break;}}
+        if(ios_projectile_tag==NONE)host_toast("Selected projectile is not loaded by this map; keeping the original");
+    }
+    return ios_projectile_tag==NONE?original:ios_projectile_tag;
+}
+boolean ios_cheat_camera_detached(long index) {
+    struct unit_datum *unit;
+    if(!ios_cheat_enabled(index,IOS_CHEAT_DETACH_CAMERA))return FALSE;
+    unit=unit_try_and_get(index);
+    return unit && !*director_camera_scripted && unit->object.type==_object_type_biped && unit->object.parent_object_index==NONE &&
+        !TEST_FLAG(unit->object.damage_flags,_object_dead_bit);
+}
 real ios_cheat_jump_multiplier(long index)
 { return ios_cheat_local_unit(index) ? ios_options.jump : 1.f; }
 real ios_cheat_speed_multiplier(long index)
@@ -618,31 +650,98 @@ extern void main_revert_map(void);
 extern void game_time_set_speed(real speed);
 extern boolean game_time_reset_speed(void);
 
+static long ios_alliance_player=NONE,ios_alliance_unit=NONE;
+static long ios_original_player_team;static short ios_original_unit_team;
+static void ios_alliance_restore(void) {
+    if(ios_alliance_player==NONE && ios_alliance_unit==NONE)return;
+    struct player_datum *player=player_try_and_get(ios_alliance_player);
+    struct unit_datum *unit=unit_try_and_get(ios_alliance_unit);
+    if(player)player->team_index=ios_original_player_team;
+    if(unit)unit->object.owner_team_index=ios_original_unit_team;
+    ios_alliance_player=ios_alliance_unit=NONE;
+}
+static long ios_photo_unit=NONE;
+static boolean ios_photo_was_suspended;
+static void ios_photo_restore(void) {
+    if(ios_photo_unit==NONE)return;
+    struct unit_datum *unit=unit_try_and_get(ios_photo_unit);
+    if(unit)SET_FLAG(unit->unit.flags,_unit_suspended_bit,ios_photo_was_suspended);
+    ios_photo_unit=NONE;
+}
+static real ios_original_gravity;
 static unsigned int ios_world_set; /* what this code switched on: 1 jetpack, 2 AI ignore, 4 slow motion */
 
 /* Held cheats are set again every tick while wanted and put back once when let go (or when the map or mode changes). */
 static void ios_world_cheats_tick(void)
 {
-    static const real speeds[5] = { 1.f, 0.75f, 0.5f, 0.25f, 0.1f };
+    static const real speeds[8] = { 1.f, 0.75f, 0.5f, 0.25f, 0.1f, 1.5f, 2.f, 3.f };
     unsigned int level = (ios_options.flags & IOS_CHEAT_SLOW_MASK) >> IOS_CHEAT_SLOW_SHIFT;
     unsigned int want = 0;
 
     if (ios_campaign_active()) {
         if (ios_options.flags & IOS_CHEAT_JETPACK) want |= 1u;
         if (ios_options.flags & IOS_CHEAT_AI_IGNORE) want |= 2u;
-        if (level >= 1 && level <= 4) want |= 4u;
+        if (level >= 1 && level <= 7) want |= 4u;
+        if(ios_options.flags & IOS_CHEAT_WIREFRAME)want|=32u;
+        if(ios_options.flags & IOS_CHEAT_MEDUSA)want|=8u;
+        if(ios_options.flags & IOS_CHEAT_LOW_GRAVITY)want|=16u;
+        if(ios_options.flags & IOS_CHEAT_VEHICLE_HEALTH) {
+            long index=cheat_player_index();
+            struct player_datum *player=index==NONE?NULL:player_try_and_get(index);
+            struct unit_datum *unit=player?unit_try_and_get(player->unit_index):NULL;
+            struct unit_datum *vehicle=unit?unit_try_and_get(unit->object.parent_object_index):NULL;
+            if(vehicle && vehicle->object.type==_object_type_vehicle && !TEST_FLAG(vehicle->object.damage_flags,_object_dead_bit))
+                ios_restore_health_shield(unit->object.parent_object_index);
+        }
     }
     if (want & 1u) cheat.jetpack = TRUE; else if (ios_world_set & 1u) cheat.jetpack = FALSE;
     if (want & 2u) ios_ai_ignore_player(TRUE); else if (ios_world_set & 2u) ios_ai_ignore_player(FALSE);
     if (want & 4u) game_time_set_speed(speeds[level]); else if (ios_world_set & 4u) game_time_reset_speed();
+    if((ios_options.flags & IOS_CHEAT_ALLIANCE_MASK) || ios_alliance_player!=NONE) {
+        unsigned alliance=(ios_options.flags & IOS_CHEAT_ALLIANCE_MASK)>>IOS_CHEAT_ALLIANCE_SHIFT;
+        long index=cheat_player_index();struct player_datum *player=index==NONE?NULL:player_try_and_get(index);
+        struct unit_datum *unit=player?unit_try_and_get(player->unit_index):NULL;
+        if(!ios_campaign_active() || !alliance || alliance>4 || !unit)ios_alliance_restore();
+        else {
+            static const short teams[4]={_game_team_human,_game_team_covenant,_game_team_flood,_game_team_sentinel};
+            if(index!=ios_alliance_player || player->unit_index!=ios_alliance_unit){ios_alliance_restore();
+                ios_alliance_player=index;ios_alliance_unit=player->unit_index;
+                ios_original_player_team=player->team_index;ios_original_unit_team=unit->object.owner_team_index;}
+            player->team_index=teams[alliance-1];unit->object.owner_team_index=teams[alliance-1];
+        }
+    }
+    if((ios_options.flags & IOS_CHEAT_DETACH_CAMERA) || ios_photo_unit!=NONE) {
+        long index=cheat_player_index();
+        struct player_datum *player=index==NONE?NULL:player_try_and_get(index);
+        long current=player && ios_cheat_camera_detached(player->unit_index)?player->unit_index:NONE;
+        if(current!=ios_photo_unit){ios_photo_restore();
+            if(current!=NONE){struct unit_datum *unit=unit_get(current);ios_photo_unit=current;
+                ios_photo_was_suspended=TEST_FLAG(unit->unit.flags,_unit_suspended_bit);}}
+        if(current!=NONE){struct unit_datum *unit=unit_get(current);
+            SET_FLAG(unit->unit.flags,_unit_suspended_bit,TRUE);
+            unit->unit.throttle=*global_zero_vector3d;unit->unit.primary_trigger=0;
+            unit->unit.control_flags=0;
+        }
+    }
+    if(want & 32u)rasterizer_debug_options.wireframe_enabled=TRUE;else if(ios_world_set & 32u)rasterizer_debug_options.wireframe_enabled=FALSE;
+    if(want & 8u)cheat.medusa=TRUE;else if(ios_world_set & 8u)cheat.medusa=FALSE;
+    if(want & 16u) {
+        if(!(ios_world_set & 16u))ios_original_gravity=global_gravity;
+        global_gravity=ios_original_gravity*0.25f;
+    } else if(ios_world_set & 16u)global_gravity=ios_original_gravity;
     ios_world_set = want;
 }
 
 static void ios_world_cheats_reset(void)
 {
+    ios_photo_restore();ios_alliance_restore();
+    ios_projectile_tag=NONE;ios_projectile_mode=0;ios_projectile_scanned=FALSE;
     if (ios_world_set & 1u) cheat.jetpack = FALSE;
     if (ios_world_set & 2u) ios_ai_ignore_player(FALSE);
     if (ios_world_set & 4u) game_time_reset_speed();
+    if(ios_world_set & 32u)rasterizer_debug_options.wireframe_enabled=FALSE;
+    if(ios_world_set & 8u)cheat.medusa=FALSE;
+    if(ios_world_set & 16u)global_gravity=ios_original_gravity;
     ios_world_set = 0;
     ios_world_reset();
 }
@@ -659,6 +758,10 @@ static boolean ios_world_action(unsigned int action)
 
     if (unit_index == NONE) return FALSE;
     switch (action) {
+    case 11: cheat_all_weapons();host_toast("Dropped the map's weapon collection around the player");return TRUE;
+    case 12: cheat_all_powerups();host_toast("Spawned the map's equipment collection");return TRUE;
+    case 13: cheat_teleport_to_camera();host_toast("Camera teleport requested");return TRUE;
+    case 14: ai_erase(NONE,NONE,NONE,TRUE);host_toast("Erased encounter AI in this campaign");return TRUE;
     case 5: main_save_map_safe(); host_toast("Checkpoint requested: it saves as soon as it is safe (up to 8 seconds)"); return TRUE;
     case 6: main_save_map_nonsafe(); host_toast("Checkpoint saved"); return TRUE;
     case 7: main_revert_map(); host_toast("Returning to the last checkpoint"); return TRUE;
@@ -685,6 +788,19 @@ static boolean ios_world_action(unsigned int action)
     if (action >= 310 && action < 313) { host_toast(ios_return_position(unit_index, (short)(action - 310)) ? "Returned to the saved position" : "No saved position in this slot"); return TRUE; }
     return FALSE;
 }
+
+/* Camera suspension is a session behavior, never a bit to leave in a save.
+ * Save callbacks run synchronously on the game thread. Preserve suspension
+ * that belonged to a script before the camera was detached. */
+void ios_cheats_prepare_checkpoint(void) {
+    struct unit_datum *unit=unit_try_and_get(ios_photo_unit);
+    if(unit)SET_FLAG(unit->unit.flags,_unit_suspended_bit,ios_photo_was_suspended);
+}
+void ios_cheats_finish_checkpoint(void) {
+    struct unit_datum *unit=unit_try_and_get(ios_photo_unit);
+    if(unit)SET_FLAG(unit->unit.flags,_unit_suspended_bit,TRUE);
+}
+void ios_cheats_before_checkpoint_load(void) { ios_world_cheats_reset(); }
 
 /* Infinite effects only refresh the living, local solo player. Releasing camo
  * stops refreshing its timer; an existing normal pickup can still run its course.

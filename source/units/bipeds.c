@@ -760,7 +760,29 @@ static void biped_bumped_object(
 				biped->biped.bump_ticks++;
 				if (biped->biped.bump_ticks > 3)
 				{
-					if (object->object.type == _object_type_biped && cheat.bump_possession)
+#ifdef HALO_IOS_GUEST
+                    if(object->object.type==_object_type_vehicle && ios_cheat_enabled(biped_index,IOS_CHEAT_HIJACK_VEHICLE) &&
+                        biped->object.parent_object_index==NONE && !TEST_FLAG(object->object.damage_flags,_object_dead_bit)) {
+                        long driver_index=unit_scripting_unit_driver(object_index);
+                        struct unit_datum *driver=unit_try_and_get(driver_index);
+                        if(driver && driver->unit.player_index==NONE && !TEST_FLAG(driver->object.damage_flags,_object_dead_bit)) {
+                            short seat=driver->unit.parent_seat_index;
+                            if(seat>=0 && seat<32 && unit_seat_is_driver(object_index,seat)) {
+                                unit_exit_seat_end(driver_index);
+                                if(!unit_enter_seat(biped_index,object_index,seat))unit_enter_seat(driver_index,object_index,seat);
+                            }
+                        }
+                    }
+#endif
+					if (object->object.type == _object_type_biped &&
+#ifdef HALO_IOS_GUEST
+                        (cheat.bump_possession || (ios_cheat_enabled(biped_index,IOS_CHEAT_HIJACK_NPC) &&
+                        ((struct biped_datum *)object)->unit.player_index==NONE &&
+                        !TEST_FLAG(object->object.damage_flags,_object_dead_bit)))
+#else
+                        cheat.bump_possession
+#endif
+                        )
 					{
 						short local_player_index = unit_get_local_player_index(biped_index);
 
@@ -4321,8 +4343,10 @@ boolean biped_update(
 					unit_get(biped_index)->unit.current_weapon_index);
 
 				/* (port: and with no weapon, which prevents it in the
-				Xbox game: a gametype's loadout of none) */
-				if ((weapon_index == NONE || !weapon_prevents_melee_attack(weapon_index)) &&
+				Xbox game: a gametype's loadout of none; not from a
+				vehicle's seat, which holds no weapon either) */
+				if (((weapon_index == NONE && biped->unit.parent_seat_index == NONE) ||
+					(weapon_index != NONE && !weapon_prevents_melee_attack(weapon_index))) &&
 					biped->unit.current_zoom_level==NONE)
 				{
 					short melee_speedup_ticks;

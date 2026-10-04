@@ -49,9 +49,10 @@ typedef struct
     int startup_auto; /* launch immediately when maps are ready */
     int face_style; /* 0 Xbox, 1 PlayStation; input mapping is unchanged */
     unsigned cheat_flags, cheat_actions;
+    int cheat_alliance, cheat_projectile;
     float cheat_jump, cheat_speed, cheat_fov;
     int cheat_weapon; /* 0 none, 1..10 weapon choices */
-    int cheat_slow;           /* recipe: 0 off, 1..4 = 75, 50, 25, 10 percent game speed */
+    int cheat_slow;           /* recipe: 0 off, 1..7 = 75, 50, 25, 10, 150, 200, 300 percent game speed */
     int mirror;               /* left-handed: the whole touch layout is mirrored left to right */
     unsigned toggle_mask;     /* bit n: control n latches on a tap instead of being held (buttons only) */
     int gyro;                 /* aim by turning the device */
@@ -75,7 +76,11 @@ typedef struct
     HsHudPreset hud_presets[3];
     float music_volume, dialogue_volume, effects_volume;
     int cheat_camo, cheat_overshield;
-    int cheat_jetpack, cheat_ai_ignore, cheat_slow;   /* session cheats; cheat_slow: 0 off, 1..4 */
+    int cheat_alliance, cheat_projectile;
+    int cheat_detach_camera;
+    int cheat_wireframe, cheat_hijack_vehicle;
+    int cheat_medusa, cheat_low_gravity, cheat_hijack_npc, cheat_vehicle_health;
+    int cheat_jetpack, cheat_ai_ignore, cheat_slow;   /* session cheats; cheat_slow: 0 normal, 1..7 */
     int accent_mode; unsigned accent_rgb; float chroma_seconds; /* 0 preset colour, 1 chosen colour, 2 colour cycle */
     int maps_show_files, maps_mp_alpha, maps_mp_only;          /* Mods: installed game files shown, multiplayer A-Z, campaign hidden */
     float ambient_volume;     /* device and ambient sound classes */
@@ -264,8 +269,8 @@ static inline void hs_sanitize_preset(HsPreset *p)
     p->haptics = p->haptics ? 1 : 0;
     p->hud_choice=hs_clampi(p->hud_choice,0,3);p->startup_auto=!!p->startup_auto;
     p->face_style = hs_clampi(p->face_style,0,1);
-    p->cheat_flags &= 32767u; p->cheat_actions &= 15u;
-    p->cheat_slow=hs_clampi(p->cheat_slow,0,4);p->mirror=!!p->mirror;p->toggle_mask&=HS_TOGGLE_ALLOWED;
+    p->cheat_flags &= 0x01FC7FFFu; p->cheat_alliance=hs_clampi(p->cheat_alliance,0,4);p->cheat_projectile=hs_clampi(p->cheat_projectile,0,6); p->cheat_actions &= 15u;
+    p->cheat_slow=hs_clampi(p->cheat_slow,0,7);p->mirror=!!p->mirror;p->toggle_mask&=HS_TOGGLE_ALLOWED;
     p->gyro=!!p->gyro;p->gyro_sens=hs_clampf(p->gyro_sens,.25f,3.f);p->gyro_flip_yaw=!!p->gyro_flip_yaw;p->gyro_flip_pitch=!!p->gyro_flip_pitch;
     p->cheat_weapon=hs_clampi(p->cheat_weapon,0,10);
     p->cheat_jump=hs_clampf(p->cheat_jump,1,10);
@@ -285,7 +290,7 @@ static inline void hs_sanitize(HsSettings *s)
     for(int p=0;p<3;p++) { char name[HS_NAME_MAX+1];hs_set_name(name,s->hud_presets[p].name);memcpy(s->hud_presets[p].name,name,sizeof(name));for(int h=0;h<HS_HUD_COUNT;h++) hs_sanitize_hud(&s->hud_presets[p].elements[h]); }
     s->music_volume=hs_clampf(s->music_volume,0,1);s->dialogue_volume=hs_clampf(s->dialogue_volume,0,1);s->effects_volume=hs_clampf(s->effects_volume,0,1);
     s->cheat_camo=!!s->cheat_camo;s->cheat_overshield=!!s->cheat_overshield;
-    s->cheat_jetpack=!!s->cheat_jetpack;s->cheat_ai_ignore=!!s->cheat_ai_ignore;s->cheat_slow=hs_clampi(s->cheat_slow,0,4);
+    s->cheat_jetpack=!!s->cheat_jetpack;s->cheat_ai_ignore=!!s->cheat_ai_ignore;s->cheat_slow=hs_clampi(s->cheat_slow,0,7);
     s->accent_mode=hs_clampi(s->accent_mode,0,2);s->accent_rgb&=0xFFFFFFu;s->chroma_seconds=hs_clampf(s->chroma_seconds,3.f,60.f);
     s->maps_show_files=!!s->maps_show_files;s->maps_mp_alpha=!!s->maps_mp_alpha;s->maps_mp_only=!!s->maps_mp_only;
     s->ambient_volume=hs_clampf(s->ambient_volume,0,1);s->perf_overlay=!!s->perf_overlay;s->thermal_cap=!!s->thermal_cap;s->menu_style=hs_clampi(s->menu_style,0,1);
@@ -399,6 +404,10 @@ static inline void hs_clear_cheats(HsSettings *s) {
     s->cheat_one_hit=s->cheat_flashlight=s->cheat_no_fall=s->cheat_rapid=0;
     s->cheat_no_recoil=s->cheat_third_person=s->cheat_noclip=0;
     s->cheat_camo=s->cheat_overshield=0;
+    s->cheat_alliance=s->cheat_projectile=0;
+    s->cheat_detach_camera=0;
+    s->cheat_wireframe=s->cheat_hijack_vehicle=0;
+    s->cheat_medusa=s->cheat_low_gravity=s->cheat_hijack_npc=s->cheat_vehicle_health=0;
     s->cheat_jetpack=s->cheat_ai_ignore=s->cheat_slow=0;
     s->cheat_jump=s->cheat_speed=1.f;s->cheat_fov=0;
 }
@@ -409,7 +418,10 @@ static inline void hs_apply_preset_cheats(HsSettings *s,int index) {
     s->cheat_one_hit=!!(f&16);s->cheat_flashlight=!!(f&32);s->cheat_no_fall=!!(f&64);
     s->cheat_rapid=!!(f&128);s->cheat_no_recoil=!!(f&256);s->cheat_third_person=!!(f&512);s->cheat_noclip=!!(f&1024);
     s->cheat_camo=!!(f&2048);s->cheat_overshield=!!(f&4096);
-    s->cheat_jetpack=!!(f&8192);s->cheat_ai_ignore=!!(f&16384);s->cheat_slow=hs_clampi(p->cheat_slow,0,4);
+    s->cheat_medusa=!!(f&262144);s->cheat_low_gravity=!!(f&524288);s->cheat_hijack_npc=!!(f&1048576);
+    s->cheat_vehicle_health=!!(f&2097152);s->cheat_wireframe=!!(f&4194304);s->cheat_hijack_vehicle=!!(f&8388608);s->cheat_detach_camera=!!(f&16777216);
+    s->cheat_alliance=p->cheat_alliance;s->cheat_projectile=p->cheat_projectile;
+    s->cheat_jetpack=!!(f&8192);s->cheat_ai_ignore=!!(f&16384);s->cheat_slow=hs_clampi(p->cheat_slow,0,7);
     s->cheat_jump=p->cheat_jump;s->cheat_speed=p->cheat_speed;s->cheat_fov=p->cheat_fov;
 }
 
@@ -455,6 +467,7 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
 
         EMIT("p%d.name=%s\n", i, p->name);
         EMIT("p%d.hudchoice=%d\np%d.startauto=%d\n",i,p->hud_choice,i,p->startup_auto);
+        EMIT("p%d.alliance=%d\np%d.projectile=%d\n",i,p->cheat_alliance,i,p->cheat_projectile);
         EMIT("p%d.face=%d\np%d.cheats=%u\np%d.actions=%u\np%d.weapon=%d\np%d.jump=%.3f\np%d.speed=%.3f\np%d.fov=%.3f\n",i,p->face_style,i,p->cheat_flags,i,p->cheat_actions,i,p->cheat_weapon,i,p->cheat_jump,i,p->cheat_speed,i,p->cheat_fov);
         EMIT("p%d.slow=%d\np%d.mirror=%d\np%d.toggle=%u\np%d.gyro=%d\np%d.gyrosens=%.3f\np%d.gyroflipy=%d\np%d.gyroflipp=%d\n",
              i, p->cheat_slow, i, p->mirror, i, p->toggle_mask, i, p->gyro, i, p->gyro_sens, i, p->gyro_flip_yaw, i, p->gyro_flip_pitch);
@@ -577,6 +590,8 @@ static inline int hs_parse(HsSettings *s, const char *text)
                     else if (!strcmp(field,"hudchoice")) p->hud_choice=atoi(value);
                     else if (!strcmp(field,"startauto")) p->startup_auto=atoi(value);
                     else if (!strcmp(field,"face")) p->face_style=atoi(value);
+                    else if (!strcmp(field,"alliance")) p->cheat_alliance=atoi(value);
+                    else if (!strcmp(field,"projectile")) p->cheat_projectile=atoi(value);
                     else if (!strcmp(field,"cheats")) p->cheat_flags=(unsigned)strtoul(value,NULL,10);
                     else if (!strcmp(field,"actions")) p->cheat_actions=(unsigned)strtoul(value,NULL,10);
                     else if (!strcmp(field,"weapon")) p->cheat_weapon=atoi(value);

@@ -44,7 +44,7 @@ Ending hosting clears this app's owned invite export. A stopped lobby cannot be 
 
 ## Public discovery update
 
-**Source update:** M2.6.51 integrates Halo CE Universal build 84, including public server discovery, on `main` and `ios/modtest`. Apple builds and device validation are still required before publishing an IPA.
+**Source update:** M2.6.53 integrates Halo CE Universal build 89 on `main` and `ios/modtest`, alongside campaign tools, direct checkpoint editing and smaller, separate save/profile backups. This source update still requires Apple compilation and device validation.
 
 Until that update is built and tested, use manual invites or LAN. Public discovery depends on upstream signalling infrastructure and an active public host; it does not list every stock Halo PC or MCC server.
 
@@ -71,13 +71,13 @@ A peer count is not a player count. It refreshes every two seconds while Setting
 - **Crossplay with other platforms** works best when all players use compatible Halo CE Universal builds and matching maps.
 - Smooth, stable play depends on the phone: see [Display → Heat and battery](SETTINGS.md#display) and the [troubleshooting](TROUBLESHOOTING.md) page if a game drops.
 
-## Public Internet games (build 84)
+## Public Internet games
 
 With PC menus selected, open **Multiplayer → Join Game → Server Browser**. The list shows compatible public games with map, mode and occupancy. Refresh it and select a game to join without copying an invite. It uses the same invite transport as Direct Link.
 
 In **Create Game → Internet → Server Setup**, **LISTING** selects PUBLIC or PRIVATE. Upstream defaults new Internet games to PUBLIC; LAN games are never publicly listed. `network.host_public = false` in the engine config changes that default, and `network.public_lobby = false` disables discovery. Xbox menus retain their existing System Link flow; public setup and browsing are provided by the PC menus.
 
-Listings are signed by the host, periodically refreshed and expired; closing a lobby publishes its end. Making a public game private rotates its invite, and iOS updates Settings, sharing and `game_invite.txt` to the replacement code. Private games remain available through manual invites. All players should use Universal build 84-compatible clients; older or incompatible listings are filtered.
+Listings are signed by the host, periodically refreshed and expired; closing a lobby publishes its end. Making a public game private rotates its invite, and iOS updates Settings, sharing and `game_invite.txt` to the replacement code. Private games remain available through manual invites. All players should use compatible Universal clients; older or incompatible listings are filtered.
 
 The browser depends on upstream’s public MQTT brokers. An empty list may mean no compatible public games, blocked/unavailable brokers, or no Internet connection. It is not evidence that a local game failed. Verify public iPhone/PC hosting and joining on devices before treating discovery as tested on iOS.
 
@@ -86,3 +86,9 @@ The browser depends on upstream’s public MQTT brokers. An empty list may mean 
 If Halo CE is missing from iOS Settings → Privacy & Security → Local Network, open Settings → Multiplayer → Finding games on your Wi-Fi and select **Request Local Network access** while connected to Wi-Fi. This runs a Bonjour permission check; it does not replace the game's UDP discovery. Accept the system request, then try the in-game LAN list. The app name may differ for ModTest. You can also open the app's iOS settings from that card.
 
 Permission alone does not guarantee discovery: guest-network isolation, firewalls and broadcast/multicast signing restrictions can prevent LAN traffic. If discovery remains unavailable, use a compatible invite link. Verify LAN discovery with the final signed IPA on a physical device.
+
+## Build 89 integration
+
+With the PC-style menus, the multiplayer pause menu now offers Settings; the host also gets End Game, which finishes the match and keeps players for the next game. Opening these menus does not pause the network clock. Enemy name labels obey the motion tracker’s range and player-filter rules. Unarmed melee and grenades remain disabled from vehicle seats. These upstream changes need validation with iOS and build 89 clients.
+
+Local Network access can be checked in Settings → Multiplayer. The diagnostic publishes and browses a temporary Bonjour service, reporting success or the actual error. A missing iOS privacy entry is not evidence that permission is granted. UDP broadcast discovery also depends on signing with Apple’s multicast entitlement; ordinary sideloading may not provide it. Manual invites remain available when LAN discovery is unavailable.

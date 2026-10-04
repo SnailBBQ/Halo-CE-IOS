@@ -5,7 +5,7 @@ statements about "current" behaviour in it describe the milestone they were writ
 
 ## Part 1 — Status log (the former project status page)
 
-Current iOS update: **M2.6.51** — Universal build 84 public server discovery and multiplayer lifecycle fixes, shared by the regular and separate mod-test apps. See [release notes](../../port/ios/UPDATE_M2651.md). Build/device validation is pending.
+Current iOS update: **M2.6.53** — Universal build 89, campaign tools, checkpoint editing and separate save/profile backups, shared by the regular and ModTest apps. See [release notes](../../port/ios/UPDATE_M2653.md). Apple/device validation is pending.
 
 Updated October 3, 2026. Current development milestone: **M2.6.51** (device testing pending).
 

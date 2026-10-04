@@ -20,12 +20,17 @@ typedef float real;
 #define NONE (-1)
 #define NUMBEROF(a) (sizeof(a)/sizeof((a)[0]))
 #define TEST_FLAG(a,b) ((a)&(1u<<(b)))
-enum {_object_dead_bit=0};
-struct unit_datum { struct { long player_index; } unit; struct {unsigned damage_flags;} object; };
+enum {_object_dead_bit=0,_object_type_biped=0};
+static boolean cinematic;static boolean *director_camera_scripted=&cinematic;
+struct unit_datum { struct { long player_index; } unit; struct {unsigned damage_flags;int type;long parent_object_index;} object; };
 struct player_datum { long unit_index, local_player_index; };
 struct { int deathless_player, infinite_ammo, bottomless_clip; } cheat;
 static struct unit_datum units[3];
 static struct player_datum players[3];
+struct tag_iterator{int next;};
+static void tag_iterator_new(struct tag_iterator *it,long group){(void)group;it->next=0;}
+static long tag_iterator_next(struct tag_iterator *it){return it->next++?NONE:5;}
+static const char *tag_get_name(long tag){(void)tag;return "weapons\\pistol\\bullet";}
 static int in_progress, engine, network, actions, toasts;
 static HaloCampaignOptions host_wanted;
 static unsigned campaign_active;
@@ -56,6 +61,7 @@ int main(void)
     units[1].unit.player_index = NONE;
     units[2].unit.player_index = 2; players[2].unit_index = 2; players[2].local_player_index = NONE;
     in_progress = 1;
+    units[0].object.parent_object_index=NONE;
     host_wanted.flags = 15 | IOS_CHEAT_NOCLIP | IOS_CHEAT_FLASHLIGHT;
     host_wanted.jump = 2.5f; host_wanted.speed = 3.f; host_wanted.fov = 80.f; host_wanted.action = 100;
     ios_cheats_apply();
@@ -66,6 +72,9 @@ int main(void)
     CHECK(ios_cheat_jump_multiplier(0) == 2.5f && ios_cheat_speed_multiplier(1) == 1.f);
     CHECK(ios_cheat_field_of_view(0) == 80.f && ios_cheat_field_of_view(2) == 0.f);
     CHECK(actions == 1); ios_cheats_apply(); CHECK(actions == 1);
+    ios_options.flags|=IOS_CHEAT_DETACH_CAMERA|(1u<<IOS_CHEAT_PROJECTILE_SHIFT);
+    CHECK(ios_cheat_camera_detached(0) && ios_cheat_projectile(0,99)==5 && ios_cheat_projectile(1,99)==99);
+    cinematic=1;CHECK(!ios_cheat_camera_detached(0));cinematic=0;
     /* Mid-frame networking transition: hooks must immediately reject even cached flags. */
     network = 1; CHECK(!ios_cheat_enabled(0, IOS_CHEAT_NOCLIP));
     CHECK(ios_cheat_speed_multiplier(0) == 1.f);

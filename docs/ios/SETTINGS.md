@@ -42,7 +42,7 @@ See the [Controls guide](CONTROLS.md) for details. Most options here are **saved
 | Gyro aiming | Aim by turning the device; speed; flip left/right and up/down. |
 | Controller (global) | Stick dead zone and response for a connected controller, and a button remap list. |
 | Game HUD preset | Link the scheme to the default HUD or to one of three saved HUD recipes. |
-| On app launch | **Start Halo screen** or **Boot Halo immediately** (direct boot). |
+| On app launch | **Start Halo CE iOS Title Screen** or **Boot Halo to Main Menu** (direct boot). |
 
 ## Display
 
@@ -58,7 +58,7 @@ Each option is explained, with a screenshot, in [Display / AirPlay](DISPLAY_AIRP
 | Menus | **PC menus (new)**: the Halo Custom Edition menus from Halo CE Universal, with Join Game (LAN and Direct Link), Create Game (Internet or LAN) and redrawn screens. **Xbox menus**: the original menus, including System Link. *Next launch*; Safe Start uses the Xbox menus. |
 | AirPlay and external screens | How to show the game on a TV. See [Display / AirPlay](DISPLAY_AIRPLAY.md#airplay-and-external-displays). |
 
-The public **Server Browser** in the PC menus lists compatible public Internet games through upstream’s signalling brokers. Refresh and select a lobby to join using the existing invite connection path. iOS device validation is pending.
+The public **Server Browser** in the in-game PC-style menus lists compatible public Internet games through upstream’s signalling brokers. Refresh and select a lobby to join using the existing invite connection path. iOS device validation is pending.
 
 ## Audio
 
@@ -86,12 +86,13 @@ or join a game. Cheats that spawn things use only assets the current map has alr
 | Section | Contents |
 | --- | --- |
 | Survival | God mode; One-hit kills (hostile units only); No fall damage; **Restore health and shield** (a one-time refill; an over-charged shield is never lowered). |
-| Weapons | Infinite ammo; Infinite grenades; Bottomless clip (no reloading); Rapid fire; No recoil. |
-| Power-ups | **Active Camo** and **Overshield**, each with *Infinite* (refreshes only the living local player and stops when switched off), *Spawn* and *Apply*. Applied camo uses the normal pickup timer. Applied overshield charges once and is consumed by damage; it has no universal expiry timer. |
-| Movement | Jetpack; Noclip (aim to move, jump rises, crouch descends); Super jump (1–10); Player speed (1–5). |
-| World | Slow motion (75%, 50%, 25% or 10%, which also slows cutscenes); AI ignores you; Third person; Unlimited flashlight; Vertical FOV (0 is the normal setting, otherwise 20–90 degrees). |
+| Weapons | Infinite ammo; Infinite grenades; Bottomless clip (no reloading); Rapid fire; No recoil; Drop Weapon Ring Around Player (the map’s cheat weapon collection); Projectile Swapping (loaded tags only, local player only). |
+| Power-ups | **Active Camo** and **Overshield**, each with *Infinite* (refreshes only the living local player and stops when switched off), *Spawn* and *Apply*. All Equipment Spawns uses the map’s configured cheat-powerup collection. Applied camo uses the normal pickup timer. Applied overshield charges once and is consumed by damage; it has no universal expiry timer. |
+| Movement | Jetpack; Noclip (aim to move, jump rises, crouch descends); Super jump (1–10); Player speed (1–5); Low Gravity (25% of the current gravity, restored when switched off). |
+| World | Time scale (10%, 25%, 50%, 75%, 100%, 150%, 200% or 300%, including cutscenes); AI ignores you; Third person; Unlimited flashlight; Medusa Mode (hostile AI detecting you die); Bumper Cars (hijack an AI-driven vehicle on contact); Hijack NPCs (possess living non-player bipeds on contact); Infinite Vehicle Health (occupied vehicle only); AI Alliance (Human, Covenant, Flood or Sentinel); Erase All AI (encounter AI, with confirmation). |
+| Visuals | Vertical FOV (0 is the normal setting, otherwise 20–90 degrees); Wireframe Render (bounded triangle-edge visualization); Detach Camera from Player (flying camera; body frozen, world continues; on foot, outside scripted cameras). |
 | Checkpoints | **Save checkpoint (when safe)** waits up to eight seconds for a moment without combat; **Force checkpoint now** saves at once; **Revert to last checkpoint** asks first and needs a checkpoint to exist. These are the game's own checkpoints. |
-| Teleport | **Teleport me to crosshair**; **Teleport enemies to crosshair** (living hostile AI units not in vehicles, up to 24, placed in a ring); three **Saved positions** to save and return to (forgotten when the mission changes). |
+| Teleport | **Teleport To Camera** (engine validates destination); **Teleport me to crosshair**; **Teleport enemies to crosshair** (living hostile AI units not in vehicles, up to 24, placed in a ring); three **Saved positions** to save and return to (forgotten when the mission changes). |
 | Spawn | **Weapon giver** (pistol, assault rifle, shotgun, sniper rifle, rocket launcher, plasma pistol, plasma rifle, needler, flamethrower, gravity rifle) and **Vehicle spawner** (Warthog, Ghost, Banshee, Scorpion). Pickups appear in front of you. |
 
 **Cheat recipes.** Each control scheme has a gear editor with its own recipe: the cheats to switch on, one-shot actions, numeric values, slow motion and a weapon.
@@ -115,6 +116,7 @@ Recipes are saved with the scheme and applied when you enter a solo campaign or 
 A profile is your whole setup: control schemes with their layouts and recipes, HUD, display, audio and colours. It does not include maps, saves or running cheats.
 
 - **What a profile holds** shows a summary.
+- **Edit campaign checkpoint** edits validated finite health, shields, grenade counts and existing weapon ammo directly in a saved checkpoint. Changes apply on the next launch with recovery backups; see [Backups](BACKUPS.md#campaign-checkpoint-editor).
 - **Export profile…** saves a `.haloprofile` file for Files, AirDrop or sharing. **Import profile…** replaces your settings with a file's, so export first if you want to keep yours.
 - **Reset all settings to defaults** restores everything after a confirmation. Maps, saves and mods are not touched.
 
@@ -132,7 +134,7 @@ A profile is your whole setup: control schemes with their layouts and recipes, H
 | Item | What it does |
 | --- | --- |
 | Quit Game | Closes the app after a confirmation. iOS cannot reopen an app by itself, so tap its icon to start again. |
-| Startup | **Start Halo screen** or **Boot Halo immediately**, saved with the current control scheme. |
+| Startup | **Start Halo CE iOS Title Screen** or **Boot Halo to Main Menu**, saved with the current control scheme. |
 | Heat and battery | **Lower the frame rate when the phone is hot**: Smooth 60 and Uncapped drop to 45 under serious heat or Low Power Mode and to 30 when critical, and return when the phone cools (30 · Original is never changed). **Performance overlay** adds frame time, memory in use, estimated memory headroom, and heat under the FPS counter. |
 | Diagnostics | **Performance profiler** adds timing diagnostics. |
 | Share log files / Report a problem… | Share the logs, or make one text file with your device, settings (never running cheats) and the end of the logs. See [Troubleshooting](TROUBLESHOOTING.md). |
@@ -152,3 +154,5 @@ The sidebar ends with Cheats, Profiles, Options, Mods, Advanced and Logs. Displa
 The performance overlay shares the FPS layout's saved position, scale, visibility and opacity. Its memory headroom is an estimate, not an iOS termination threshold. Apple builds and device validation are required for these changes.
 
 In Controls → Edit Button Layout, drag the FPS/performance overlay directly. **FPS / Stats** opens its existing scale, opacity and visibility controls. These edits share the saved FPS layout.
+
+Detached camera uses the flying camera’s sticks, with RT/LT (R2/L2) to rise/descend. The player’s previous suspension state is restored when detachment ends, and the temporary body freeze is removed before a checkpoint is written. Projectile changes affect newly created local-player shots and keep the original projectile if the selected tag is missing. Faster time and world/AI cheats can disrupt mission scripts; revert a checkpoint to recover. Infinite Vehicle Boost and Force Skull Modifiers are not exposed because this recovered engine has no validated matching systems.

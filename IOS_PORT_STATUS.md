@@ -1,9 +1,9 @@
 # Halo CE iOS — Project status
 
-**Status: playable.** **Current update: M2.6.52** (regular app 0.2.52, Mod Test app 0.2.52.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
+**Status: playable.** **Current update: M2.6.53** (regular app 0.2.53, Mod Test app 0.2.53.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
 are still waiting for device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
 
-**Source update:** M2.6.51 integrates Halo CE Universal build 84, including public server discovery, on `main` and `ios/modtest`. Apple builds and device validation are still required before publishing an IPA.
+**Source update:** M2.6.53 integrates Halo CE Universal build 89 on `main` and `ios/modtest`, alongside campaign tools, direct checkpoint editing and smaller, separate save/profile backups. This source update still requires Apple compilation and device validation.
 
 ## Two apps
 
@@ -22,19 +22,22 @@ Both share the same features and are updated together. The Mod Test app adds an 
 
 ## Implemented, waiting for build/device validation
 
-- Halo CE Universal build 84: signed public lobby discovery, public/private hosting and multiplayer join/leave fixes (M2.6.51).
+- Halo CE Universal build 89 baseline, including multiplayer pause Settings/End Game, HUD name filtering and vehicle-seat fixes. Earlier build 84 integration added: signed public lobby discovery, public/private hosting and multiplayer join/leave fixes (M2.6.51).
 - The Settings additions of M2.6.48 (cheat sections and new cheats, left-handed layout, gyro, controller remap, heat-aware frame cap, performance overlay, Ambient volume, recent games and QR, Profiles, problem report, custom accent colours).
 - Picture options, touch aiming and AirPlay mirroring (M2.6.50).
 - The Mod Test loader has offline structural checks. Device attempts with converted Cursed Halo maps have failed; playable mod compatibility is not established.
 
+- M2.6.53 campaign modifiers, flying camera, wireframe, bounded checkpoint editor and separate cache-free save/profile exports.
+
 ## Known limits
 
-- Build 84 public server discovery is integrated; iOS public browsing/hosting and cross-play need device validation. Discovery uses public MQTT signalling brokers and requires network connectivity.
+- Public server discovery is integrated; iOS public browsing/hosting and cross-play need device validation. Discovery uses public MQTT signalling brokers and requires network connectivity.
 - The app imports `.map` files only. It does not open ISO or XISO disc images; extract the maps first (see [Game data](docs/ios/GAME_DATA.md)).
 - AirPlay is system screen mirroring. A separate TV-only game window is not implemented.
 - Bink videos are skipped.
 - Touch behaviour in the PC menus has not been validated; the Xbox menus remain available in Settings.
 - Mod conversion is paused.
+- Checkpoint editing supports finite health/shields, grenades and existing weapon ammo in validated 16 MB Xbox 2342 campaign saves. It does not fabricate skulls, vehicle boost, new weapon objects, or runtime cheat fields.
 
 ## Where to read more
 

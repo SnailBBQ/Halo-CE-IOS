@@ -250,6 +250,7 @@ int main(void)
     s.accent_mode=2;s.accent_rgb=0xA1B2C3u;s.chroma_seconds=20.f;s.maps_show_files=1;s.maps_mp_alpha=1;s.maps_mp_only=1;
     s.ambient_volume=.4f;s.perf_overlay=1;s.thermal_cap=0;s.pad_dead=.15f;s.pad_curve=2.f;s.pad_map[0]=1;s.pad_map[1]=0;s.pad_map[13]=6;
     s.presets[3].mirror=1;s.presets[3].toggle_mask=(1u<<HC_LS)|(1u<<HC_RS);s.presets[3].gyro=1;s.presets[3].gyro_sens=1.75f;
+    s.presets[3].cheat_alliance=2;s.presets[3].cheat_projectile=6;
     s.presets[3].gyro_flip_yaw=1;s.presets[3].cheat_slow=3;s.presets[3].cheat_flags=8192u|16384u|1u;
     CHECK(hs_serialize(&s,text,sizeof(text))>0 && hs_parse(&t,text),"serialize the new settings");
     CHECK(t.accent_mode==2 && t.accent_rgb==0xA1B2C3u && near(t.chroma_seconds,20.f),"accent persists");
@@ -259,18 +260,18 @@ int main(void)
     CHECK(t.presets[3].mirror && t.presets[3].toggle_mask==((1u<<HC_LS)|(1u<<HC_RS)) && t.presets[3].gyro && near(t.presets[3].gyro_sens,1.75f) &&
           t.presets[3].gyro_flip_yaw && !t.presets[3].gyro_flip_pitch && t.presets[3].cheat_slow==3 && t.presets[3].cheat_flags==(8192u|16384u|1u),"per-profile controls and recipe persist");
     hs_apply_preset_cheats(&t,3);
-    CHECK(t.cheat_jetpack && t.cheat_ai_ignore && t.cheat_god && t.cheat_slow==3,"a recipe activates jetpack, AI ignore and slow motion");
-    t.cheat_jetpack=t.cheat_ai_ignore=1;t.cheat_slow=2;
-    CHECK(hs_serialize(&t,text,sizeof(text))>0 && hs_parse(&s,text) && !s.cheat_jetpack && !s.cheat_ai_ignore && s.cheat_slow==0,"running session cheats are never saved");
-    hs_clear_cheats(&t);CHECK(!t.cheat_jetpack && !t.cheat_ai_ignore && t.cheat_slow==0,"clearing cheats clears the new ones");
+    CHECK(t.cheat_jetpack && t.cheat_ai_ignore && t.cheat_god && t.cheat_slow==3 && t.cheat_alliance==2 && t.cheat_projectile==6,"a recipe activates jetpack, AI ignore and slow motion");
+    t.cheat_jetpack=t.cheat_ai_ignore=t.cheat_medusa=t.cheat_low_gravity=t.cheat_detach_camera=1;t.cheat_slow=7;
+    CHECK(hs_serialize(&t,text,sizeof(text))>0 && hs_parse(&s,text) && !s.cheat_jetpack && !s.cheat_ai_ignore && !s.cheat_medusa && !s.cheat_low_gravity && !s.cheat_detach_camera && s.cheat_slow==0,"running session cheats are never saved");
+    hs_clear_cheats(&t);CHECK(!t.cheat_jetpack && !t.cheat_ai_ignore && !t.cheat_medusa && !t.cheat_low_gravity && !t.cheat_detach_camera && t.cheat_slow==0,"clearing cheats clears the new ones");
     hs_parse(&t,"HALO1\naccentmode=9\naccentrgb=99999999999\nchroma=nan\nmapsshow=5\nmapsalpha=-3\nambient=9\nperf=7\nthermal=2\npaddead=-4\npadcurve=nan\npadmap=99,1,2,x,5\n"
                 "p1.slow=99\np1.mirror=5\np1.toggle=4294967295\np1.gyro=3\np1.gyrosens=nan\np1.cheats=4294967295\n");
     CHECK(t.accent_mode==2 && (t.accent_rgb&~0xFFFFFFu)==0 && t.chroma_seconds>=3.f && t.chroma_seconds<=60.f,"hostile accent values are bounded (mode %d rgb %x chroma %f)",t.accent_mode,t.accent_rgb,t.chroma_seconds);
     CHECK(t.maps_show_files==1 && t.maps_mp_alpha==1 && t.ambient_volume==1.f && t.perf_overlay==1 && t.thermal_cap==1,"hostile flags and volumes are bounded");
     CHECK(t.pad_dead==0 && t.pad_curve>=1.f && t.pad_curve<=3.f,"hostile controller shaping is bounded");
     { int ok=t.pad_map[0]==0 && t.pad_map[1]==1 && t.pad_map[2]==2 && t.pad_map[3]==3 && t.pad_map[4]==4; for(int b=0;b<14;b++) if(t.pad_map[b]>13) ok=0; CHECK(ok,"a damaged remap keeps the entries before the damage and the rest stay identity (%u %u %u %u %u)",t.pad_map[0],t.pad_map[1],t.pad_map[2],t.pad_map[3],t.pad_map[4]); }
-    CHECK(t.presets[1].cheat_slow==4 && t.presets[1].mirror==1 && t.presets[1].gyro==1 && t.presets[1].gyro_sens>=.25f && t.presets[1].gyro_sens<=3.f,"hostile profile fields are bounded");
-    CHECK((t.presets[1].toggle_mask&~HS_TOGGLE_ALLOWED)==0 && t.presets[1].toggle_mask==HS_TOGGLE_ALLOWED && (t.presets[1].cheat_flags&~32767u)==0,"only buttons can latch and only known recipe bits survive");
+    CHECK(t.presets[1].cheat_slow==7 && t.presets[1].mirror==1 && t.presets[1].gyro==1 && t.presets[1].gyro_sens>=.25f && t.presets[1].gyro_sens<=3.f,"hostile profile fields are bounded");
+    CHECK((t.presets[1].toggle_mask&~HS_TOGGLE_ALLOWED)==0 && t.presets[1].toggle_mask==HS_TOGGLE_ALLOWED && (t.presets[1].cheat_flags&~0x01FC7FFFu)==0,"only buttons can latch and only known recipe bits survive");
     /* the old file format still reads: a file from before this update has none of the new keys */
     hs_parse(&t,"HALO1\nactive=2\nvolume=0.5\n");
     CHECK(t.active==2 && t.accent_rgb==0x3385FAu && t.pad_curve==1.f && t.thermal_cap==1 && t.presets[0].gyro_sens==1.f,"older files read with the new defaults");

@@ -119,6 +119,10 @@ static NSString *HaloPerfLine(void)
 - (void)refreshSetup {
     if (self.engineStarted || self.importing || !self.foldersReady) return;
     BOOL ready = [self hasStartupMap];
+    HsSettings settings=[HaloSettingsStore.shared snapshot];
+    if(ready && settings.presets[settings.active].startup_auto && !halo_ios_safe_level() && self.startBoot) {
+        [self startHalo:nil];return;
+    }
     self.startButton.enabled = ready;
     self.launchHeading.text=ready?@"Ready to play":@"Add your maps";
     self.launchDescription.text=ready?@"Your map library is ready. Start Halo when you’re ready to play.":@"Import your compatible .map files, including ui.map. You can also copy them in Files → On My iPhone → Halo CE → Halo → maps.";
@@ -128,7 +132,7 @@ static NSString *HaloPerfLine(void)
     (void)sender;
     if (self.engineStarted || self.importing || !self.foldersReady || ![self hasStartupMap]) return;
     self.engineStarted = YES;
-    self.launchHeading.text=@"Starting Halo";self.launchDescription.text=@"Preparing your game…";[self.launchSpinner startAnimating];
+    self.launchHeading.text=@"Loading Halo CE";self.launchDescription.text=@"Preparing your game…";[self.launchSpinner startAnimating];
     halo_crash_phase("engine boot");
     /* The game is shown first. If it has drawn nothing after 25 seconds the screen is just black, so open the log
        (its Summary says how far the start got) instead of leaving a black screen with no explanation. */
@@ -199,7 +203,10 @@ static NSString *HaloPerfLine(void)
         dispatch_async(dispatch_get_main_queue(), ^{
             self.importing = NO;[self.launchSpinner stopAnimating];
             self.importButton.enabled = YES;
+            HsSettings settings=[HaloSettingsStore.shared snapshot];
+            BOOL automatic=settings.presets[settings.active].startup_auto && !halo_ios_safe_level() && [self hasStartupMap];
             [self refreshSetup];
+            if(automatic && !errors.count)return;
             NSString *message = [NSString stringWithFormat:@"Imported %lu maps. Kept %lu existing files.", (unsigned long)imported, (unsigned long)kept];
             if (errors.count) message = [message stringByAppendingFormat:@"\n\n%@", [errors componentsJoinedByString:@"\n"]];
             UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Map import" message:message preferredStyle:UIAlertControllerStyleAlert];
@@ -568,7 +575,7 @@ static NSString *HaloPerfLine(void)
     [import addTarget:self action:@selector(importMaps:) forControlEvents:UIControlEventTouchUpInside];
     self.importButton = import;
     UIButton *start = [UIButton buttonWithType:UIButtonTypeSystem];
-    [start setTitle:@"Start Halo" forState:UIControlStateNormal];
+    [start setTitle:@"Play Halo CE" forState:UIControlStateNormal];
     [start addTarget:self action:@selector(startHalo:) forControlEvents:UIControlEventTouchUpInside];
     self.startButton = start;
     UIButton *share = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -621,6 +628,12 @@ static NSString *HaloPerfLine(void)
         [actions.heightAnchor constraintEqualToConstant:44]
     ]];
 
+    HsSettings launchSettings=[HaloSettingsStore.shared snapshot];
+    if(launchSettings.presets[launchSettings.active].startup_auto && !halo_ios_safe_level() && [self hasStartupMap]) {
+        self.launchHeading.text=@"Loading Halo CE";
+        self.launchDescription.text=@"Preparing the main menu…";
+        import.hidden=YES;start.hidden=YES;[self.launchSpinner startAnimating];
+    }
     self.window.rootViewController = vc;
     [self.window makeKeyAndVisible];
 

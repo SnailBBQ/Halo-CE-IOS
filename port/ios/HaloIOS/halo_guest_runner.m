@@ -756,7 +756,16 @@ static void ios_campaign_options(uint32_t packet)
     if (s.cheat_noclip) result.flags |= IOS_CHEAT_NOCLIP;
     if (s.cheat_jetpack) result.flags |= IOS_CHEAT_JETPACK;
     if (s.cheat_ai_ignore) result.flags |= IOS_CHEAT_AI_IGNORE;
-    result.flags |= ((uint32_t)hs_clampi(s.cheat_slow, 0, 4) << IOS_CHEAT_SLOW_SHIFT) & IOS_CHEAT_SLOW_MASK;
+    result.flags |= ((uint32_t)hs_clampi(s.cheat_slow, 0, 7) << IOS_CHEAT_SLOW_SHIFT) & IOS_CHEAT_SLOW_MASK;
+    result.flags|=(uint32_t)hs_clampi(s.cheat_alliance,0,4)<<IOS_CHEAT_ALLIANCE_SHIFT;
+    result.flags|=(uint32_t)hs_clampi(s.cheat_projectile,0,6)<<IOS_CHEAT_PROJECTILE_SHIFT;
+    if(s.cheat_detach_camera)result.flags|=IOS_CHEAT_DETACH_CAMERA;
+    if(s.cheat_wireframe)result.flags|=IOS_CHEAT_WIREFRAME;
+    if(s.cheat_hijack_vehicle)result.flags|=IOS_CHEAT_HIJACK_VEHICLE;
+    if(s.cheat_medusa)result.flags|=IOS_CHEAT_MEDUSA;
+    if(s.cheat_low_gravity)result.flags|=IOS_CHEAT_LOW_GRAVITY;
+    if(s.cheat_hijack_npc)result.flags|=IOS_CHEAT_HIJACK_NPC;
+    if(s.cheat_vehicle_health)result.flags|=IOS_CHEAT_VEHICLE_HEALTH;
     if (s.cheat_camo) result.flags |= IOS_CHEAT_CAMO;
     if (s.cheat_overshield) result.flags |= IOS_CHEAT_OVERSHIELD;
     result.action = ios_campaign_take_action();

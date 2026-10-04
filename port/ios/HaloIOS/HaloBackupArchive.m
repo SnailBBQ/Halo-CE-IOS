@@ -28,7 +28,23 @@ BOOL HaloBackupAllowed(NSString *path) {
         ([path hasPrefix:@"map_thumbnails/"] && [@[@"png",@"jpg",@"jpeg"] containsObject:path.pathExtension.lowercaseString]) ||
         [path isEqual:@"settings.txt"] || [path isEqual:@"config.toml"];
 }
-static unsigned Section(NSString *path) { return [path hasPrefix:@"save/"]?1:[path hasPrefix:@"maps/"]||[path hasPrefix:@"map_thumbnails/"]?8:[path isEqual:@"config.toml"]?2:6; }
+/* Bit 1 remains the legacy combined saves/profiles selection. New bits 16 and
+ * 32 select each independently. Cache maps and volatile checkpoints under z:
+ * are rebuildable session data, never user progress. Older archives remain
+ * readable, but their temporary files are deliberately not restored. */
+static unsigned Section(NSString *path) {
+    NSString *p=path.lowercaseString;
+    if([p hasPrefix:@"save/u/udata/"]) {
+        NSString *leaf=p.lastPathComponent;
+        if([leaf isEqual:@"blam.sav"] || [leaf isEqual:@"blam.lst"])return 1|32;
+        if([leaf isEqual:@"savemeta.xbx"] || [leaf isEqual:@"saveimage.xbx"])return 1|16|32;
+        return [leaf isEqual:@"savegame.bin"]?1|16:0;
+    }
+    if([p hasPrefix:@"save/c/profiles/"] || [p hasPrefix:@"save/z/saved/player_profiles/"] || [p hasPrefix:@"save/z/saved/playlists/"] ||
+       [@[@"save/z/lastprof.txt",@"save/z/last_solo.txt",@"save/z/lastmpmp.txt",@"save/z/lastmpvr.txt"] containsObject:p])return 1|32;
+    if([p hasPrefix:@"save/"])return 0;
+    return [p hasPrefix:@"maps/"]||[p hasPrefix:@"map_thumbnails/"]?8:[p isEqual:@"config.toml"]?2:6;
+}
 static NSString *Relative(NSURL *file,NSURL *root) {
     /* /var and /private/var may name the same app directory. Enumeration and
      * file URLs must agree before calculating a relative filename. */
@@ -127,7 +143,7 @@ BOOL HaloApplyPendingRestore(NSError **error) {
         if(error)*error=HaloBackupFailure(recovered?@"An interrupted restore was rolled back. Close and reopen Halo to continue. Your recovery backup is retained.":@"An interrupted restore could not be fully recovered. Keep the recovery backup; do not start the game until recovery succeeds.");return NO;
     }
     @try {
-        NSURL *stage=[work URLByAppendingPathComponent:@"staged" isDirectory:YES];NSDictionary *manifest=[NSDictionary dictionaryWithContentsOfURL:[stage URLByAppendingPathComponent:@"manifest.plist"]];HaloBackupRequire(manifest!=nil,@"Staged restore is missing.");unsigned mask=[pending[@"mask"] unsignedIntValue]&15u;
+        NSURL *stage=[work URLByAppendingPathComponent:@"staged" isDirectory:YES];NSDictionary *manifest=[NSDictionary dictionaryWithContentsOfURL:[stage URLByAppendingPathComponent:@"manifest.plist"]];HaloBackupRequire(manifest!=nil,@"Staged restore is missing.");unsigned mask=[pending[@"mask"] unsignedIntValue]&63u;
         [fm removeItemAtURL:rollback error:nil];HaloBackupRequire([fm createDirectoryAtURL:rollback withIntermediateDirectories:YES attributes:nil error:nil],@"Cannot create recovery folder.");
         /* Validate staged bytes again, then preserve every overwritten destination. */
         for(NSDictionary *record in manifest[@"files"]) {

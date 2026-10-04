@@ -121,6 +121,21 @@ symbols in this file:
 #include "lruv_cache.h"
 #include "memory_pool.h"
 
+#ifdef HALO_IOS_GUEST
+#include "game/cheats.h"
+#include "units/units.h"
+#include "items/weapons.h"
+/* Checkpoint editor schema is fail-closed when the guest layout changes. */
+typedef char ios_save_body_layout[(offsetof(struct unit_datum, object.body_vitality)==0x90)?1:-1];
+typedef char ios_save_damage_flags_layout[(offsetof(struct unit_datum, object.damage_flags)==0xb6)?1:-1];
+typedef char ios_save_shield_layout[(offsetof(struct unit_datum, object.shield_vitality)==0x94)?1:-1];
+typedef char ios_save_inventory_layout[(offsetof(struct unit_datum, unit.weapon_object_indices)==0x2a8)?1:-1];
+typedef char ios_save_grenade_layout[(offsetof(struct unit_datum, unit.grenade_counts)==0x2ce)?1:-1];
+typedef char ios_save_magazine_layout[(offsetof(struct weapon_datum, weapon.magazines)==0x258)?1:-1];
+typedef char ios_save_player_layout[(offsetof(struct player_datum, unit_index)==0x34)?1:-1];
+typedef char ios_save_object_capacity[(MAXIMUM_OBJECTS_PER_MAP==8192)?1:-1];
+#endif
+
 /* ---------- constants */
 
 enum
@@ -293,7 +308,13 @@ void game_state_save(
 	game_state_call_before_save_procs();
 
 	main_stop_time();
+#ifdef HALO_IOS_GUEST
+    ios_cheats_prepare_checkpoint();
+#endif
 	game_state_globals.saved_game_valid = (game_state_write_to_file()!=FALSE);
+#ifdef HALO_IOS_GUEST
+    ios_cheats_finish_checkpoint();
+#endif
 	main_start_time();
 
 	return;
@@ -309,6 +330,9 @@ void game_state_revert(
 		return;
 	}
 
+#ifdef HALO_IOS_GUEST
+    ios_cheats_before_checkpoint_load();
+#endif
 	game_state_call_before_load_procs();
 	game_state_read_from_file();
 	game_state_call_after_load_procs();

@@ -59,6 +59,11 @@ void cheat_active_camouflage_local_player(
 
 #ifdef HALO_IOS_GUEST
 #include "../../port/include/halo_ios_campaign_options.h"
+void ios_cheats_before_checkpoint_load(void);
+void ios_cheats_prepare_checkpoint(void);
+void ios_cheats_finish_checkpoint(void);
+long ios_cheat_projectile(long unit_index,long original);
+boolean ios_cheat_camera_detached(long unit_index);
 boolean ios_cheat_local_unit(long unit_index);
 boolean ios_cheat_enabled(long unit_index, unsigned int flag);
 real ios_cheat_jump_multiplier(long unit_index);

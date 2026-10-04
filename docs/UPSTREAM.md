@@ -32,7 +32,7 @@ The Linux page also describes the controls, settings and multiplayer functions, 
 
 ## Staying compatible
 
-Multiplayer needs compatible protocol versions and map content. Matching tested game builds are recommended. This app is built from the Halo CE Universal update that added the PC menus, and it follows the official project: upstream updates are reviewed and integrated separately. Build 84 is pending in [PR #2](https://github.com/xSkullHD/Halo-CE-IOS/pull/2) and [PR #3](https://github.com/xSkullHD/Halo-CE-IOS/pull/3), not released for iOS yet. When you update the app, update your PC game as well, and the other way round. See [Multiplayer](ios/MULTIPLAYER.md#compatibility).
+Multiplayer needs compatible protocol versions and map content. M2.6.53 integrates Universal build 89 (`39350fb81fda3bdf08693961d4ff2cece603e7f3`) while preserving the iOS host. Matching tested builds are recommended. Update your other clients alongside the app; Apple compilation and cross-platform device testing are still required for this update. See [Multiplayer](ios/MULTIPLAYER.md#compatibility).
 
 ## What this fork adds
 

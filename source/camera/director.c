@@ -141,6 +141,9 @@ symbols in this file:
 /* network_game_globals.c's */
 boolean network_game_distributed_client(void);
 
+#ifdef HALO_IOS_GUEST
+static unsigned ios_detached_camera_mask;
+#endif
 /* ---------- constants */
 
 /* ---------- macros */
@@ -624,6 +627,24 @@ static void director_choose_game_perspective(
 	struct director *director = director_get(local_player_index);
 
 	unit_index = player_control_get_unit_index(local_player_index);
+#ifdef HALO_IOS_GUEST
+    if(ios_cheat_camera_detached(unit_index) && !*director_camera_scripted) {
+        if(!(ios_detached_camera_mask & (1u<<local_player_index))) {
+            const struct observer_result *camera=observer_get_camera(local_player_index);
+            if(!camera)return;
+            flying_camera_new_from_point_and_vector((struct flying_camera *)director->camera_data,&camera->position,&camera->forward);
+            director_set_camera(local_player_index,(director_camera_update_proc)flying_camera_update,TRUE);
+            ios_detached_camera_mask|=1u<<local_player_index;
+        }
+        director->debug_controls=TRUE;
+        director_inhibit_input(local_player_index);director_inhibit_facing(local_player_index);
+        return;
+    }
+    if(ios_detached_camera_mask & (1u<<local_player_index)) {
+        ios_detached_camera_mask &= ~(1u<<local_player_index);
+        director->debug_controls=FALSE;force=TRUE;
+    }
+#endif
 	following = director_desired_perspective(unit_index, &perspective);
 #ifdef HALO_IOS_GUEST
 	if (perspective == _director_perspective_first_person &&
@@ -951,6 +972,9 @@ static void director_choose_camera(
 void director_initialize_for_new_map(
 	void)
 {
+#ifdef HALO_IOS_GUEST
+    ios_detached_camera_mask=0;
+#endif
 	short local_player_index;
 
 	director_globals.game_mode = game_in_editor() ? _director_mode_editor : _director_mode_game;

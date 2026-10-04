@@ -3647,12 +3647,32 @@ void WINAPI D3DDevice_SetIndices(D3DIndexBuffer *index_data, UINT base_vertex_in
 	D3D__IndexData = index_data ? (WORD *)index_data->Data : NULL;
 }
 
+#ifdef HALO_IOS_GUEST
+#include "halo_wireframe_edges.h"
+/* GLES has no polygon-mode wireframe. Convert only diagnostic polygon draws
+ * to edges; existing line/point draws keep their original behavior. */
+static BOOL ios_draw_wireframe(D3DPRIMITIVETYPE type,UINT count,const WORD *source,WORD minimum) {
+    unsigned topology;size_t edges;uint16_t *indices;
+    if(D3D__RenderState[D3DRS_FILLMODE]!=D3DFILL_WIREFRAME)return FALSE;
+    switch(type){case D3DPT_TRIANGLELIST:topology=0;break;
+        case D3DPT_TRIANGLESTRIP:topology=1;break;case D3DPT_TRIANGLEFAN:topology=2;break;
+        case D3DPT_QUADLIST:topology=3;break;default:return FALSE;}
+    indices=halo_wireframe_edges(topology,source,count,minimum,&edges);
+    if(indices){glDrawElements(GL_LINES,(GLsizei)edges,GL_UNSIGNED_SHORT,
+        (const void *)index_upload(indices,edges*sizeof(*indices)));free(indices);}
+    return TRUE; /* bounded diagnostic: skip failed/oversized draws */
+}
+#endif
+
 void WINAPI D3DDevice_DrawVertices(D3DPRIMITIVETYPE primitive_type, UINT start_vertex, UINT vertex_count)
 {
 	if (!vertex_count || !prepare_draw(FALSE))
 		return;
 	trace_draw("draw", primitive_type, vertex_count, NULL);
 	setup_streams(start_vertex, vertex_count);
+#ifdef HALO_IOS_GUEST
+    if(ios_draw_wireframe(primitive_type,vertex_count,NULL,0))return;
+#endif
 	if (primitive_type == D3DPT_QUADLIST)
 	{
 		unsigned long count;
@@ -3689,6 +3709,9 @@ void WINAPI D3DDevice_DrawIndexedVertices(D3DPRIMITIVETYPE primitive_type, UINT 
 	trace_draw("indexed", primitive_type, vertex_count, NULL);
 	/* (the streams from the base vertex on: index i is vertex base + i) */
 	setup_streams(device.base_vertex_index + minimum, maximum - minimum + 1);
+#ifdef HALO_IOS_GUEST
+    if(ios_draw_wireframe(primitive_type,vertex_count,index_data,(WORD)minimum))return;
+#endif
 	if (mirrored)
 	{
 		/* the attributes start at vertex minimum */
@@ -3764,6 +3787,9 @@ void WINAPI D3DDevice_End(void)
 		state_attribute_pointer(index, device.stream_buffer, 4, GL_FLOAT, GL_FALSE, FALSE, (GLsizei)stride,
 			offset + index * 4 * sizeof(float));
 	}
+#ifdef HALO_IOS_GUEST
+    if(ios_draw_wireframe(type,(UINT)count,NULL,0))return;
+#endif
 	if (type == D3DPT_QUADLIST)
 	{
 		unsigned long index_count;

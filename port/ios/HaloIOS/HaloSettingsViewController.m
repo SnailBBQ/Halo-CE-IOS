@@ -1,3 +1,4 @@
+#import "HaloCheckpointEditor.h"
 #import "HaloSettingsViewController.h"
 #import "HaloSettingsStore.h"
 #import "HaloUI.h"
@@ -43,9 +44,11 @@ typedef NS_ENUM(NSInteger, HaloCategory) {
     HaloCategoryLogs, HaloCategoryCount
 };
 
-@interface HaloSettingsViewController () <UITextFieldDelegate, UIDocumentPickerDelegate, UIColorPickerViewControllerDelegate, NSNetServiceBrowserDelegate>
+@interface HaloSettingsViewController () <UITextFieldDelegate, UIDocumentPickerDelegate, UIColorPickerViewControllerDelegate, NSNetServiceBrowserDelegate, NSNetServiceDelegate>
 @property(nonatomic, strong) UIView *detail;
 @property(nonatomic,strong) NSNetServiceBrowser *localNetworkProbe;
+@property(nonatomic,strong) NSNetService *localNetworkPublisher;
+@property(nonatomic,strong) UILabel *localNetworkStatus;
 @property(nonatomic, strong) UIStackView *stack;
 @property(nonatomic, strong) NSArray<UIButton *> *sidebar;
 @property(nonatomic) HaloCategory selected;
@@ -194,7 +197,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
     }
 }
 
-- (void)dealloc { [self.localNetworkProbe stop]; [self.chromaTimer invalidate];[self.connectionTimer invalidate]; if (self.campaignObserver) [[NSNotificationCenter defaultCenter] removeObserver:self.campaignObserver]; }
+- (void)dealloc { [self.localNetworkProbe stop];[self.localNetworkPublisher stop]; [self.chromaTimer invalidate];[self.connectionTimer invalidate]; if (self.campaignObserver) [[NSNotificationCenter defaultCenter] removeObserver:self.campaignObserver]; }
 
 - (void)choose:(HaloCategory)category
 {
@@ -327,9 +330,10 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUISwitchRow(@"Join links on the clipboard automatically", @"Off by default: reading the clipboard makes iOS ask for permission each time. Opening a halo:// link joins without it.",
                         settings->join_from_clipboard, ^(BOOL on) { [self update:^(HsSettings *s) { s->join_from_clipboard = on; }]; })])];
     [self add:HaloUICardView(@"Finding games on your Wi-Fi", @[
-        HaloUIButton(@"Request Local Network access",0,^(UIButton *b){(void)b;[self requestLocalNetworkAccess];}),
+        (self.localNetworkStatus=HaloUILabel(@"Permission has not been checked. A missing Settings entry does not mean access is granted.",14,UIFontWeightRegular,HaloUISecondaryText())),
+        HaloUIButton(@"Check Local Network access",0,^(UIButton *b){(void)b;[self requestLocalNetworkAccess];}),
         HaloUIButton(@"Open iOS app settings",0,^(UIButton *b){(void)b;[UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];}),
-        HaloUINote(@"Open the in-game LAN list while connected to Wi-Fi to request Local Network access. After iOS requests access, Halo CE should appear in Settings > Privacy & Security > Local Network. If it is listed, enable it. If no prompt appears, use an invite link and report the issue; guest-network isolation or signing restrictions can also prevent LAN discovery.")])];
+        HaloUINote(@"Connect to Wi-Fi, then check access above. Allow access if iOS asks. Halo can appear in Local Network settings only after iOS processes a request. LAN broadcast discovery also requires Apple’s multicast entitlement in the signed app; an ordinary sideload may not include it. Permission alone does not prove discovery works. Invite links remain available.")])];
 
     NSString *hostingInvite = HaloLastHostedInvite();
     if (hostingInvite) {
@@ -534,7 +538,12 @@ static NSString *HaloCategorySymbol(HaloCategory c)
 }
 - (UIView *)startupRow:(int)index {
     HsSettings current=[HaloSettingsStore.shared snapshot];
-    return HaloUISegmentRow(@"On app launch",@[@"Start Halo screen",@"Boot Halo immediately"],current.presets[index].startup_auto,^(NSInteger choice){[self update:^(HsSettings *s){s->presets[index].startup_auto=(int)choice;}];});
+    NSArray<NSString *> *choices=@[@"Start Halo CE iOS Title Screen",@"Boot Halo to Main Menu"];
+    UIButton *button=HaloUIButton(choices[(NSUInteger)!!current.presets[index].startup_auto],0,^(UIButton *b){
+        [self presentChoices:@"On app launch" names:choices from:self pick:^(NSUInteger choice){
+            [self update:^(HsSettings *s){s->presets[index].startup_auto=(int)choice;}];
+            [b setTitle:choices[choice] forState:UIControlStateNormal];}];});
+    return button;
 }
 - (void)buildDisplay:(const HsSettings *)settings
 {
@@ -643,11 +652,19 @@ static NSString *HaloOnCount(int count) { return count ? [NSString stringWithFor
         CHEAT_SWITCH(@"Bottomless clip", @"A magazine never empties.", cheat_reload),
         CHEAT_SWITCH(@"Rapid fire", @"Removes shot-rate and trigger-latch delays; charging and overheating remain.", cheat_rapid),
         CHEAT_SWITCH(@"No recoil", @"Removes the weapon kick; projectile spread is unchanged.", cheat_no_recoil)])];
-    [self addCheatSection:@"Weapons" summary:HaloOnCount(settings->cheat_ammo + settings->cheat_grenades + settings->cheat_reload + settings->cheat_rapid + settings->cheat_no_recoil) views:cards];
+    [cards addObject:HaloUICardView(nil,@[HaloUIButton(@"Drop Weapon Ring Around Player",0,^(UIButton *b){(void)b;[self queueCampaignAction:11];}),HaloUINote(@"Runs cheat_all_weapons using this map’s weapon collection.")])];
+    NSArray<NSString *> *projectileChoices=@[@"Original",@"Pistol bullet",@"Plasma rifle bolt",@"Needler needle",@"Rocket",@"Frag grenade",@"Plasma grenade"];
+    [cards addObject:HaloUICardView(@"Projectile Swapping",@[
+        HaloUIButton(projectileChoices[(NSUInteger)hs_clampi(settings->cheat_projectile,0,6)],0,^(UIButton *button){
+            [self presentChoices:@"Projectile Swapping" names:projectileChoices from:self pick:^(NSUInteger choice){
+                [self update:^(HsSettings *s){s->cheat_projectile=(int)choice;}];[button setTitle:projectileChoices[choice] forState:UIControlStateNormal];}];}),
+        HaloUINote(@"Local player weapon fire only. The chosen projectile must already be loaded by the map. Missing assets keep the original shot; weapon tags are not modified.")])];
+    [self addCheatSection:@"Weapons" summary:HaloOnCount(settings->cheat_ammo + settings->cheat_grenades + settings->cheat_reload + settings->cheat_rapid + settings->cheat_no_recoil + (settings->cheat_projectile!=0)) views:cards];
 
     cards = [NSMutableArray array];
     [cards addObject:HaloUICardView(@"Active Camo",@[
         HaloUISwitchRow(@"Infinite Active Camo",@"Maintains camouflage while enabled in this campaign session.",settings->cheat_camo,^(BOOL on){[self update:^(HsSettings *s){s->cheat_camo=on;}];}),
+        HaloUIButton(@"All Equipment Spawns",0,^(UIButton *b){(void)b;[self queueCampaignAction:12];}),
         HaloUIButton(@"Spawn Active Camo",0,^(UIButton *b){[self queueCampaignAction:3];}),
         HaloUIButton(@"Apply Active Camo",0,^(UIButton *b){[self queueCampaignAction:1];}),
         HaloUINote(@"Apply is a single timed pickup. Infinite is a separate toggle.")])];
@@ -661,22 +678,44 @@ static NSString *HaloOnCount(int count) { return count ? [NSString stringWithFor
     cards = [NSMutableArray array];
     [cards addObject:HaloUICardView(nil, @[
         CHEAT_SWITCH(@"Jetpack", @"The game's own jetpack: hold jump to rise.", cheat_jetpack),
+        CHEAT_SWITCH(@"Low Gravity", @"Uses one-quarter gravity for this campaign. Disable to restore the previous gravity.", cheat_low_gravity),
         CHEAT_SWITCH(@"Noclip", @"Fly through walls. Aim to move; jump rises and crouch descends. Disable inside clear space.", cheat_noclip)])];
     [cards addObject:HaloUICardView(@"Super jump", @[HaloUISliderRow(@"Value", 1, 10, settings->cheat_jump, @"%.1f", ^(float value) { [self update:^(HsSettings *s) { s->cheat_jump = value; }]; }), HaloUIButton(@"Enter value", 0, ^(UIButton *b) { HsSettings current = [[HaloSettingsStore shared] snapshot]; [self enterCampaignValue:@"Super jump" value:current.cheat_jump minimum:1 maximum:10 apply:^(float value) { [self update:^(HsSettings *s) { s->cheat_jump = value; }]; }]; })])];
     [cards addObject:HaloUICardView(@"Player speed", @[HaloUISliderRow(@"Value", 1, 5, settings->cheat_speed, @"%.1f", ^(float value) { [self update:^(HsSettings *s) { s->cheat_speed = value; }]; }), HaloUIButton(@"Enter value", 0, ^(UIButton *b) { HsSettings current = [[HaloSettingsStore shared] snapshot]; [self enterCampaignValue:@"Player speed" value:current.cheat_speed minimum:1 maximum:5 apply:^(float value) { [self update:^(HsSettings *s) { s->cheat_speed = value; }]; }]; })])];
-    [self addCheatSection:@"Movement" summary:HaloOnCount(settings->cheat_jetpack + settings->cheat_noclip + (settings->cheat_jump > 1.01f) + (settings->cheat_speed > 1.01f)) views:cards];
+    [self addCheatSection:@"Movement" summary:HaloOnCount(settings->cheat_jetpack + settings->cheat_noclip + settings->cheat_low_gravity + (settings->cheat_jump > 1.01f) + (settings->cheat_speed > 1.01f)) views:cards];
 
     cards = [NSMutableArray array];
-    [cards addObject:HaloUICardView(@"Slow motion", @[
-        HaloUISegmentRow(nil, @[@"Off", @"75%", @"50%", @"25%", @"10%"], settings->cheat_slow, ^(NSInteger index) {
-            [self update:^(HsSettings *s) { s->cheat_slow = (int)index; }]; }),
-        HaloUINote(@"Slows the whole game, including cutscenes. Off returns to normal speed.")])];
+    [cards addObject:HaloUICardView(@"AI Alliance",@[
+        HaloUISegmentRow(nil,@[@"Original",@"Human",@"Covenant",@"Flood",@"Sentinel"],settings->cheat_alliance,^(NSInteger choice){[self update:^(HsSettings *s){s->cheat_alliance=(int)choice;}];}),
+        HaloUINote(@"Changes the player's faction; AI use the map's normal team relationships. Original restores the previous team. Existing battles and scripts may not change immediately.")])];
+    NSArray<NSString *> *timeChoices=@[@"Normal (100%)",@"75%",@"50%",@"25%",@"10%",@"150%",@"200%",@"300%"];
+    [cards addObject:HaloUICardView(@"Time scale",@[
+        HaloUIButton(timeChoices[(NSUInteger)hs_clampi(settings->cheat_slow,0,7)],0,^(UIButton *button){
+            [self presentChoices:@"Time scale" names:timeChoices from:self pick:^(NSUInteger choice){
+                [self update:^(HsSettings *s){s->cheat_slow=(int)choice;}];[button setTitle:timeChoices[choice] forState:UIControlStateNormal];}];}),
+        HaloUINote(@"Changes the whole campaign, including AI and cutscenes. Normal restores game speed. High values increase CPU demand.")])];
     [cards addObject:HaloUICardView(nil, @[
+        CHEAT_SWITCH(@"Medusa Mode", @"Uses Halo’s Medusa behavior: hostile AI that detect the player are killed.", cheat_medusa),
+        CHEAT_SWITCH(@"Bumper Cars", @"Touch an AI-driven vehicle to take its driver seat. NPC bodies and other players are excluded.", cheat_hijack_vehicle),
+        CHEAT_SWITCH(@"Hijack NPCs", @"Touch a living non-player biped to possess it. Vehicles are excluded. Changing bodies may affect campaign scripts.", cheat_hijack_npc),
+        CHEAT_SWITCH(@"Infinite Vehicle Health", @"Restores the occupied vehicle’s body and shields while it is alive. Cannot revive destroyed vehicles.", cheat_vehicle_health),
         CHEAT_SWITCH(@"AI ignores you", @"Hostile units no longer notice the local player. They still fight each other and react to what they already know.", cheat_ai_ignore),
         CHEAT_SWITCH(@"Third person", @"Follow the player with the existing third-person camera.", cheat_third_person),
         CHEAT_SWITCH(@"Unlimited flashlight", @"Keeps its battery full; you still toggle the light.", cheat_flashlight)])];
+
+    [cards addObject:HaloUICardView(nil,@[
+        HaloUIButton(@"Erase All AI",2,^(UIButton *b){(void)b;
+            UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Erase all encounter AI?" message:@"This can prevent mission scripts from progressing. Revert a checkpoint to restore the scene." preferredStyle:UIAlertControllerStyleAlert];
+            [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+            [alert addAction:[UIAlertAction actionWithTitle:@"Erase AI" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a){(void)a;[self queueCampaignAction:14];}]];
+            [self presentViewController:alert animated:YES completion:nil];})])];
+    [self addCheatSection:@"World" summary:HaloOnCount((settings->cheat_slow != 0) + settings->cheat_ai_ignore + settings->cheat_third_person + settings->cheat_flashlight + settings->cheat_medusa + settings->cheat_hijack_npc + settings->cheat_hijack_vehicle + settings->cheat_vehicle_health + (settings->cheat_alliance!=0)) views:cards];
+    cards=[NSMutableArray array];
     [cards addObject:HaloUICardView(@"Vertical FOV (0 = default)", @[HaloUISliderRow(@"Value", 0, 90, settings->cheat_fov, @"%.1f", ^(float value) { [self update:^(HsSettings *s) { s->cheat_fov = value; }]; }), HaloUIButton(@"Enter value", 0, ^(UIButton *b) { HsSettings current = [[HaloSettingsStore shared] snapshot]; [self enterCampaignValue:@"Vertical FOV (0 = default)" value:current.cheat_fov minimum:0 maximum:90 apply:^(float value) { [self update:^(HsSettings *s) { s->cheat_fov = value; }]; }]; })])];
-    [self addCheatSection:@"World" summary:HaloOnCount((settings->cheat_slow != 0) + settings->cheat_ai_ignore + settings->cheat_third_person + settings->cheat_flashlight + (settings->cheat_fov > 0.5f)) views:cards];
+    [cards addObject:HaloUICardView(nil,@[CHEAT_SWITCH(@"Detach Camera from Player", @"On foot: fly with the sticks, R2/RT rises and L2/LT descends. Your body stays in place. Disable to return; the world continues running.", cheat_detach_camera)])];
+    [cards addObject:HaloUICardView(nil,@[CHEAT_SWITCH(@"Wireframe Render", @"Diagnostic triangle-edge view. Can reduce performance and expose hidden geometry; campaign only.", cheat_wireframe)])];
+    [self addCheatSection:@"Visuals" summary:HaloOnCount((settings->cheat_fov > 0.5f)+settings->cheat_wireframe+settings->cheat_detach_camera) views:cards];
+
 
     cards = [NSMutableArray array];
     [cards addObject:HaloUICardView(nil, @[
@@ -692,6 +731,7 @@ static NSString *HaloOnCount(int count) { return count ? [NSString stringWithFor
 
     cards = [NSMutableArray array];
     [cards addObject:HaloUICardView(@"To your crosshair", @[
+        HaloUIButton(@"Teleport To Camera",0,^(UIButton *b){(void)b;[self queueCampaignAction:13];}),
         HaloUIButton(@"Teleport me to crosshair", 0, ^(UIButton *b) { (void)b; [self queueCampaignAction:8]; }),
         HaloUIButton(@"Teleport enemies to crosshair", 0, ^(UIButton *b) { (void)b; [self queueCampaignAction:9]; }),
         HaloUINote(@"The target is the first level surface in front of the camera, up to a long way off. Enemies means living, hostile, AI-controlled units that are not in a vehicle (up to 24), placed in a ring around the point.")])];
@@ -766,12 +806,18 @@ static NSString *HaloOnCount(int count) { return count ? [NSString stringWithFor
     [rows addArrangedSubview:[self hudChoiceRow:index]];
     [rows addArrangedSubview:[self startupRow:index]];
     [rows addArrangedSubview:HaloUISegmentRow(@"Face buttons",@[@"Classic Xbox UI",@"Playstation UI"],p.face_style,^(NSInteger value) { [self update:^(HsSettings *s) { s->presets[index].face_style=(int)value; }]; })];
-    NSArray<NSString *> *names=@[@"God mode",@"Infinite ammo",@"Infinite grenades",@"Bottomless clip",@"One-hit kills",@"Unlimited flashlight",@"No fall damage",@"Rapid fire",@"No recoil",@"Third person",@"Noclip",@"Infinite Active Camo",@"Infinite Overshield",@"Jetpack",@"AI ignores you"];
+    NSArray<NSString *> *names=@[@"God mode",@"Infinite ammo",@"Infinite grenades",@"Bottomless clip",@"One-hit kills",@"Unlimited flashlight",@"No fall damage",@"Rapid fire",@"No recoil",@"Third person",@"Noclip",@"Infinite Active Camo",@"Infinite Overshield",@"Jetpack",@"AI ignores you",@"Medusa Mode",@"Low Gravity",@"Hijack NPCs",@"Infinite Vehicle Health",@"Wireframe Render",@"Bumper Cars",@"Detach Camera from Player"];
     for (NSUInteger bit=0;bit<names.count;++bit) {
-        unsigned flag=1u<<(unsigned)bit;
+        unsigned flag=1u<<(unsigned)(bit<15?bit:bit+3);
         [rows addArrangedSubview:HaloUISwitchRow(names[bit],nil,!!(p.cheat_flags&flag),^(BOOL on) { [self update:^(HsSettings *s) { if (on) s->presets[index].cheat_flags|=flag;else s->presets[index].cheat_flags&=~flag; }]; })];
     }
-    [rows addArrangedSubview:HaloUISegmentRow(@"Slow motion",@[@"Off",@"75%",@"50%",@"25%",@"10%"],p.cheat_slow,^(NSInteger value) { [self update:^(HsSettings *s) { s->presets[index].cheat_slow=(int)value; }]; })];
+    [rows addArrangedSubview:HaloUISegmentRow(@"Time scale",@[@"Normal",@"75%",@"50%",@"25%",@"10%",@"150%",@"200%",@"300%"],p.cheat_slow,^(NSInteger value) { [self update:^(HsSettings *s) { s->presets[index].cheat_slow=(int)value; }]; })];
+    NSArray<NSString *> *allianceChoices=@[@"Original",@"Human",@"Covenant",@"Flood",@"Sentinel"];
+    [rows addArrangedSubview:HaloUISegmentRow(@"AI Alliance",allianceChoices,p.cheat_alliance,^(NSInteger choice){[self update:^(HsSettings *s){s->presets[index].cheat_alliance=(int)choice;}];})];
+    NSArray<NSString *> *projectileChoices=@[@"Original",@"Pistol bullet",@"Plasma rifle bolt",@"Needler needle",@"Rocket",@"Frag grenade",@"Plasma grenade"];
+    [rows addArrangedSubview:HaloUIButton(projectileChoices[(NSUInteger)hs_clampi(p.cheat_projectile,0,6)],0,^(UIButton *button){
+        [self presentChoices:@"Preset projectile" names:projectileChoices from:weakEditor pick:^(NSUInteger choice){
+            [self update:^(HsSettings *s){s->presets[index].cheat_projectile=(int)choice;}];[button setTitle:projectileChoices[choice] forState:UIControlStateNormal];}];})];
     NSArray<NSString *> *actions=@[@"Spawn Active Camo",@"Spawn Overshield",@"Apply Active Camo",@"Apply Overshield"];
     for (NSUInteger bit=0;bit<actions.count;++bit) {
         unsigned flag=1u<<(unsigned)bit;
@@ -864,15 +910,16 @@ static NSString *HaloAge(NSTimeInterval stamp)
     HsPreset preset = settings->presets[settings->active];
     NSArray<NSString *> *frameModes = @[@"30 · Original", @"60 · Smooth", @"Uncapped"];
     NSString *hud = preset.hud_choice == 0 ? @"Default" : [NSString stringWithUTF8String:settings->hud_presets[preset.hud_choice - 1].name];
-    unsigned recipeCount = (unsigned)__builtin_popcount(preset.cheat_flags) + (preset.cheat_slow ? 1u : 0u);
+    unsigned recipeCount = (unsigned)__builtin_popcount(preset.cheat_flags) + (preset.cheat_slow ? 1u : 0u) + (preset.cheat_alliance?1u:0u) + (preset.cheat_projectile?1u:0u);
     [self add:HaloUICardView(@"What a profile holds", @[
-        HaloUINote(@"A profile is everything you have set up: your five control schemes with their layouts and cheat recipes, the HUD, display, audio and accent color choices. It does not include maps, saves, or cheats that are running right now. Backups (Advanced) can also keep it with your saves."),
+        HaloUINote(@"A profile is everything you have set up: your five control schemes with their layouts and cheat recipes, the HUD, display, audio and accent color choices. This is an app settings profile, separate from Halo’s player profile and checkpoint files. It does not include maps, saves, or active cheats. The campaign save editor changes validated on-disk health, shields, grenades and existing weapon ammo. Live cheats do not change an existing checkpoint. Backups (Advanced) can also keep it with your saves."),
         HaloUIValueRow(@"Control scheme in use", [NSString stringWithUTF8String:preset.name], nil),
         HaloUIValueRow(@"Game HUD", hud, nil),
         HaloUIValueRow(@"Frame rate", frameModes[(NSUInteger)settings->fps_mode % 3], nil),
         HaloUIValueRow(@"Volumes", [NSString stringWithFormat:@"Master %d · Music %d · Voices %d · Effects %d · Ambient %d", (int)lround(settings->volume * 100), (int)lround(settings->music_volume * 100), (int)lround(settings->dialogue_volume * 100), (int)lround(settings->effects_volume * 100), (int)lround(settings->ambient_volume * 100)], nil),
         HaloUIValueRow(@"Left-handed · Gyro", [NSString stringWithFormat:@"%@ · %@", preset.mirror ? @"On" : @"Off", preset.gyro ? @"On" : @"Off"], nil),
         HaloUIValueRow(@"Cheat recipe in this scheme", recipeCount ? [NSString stringWithFormat:@"%u items", recipeCount] : @"None", nil)])];
+    [self add:HaloUICardView(@"Campaign saves", @[HaloUIButton(@"Edit campaign checkpoint",1,^(UIButton *b){(void)b;UIViewController *editor=HaloCheckpointEditorController();editor.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:editor animated:YES completion:nil];}),HaloUINote(@"Direct edits apply on the next launch with recovery backups. Halo player profiles and campaign checkpoints can be exported separately in Manage backups.")])];
     [self add:HaloUICardView(@"Share or move a profile", @[
         HaloUIButton(@"Export profile…", 1, ^(UIButton *b) { [self exportProfile:b]; }),
         HaloUIButton(@"Import profile…", 0, ^(UIButton *b) { (void)b;
@@ -1011,7 +1058,7 @@ static UIColor *HaloColorFromRGB(unsigned rgb) {
 {
     [self add:HaloUICardView(@"Game",@[
         HaloUIButton(@"Quit Game",2,^(UIButton *b) { [self confirmAppQuit]; })])];
-    [self add:HaloUICardView(@"Startup",@[[self startupRow:settings->active],HaloUINote(@"Saved with the current control profile. A recovery start always pauses at Start Halo.")])];
+    [self add:HaloUICardView(@"Startup",@[[self startupRow:settings->active],HaloUINote(@"Saved with the current control profile. A recovery start always uses the Start Halo CE iOS Title Screen.")])];
     [self add:HaloUICardView(@"Heat and battery", @[
         HaloUISwitchRow(@"Lower the frame rate when the phone is hot", @"Smooth 60 and Uncapped drop to 45 when iOS reports serious heat or Low Power Mode, and to 30 when it is critical, and return when the phone cools. The original 30 FPS mode is never changed.", settings->thermal_cap, ^(BOOL on) { [self update:^(HsSettings *s) { s->thermal_cap = on; }]; }),
         HaloUISwitchRow(@"Performance overlay", @"Frame rate, frame interval, memory use, estimated available memory and thermal state. Position, size and opacity follow the FPS layout; available memory is not a crash threshold.", settings->perf_overlay, ^(BOOL on) { [self update:^(HsSettings *s) { s->perf_overlay = on; }]; })])];
@@ -1038,7 +1085,7 @@ static UIColor *HaloColorFromRGB(unsigned rgb) {
     NSString *version = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?";
     [self add:HaloUICardView(@"About", @[
         HaloUIValueRow(@"App version", version, nil),
-        HaloUIValueRow(@"Game", @"Halo CE Universal build 84", nil),
+        HaloUIValueRow(@"Game", @"Halo CE Universal build 89", nil),
         HaloUINote(@"Everyone in a multiplayer game must be on the same game build.")])];
     [self add:HaloUICardView(@"Credits",@[
         HaloUINote(@"Halo CE Universal and the iOS port contributors."),
@@ -1047,19 +1094,41 @@ static UIColor *HaloColorFromRGB(unsigned rgb) {
 /* Bonjour browsing invokes the system's Local Network privacy flow. This
  * diagnostic does not replace Halo's existing UDP LAN discovery transport. */
 - (void)requestLocalNetworkAccess {
-    [self.localNetworkProbe stop];
+    [self.localNetworkProbe stop];[self.localNetworkPublisher stop];
+    self.localNetworkStatus.text=@"Checking on this Wi-Fi network. Respond to the iOS prompt if it appears…";
     NSNetServiceBrowser *probe=[NSNetServiceBrowser new];self.localNetworkProbe=probe;probe.delegate=self;
-    [probe searchForServicesOfType:@"_haloce._udp." inDomain:@"local."];
+    [probe searchForServicesOfType:@"_haloce-check._tcp." inDomain:@"local."];
+    NSNetService *publisher=[[NSNetService alloc] initWithDomain:@"local." type:@"_haloce-check._tcp." name:[@"Halo-Access-" stringByAppendingString:NSUUID.UUID.UUIDString] port:0];
+    self.localNetworkPublisher=publisher;publisher.delegate=self;
+    [publisher publishWithOptions:NSNetServiceListenForConnections];
     __weak typeof(self) weakSelf=self;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,20*NSEC_PER_SEC),dispatch_get_main_queue(),^{
-        if(weakSelf.localNetworkProbe==probe){[probe stop];weakSelf.localNetworkProbe=nil;}
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,60*NSEC_PER_SEC),dispatch_get_main_queue(),^{
+        if(weakSelf.localNetworkProbe==probe){
+            [probe stop];[publisher stop];weakSelf.localNetworkProbe=nil;weakSelf.localNetworkPublisher=nil;
+            if([weakSelf.localNetworkStatus.text hasPrefix:@"Checking"])
+                weakSelf.localNetworkStatus.text=@"No permission result received. Check Wi-Fi and the signed app's privacy declarations. This is not confirmation of access.";
+        }
     });
 }
-- (void)netServiceBrowser:(NSNetServiceBrowser *)browser didNotSearch:(NSDictionary<NSString *,NSNumber *> *)errorDict {
+- (void)netServiceDidPublish:(NSNetService *)sender {
+    if(sender!=self.localNetworkPublisher)return;
+    self.localNetworkStatus.text=@"Bonjour publication succeeded. LAN broadcast discovery still depends on signing and your Wi-Fi network.";
+    NSLog(@"[HaloIOS-LAN] Bonjour permission check published successfully");
+}
+- (void)netService:(NSNetService *)sender didNotPublish:(NSDictionary<NSString *,NSNumber *> *)errors {
+    if(sender!=self.localNetworkPublisher)return;
+    self.localNetworkStatus.text=[NSString stringWithFormat:@"Local Network publication failed (domain %@, code %@). Check permission and signing. Use an invite if LAN discovery is unavailable.",errors[NSNetServicesErrorDomain],errors[NSNetServicesErrorCode]];
+    NSLog(@"[HaloIOS-LAN] publish failed: %@",errors);
+    [sender stop];
+}
+- (void)netService:(NSNetService *)sender didAcceptConnectionWithInputStream:(NSInputStream *)input outputStream:(NSOutputStream *)output {
+    (void)sender;[input close];[output close]; /* permission diagnostic, never a game server */
+}
+- (void)netServiceBrowser:(NSNetServiceBrowser *)browser didNotSearch:(NSDictionary<NSString *,NSNumber *> *)errors {
     if(browser!=self.localNetworkProbe)return;
-    [browser stop];self.localNetworkProbe=nil;
-    halo_ios_toast("Local Network check stopped. Check Wi-Fi and iOS app permissions.");
-    (void)errorDict;
+    [browser stop];self.localNetworkProbe=nil;[self.localNetworkPublisher stop];self.localNetworkPublisher=nil;
+    self.localNetworkStatus.text=[NSString stringWithFormat:@"Local Network browsing failed (domain %@, code %@). Check Wi-Fi, permission and signing.",errors[NSNetServicesErrorDomain],errors[NSNetServicesErrorCode]];
+    NSLog(@"[HaloIOS-LAN] browse failed: %@",errors);
 }
 - (void)confirmAppQuit {
     UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Quit Halo" message:@"Close Halo completely? Unsaved progress will be lost." preferredStyle:UIAlertControllerStyleAlert];

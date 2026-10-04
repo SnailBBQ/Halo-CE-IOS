@@ -2313,7 +2313,13 @@ static void trigger_create_projectiles(
 				boolean inside_bsp;
 				long projectile_object_index;
 
-				object_placement_data_new(&data, trigger_definition->projectile.index, projectile_owner_object_index);
+				object_placement_data_new(&data,
+#ifdef HALO_IOS_GUEST
+                    ios_cheat_projectile(owner_object_index,trigger_definition->projectile.index),
+#else
+                    trigger_definition->projectile.index,
+#endif
+                    projectile_owner_object_index);
 				data.position= origin;
 				data.forward= forward;
 

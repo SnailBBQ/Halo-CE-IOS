@@ -61,7 +61,7 @@ static NSURL *HaloExportExternalSaves(void) {
 @property(nonatomic,strong) NSURL *temporaryExport;
 @end
 @implementation HaloLibraryController
-- (void)viewDidLoad { [super viewDidLoad];self.view.backgroundColor=HaloUIBackground();self.title=self.maps?@"Mods":@"Backups";self.navigationController.navigationBar.tintColor=HaloUIAccent();self.mask=7;self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(close)];self.rows=HaloUIScrollingStack(self.view,12);[self render]; }
+- (void)viewDidLoad { [super viewDidLoad];self.view.backgroundColor=HaloUIBackground();self.title=self.maps?@"Mods":@"Backups";self.navigationController.navigationBar.tintColor=HaloUIAccent();self.mask=54;self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(close)];self.rows=HaloUIScrollingStack(self.view,12);[self render]; }
 - (void)close { if(!self.busy)[self dismissViewControllerAnimated:YES completion:nil]; }
 - (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
     (void)controller;if(self.temporaryExport){[NSFileManager.defaultManager removeItemAtURL:self.temporaryExport error:nil];self.temporaryExport=nil;}
@@ -81,7 +81,8 @@ static NSURL *HaloExportExternalSaves(void) {
     if(self.maps){[self renderMaps];return;}
     [self.rows addArrangedSubview:HaloUICardView(@"Backup contents",@[
         HaloUINote(@"Back up on-disk progress after saving. Maps are optional. Files lets you choose iCloud Drive or another destination. Active cheats, invite links and temporary sessions are excluded."),
-        HaloUISwitchRow(@"Saves and profiles",nil,!!(self.mask&1),^(BOOL on){weakSelf.mask=on?weakSelf.mask|1:weakSelf.mask&~1u;}),
+        HaloUISwitchRow(@"Campaign saves",@"Persistent checkpoints and their save metadata. Temporary map caches are excluded.",!!(self.mask&16),^(BOOL on){weakSelf.mask=on?weakSelf.mask|16:weakSelf.mask&~16u;}),
+        HaloUISwitchRow(@"Halo player profiles",@"Player profiles, playlists and last-used profile references. Restore the matching profile with a campaign save on a fresh installation.",!!(self.mask&32),^(BOOL on){weakSelf.mask=on?weakSelf.mask|32:weakSelf.mask&~32u;}),
         HaloUISwitchRow(@"App preferences",nil,!!(self.mask&2),^(BOOL on){weakSelf.mask=on?weakSelf.mask|2:weakSelf.mask&~2u;}),
         HaloUISwitchRow(@"Touch / HUD layouts and presets",nil,!!(self.mask&4),^(BOOL on){weakSelf.mask=on?weakSelf.mask|4:weakSelf.mask&~4u;}),
         HaloUISwitchRow(@"Map files and thumbnails",@"May require substantial storage. No compression is applied.",!!(self.mask&8),^(BOOL on){weakSelf.mask=on?weakSelf.mask|8:weakSelf.mask&~8u;}),
