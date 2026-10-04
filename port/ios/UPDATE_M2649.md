@@ -1,4 +1,4 @@
-# M2.6.49 — Halo CE Universal update (PC menus, server browser) and a build fix
+# M2.6.49 — Halo CE Universal update (PC menus) and build fixes
 
 Based on M2.6.48. Merged with a newer Halo CE Universal. Nothing here has been compiled for iOS or run on a device; CI compiles
 the game and the app.
@@ -18,10 +18,10 @@ merged cleanly, and the conflicts in `d3d8_gl.c` and `sound_manager.c` were inde
 hook is still in its file (the count of hooks per file is identical), and so are the ported upstream fixes, the cheat hooks and the HUD
 and audio hooks.
 
-- **PC menus (the new default)**: the Halo Custom Edition menus: Server Browser, LAN, Direct Link (paste an invite), Create Game for the
+- **PC menus (the new default)**: the Halo Custom Edition menus: Join Game (LAN, Direct Link to paste an invite, and a Server Browser that is still blank upstream), Create Game for the
   Internet or LAN, Edit Gametypes, and the redrawn profile and settings screens. Upstream's README says many of these are not wired yet;
-  that list is out of date, because `menu_functions.c` implements the server browser rows, Direct Link, the server settings and starting a
-  game. Settings > Display > Menus chooses PC menus or the original Xbox menus (which keep System Link), read at launch.
+  that list is out of date for most of them: `menu_functions.c` implements LAN, Direct Link, Create Game, the server settings and starting a game.
+  **Correction:** the public Server Browser is still blank upstream (its own source comment says so), so that entry shows no servers. Settings > Display > Menus chooses PC menus or the original Xbox menus (which keep System Link), read at launch.
 - **Safe Start uses the Xbox menus**, so a failure caused by the new menus cannot keep the game from starting.
 - **Two new host imports** the key bindings call at start-up, `host_sdl_scancode_name` and `host_sdl_scancode_from_name`. The iOS host has
   no SDL, so `halo_scancodes.h` holds SDL3's key numbers and names (tested). Without them the game would stop when it reads its bindings.
@@ -41,7 +41,7 @@ and audio hooks.
 ## Device checklist
 
 1. First launch with the PC menus: main menu, Campaign, Multiplayer.
-2. Multiplayer: Server Browser, LAN, Direct Link (paste an invite), Create Game > Internet and > LAN. Check hosting still shows the invite in
+2. Multiplayer: LAN, Direct Link (paste an invite), Create Game > Internet and > LAN. The Server Browser entry is expected to be empty. Check hosting still shows the invite in
    Settings > Multiplayer, and joining from the PC client still works.
 3. Settings > Display > Menus > Xbox menus, reopen the app: System Link as before.
 4. Settings still opens, the controls overlay still works in the menus.

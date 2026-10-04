@@ -1,160 +1,100 @@
-# Halo: Combat Evolved for Linux, Windows, Android and iOS
+# Halo: Combat Evolved for iOS
 
-Current iOS update: **M2.6.50** — picture aspect/detail choices, opt-in touch aiming and AirPlay mirroring guidance, shared by the regular and separate mod-test apps. See [release notes](port/ios/UPDATE_M2650.md). Device validation is pending.
+A native iPhone and iPad port of *Halo: Combat Evolved*. It runs the recovered Xbox engine from
+[Halo CE Universal](https://github.com/cybersecurity/halo-ce-universal) inside a native iOS app, with touch and
+controller support, cross-play multiplayer with Halo CE Universal players, and a full in-app Settings menu.
 
-[![Join our Discord](https://invidget.switchblade.xyz/9gqcHyr5km)](https://discord.gg/9gqcHyr5km)
+> **You are on the regular app branch.** A separate **Mod Test** app lives on the [`ios/cursed-a10-mod-test`](https://github.com/xSkullHD/Halo-CE-IOS/tree/ios/cursed-a10-mod-test) branch.
 
-This project is a port of the Halo: Combat Evolved decompilation to Linux,
-Windows, Android and an experimental iOS port. The decompilation is of the Xbox build 2342
-(`cachebeta.exe`, SHA-256
-`4cc87b45f721270392a96f1674ed2b5cd4a7bb4355faeab4531d1cf1884d9520`).
+> **Status: experimental.** The current update is **M2.6.50**. The core game (menus, campaign, multiplayer, audio)
+> has been tested on a physical iPhone. The newest features are built and checked by automated tests but still wait for
+> on-device validation; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
-<img width="1289" height="995" alt="The game on Linux" src="https://github.com/user-attachments/assets/0d3ad50f-f8b8-46cf-aef8-e3661da2a7d7" />
+## Highlights
 
-The port starts from the decompilation of [bnunu/halo-1](https://github.com/bnunu/halo-1).
-That project is a fork of [punpckhdq/halo](https://github.com/punpckhdq/halo).
+- **Native app.** An `arm64` iOS app hosts the recovered `arm64_32` engine and draws with OpenGL ES 3. iOS and iPadOS 15 or later.
+- **Touch controls.** Five named control schemes (Xbox and PlayStation styles), a drag-to-edit layout, touch look, floating sticks, left-handed
+  layout, toggle crouch and zoom, gyro aiming and optional touch-aiming helpers. [Controls guide](docs/ios/CONTROLS.md)
+- **Controller support.** Xbox, PlayStation and other controllers supported by Apple's GameController framework, with stick tuning and button remapping.
+- **Multiplayer.** Cross-play with Halo CE Universal on PC: invite links, an invite file in iCloud Drive or the app's folder, a QR code,
+  recent games, LAN games, and the Direct Link and Create Game screens. [Multiplayer guide](docs/ios/MULTIPLAYER.md)
+- **Display.** 30 FPS original, smooth 60 or uncapped; 4:3, widescreen or fullscreen; three render-detail levels; a live HUD editor;
+  first-person view options; AirPlay mirroring. [Settings reference](docs/ios/SETTINGS.md), [AirPlay](docs/ios/AIRPLAY.md)
+- **Sound.** Native audio with separate Master, Music, Dialogue, Effects and Ambient volumes.
+- **Campaign tools.** An optional, campaign-only Cheats menu organised into sections (survival, weapons, power-ups, movement, world,
+  checkpoints, teleport, spawn), with a saved cheat recipe for each control scheme.
+- **Your data, kept safe.** A map library with Mods support, versioned backups you can export to Files or iCloud Drive, profile export and import,
+  and diagnostics with a one-tap problem report. [Backups](docs/ios/BACKUPS.md)
 
-## iOS development status
+## Quick start
 
-This fork is based on Halo CE Universal **build 73** and adds an experimental native iOS app (arm64 host, arm64_32 guest, OpenGL ES 3).
-The iOS build has on-screen Xbox controls with five named schemes, touch-look, physical controller support, sound, a readable log and
-invite-link multiplayer that follows the other ports' protocol. See [iOS port status](IOS_PORT_STATUS.md), the
-[M2.6.50 release notes](port/ios/UPDATE_M2650.md) and the [iOS build, installation, and map setup guide](port/ios/README.md).
-Current iOS update: **M2.6.50** adds picture aspect/detail choices and opt-in touch aiming to the regular and mod-test apps; device validation is pending. Previous iOS milestone: **M2.6.42**. M2.6.42 replaces M2.6.41’s costly upload-every-draw fallback with exact native geometry comparisons: unchanged pages avoid GPU uploads while modified/reused pages remain fresh. Active cheats are session-only; presets have gear editors, campaign recipes and Xbox/PlayStation face-button styles. Advanced adds explicit Quit, manual Restart instructions and GitHub Credits. Device FPS, visuals and client stability need validation.
-Release downloads below are the upstream project's; the iOS build is an Actions artifact (**Halo CE iOS — Build IPA**).
+1. **Get the app.** Download the pre-built `HaloCE.ipa` from the [latest release](https://github.com/xSkullHD/Halo-CE-IOS/releases/latest), or
+   [build it yourself](docs/ios/BUILD.md) with GitHub Actions. No Mac is needed.
+2. **Install it.** The IPA must be re-signed and sideloaded onto your device. [Install guide](docs/ios/INSTALL.md)
+3. **Add your game data.** The app does not include any game files. Import the Xbox `.map` files from your own copy of the game,
+   including `ui.map`. [Game data guide](docs/ios/GAME_DATA.md)
+4. **Play.** Open Halo CE, import your maps and start the game. Open the gear button at any time for Settings.
 
-## Download
+## Two apps from one project
 
-GitHub Actions builds the game for each commit. These links download the
-builds of the latest release:
-
-| Platform | Release | Debug |
+| | **Halo CE** (regular) | **Halo CE Mod Test** |
 | --- | --- | --- |
-| Linux | [halo-linux-release.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-linux-release.zip) | [halo-linux-debug.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-linux-debug.zip) |
-| Windows | [halo-windows-release.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-windows-release.zip) | [halo-windows-debug.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-windows-debug.zip) |
-| Android | [halo-android-release.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-android-release.zip) | [halo-android-debug.zip](https://github.com/cybersecurity/halo-ce-universal/releases/latest/download/halo-android-debug.zip) |
+| Purpose | The regular app | A separate experiment that loads very large converted campaign maps |
+| Branch | [`main`](https://github.com/xSkullHD/Halo-CE-IOS/tree/main) | [`ios/cursed-a10-mod-test`](https://github.com/xSkullHD/Halo-CE-IOS/tree/ios/cursed-a10-mod-test) |
+| Workflow | Halo CE iOS — Build IPA | Halo CE iOS — Mod Loading Test |
+| Output | `HaloCE.ipa` (artifact `HaloCE-iOS`) | `HaloCE-ModTest.ipa` (artifact `HaloCE-iOS-ModTest`) |
+| Bundle ID | `com.haloceuniversal.ios.m0` | `com.haloceuniversal.ios.modtest` |
+| Invite scheme | `halo://` | `halomodtest://` |
 
-Use the release build to play. The debug build stops at the first failed
-assertion and writes it to the log. Use the debug build to find and report
-problems.
+Both apps share the same features and are kept up to date together. They install side by side and keep separate data. See
+[Mod Test](docs/ios/MOD_TEST.md) for what makes the second app different.
 
-The game updates itself. At start-up it looks for a newer release, and asks
-if you want to install it. Refer to "Updates" in
-[port/linux/README.md](port/linux/README.md#updates).
+## Documentation
 
-Each build of the `main` branch that passes on all three platforms is a new
-release. The [Releases](https://github.com/cybersecurity/halo-ce-universal/releases)
-page keeps the last five releases. If the latest build has a problem, get
-an older build from that page.
-
-## Game data
-
-The port does not include the game data. Download an Xbox disc image
-(`.xiso` or `.iso`) of Halo: Combat Evolved. All versions of the game
-operate. The maps of the European (PAL) version were made for a slower
-console. The port changes them to play as the North American (NTSC) maps do,
-so players of the two versions can play together.
-
-1. Start the game.
-2. At the first start, the game asks for the disc image. Select it.
-3. The game extracts the `maps/` folder. Then the game starts.
-
-On Linux and Windows, the game puts `maps/` next to the executable. On
-Android, copy the disc image to the phone first. The app puts `maps/` in its
-data folder. Refer to [port/android/README.md](port/android/README.md).
-
-## Platforms
-
-Each platform has its own instructions:
-
-| Platform | Instructions |
+| Guide | What it covers |
 | --- | --- |
-| Linux (32-bit x86 executable, OpenGL 4.5, SDL3) | [port/linux/README.md](port/linux/README.md) |
-| Windows (32-bit x86 executable, OpenGL 4.5, SDL3) | [port/windows/README.md](port/windows/README.md) |
-| Android (arm64 app, OpenGL ES 3, SDL3) | [port/android/README.md](port/android/README.md) |
-| iOS/iPadOS 15+ (arm64 host, arm64_32 guest, OpenGL ES 3; experimental) | [port/ios/README.md](port/ios/README.md) |
+| [Install](docs/ios/INSTALL.md) | Requirements, getting the IPA, sideloading, first launch, updating |
+| [Build the IPA](docs/ios/BUILD.md) | Building with GitHub Actions or on a Mac, build options, publishing a release |
+| [Game data](docs/ios/GAME_DATA.md) | Importing maps, extracting maps from an Xbox ISO or XISO, where files live |
+| [Backups](docs/ios/BACKUPS.md) | What a backup contains, exporting, restoring, recovery |
+| [Settings reference](docs/ios/SETTINGS.md) | Every Settings screen and option |
+| [Controls](docs/ios/CONTROLS.md) | Touch controls, controllers, gyro, touch aiming |
+| [Multiplayer](docs/ios/MULTIPLAYER.md) | Invites, iCloud Drive and folder invite files, LAN, cross-play |
+| [AirPlay](docs/ios/AIRPLAY.md) | Showing the game on a TV or display |
+| [Troubleshooting](docs/ios/TROUBLESHOOTING.md) | Safe Start, logs, problem reports, common problems |
+| [Mod Test](docs/ios/MOD_TEST.md) | The separate Mod Test app |
+| [Release notes](docs/ios/RELEASE_NOTES.md) | Every update, with its device checklist |
+| [Official project and other platforms](docs/UPSTREAM.md) | Halo CE Universal, its downloads and credits |
 
-The Linux README also gives the controls, the settings and the multiplayer
-functions. These are almost the same on all platforms.
+## Looking for the official project or other platforms?
 
-## Multiplayer
+This repository is an iOS-focused fork. The official project, its updates, and the Windows, Linux and Android versions
+are maintained by **Halo CE Universal**:
 
-The game can play system link games on a local network and on the internet:
+- Repository: <https://github.com/cybersecurity/halo-ce-universal>
+- Releases and downloads: <https://github.com/cybersecurity/halo-ce-universal/releases>
 
-- A system link game can have up to 128 players on up to 128 machines.
-- Linux, Windows and Android machines can play in the same game.
-- An invite link lets a machine join a game on the internet. No server of
-  this project is necessary.
-- The netcode is new. Each machine moves its own player at once,
-  and the host makes the decisions for the game. Refer to
-  [port/linux/NETCODE.md](port/linux/NETCODE.md).
+[Official project and other platforms](docs/UPSTREAM.md) lists the downloads, where each platform is documented, and the credits.
+The original README of the upstream project is kept in [docs/UPSTREAM_README.md](docs/UPSTREAM_README.md).
 
-## Build the game
+## Credits
 
-You do not need the Xbox SDK. The port supplies the SDK declarations that
-the game uses. Refer to [port/include/xdk](port/include/xdk/README.md).
+This port exists because of the work of others:
 
-To build the game:
+- **[Halo CE Universal](https://github.com/cybersecurity/halo-ce-universal)** and its contributors: the cross-platform port of the decompiled
+  engine, its netcode and invite-link multiplayer, the Custom Edition style menus, and the project this app is built on.
+- **[bnunu/halo-1](https://github.com/bnunu/halo-1)**, the decompilation of the Xbox build 2342 (`cachebeta.exe`) that Halo CE Universal starts from,
+  and **[punpckhdq/halo](https://github.com/punpckhdq/halo)**, the project it was forked from.
+- **Bungie**, who created *Halo: Combat Evolved*, and **Microsoft / Xbox Game Studios** and **343 Industries**, its later owners and stewards.
+- The open-source libraries bundled in [`port/third_party`](port/third_party): expat, extract-xiso, kcp, mbedtls, miniupnpc, musl math, stb and
+  tomlc17, each under its own license.
+- The iOS port in this repository is maintained by [xSkullHD](https://github.com/xSkullHD/Halo-CE-IOS).
 
-1. Install Python and [ninja](https://ninja-build.org/).
-2. Install the tools for your platform. Refer to the README for the
-   platform.
-3. In the root folder of the repository, enter `python configure.py`.
-4. Enter `ninja` with the target for the platform:
+See [Official project and other platforms](docs/UPSTREAM.md#credits) for details.
 
-| Target | Result |
-| --- | --- |
-| `ninja linux` | `build/linux/halo` |
-| `ninja windows` (on Windows) | `build/windows/halo.exe` and `SDL3.dll` |
-| `ninja android_apk` | `port/android/app/build/outputs/apk/debug/app-debug.apk` |
+## Legal
 
-If you enter `ninja` without a target, ninja builds the game for the
-computer that you use.
-
-`tools/ci_build.py` makes the same builds as GitHub Actions. For example,
-enter `python tools/ci_build.py linux release`.
-
-### Build options
-
-Give these options to `configure.py`:
-
-| Option | Result |
-| --- | --- |
-| (none) | A debug build. A failed assertion stops the game. |
-| `--release` | A release build. The game does not examine assertions, as in the retail game. |
-| `--portable` | The Linux and Windows builds operate on all x86-64 processors. Use this option for builds that you give to other persons. |
-| `--lto=thin`, `--lto=off` | Less link-time optimization. The link is faster. |
-| `--pgo=off` | No profile-guided optimization. |
-| `--pgo=train` | Records a new optimization profile. Refer to "Optimization profiles". |
-
-Without `--portable`, the Linux and Windows builds use all the instructions
-of the processor that builds them (`-march=native`). Such a build does not
-always start on a different computer.
-
-### Optimization profiles
-
-The builds use profiles of the game to optimize the code:
-
-- `pgo/halo_linux.profdata` for Linux and Android.
-- `pgo/halo_windows.profdata` for Windows.
-
-The profiles need clang 22 or later. With an older clang, the builds do not
-use the profiles.
-
-To record a new profile:
-
-1. Delete the profile.
-2. Enter `python configure.py --pgo=train`.
-3. Enter `ninja linux` or `ninja windows`.
-
-The build then plays the main menu and the first minute of each campaign
-level. This procedure continues for approximately 15 minutes. The game
-data must be in `assets/`.
-
-## M2.6.41 geometry correction
-
-Device testing found campaign world corruption as well as multiplayer mesh distortion. The iOS GPU geometry mirror incorrectly treated no-op write-tracking generations as unchanged data. Requested ranges now refresh before every draw, including same-frame writes and reused map addresses. This may increase upload cost; FPS and visual correctness need device validation. The guest_glUniform4fv execution fault remains under investigation. See [release notes](port/ios/UPDATE_M2642.md). Swipe-away terminates the app through iOS; final callbacks and iCloud cleanup are best-effort, with existing next-launch cleanup retained.
-
-## M2.6.42 update
-
-M2.6.42 replaces M2.6.41’s costly upload-every-draw fallback with exact native geometry comparisons: unchanged pages avoid GPU uploads while modified/reused pages remain fresh. Active cheats are session-only; presets have gear editors, campaign recipes and Xbox/PlayStation face-button styles. Advanced adds explicit Quit, manual Restart instructions and GitHub Credits. Device FPS, visuals and client stability need validation.
+This is an unofficial, non-commercial fan project. It is not affiliated with or endorsed by Microsoft, Xbox Game Studios, 343 Industries or
+Bungie. *Halo* and related names are trademarks of Microsoft. **No game data is included.** You need your own copy of the game, and you
+are responsible for using it in line with its license. The source code in this repository is released under [CC0 1.0](LICENSE.md); bundled third-party
+code keeps its own license.
