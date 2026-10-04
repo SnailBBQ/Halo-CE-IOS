@@ -87,7 +87,7 @@ or join a game. Cheats that spawn things use only assets the current map has alr
 | --- | --- |
 | Survival | God mode; One-hit kills (hostile units only); No fall damage; **Restore health and shield** (a one-time refill; an over-charged shield is never lowered). |
 | Weapons | Infinite ammo; Infinite grenades; Bottomless clip (no reloading); Rapid fire; No recoil; Drop Weapon Ring Around Player (the map’s cheat weapon collection); Projectile Swapping (loaded tags only, local player only). |
-| Power-ups | **Active Camo** and **Overshield**, each with *Infinite* (refreshes only the living local player and stops when switched off), *Spawn* and *Apply*. All Equipment Spawns uses the map’s configured cheat-powerup collection. Applied camo uses the normal pickup timer. Applied overshield charges once and is consumed by damage; it has no universal expiry timer. |
+| Power-ups | **Active Camo** and **Overshield**, each with *Infinite* (refreshes only the living local player and stops when switched off), *Spawn* and *Apply*. Applied camo uses the normal pickup timer. Applied overshield charges once and is consumed by damage; it has no universal expiry timer. |
 | Movement | Jetpack; Noclip (aim to move, jump rises, crouch descends); Super jump (1–10); Player speed (1–5); Low Gravity (25% of the current gravity, restored when switched off). |
 | World | Time scale (10%, 25%, 50%, 75%, 100%, 150%, 200% or 300%, including cutscenes); AI ignores you; Third person; Unlimited flashlight; Medusa Mode (hostile AI detecting you die); Bumper Cars (hijack an AI-driven vehicle on contact); Hijack NPCs (possess living non-player bipeds on contact); Infinite Vehicle Health (occupied vehicle only); AI Alliance (Human, Covenant, Flood or Sentinel); Erase All AI (encounter AI, with confirmation). |
 | Visuals | Vertical FOV (0 is the normal setting, otherwise 20–90 degrees); Wireframe Render (bounded triangle-edge visualization); Detach Camera from Player (flying camera; body frozen, world continues; on foot, outside scripted cameras). |
@@ -165,3 +165,20 @@ The performance overlay shares the FPS layout's saved position, scale, visibilit
 In Controls → Edit Button Layout, drag the FPS/performance overlay directly. **FPS / Stats** opens its existing scale, opacity and visibility controls. These edits share the saved FPS layout.
 
 Detached camera uses the flying camera’s sticks, with RT/LT (R2/L2) to rise/descend. The player’s previous suspension state is restored when detachment ends, and the temporary body freeze is removed before a checkpoint is written. Projectile changes affect newly created local-player shots and keep the original projectile if the selected tag is missing. Faster time and world/AI cheats can disrupt mission scripts; revert a checkpoint to recover. Infinite Vehicle Boost and Force Skull Modifiers are not exposed because this recovered engine has no validated matching systems.
+
+### Cheat shortcuts and control tuning (M2.6.62)
+
+Each shortcut has a cheat selector, a button sequence and gap/total time limits.
+Tap the touch-button grid or select Record gamepad buttons and press your controller.
+Save commits the changes; Cancel discards them. An empty sequence disables the shortcut.
+Controller input is withheld from gameplay while the editor is open. Cheat shortcuts
+operate only in solo campaign. Module headers list active cheat names.
+
+Controls are grouped into Touch Controls, Gamepad Controls and Halo Controller Settings.
+Gamepad tuning is applied immediately to held stick positions without generating button presses.
+Gyro yaw follows the direction of the device by default; both inversion switches remain available.
+
+Weapon Giver is in Weapons, before Projectile Swapping. Its grenade buttons refill frag
+or plasma grenades once to the current map's normal capacity. Drop Weapon Ring follows
+Projectile Swapping. Spawn contains vehicles only. All Equipment Spawns has been removed
+from the app's UI and action dispatch; old bindings to that action are disabled.

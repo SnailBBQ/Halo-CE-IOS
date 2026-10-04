@@ -82,10 +82,14 @@ Compare the same diagnostic IPA installed through a known-working environment an
 
 ## Stock iOS compatibility test
 
-M2.6.61 includes a separate **Halo Compatibility Test** app. It attempts a direct
-aligned 4 GiB reservation, preserving the engine's addressing requirements. Its
-data is separate: import maps or restore a backup; do not delete your regular app.
-This is an allocation experiment, not a way to grant missing signing privileges.
+M2.6.62 uses the existing **Halo CE Mod Test** app for the optional direct-allocation
+experiment. It no longer creates a separate Compatibility Test app. Manually run
+the main IPA workflow with `compatibility_test=true` to build the maintained
+`ios/modtest` source with the aligned-allocation experiment enabled. It replaces
+the Mod Test installation, so export its saves and profiles before testing.
+The official app keeps the proven allocator. Both apps provide Startup Help
+and Share logs. The Sideloadly test on iOS 16.2 still failed to reserve the
+aligned arena when both memory entitlements were absent; this is not a signing bypass.
 
 1. In the developer/signing setup, enable **Extended Virtual Addressing** for the
    actual App ID if the account supports it, then regenerate the provisioning

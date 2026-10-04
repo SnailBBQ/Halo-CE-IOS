@@ -31,6 +31,8 @@ int main(void)
     he_set(&s,17,"Player");CHECK(s.game_profile_ready && !strcmp(s.game_name,"Player"),"engine profile name copied without retaining pointers");
     CHECK(hs_serialize(&s,text,sizeof(text))>0 && hs_parse(&t,text) && !t.game_profile_ready && !t.game_name[0],"Halo-owned profile data never persists in the app settings export");
 
+    s.shortcuts[1].action=29;s.shortcuts[2].action=30;s.shortcuts[3].action=31;hs_sanitize(&s);
+    CHECK(s.shortcuts[1].action==0 && s.shortcuts[2].action==30 && s.shortcuts[3].action==31,"retired equipment shortcut disables without renumbering camera and AI actions");
     /* Display geometry, legacy defaults and touch profile persistence. */
     hs_defaults(&s);
     CHECK(s.display_mode == 0 && s.render_quality == 0, "legacy performance picture remains default");

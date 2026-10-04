@@ -93,7 +93,8 @@ static inline void hp_gyro_look(float rate_x, float rate_y, float dt, float sens
         *look_x = *look_y = 0.0f;
         return;
     }
-    *look_x = orientation * (flip_yaw ? -1.0f : 1.0f) * yaw * dt * sensitivity * HP_GYRO_POINTS_PER_RADIAN;
+    /* Device yaw and screen look have opposite signs; pitch is unchanged. */
+    *look_x = -orientation * (flip_yaw ? -1.0f : 1.0f) * yaw * dt * sensitivity * HP_GYRO_POINTS_PER_RADIAN;
     *look_y = orientation * (flip_pitch ? -1.0f : 1.0f) * pitch * dt * sensitivity * HP_GYRO_POINTS_PER_RADIAN;
 }
 

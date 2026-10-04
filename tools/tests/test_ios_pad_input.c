@@ -78,7 +78,7 @@ int main(void)
     hp_gyro_look(0, 0, 0.016f, 1.0f, 0, 0, 0, 0.02f, &lx, &ly);
     CHECK(lx == 0 && ly == 0, "no turning, no look");
     hp_gyro_look(1.0f, 0.5f, 0.01f, 1.0f, 0, 0, 0, 0.02f, &lx, &ly);
-    CHECK(fabsf(lx - 4.2f) < 1e-4f && fabsf(ly - 2.1f) < 1e-4f, "1 rad/s for 10 ms is 4.2 points (%f %f)", lx, ly);
+    CHECK(fabsf(lx + 4.2f) < 1e-4f && fabsf(ly - 2.1f) < 1e-4f, "1 rad/s for 10 ms is 4.2 points (%f %f)", lx, ly);
     float fx, fy;
     hp_gyro_look(1.0f, 0.5f, 0.01f, 1.0f, 1, 0, 0, 0.02f, &fx, &fy);
     CHECK(fabsf(fx + lx) < 1e-5f && fabsf(fy + ly) < 1e-5f, "the other landscape reverses both");

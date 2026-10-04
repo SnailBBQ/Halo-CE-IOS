@@ -7,7 +7,7 @@ cannot prove how the app looks or feels on a device, so every note says what sti
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.61](../../port/ios/UPDATE_M2661.md) adds startup failure guidance, signed-capability verification and a separate direct-allocation test app. Stock iOS compatibility remains unverified.
+**Latest:** [M2.6.62](../../port/ios/UPDATE_M2662.md) adds a button-based shortcut editor, clearer cheat summaries, grenade giving, organized controls and corrected gyro yaw. Allocation testing now uses the existing Mod Test app.
 
 **Previous:** [M2.6.60](../../port/ios/UPDATE_M2660.md) preserves held touch and controller input during unrelated settings synchronization.
 

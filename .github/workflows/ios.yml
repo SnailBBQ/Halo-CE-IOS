@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       compatibility_test:
-        description: 'Separate test app: direct aligned 4 GiB allocation (not a signing bypass)'
+        description: 'Mod Test app: direct aligned 4 GiB allocation (not a signing bypass)'
         type: boolean
         default: false
       arena_fastpath:
@@ -124,6 +124,8 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.compatibility_test && 'ios/modtest' || github.sha }}
 
       - name: Verify iOS pointer conversion
         run: |
@@ -322,6 +324,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.compatibility_test && 'ios/modtest' || github.sha }}
 
       - name: Download recovered guest image
         uses: actions/download-artifact@v4
@@ -405,9 +409,11 @@ jobs:
           test -x "$APP/$EXECUTABLE"
           test -s "$APP/halo_guest.elf"
           if [ "$COMPATIBILITY_TEST" = true ]; then
-            /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.haloceuniversal.ios.compatibility' "$APP/Info.plist"
-            /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Halo Compatibility Test' "$APP/Info.plist"
-            /usr/libexec/PlistBuddy -c 'Delete :CFBundleURLTypes' "$APP/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.haloceuniversal.ios.modtest' "$APP/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Set :CFBundleName Halo CE Mod Test' "$APP/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLName com.haloceuniversal.ios.modtest.invite' "$APP/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Halo CE Mod Test' "$APP/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 halomodtest' "$APP/Info.plist"
           fi
 
           /usr/bin/codesign --force --sign - \
@@ -433,7 +439,7 @@ jobs:
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.compatibility_test && 'HaloCE-iOS-Compatibility-Test' || 'HaloCE-iOS' }}
+          name: ${{ inputs.compatibility_test && 'HaloCE-iOS-ModTest' || 'HaloCE-iOS' }}
           path: build/ios/HaloCE.ipa
           if-no-files-found: error
           retention-days: 14

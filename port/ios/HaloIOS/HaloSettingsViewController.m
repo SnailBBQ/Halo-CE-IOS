@@ -8,6 +8,7 @@
 #import "halo_color.h"
 #import "halo_ios_audio.h"
 #import "halo_pad_input.h"
+#import "halo_ios_controls.h"
 #import <CoreImage/CoreImage.h>
 #import <sys/utsname.h>
 
@@ -36,6 +37,90 @@ static NSString *HaloAge(NSTimeInterval stamp);   /* defined further down; the M
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     (void)tableView;void (^pick)(NSUInteger)=self.pick;NSUInteger row=(NSUInteger)indexPath.row;
     [self dismissViewControllerAnimated:YES completion:^{ if (pick) pick(row); }];
+}
+@end
+
+
+static NSArray<NSString *> *HaloShortcutActions(void);
+static NSArray<NSString *> *HaloShortcutKeys(void) {
+    return @[@"A / Cross",@"B / Circle",@"X / Square",@"Y / Triangle",@"Back",@"Guide",@"Start",@"LS / L3",@"RS / R3",@"White / L1",@"Black / R1",@"Up",@"Down",@"Left",@"Right",@"LT / L2",@"RT / R2"];
+}
+@interface HaloShortcutEditor : UIViewController
+@property(nonatomic) int slot;
+@property(nonatomic) int action;
+@property(nonatomic) float gap;
+@property(nonatomic) float total;
+@property(nonatomic) BOOL recording;
+@property(nonatomic,strong) NSMutableArray<NSNumber *> *steps;
+@property(nonatomic,strong) UILabel *sequenceLabel;
+@property(nonatomic,strong) UIButton *recordButton;
+@property(nonatomic,copy) void (^saved)(void);
+@end
+@implementation HaloShortcutEditor
+- (void)viewDidLoad {
+    [super viewDidLoad];self.view.backgroundColor=HaloUIBackground();
+    self.title=self.slot?[NSString stringWithFormat:@"Cheat Shortcut %d",self.slot]:@"Settings Shortcut";
+    self.navigationItem.leftBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self action:@selector(cancel)];
+    self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemSave target:self action:@selector(save)];
+    HsSettings settings=[HaloSettingsStore.shared snapshot];HsShortcut q=settings.shortcuts[self.slot];
+    self.action=q.action;self.gap=q.gap;self.total=q.total;self.steps=[NSMutableArray array];
+    for(NSString *part in [[NSString stringWithUTF8String:q.sequence] componentsSeparatedByString:@","])
+        if(part.length && part.intValue>=0 && part.intValue<17 && part.intValue!=5)[self.steps addObject:@(part.intValue)];
+    UIStackView *stack=HaloUIScrollingStack(self.view,12);
+    __weak HaloShortcutEditor *weakSelf=self;
+    if(self.slot) {
+        UIButton *choose=HaloUIButton(HaloShortcutActions()[self.action],1,^(UIButton *button){
+            HaloShortcutEditor *editor=weakSelf;if(!editor)return;
+            HaloOptionPicker *picker=[HaloOptionPicker new];picker.title=@"Choose Cheat";
+            NSMutableArray *names=[NSMutableArray array];NSMutableArray *ids=[NSMutableArray array];
+            for(NSUInteger i=0;i<HaloShortcutActions().count;i++)if(i!=29){[names addObject:HaloShortcutActions()[i]];[ids addObject:@(i)];}
+            picker.choices=names;picker.pick=^(NSUInteger row){weakSelf.action=[ids[row] intValue];[button setTitle:names[row] forState:UIControlStateNormal];};
+            [editor presentViewController:[[UINavigationController alloc] initWithRootViewController:picker] animated:YES completion:nil];
+        });
+        [stack addArrangedSubview:HaloUICardView(@"Cheat action",@[choose,HaloUINote(@"Available only in solo campaign. Toggle cheats switch on or off; pickup and spawn actions run once.")])];
+    }
+    self.sequenceLabel=HaloUILabel(@"",18,UIFontWeightMedium,nil);
+    self.recordButton=HaloUIButton(@"Record gamepad buttons",1,^(UIButton *button){(void)button;weakSelf.recording=!weakSelf.recording;[weakSelf refreshSequence];});
+    [stack addArrangedSubview:HaloUICardView(@"Button sequence",@[
+        self.sequenceLabel,self.recordButton,
+        HaloUIButton(@"Undo last button",0,^(UIButton *b){(void)b;if(weakSelf.steps.count)[weakSelf.steps removeLastObject];[weakSelf refreshSequence];}),
+        HaloUIButton(@"Clear sequence",2,^(UIButton *b){(void)b;[weakSelf.steps removeAllObjects];[weakSelf refreshSequence];}),
+        HaloUINote(@"Tap the touch buttons below, or start recording and press your controller buttons. Up to 16 presses. An empty sequence disables the shortcut. Gameplay controller input is paused while this editor is open.")])];
+    NSMutableArray *rows=[NSMutableArray array];
+    for(NSArray<NSNumber *> *group in @[@[@11,@12,@13,@14],@[@0,@1,@2,@3],@[@15,@16,@9,@10],@[@7,@8,@4,@6]]) {
+        NSMutableArray *buttons=[NSMutableArray array];
+        for(NSNumber *key in group)[buttons addObject:HaloUIButton(HaloShortcutKeys()[key.unsignedIntegerValue],0,^(UIButton *b){(void)b;[weakSelf appendKey:key.intValue];})];
+        for(UIButton *button in buttons){button.titleLabel.adjustsFontSizeToFitWidth=YES;button.titleLabel.minimumScaleFactor=.6;}
+        UIStackView *row=[[UIStackView alloc] initWithArrangedSubviews:buttons];row.spacing=8;row.distribution=UIStackViewDistributionFillEqually;
+        [rows addObject:row];
+    }
+    [stack addArrangedSubview:HaloUICardView(@"Touch button input",rows)];
+    [stack addArrangedSubview:HaloUICardView(@"Timing",@[
+        HaloUISliderRow(@"Maximum gap between presses",.25f,10,self.gap,@"%.2f s",^(float v){weakSelf.gap=v;}),
+        HaloUISliderRow(@"Maximum sequence duration",1,60,self.total,@"%.1f s",^(float v){weakSelf.total=v;})])];
+    [self refreshSequence];HaloUIApplyAccent(self.view);
+}
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];__weak HaloShortcutEditor *weakSelf=self;
+    halo_ios_shortcut_capture(^(int key){if(weakSelf.recording)[weakSelf appendKey:key];});
+}
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];self.recording=NO;[self refreshSequence];halo_ios_shortcut_capture(nil);
+}
+- (void)appendKey:(int)key {
+    if(key<0 || key>=17 || key==5 || self.steps.count>=16)return;
+    [self.steps addObject:@(key)];[self refreshSequence];
+}
+- (void)refreshSequence {
+    NSMutableArray *labels=[NSMutableArray array];for(NSNumber *key in self.steps)[labels addObject:HaloShortcutKeys()[key.unsignedIntegerValue]];
+    self.sequenceLabel.text=labels.count?[labels componentsJoinedByString:@" → "]:@"No buttons selected";
+    [self.recordButton setTitle:self.recording?@"Stop recording":@"Record gamepad buttons" forState:UIControlStateNormal];
+}
+- (void)cancel { [self dismissViewControllerAnimated:YES completion:nil]; }
+- (void)save {
+    NSString *sequence=[self.steps componentsJoinedByString:@","];int slot=self.slot,action=self.action;float gap=self.gap,total=self.total;
+    [HaloSettingsStore.shared update:^(HsSettings *s){snprintf(s->shortcuts[slot].sequence,sizeof(s->shortcuts[slot].sequence),"%s",sequence.UTF8String);s->shortcuts[slot].gap=gap;s->shortcuts[slot].total=total;if(slot)s->shortcuts[slot].action=action;}];
+    void (^saved)(void)=self.saved;[self dismissViewControllerAnimated:YES completion:^{if(saved)saved();}];
 }
 @end
 
@@ -411,6 +496,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
 {
     HsPreset preset = settings->presets[settings->active];
 
+    [self add:HaloUILabel(@"Touch Controls",22,UIFontWeightSemibold,nil)];
     [self add:HaloUICardView(@"On-screen controls", @[
         HaloUISegmentRow(nil, @[@"Auto", @"Always show", @"Hide"], settings->controls_mode, ^(NSInteger i) {
             [self update:^(HsSettings *s) { s->controls_mode = (int)i; }];
@@ -490,7 +576,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUISliderRow(@"Gyro speed", 0.25f, 3.0f, preset.gyro_sens, @"%.2f×", ^(float v) { [self update:^(HsSettings *s) { s->presets[s->active].gyro_sens = v; }]; }),
         HaloUISwitchRow(@"Flip left and right", @"Turn this on if the view turns the wrong way when you turn the device.", preset.gyro_flip_yaw, ^(BOOL on) { [self update:^(HsSettings *s) { s->presets[s->active].gyro_flip_yaw = on; }]; }),
         HaloUISwitchRow(@"Flip up and down", @"Turn this on if the view tilts the wrong way when you tilt the device.", preset.gyro_flip_pitch, ^(BOOL on) { [self update:^(HsSettings *s) { s->presets[s->active].gyro_flip_pitch = on; }]; }),
-        HaloUINote(@"Gyro also moves the view in menus. If the direction is wrong in one landscape orientation, use the two flip switches; they apply to this profile.")])];
+        HaloUINote(@"Turn left to look left and tilt up to look up. The flip switches customize either direction for this control scheme.")])];
 
     /* ---- a physical controller: stick feel and which button does what (all profiles) */
     NSMutableArray<UIView *> *padRows = [NSMutableArray array];
@@ -498,8 +584,8 @@ static NSString *HaloCategorySymbol(HaloCategory c)
     [padRows addObject:HaloUISliderRow(@"Stick dead zone", 0.0f, 0.4f, settings->pad_dead, @"%.2f", ^(float v) { [self update:^(HsSettings *s) { s->pad_dead = v; }]; })];
     [padRows addObject:HaloUISliderRow(@"Stick response", 1.0f, 3.0f, settings->pad_curve, @"%.1f", ^(float v) { [self update:^(HsSettings *s) { s->pad_curve = v; }]; })];
     [padRows addObject:HaloUINote(@"The dead zone is removed rather than cut off, so movement still starts from zero. A response above 1.0 gives finer control near the centre.")];
-    [self add:HaloUICardView(@"Controller", padRows)];
-    [self add:[self engineControllerCard:settings]];
+    [self add:HaloUILabel(@"Gamepad Controls",22,UIFontWeightSemibold,nil)];
+    [self add:HaloUICardView(@"Stick tuning", padRows)];
 
     NSMutableArray<NSString *> *buttonNames = [NSMutableArray array];
     for (int b = 0; b < HP_BUTTONS; b++) [buttonNames addObject:[NSString stringWithUTF8String:hp_names[b]]];
@@ -528,6 +614,8 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         })];
         [self add:HaloUICardView(nil, remap)];
     }
+    [self add:HaloUILabel(@"Halo Controller Settings",22,UIFontWeightSemibold,nil)];
+    [self add:[self engineControllerCard:settings]];
 }
 
 - (void)renamePreset:(int)index
@@ -652,33 +740,22 @@ static NSString *HaloCategorySymbol(HaloCategory c)
     }
 }
 
-static NSString *HaloOnCount(int count) { return count ? [NSString stringWithFormat:@"%d on", count] : @"All off"; }
+static NSString *HaloActiveNames(NSArray<NSString *> *names) {
+    NSMutableArray *active=[NSMutableArray array];
+    for(NSString *name in names)if(name.length)[active addObject:name];
+    return active.count?[active componentsJoinedByString:@", "]:@"All off";
+}
 static NSArray<NSString *> *HaloShortcutActions(void) {
-    return @[@"Disabled",@"God mode",@"Infinite ammo",@"Infinite grenades",@"Bottomless clip",@"Jetpack",@"Noclip",@"Infinite Active Camo",@"Infinite Overshield",@"Low Gravity",@"Third person",@"Wireframe",@"Unlimited flashlight",@"Rapid fire",@"No recoil",@"One-hit kills",@"No fall damage",@"AI ignores you",@"Medusa Mode",@"Infinite Vehicle Health",@"Detach Camera",@"Bumper Cars",@"Hijack NPCs",@"Apply Active Camo",@"Spawn Active Camo",@"Apply Overshield",@"Spawn Overshield",@"Restore health and shields",@"Drop Weapon Ring",@"All Equipment Spawns",@"Teleport To Camera",@"Erase All AI"];
+    return @[@"Disabled",@"God mode",@"Infinite ammo",@"Infinite grenades",@"Bottomless clip",@"Jetpack",@"Noclip",@"Infinite Active Camo",@"Infinite Overshield",@"Low Gravity",@"Third person",@"Wireframe",@"Unlimited flashlight",@"Rapid fire",@"No recoil",@"One-hit kills",@"No fall damage",@"AI ignores you",@"Medusa Mode",@"Infinite Vehicle Health",@"Detach Camera",@"Bumper Cars",@"Hijack NPCs",@"Apply Active Camo",@"Spawn Active Camo",@"Apply Overshield",@"Spawn Overshield",@"Restore health and shields",@"Drop Weapon Ring",@"Disabled",@"Teleport To Camera",@"Erase All AI"];
 }
 
 - (void)editShortcut:(int)slot {
-    NSArray *names=@[@"A",@"B",@"X",@"Y",@"Back",@"Guide",@"Start",@"LS",@"RS",@"White",@"Black",@"Up",@"Down",@"Left",@"Right",@"LT",@"RT"];
-    NSArray *actions=HaloShortcutActions();
-    HsSettings settings=[HaloSettingsStore.shared snapshot];HsShortcut shortcut=settings.shortcuts[slot];
-    NSMutableArray *steps=[NSMutableArray array];
-    for(NSString *part in [[NSString stringWithUTF8String:shortcut.sequence] componentsSeparatedByString:@","])
-        if(part.length && part.intValue>=0 && part.intValue<17)[steps addObject:names[part.intValue]];
-    UIAlertController *alert=[UIAlertController alertControllerWithTitle:slot?@"Cheat shortcut":@"Settings visibility shortcut" message:@"Enter 1–16 button names separated by commas. Use A, B, X, Y, Up, Down, Left, Right, LT, RT, LS, RS, White, Black, Start or Back. Leave empty to disable. Inputs also reach the game. Timers are seconds." preferredStyle:UIAlertControllerStyleAlert];
-    [alert addTextFieldWithConfigurationHandler:^(UITextField *f){f.text=[steps componentsJoinedByString:@","];f.placeholder=@"Input sequence";f.autocapitalizationType=UITextAutocapitalizationTypeNone;f.autocorrectionType=UITextAutocorrectionTypeNo;}];
-    [alert addTextFieldWithConfigurationHandler:^(UITextField *f){f.text=[NSString stringWithFormat:@"%.2f",shortcut.gap];f.placeholder=@"Maximum gap between presses";f.keyboardType=UIKeyboardTypeDecimalPad;}];
-    [alert addTextFieldWithConfigurationHandler:^(UITextField *f){f.text=[NSString stringWithFormat:@"%.2f",shortcut.total];f.placeholder=@"Maximum total duration";f.keyboardType=UIKeyboardTypeDecimalPad;}];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Save" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){
-        (void)action;NSMutableArray *encoded=[NSMutableArray array];NSString *input=alert.textFields[0].text;
-        if(input.length)for(NSString *part in [input componentsSeparatedByString:@","]){NSString *token=[[part stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet] lowercaseString];NSInteger found=NSNotFound;for(NSUInteger i=0;i<names.count;i++)if([token isEqualToString:[names[i] lowercaseString]])found=(NSInteger)i;
-            if(found==NSNotFound || found==5 || encoded.count>=16){halo_ios_toast("Use 1–16 supported button names");return;}[encoded addObject:@(found).stringValue];}
-        NSString *sequence=[encoded componentsJoinedByString:@","];float gap=alert.textFields[1].text.floatValue,total=alert.textFields[2].text.floatValue;
-        if(!isfinite(gap) || !isfinite(total) || gap<.25f || gap>10 || total<1 || total>60){halo_ios_toast("Gap: 0.25–10 seconds. Total: 1–60 seconds.");return;}
-        void (^save)(NSUInteger)=^(NSUInteger choice){[self update:^(HsSettings *s){snprintf(s->shortcuts[slot].sequence,96,"%s",sequence.UTF8String);s->shortcuts[slot].gap=gap;s->shortcuts[slot].total=total;if(slot)s->shortcuts[slot].action=(int)choice;}];};
-        if(slot)[self dismissViewControllerAnimated:YES completion:^{[self presentChoices:@"Shortcut action" names:actions from:self pick:save];}];else save(0);
-    }]];
-    [self presentViewController:alert animated:YES completion:nil];
+    HaloShortcutEditor *editor=[HaloShortcutEditor new];editor.slot=slot;
+    __weak HaloSettingsViewController *weakSelf=self;
+    editor.saved=^{[weakSelf renderSoon];};
+    UINavigationController *nav=[[UINavigationController alloc] initWithRootViewController:editor];
+    nav.modalPresentationStyle=UIModalPresentationFullScreen;
+    [self presentViewController:nav animated:YES completion:nil];
 }
 
 - (void)buildCheats:(const HsSettings *)settings
@@ -703,7 +780,7 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
         CHEAT_SWITCH(@"No fall damage", @"The local player takes no falling or collision damage.", cheat_no_fall),
         HaloUIButton(@"Restore health and shield", 0, ^(UIButton *b) { (void)b; [self queueCampaignAction:10]; }),
         HaloUINote(@"Restore fills health and the normal shield once; an over-charged shield is never lowered. Ammo is covered by Infinite ammo.")])];
-    [self addCheatSection:@"Survival" summary:HaloOnCount(settings->cheat_god + settings->cheat_one_hit + settings->cheat_no_fall) views:cards];
+    [self addCheatSection:@"Survival" summary:HaloActiveNames(@[(settings->cheat_god)?@"God mode":@"",(settings->cheat_one_hit)?@"One-hit kills":@"",(settings->cheat_no_fall)?@"No fall damage":@""]) views:cards];
 
     cards = [NSMutableArray array];
     [cards addObject:HaloUICardView(nil, @[
@@ -712,19 +789,23 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
         CHEAT_SWITCH(@"Bottomless clip", @"A magazine never empties.", cheat_reload),
         CHEAT_SWITCH(@"Rapid fire", @"Removes shot-rate and trigger-latch delays; charging and overheating remain.", cheat_rapid),
         CHEAT_SWITCH(@"No recoil", @"Removes the weapon kick; projectile spread is unchanged.", cheat_no_recoil)])];
-    [cards addObject:HaloUICardView(nil,@[HaloUIButton(@"Drop Weapon Ring Around Player",0,^(UIButton *b){(void)b;[self queueCampaignAction:11];}),HaloUINote(@"Runs cheat_all_weapons using this map’s weapon collection.")])];
+    [cards addObject:HaloUICardView(@"Weapon giver",@[
+        HaloUIButton(@"Weapon giver", 0, ^(UIButton *b) { [self chooseCampaignAsset:@"Weapon" names:@[@"Pistol", @"Assault rifle", @"Shotgun", @"Sniper rifle", @"Rocket launcher", @"Plasma pistol", @"Plasma rifle", @"Needler", @"Flamethrower", @"Gravity rifle"] base:100]; }),
+        HaloUIButton(@"Give frag grenades",0,^(UIButton *b){(void)b;[self queueCampaignAction:400];}),
+        HaloUIButton(@"Give plasma grenades",0,^(UIButton *b){(void)b;[self queueCampaignAction:401];}),
+        HaloUINote(@"Weapons spawn in front of you when loaded by the map. Grenades refill once to the map’s normal capacity.")])];
     NSArray<NSString *> *projectileChoices=@[@"Original",@"Pistol bullet",@"Plasma rifle bolt",@"Needler needle",@"Rocket",@"Frag grenade",@"Plasma grenade"];
     [cards addObject:HaloUICardView(@"Projectile Swapping",@[
         HaloUIButton(projectileChoices[(NSUInteger)hs_clampi(settings->cheat_projectile,0,6)],0,^(UIButton *button){
             [self presentChoices:@"Projectile Swapping" names:projectileChoices from:self pick:^(NSUInteger choice){
                 [self update:^(HsSettings *s){s->cheat_projectile=(int)choice;}];[button setTitle:projectileChoices[choice] forState:UIControlStateNormal];}];}),
         HaloUINote(@"Local player weapon fire only. The chosen projectile must already be loaded by the map. Missing assets keep the original shot; weapon tags are not modified.")])];
-    [self addCheatSection:@"Weapons" summary:HaloOnCount(settings->cheat_ammo + settings->cheat_grenades + settings->cheat_reload + settings->cheat_rapid + settings->cheat_no_recoil + (settings->cheat_projectile!=0)) views:cards];
+    [cards addObject:HaloUICardView(nil,@[HaloUIButton(@"Drop Weapon Ring Around Player",0,^(UIButton *b){(void)b;[self queueCampaignAction:11];}),HaloUINote(@"Runs cheat_all_weapons using this map’s weapon collection.")])];
+    [self addCheatSection:@"Weapons" summary:HaloActiveNames(@[(settings->cheat_ammo)?@"Infinite ammo":@"",(settings->cheat_grenades)?@"Infinite grenades":@"",(settings->cheat_reload)?@"Bottomless clip":@"",(settings->cheat_rapid)?@"Rapid fire":@"",(settings->cheat_no_recoil)?@"No recoil":@"",(settings->cheat_projectile)?@"Projectile Swapping":@""]) views:cards];
 
     cards = [NSMutableArray array];
     [cards addObject:HaloUICardView(@"Active Camo",@[
         HaloUISwitchRow(@"Infinite Active Camo",@"Maintains camouflage while enabled in this campaign session.",settings->cheat_camo,^(BOOL on){[self update:^(HsSettings *s){s->cheat_camo=on;}];}),
-        HaloUIButton(@"All Equipment Spawns",0,^(UIButton *b){(void)b;[self queueCampaignAction:12];}),
         HaloUIButton(@"Spawn Active Camo",0,^(UIButton *b){[self queueCampaignAction:3];}),
         HaloUIButton(@"Apply Active Camo",0,^(UIButton *b){[self queueCampaignAction:1];}),
         HaloUINote(@"Apply is a single timed pickup. Infinite is a separate toggle.")])];
@@ -733,7 +814,7 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
         HaloUIButton(@"Spawn Overshield",0,^(UIButton *b){[self queueCampaignAction:2];}),
         HaloUIButton(@"Apply Overshield",0,^(UIButton *b){[self queueCampaignAction:4];}),
         HaloUINote(@"Apply charges once and follows Halo’s normal shield depletion rules. It does not continually refill.")])];
-    [self addCheatSection:@"Power-ups" summary:HaloOnCount(settings->cheat_camo + settings->cheat_overshield) views:cards];
+    [self addCheatSection:@"Power-ups" summary:HaloActiveNames(@[(settings->cheat_camo)?@"Infinite Active Camo":@"",(settings->cheat_overshield)?@"Infinite Overshield":@""]) views:cards];
 
     cards = [NSMutableArray array];
     [cards addObject:HaloUICardView(nil, @[
@@ -742,7 +823,7 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
         CHEAT_SWITCH(@"Noclip", @"Fly through walls. Aim to move; jump rises and crouch descends. Disable inside clear space.", cheat_noclip)])];
     [cards addObject:HaloUICardView(@"Super jump", @[HaloUISliderRow(@"Value", 1, 10, settings->cheat_jump, @"%.1f", ^(float value) { [self update:^(HsSettings *s) { s->cheat_jump = value; }]; }), HaloUIButton(@"Enter value", 0, ^(UIButton *b) { HsSettings current = [[HaloSettingsStore shared] snapshot]; [self enterCampaignValue:@"Super jump" value:current.cheat_jump minimum:1 maximum:10 apply:^(float value) { [self update:^(HsSettings *s) { s->cheat_jump = value; }]; }]; })])];
     [cards addObject:HaloUICardView(@"Player speed", @[HaloUISliderRow(@"Value", 1, 5, settings->cheat_speed, @"%.1f", ^(float value) { [self update:^(HsSettings *s) { s->cheat_speed = value; }]; }), HaloUIButton(@"Enter value", 0, ^(UIButton *b) { HsSettings current = [[HaloSettingsStore shared] snapshot]; [self enterCampaignValue:@"Player speed" value:current.cheat_speed minimum:1 maximum:5 apply:^(float value) { [self update:^(HsSettings *s) { s->cheat_speed = value; }]; }]; })])];
-    [self addCheatSection:@"Movement" summary:HaloOnCount(settings->cheat_jetpack + settings->cheat_noclip + settings->cheat_low_gravity + (settings->cheat_jump > 1.01f) + (settings->cheat_speed > 1.01f)) views:cards];
+    [self addCheatSection:@"Movement" summary:HaloActiveNames(@[(settings->cheat_jetpack)?@"Jetpack":@"",(settings->cheat_noclip)?@"Noclip":@"",(settings->cheat_low_gravity)?@"Low Gravity":@"",(settings->cheat_jump > 1.01f)?@"Super jump":@"",(settings->cheat_speed > 1.01f)?@"Player speed":@""]) views:cards];
 
     cards = [NSMutableArray array];
     [cards addObject:HaloUICardView(@"AI Alliance",@[
@@ -769,12 +850,12 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
             [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
             [alert addAction:[UIAlertAction actionWithTitle:@"Erase AI" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a){(void)a;[self queueCampaignAction:14];}]];
             [self presentViewController:alert animated:YES completion:nil];})])];
-    [self addCheatSection:@"World" summary:HaloOnCount((settings->cheat_slow != 0) + settings->cheat_ai_ignore + settings->cheat_third_person + settings->cheat_flashlight + settings->cheat_medusa + settings->cheat_hijack_npc + settings->cheat_hijack_vehicle + settings->cheat_vehicle_health + (settings->cheat_alliance!=0)) views:cards];
+    [self addCheatSection:@"World" summary:HaloActiveNames(@[(settings->cheat_slow)?@"Time scale":@"",(settings->cheat_ai_ignore)?@"AI ignores you":@"",(settings->cheat_third_person)?@"Third person":@"",(settings->cheat_flashlight)?@"Unlimited flashlight":@"",(settings->cheat_medusa)?@"Medusa Mode":@"",(settings->cheat_hijack_npc)?@"Hijack NPCs":@"",(settings->cheat_hijack_vehicle)?@"Bumper Cars":@"",(settings->cheat_vehicle_health)?@"Infinite Vehicle Health":@"",(settings->cheat_alliance)?@"AI Alliance":@""]) views:cards];
     cards=[NSMutableArray array];
     [cards addObject:HaloUICardView(@"Vertical FOV (0 = default)", @[HaloUISliderRow(@"Value", 0, 90, settings->cheat_fov, @"%.1f", ^(float value) { [self update:^(HsSettings *s) { s->cheat_fov = value; }]; }), HaloUIButton(@"Enter value", 0, ^(UIButton *b) { HsSettings current = [[HaloSettingsStore shared] snapshot]; [self enterCampaignValue:@"Vertical FOV (0 = default)" value:current.cheat_fov minimum:0 maximum:90 apply:^(float value) { [self update:^(HsSettings *s) { s->cheat_fov = value; }]; }]; })])];
     [cards addObject:HaloUICardView(nil,@[CHEAT_SWITCH(@"Detach Camera from Player", @"On foot: fly with the sticks, R2/RT rises and L2/LT descends. Your body stays in place. Disable to return; the world continues running.", cheat_detach_camera)])];
     [cards addObject:HaloUICardView(nil,@[CHEAT_SWITCH(@"Wireframe Render", @"Diagnostic triangle-edge view. Can reduce performance and expose hidden geometry; campaign only.", cheat_wireframe)])];
-    [self addCheatSection:@"Visuals" summary:HaloOnCount((settings->cheat_fov > 0.5f)+settings->cheat_wireframe+settings->cheat_detach_camera) views:cards];
+    [self addCheatSection:@"Visuals" summary:HaloActiveNames(@[(settings->cheat_fov > 0.5f)?@"FOV":@"",(settings->cheat_wireframe)?@"Wireframe Render":@"",(settings->cheat_detach_camera)?@"Detach Camera":@""]) views:cards];
 
 
     cards = [NSMutableArray array];
@@ -808,12 +889,11 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
     [self addCheatSection:@"Teleport" summary:@"Crosshair and saved positions" views:cards];
 
     cards = [NSMutableArray array];
-    [cards addObject:HaloUICardView(@"Spawn loaded map assets", @[
+    [cards addObject:HaloUICardView(@"Vehicle spawner", @[
         HaloUINote(@"Pickups appear in front of you. Only assets already loaded by the current map are supported; unavailable assets report a message."),
-        HaloUIButton(@"Weapon giver", 0, ^(UIButton *b) { [self chooseCampaignAsset:@"Weapon" names:@[@"Pistol", @"Assault rifle", @"Shotgun", @"Sniper rifle", @"Rocket launcher", @"Plasma pistol", @"Plasma rifle", @"Needler", @"Flamethrower", @"Gravity rifle"] base:100]; }),
         HaloUIButton(@"Vehicle spawner", 0, ^(UIButton *b) { [self chooseCampaignAsset:@"Vehicle" names:@[@"Warthog", @"Ghost", @"Banshee", @"Scorpion"] base:200]; }),
-        HaloUINote(@"Power-ups have dedicated sections below.")])];
-    [self addCheatSection:@"Spawn" summary:@"Weapons and vehicles" views:cards];
+        HaloUINote(@"Only vehicles loaded by the current map can be spawned.")])];
+    [self addCheatSection:@"Spawn" summary:@"Vehicles" views:cards];
 #undef CHEAT_SWITCH
     [self add:HaloUICardView(nil, @[HaloUINote(@"Changes apply within a moment, also in the middle of a mission.")])];
 }

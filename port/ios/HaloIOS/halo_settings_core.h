@@ -340,7 +340,7 @@ static inline void hs_sanitize(HsSettings *s)
     for(int k=1;k<8;k++)s->game_controls[k]=hs_clampi(s->game_controls[k],0,k==4?4:k==5?3:1);
     s->game_name[23]=0;s->game_color=hs_clampi(s->game_color,0,17);
     s->game_player_names=hs_clampi(s->game_player_names,0,3);
-    for(int k=0;k<4;k++){s->shortcuts[k].sequence[95]=0;s->shortcuts[k].gap=hs_clampf(s->shortcuts[k].gap,.25f,10);s->shortcuts[k].total=hs_clampf(s->shortcuts[k].total,1,60);s->shortcuts[k].action=hs_clampi(s->shortcuts[k].action,0,31);}
+    for(int k=0;k<4;k++){s->shortcuts[k].sequence[95]=0;s->shortcuts[k].gap=hs_clampf(s->shortcuts[k].gap,.25f,10);s->shortcuts[k].total=hs_clampf(s->shortcuts[k].total,1,60);s->shortcuts[k].action=hs_clampi(s->shortcuts[k].action,0,31);if(s->shortcuts[k].action==29)s->shortcuts[k].action=0; /* retired equipment action; never reuse ID */}
     s->gear_scale=hs_clampf(s->gear_scale,.75f,1.75f);s->ui_theme=hs_clampi(s->ui_theme,0,4);
     s->gear_placed=!!s->gear_placed;s->gear_x=hs_clampf(s->gear_x,0,1);s->gear_y=hs_clampf(s->gear_y,0,1);
     s->display_mode = hs_clampi(s->display_mode, 0, 2);

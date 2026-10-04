@@ -4,6 +4,7 @@
 #import "HaloSettingsStore.h"
 #import "HaloHudEditor.h"
 #include "halo_shortcut.h"
+#include <stdatomic.h>
 
 #import <GameController/GameController.h>
 #import <CoreHaptics/CoreHaptics.h>
@@ -25,12 +26,28 @@ static void HaloPadReload(void)
 
 /* Shortcuts observe discrete presses without consuming gameplay input. State
  * lives on the main queue and no guest pointers cross this boundary. */
+static void (^g_shortcut_capture)(int);
+static _Atomic unsigned g_capture_generation;
+static BOOL g_pad_refresh;
+static void HaloRefreshPads(void);
 static HaloShortcutState g_shortcuts[4];
 static unsigned g_pad_previous[2];
 static void HaloResetShortcuts(void) { memset(g_shortcuts,0,sizeof(g_shortcuts));memset(g_pad_previous,0,sizeof(g_pad_previous)); }
+void halo_ios_shortcut_capture(void (^record)(int button))
+{
+    NSCAssert(NSThread.isMainThread, @"Shortcut capture must run on the main queue");
+    atomic_fetch_add(&g_capture_generation,1);
+    g_shortcut_capture = [record copy];
+    HaloResetShortcuts();
+    halo_ios_touch_reset();
+    HaloRefreshPads();
+}
 void halo_ios_shortcut_button(int button)
 {
+    unsigned generation=atomic_load(&g_capture_generation);
     dispatch_async(dispatch_get_main_queue(), ^{
+        if (generation!=atomic_load(&g_capture_generation))return;
+        if (g_shortcut_capture) { g_shortcut_capture(button); return; }
         HsSettings settings = [HaloSettingsStore.shared snapshot];
         double now = CACurrentMediaTime();
         for (int k = 0; k < 4; k++) {
@@ -44,8 +61,8 @@ void halo_ios_shortcut_button(int button)
                 [[NSNotificationCenter defaultCenter] postNotificationName:@"HaloSettingsVisibilityShortcut" object:nil];
                 continue;
             }
-            if (q.action>=23 && q.action<=31) {
-                const unsigned actions[]={1,3,4,2,10,11,12,13,14};
+            if (q.action>=23 && q.action<=31 && q.action!=29) {
+                const unsigned actions[]={1,3,4,2,10,11,0,13,14};
                 halo_ios_queue_campaign_action(actions[q.action-23]);
                 continue;
             }
@@ -942,8 +959,9 @@ static void HaloPushGamepad(GCExtendedGamepad *pad)
     if (pad.leftTrigger.value > .5f) shortcuts |= 1u << 15;
     if (pad.rightTrigger.value > .5f) shortcuts |= 1u << 16;
     for(int k=0;k<17;k++)
-        if(slot==0 && !halo_ios_coop_touch_primary() && ((shortcuts & ~g_pad_previous[slot]) & (1u<<k)))halo_ios_shortcut_button(k);
+        if(!g_pad_refresh && (g_shortcut_capture || (slot==0 && !halo_ios_coop_touch_primary())) && ((shortcuts & ~g_pad_previous[slot]) & (1u<<k)))halo_ios_shortcut_button(k);
     g_pad_previous[slot]=shortcuts;
+    if (g_shortcut_capture) { halo_ios_physical_pad_state_at(slot,1,0,NULL); return; }
     b = hp_remap(b, g_pad.map);
     int32_t axes[6];
     float lx = pad.leftThumbstick.xAxis.value, ly = pad.leftThumbstick.yAxis.value;
@@ -962,6 +980,14 @@ static void HaloPushGamepad(GCExtendedGamepad *pad)
     halo_ios_physical_pad_state_at(slot,1,b,axes);
 }
 
+static void HaloRefreshPads(void)
+{
+    /* Reapply held axes without inventing new button presses. */
+    g_pad_refresh=YES;
+    for (int i=0;i<2;i++) if (g_input_controllers[i].extendedGamepad)
+        HaloPushGamepad(g_input_controllers[i].extendedGamepad);
+    g_pad_refresh=NO;
+}
 static CHHapticEngine *g_controller_haptics[2];
 static id<CHHapticPatternPlayer> g_controller_rumble[2];
 static __weak GCController *g_rumble_controller[2];
@@ -1034,7 +1060,7 @@ void halo_ios_controllers_start(void (^changed)(BOOL connected))
     [center addObserverForName:@"HaloCoopInputChanged" object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note){(void)note;HaloReportControllers();}];
     for (NSString *name in @[HaloCampaignStateChangedNotification,UIApplicationDidEnterBackgroundNotification,GCControllerDidDisconnectNotification])
         [center addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) { (void)note; HaloResetShortcuts(); halo_ios_controller_rumble(0,0,0); }];
-    [center addObserverForName:HaloSettingsChangedNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) { (void)note; HaloPadReload(); }];
+    [center addObserverForName:HaloSettingsChangedNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) { (void)note; HaloPadReload(); HaloRefreshPads(); }];
     [center addObserverForName:GCControllerDidConnectNotification object:nil queue:NSOperationQueue.mainQueue
                     usingBlock:^(NSNotification *note) {
         if ([note.object isKindOfClass:GCController.class]) HaloAttachController((GCController *)note.object);

@@ -26,6 +26,7 @@ jobs:
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_log_report.c -o "$RUNNER_TEMP/halo-report-test" -lm
           "$RUNNER_TEMP/halo-report-test"
           python3 tools/tests/test_ios_world_cheats.py
+          python3 tools/tests/test_ios_grenade_giver.py
           python3 tools/tests/test_ios_powerups.py
           python3 tools/tests/test_ios_campaign_policy.py
           python3 tools/tests/test_ios_store_build_modes.py

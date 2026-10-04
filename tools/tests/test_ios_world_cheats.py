@@ -33,7 +33,7 @@ static float global_gravity=.004f;
 static struct {int wireframe_enabled;} rasterizer_debug_options;
 static long ios_projectile_tag=NONE;static unsigned ios_projectile_mode;static boolean ios_projectile_scanned;
 static int rings,equipment,camera_teleports,erased;
-static void cheat_all_weapons(void){rings++;}static void cheat_all_powerups(void){equipment++;}
+static void cheat_all_weapons(void){rings++;}
 static void cheat_teleport_to_camera(void){camera_teleports++;}
 static void ai_erase(long a,long b,long c,boolean d){(void)a;(void)b;(void)c;(void)d;erased++;}
 static struct { int jetpack,medusa; } cheat;
@@ -128,7 +128,7 @@ int main(void)
     restores=0;ios_world_cheats_tick();CHECK(restores==1);
     SET_FLAG(vehicle_unit.object.damage_flags,_object_dead_bit,TRUE);ios_world_cheats_tick();CHECK(restores==1);
     body_unit.object.parent_object_index=NONE;ios_options.flags=0;restores=0;
-    CHECK(ios_world_action(11) && rings==1);CHECK(ios_world_action(12) && equipment==1);
+    CHECK(ios_world_action(11) && rings==1);CHECK(ios_world_action(12) && equipment==0);
     CHECK(ios_world_action(13) && camera_teleports==1);CHECK(ios_world_action(14) && erased==1);
     /* actions */
     CHECK(ios_world_action(5) && safe_saves == 1 && forced_saves == 0 && strstr(last_toast, "as soon as it is safe"));

@@ -759,7 +759,7 @@ static boolean ios_world_action(unsigned int action)
     if (unit_index == NONE) return FALSE;
     switch (action) {
     case 11: cheat_all_weapons();host_toast("Dropped the map's weapon collection around the player");return TRUE;
-    case 12: cheat_all_powerups();host_toast("Spawned the map's equipment collection");return TRUE;
+    case 12: return TRUE; /* Retired app action: preserve ID without spawning equipment. */
     case 13: cheat_teleport_to_camera();host_toast("Camera teleport requested");return TRUE;
     case 14: ai_erase(NONE,NONE,NONE,TRUE);host_toast("Erased encounter AI in this campaign");return TRUE;
     case 5: main_save_map_safe(); host_toast("Checkpoint requested: it saves as soon as it is safe (up to 8 seconds)"); return TRUE;
@@ -833,6 +833,25 @@ static void ios_campaign_action(unsigned int action)
             TEST_FLAG(unit_get(player->unit_index)->object.damage_flags, _object_dead_bit)) {
             host_toast("A living campaign player is required"); return;
         }
+    }
+    if (action == 400 || action == 401) {
+        /* One-shot inventory refill, using the current map's normal capacity. */
+        short type = (short)(action - 400);
+        struct game_globals *globals = scenario_get_game_globals();
+        struct player_datum *player = player_get(cheat_player_index());
+        struct unit_datum *unit = unit_get(player->unit_index);
+        if (!globals || type >= globals->grenades.count) {
+            host_toast("This grenade type is not available in the current map"); return;
+        }
+        struct game_globals_grenade *grenade = TAG_BLOCK_GET_ELEMENT(&globals->grenades, type, struct game_globals_grenade);
+        if (!grenade || grenade->maximum_count <= 0 || grenade->maximum_count > 127) {
+            host_toast("This map has an unsupported grenade capacity"); return;
+        }
+        short current = unit->unit.grenade_counts[type];
+        if (current < 0) { host_toast("Grenade inventory is invalid"); return; }
+        if (current < grenade->maximum_count)
+            unit_add_grenade_type_to_inventory(player->unit_index, type, (short)(grenade->maximum_count - current));
+        host_toast(type ? "Plasma grenades replenished" : "Frag grenades replenished"); return;
     }
     if (ios_world_action(action)) return;
     if (action == 4) {
