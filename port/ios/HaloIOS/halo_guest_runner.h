@@ -12,6 +12,8 @@ void halo_ios_menu_button(int button, int pressed);
 void halo_ios_pad_axis(int axis, int value);
 /* Clears every on-screen button and axis (physical controller untouched). */
 void halo_ios_menu_reset(void);
+/* Cancels touch ownership without discarding a physical controller snapshot. */
+void halo_ios_touch_reset(void);
 /* A physical controller's whole state: SDL button bit mask and six axes. */
 void halo_ios_physical_pad_state(uint32_t buttons, const int32_t axes[6]);
 

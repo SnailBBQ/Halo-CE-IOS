@@ -330,6 +330,18 @@ int main(void)
     s.fps_mode=1;CHECK(hs_effective_cap(&s,3,1)==60,"... also for smooth 60");
     s.fps_mode=0;s.thermal_cap=1;CHECK(hs_effective_cap(&s,3,1)==0,"the original 30 FPS mode is never touched");
     s.fps_mode=1;CHECK(hs_effective_cap(&s,-5,0)==60 && hs_effective_cap(&s,99,0)==30,"odd thermal values are safe");
+    /* Settings imported from the engine must not cancel an existing finger. */
+    hs_defaults(&s); t=s;
+    t.volume=.4f;t.game_controls[0]=7;t.game_profile_ready=1;t.game_color=3;
+    t.cheat_god=1;t.hud[0].scale=1.5f;t.presets[t.active].hud_choice=2;
+    CHECK(!hs_touch_scheme_changed(&s,&t),"audio, engine preferences, HUD and cheats preserve touch ownership");
+    t.presets[4].place[HC_LSTICK].fx=.6f;
+    CHECK(!hs_touch_scheme_changed(&s,&t),"editing an inactive scheme preserves current touch ownership");
+    t=s;t.presets[t.active].place[HC_LSTICK].fx=.6f;
+    CHECK(hs_touch_scheme_changed(&s,&t),"moving the active stick cancels obsolete touch geometry");
+    t=s;t.presets[t.active].stick_fire=!t.presets[t.active].stick_fire;
+    CHECK(hs_touch_scheme_changed(&s,&t),"changing fire ownership resets active touches");
+    t=s;t.active=1;CHECK(hs_touch_scheme_changed(&s,&t),"switching schemes releases old touches");
     if (!failures) printf("PASS: settings core: 5 named presets round-trip, hostile input is clamped, layouts stay on screen, stick feel\n");
     return failures ? 1 : 0;
 }

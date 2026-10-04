@@ -213,7 +213,10 @@ static const char *const kControlNames[HC_COUNT] = {
 {
     (void)note;
     if (self.editing) return; /* the editor owns the layout until Done */
-    _settings = [[HaloSettingsStore shared] snapshot];
+    HsSettings next = [[HaloSettingsStore shared] snapshot];
+    BOOL changed = hs_touch_scheme_changed(&_settings, &next);
+    _settings = next;
+    if (!changed) return; /* synchronization must preserve fingers already held */
     [self releaseAll];
     _laidOutSize = CGSizeZero; /* force a relayout */
     [self setNeedsLayout];
@@ -718,7 +721,7 @@ static NSNumber *HaloTouchKey(UITouch *touch)
     [self.lastTimes removeAllObjects];
     for (int i = 0; i < HC_COUNT; i++) _holds[i] = 0;
     _dpadMask = 0;
-    halo_ios_menu_reset();
+    halo_ios_touch_reset();
     if (_built) {
         _stickBase[0] = _stickHome[0];
         _stickBase[1] = _stickHome[1];

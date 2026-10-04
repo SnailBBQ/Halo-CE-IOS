@@ -120,6 +120,29 @@ typedef struct
     int profiler;             /* sample the game thread for the log (about 1% of one core) */
 } HsSettings;
 
+/* Only changes to the active touch scheme may cancel an owned touch. Engine
+ * audio, video, profile and cheat synchronization must not interrupt a hold.
+ * Compare members explicitly: serialized structs may contain padding bytes. */
+static inline int hs_touch_scheme_changed(const HsSettings *a, const HsSettings *b)
+{
+    if (a->active != b->active || a->controls_mode != b->controls_mode) return 1;
+    const HsPreset *x=&a->presets[a->active], *y=&b->presets[b->active];
+#define HS_TOUCH_DIFF(field) if (x->field != y->field) return 1
+    HS_TOUCH_DIFF(opacity); HS_TOUCH_DIFF(auto_fire); HS_TOUCH_DIFF(fire_drag);
+    HS_TOUCH_DIFF(stick_fire); HS_TOUCH_DIFF(touch_look); HS_TOUCH_DIFF(look_sensitivity);
+    HS_TOUCH_DIFF(invert_look_y); HS_TOUCH_DIFF(floating_sticks); HS_TOUCH_DIFF(stick_dead_zone);
+    HS_TOUCH_DIFF(move_curve); HS_TOUCH_DIFF(look_curve); HS_TOUCH_DIFF(haptics);
+    HS_TOUCH_DIFF(face_style); HS_TOUCH_DIFF(mirror); HS_TOUCH_DIFF(toggle_mask);
+    HS_TOUCH_DIFF(gyro); HS_TOUCH_DIFF(gyro_sens); HS_TOUCH_DIFF(gyro_flip_yaw); HS_TOUCH_DIFF(gyro_flip_pitch);
+#undef HS_TOUCH_DIFF
+    for (int i=0;i<HC_COUNT;i++) {
+        const HsPlacement *p=&x->place[i], *q=&y->place[i];
+        if (p->placed!=q->placed || p->fx!=q->fx || p->fy!=q->fy ||
+            p->scale!=q->scale || p->hidden!=q->hidden || p->opacity!=q->opacity) return 1;
+    }
+    return 0;
+}
+
 /* Logical scene dimensions stay at 480 lines; target scale supplies extra detail.
  * The even width matches the renderer's surface requirements. Invalid metrics
  * fall back to the established 4:3 path, including NaN and zero-sized windows. */

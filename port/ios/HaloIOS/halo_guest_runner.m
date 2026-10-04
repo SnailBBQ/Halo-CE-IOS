@@ -2329,12 +2329,17 @@ void halo_ios_pad_axis(int axis, int value)
     atomic_store(&g_touch_axis[axis], clamp_axis(value, axis));
 }
 
-void halo_ios_menu_reset(void)
+void halo_ios_touch_reset(void)
 {
     halo_ios_set_touch_auto_fire(0);
     atomic_store(&g_menu_held, 0);
     atomic_store(&g_menu_pending, 0);
     for (int i = 0; i < 6; i++) atomic_store(&g_touch_axis[i], 0);
+}
+
+void halo_ios_menu_reset(void)
+{
+    halo_ios_touch_reset();
     for(int slot=0;slot<2;slot++){atomic_store(&g_phys_held[slot],0);for(int i=0;i<6;i++)atomic_store(&g_phys_axis[slot][i],0);}
 }
 
