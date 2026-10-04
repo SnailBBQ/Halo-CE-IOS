@@ -82,6 +82,8 @@ static NSString *HaloPerfLine(void)
 @property(nonatomic, strong) UIButton *startButton;
 @property(nonatomic, copy) void (^startBoot)(void);
 @property(nonatomic) BOOL engineStarted;
+@property(nonatomic) BOOL startupBlocked;
+@property(nonatomic,strong) UIButton *startupHelpButton;
 @property(nonatomic) BOOL importing;
 @property(nonatomic) BOOL foldersReady;
 @property(nonatomic) BOOL restoringBackup;
@@ -161,7 +163,7 @@ static NSString *HaloPerfLine(void)
     __weak AppDelegate *watchdogOwner = self;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(25 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         AppDelegate *owner = watchdogOwner;
-        if (!owner || halo_ios_presented_frames() > 0) return;
+        if (!owner || owner.startupBlocked || halo_ios_presented_frames() > 0) return;
         if ([[owner topPresenter] isKindOfClass:HaloLogViewController.class]) return;
         halo_ios_toast("The game has not drawn anything yet - opening the log");
         [owner showLog:nil];
@@ -174,6 +176,15 @@ static NSString *HaloPerfLine(void)
     [self updateControlsVisibility];
     if (self.startBoot) self.startBoot();
     self.startBoot = nil;
+}
+- (void)startupHelp:(UIButton *)sender {
+    (void)sender;
+    UIAlertController *help=[UIAlertController alertControllerWithTitle:@"Startup requirements"
+        message:@"Address space: your signing profile must authorize Extended Virtual Addressing. Increased Memory Limit controls RAM allowance separately.\n\nExecution: a compatible debugger/JIT method may be needed on stock iOS. Support depends on the device and iOS version; Halo compatibility has not been established.\n\nShare logs for the actual failure. Never share Apple credentials or pairing files."
+        preferredStyle:UIAlertControllerStyleAlert];
+    [help addAction:[UIAlertAction actionWithTitle:@"SideStore JIT guide" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){(void)a;[UIApplication.sharedApplication openURL:[NSURL URLWithString:@"https://docs.sidestore.io/docs/advanced/jit"] options:@{} completionHandler:nil];}]];
+    [help addAction:[UIAlertAction actionWithTitle:@"Done" style:UIAlertActionStyleCancel handler:nil]];
+    [[self topPresenter] presentViewController:help animated:YES completion:nil];
 }
 - (void)importMaps:(UIButton *)sender {
     (void)sender;
@@ -705,12 +716,14 @@ static NSString *HaloPerfLine(void)
     UIButton *share = [UIButton buttonWithType:UIButtonTypeSystem];
     [share setTitle:@"Share logs" forState:UIControlStateNormal];
     [share addTarget:self action:@selector(shareLogs:) forControlEvents:UIControlEventTouchUpInside];
-    UIStackView *actions = [[UIStackView alloc] initWithArrangedSubviews:@[import, disc, start, share]];
+    UIButton *help=[UIButton buttonWithType:UIButtonTypeSystem];[help setTitle:@"Startup help" forState:UIControlStateNormal];
+    [help addTarget:self action:@selector(startupHelp:) forControlEvents:UIControlEventTouchUpInside];help.hidden=YES;self.startupHelpButton=help;
+    UIStackView *actions = [[UIStackView alloc] initWithArrangedSubviews:@[import, disc, start, share, help]];
     actions.translatesAutoresizingMaskIntoConstraints = NO;
     actions.axis = UILayoutConstraintAxisHorizontal;
     actions.spacing = 24;
     actions.distribution=UIStackViewDistributionFillEqually;actions.spacing=12;
-    for(UIButton *button in @[import,disc,start,share]){button.backgroundColor=button==start?HaloUIAccent():HaloUICard();button.layer.cornerRadius=12;[button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];button.titleLabel.font=[UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];button.titleLabel.adjustsFontSizeToFitWidth=YES;button.titleLabel.minimumScaleFactor=0.75;}
+    for(UIButton *button in @[import,disc,start,share,help]){button.backgroundColor=button==start?HaloUIAccent():HaloUICard();button.layer.cornerRadius=12;[button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];button.titleLabel.font=[UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];button.titleLabel.adjustsFontSizeToFitWidth=YES;button.titleLabel.minimumScaleFactor=0.75;}
     [bootOverlay addSubview:actions];
     UISegmentedControl *source = [[UISegmentedControl alloc] initWithItems:@[@"Boot log", @"Game log"]];
     source.translatesAutoresizingMaskIntoConstraints = NO;
@@ -816,6 +829,20 @@ static NSString *HaloPerfLine(void)
                 }
             });
             dispatch_async(dispatch_get_main_queue(), ^{
+                if ([line hasPrefix:@"STARTUP BLOCKED:"] && halo_ios_presented_frames()==0) {
+                    AppDelegate *owner=weakSelf;
+                    if (!owner.startupBlocked) {
+                        owner.startupBlocked=YES;
+                        owner.startupHelpButton.hidden=NO;
+                        [owner.launchSpinner stopAnimating];
+                        owner.launchHeading.text=@"Halo could not start";
+                        if ([line hasSuffix:@"ADDRESS SPACE"])
+                            owner.launchDescription.text=@"iOS could not reserve the engine’s address space. Verify that your signing profile authorizes Extended Virtual Addressing. Lowering graphics settings or replacing maps will not fix this startup failure. Share logs for the exact allocation error.";
+                        else if ([line hasSuffix:@"EXECUTABLE MEMORY"])
+                            owner.launchDescription.text=@"iOS rejected executable memory for the engine. Your installation may need a compatible debugger/JIT method. Memory entitlements alone do not enable execution. Share logs before changing your setup.";
+                        else owner.launchDescription.text=@"The engine could not complete startup. Open Settings → Logs or use Share logs to review the failure.";
+                    }
+                }
                 if ([line hasPrefix:@"FULL GUEST STOPPED:"] ||
                     [line hasPrefix:@"FULL GUEST BLOCKED:"]) {
                     halo_ios_menu_reset();

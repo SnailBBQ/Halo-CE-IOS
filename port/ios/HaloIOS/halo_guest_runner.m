@@ -3027,7 +3027,10 @@ static int load_guest_image(NSString *path)
         {
             int error=errno;
             say("FULL GUEST: could not set memory protection at 0x%08x, flags=0x%x, errno=%d (%s).",(uint32_t)page,prot,error,strerror(error));
-            if(prot&PROT_EXEC)say("Guest execution authorization may be missing; memory-limit capabilities alone do not authorize executable code.");
+            if(prot&PROT_EXEC) {
+                say("Guest execution authorization may be missing; memory-limit capabilities alone do not authorize executable code.");
+                say("STARTUP BLOCKED: EXECUTABLE MEMORY");
+            }
             return 0;
         }
     }

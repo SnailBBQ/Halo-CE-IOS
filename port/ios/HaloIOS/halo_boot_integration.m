@@ -52,6 +52,11 @@ void halo_ios_start_game_boot(void (^line)(const char *text))
 {
     line("Halo CE iOS — starting engine");
     line("");
+#if defined(HALO_ALIGNED_ARENA_TEST) && HALO_ALIGNED_ARENA_TEST
+    line("Allocator mode: compatibility test, direct aligned 4 GiB Mach reservation");
+#else
+    line("Allocator mode: production, 8 GiB mmap reservation with aligned 4 GiB window");
+#endif
     boot_signing_diagnostics(line);
 
     if (!halo_guest_runtime_init())
@@ -59,6 +64,7 @@ void halo_ios_start_game_boot(void (^line)(const char *text))
         line("FATAL: 4-GiB-aligned original-address guest runtime failed.");
         say(line,"Runtime initialization detail: %s",halo_guest_runtime_last_error());
         line("Check the installed app's signing capabilities. This failure occurs before map loading; it is not a Jetsam termination report.");
+        line("STARTUP BLOCKED: ADDRESS SPACE");
         return;
     }
 
@@ -100,5 +106,8 @@ void halo_ios_start_game_boot(void (^line)(const char *text))
     if (success)
         line("M2.6.15 RESULT: FULL GUEST EXITED CLEANLY.");
     else
+    {
         line("M2.6.15 RESULT: FULL GUEST REACHED AN EXECUTION/HOST BOUNDARY ABOVE.");
+        line("STARTUP BLOCKED: ENGINE STARTUP");
+    }
 }

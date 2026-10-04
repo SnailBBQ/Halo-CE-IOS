@@ -1,13 +1,15 @@
 # Release notes
 
-The current update is **M2.6.60**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.61**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.60](../../port/ios/UPDATE_M2660.md) preserves held touch and controller input during unrelated settings synchronization.
+**Latest:** [M2.6.61](../../port/ios/UPDATE_M2661.md) adds startup failure guidance, signed-capability verification and a separate direct-allocation test app. Stock iOS compatibility remains unverified.
+
+**Previous:** [M2.6.60](../../port/ios/UPDATE_M2660.md) preserves held touch and controller input during unrelated settings synchronization.
 
 **Previous:** [M2.6.59](../../port/ios/UPDATE_M2659.md) adds signing-capability and memory-allocation diagnostics without changing the working runtime.
 

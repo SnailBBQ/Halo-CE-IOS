@@ -6,6 +6,10 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#if defined(HALO_ALIGNED_ARENA_TEST) && HALO_ALIGNED_ARENA_TEST
+#include <mach/mach.h>
+#include <mach/mach_vm.h>
+#endif
 
 #define HALO_GUEST_SPAN    (UINT64_C(1) << 32)
 #define HALO_RESERVE_SPAN  (UINT64_C(2) << 32)
@@ -50,6 +54,25 @@ int halo_guest_runtime_init(void)
         return 0;
     }
 
+#if defined(HALO_ALIGNED_ARENA_TEST) && HALO_ALIGNED_ARENA_TEST
+    /* Test app only: let Mach choose an unoccupied aligned range. ANYWHERE
+     * never overwrites an existing mapping. No guest addressing rule changes. */
+    mach_vm_address_t aligned=0;
+    kern_return_t result=mach_vm_map(mach_task_self(), &aligned,
+        (mach_vm_size_t)HALO_GUEST_SPAN, (mach_vm_offset_t)(HALO_GUEST_SPAN-1),
+        VM_FLAGS_ANYWHERE, MEMORY_OBJECT_NULL, 0, FALSE,
+        VM_PROT_NONE, VM_PROT_ALL, VM_INHERIT_NONE);
+    if (result != KERN_SUCCESS) {
+        snprintf(g_init_error,sizeof(g_init_error),
+            "direct aligned 4 GiB reservation failed: Mach error=%d (%s)",result,mach_error_string(result));
+        return 0;
+    }
+    if (!aligned || (aligned & (HALO_GUEST_SPAN-1)) || aligned > UINTPTR_MAX-HALO_GUEST_SPAN) {
+        mach_vm_deallocate(mach_task_self(),aligned,HALO_GUEST_SPAN);
+        snprintf(g_init_error,sizeof(g_init_error),"Mach returned an invalid aligned guest range");
+        return 0;
+    }
+#else
     /*
      * The execution bridge depends on this property:
      *
@@ -87,6 +110,7 @@ int halo_guest_runtime_init(void)
         munmap((void *)raw_address, prefix);
     if (suffix)
         munmap((void *)aligned_end, suffix);
+#endif
 
     g_page_size = (size_t)page;
     g_guest_base = (uint8_t *)aligned;

@@ -79,3 +79,32 @@ A failed initial 8 GiB virtual reservation now records the underlying allocation
 Compare the same diagnostic IPA installed through a known-working environment and the failing signer. Preserve the bundle identity and back up saves before any installer change. Share ios-boot.log, launch-phase.txt, the exact OS version and installer version; redact private paths if needed. Maps do not need to be replaced for this startup comparison.
 
 [GetMoreRam](https://github.com/hugeBlack/GetMoreRam) requests `INCREASED_MEMORY_LIMIT` for an App ID and instructs users to reinstall afterward. It does not request extended virtual addressing or establish guest-code execution authorization. Results depend on Apple account/provisioning eligibility and the installer. A standard-sideloading compatibility claim requires successful device tests, not just an IPA build.
+
+## Stock iOS compatibility test
+
+M2.6.61 includes a separate **Halo Compatibility Test** app. It attempts a direct
+aligned 4 GiB reservation, preserving the engine's addressing requirements. Its
+data is separate: import maps or restore a backup; do not delete your regular app.
+This is an allocation experiment, not a way to grant missing signing privileges.
+
+1. In the developer/signing setup, enable **Extended Virtual Addressing** for the
+   actual App ID if the account supports it, then regenerate the provisioning
+   profile and re-sign. Enable Increased Memory Limit separately if available.
+   Ask the signer to preserve authorized capabilities; changing Info.plist is not
+   sufficient. Do not assume free/paid account eligibility without checking.
+2. On macOS, inspect the resulting app with
+   `python3 tools/verify_ios_signing.py /path/to/HaloIOS.app --report-only`.
+   This reports signature and embedded-profile booleans, not private identities.
+   The installed app's boot log provides a second check after re-signing.
+3. Launch and share the logs. If address allocation succeeds but executable memory
+   is rejected, follow [SideStore's current JIT guide](https://docs.sidestore.io/docs/advanced/jit)
+   for the exact device/OS and try again. JIT enabling is external to Halo; support
+   on newer iOS versions can be limited to particular apps. Halo is not yet verified.
+4. Compare with the regular app under the same signing method and record whether
+   allocation, engine execution and the first game frame each succeed.
+
+Never share Apple credentials, pairing files or full provisioning profiles.
+The supplied IPA's ad-hoc capabilities are checked in CI, but an installer can
+change them. Neither a signature inspection nor a paid account guarantees engine
+execution. A fully signed native engine without an external JIT step would require
+a separate porting effort; it is not implemented in this update.

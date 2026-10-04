@@ -4,6 +4,10 @@ run-name: Halo CE iOS — ${{ github.ref_name }} (run ${{ github.run_number }})
 on:
   workflow_dispatch:
     inputs:
+      compatibility_test:
+        description: 'Separate test app: direct aligned 4 GiB allocation (not a signing bypass)'
+        type: boolean
+        default: false
       arena_fastpath:
         description: 'Rewrite guest loads/stores to avoid pointer faults (set false for an A/B baseline build)'
         type: boolean
@@ -70,6 +74,9 @@ on:
       - 'tools/tests/test_ios_audio_ring.c'
       - 'tools/tests/test_ios_sdl_event_numbers.c'
       - 'tools/tests/test_ios_workflow_configuration.py'
+      - 'tools/verify_ios_signing.py'
+      - 'tools/tests/test_ios_signing.py'
+      - 'tools/tests/test_ios_direct_arena.c'
       - 'tools/tests/test_ios_vertex_colors.c'
       - 'tools/tests/test_ios_vertex_attributes.c'
       - 'tools/tests/test_ios_vertex_constants.c'
@@ -348,6 +355,9 @@ jobs:
 
       - name: Verify disc extraction, cancellation and mod originals
         run: |
+          python3 tools/tests/test_ios_signing.py
+          clang -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_direct_arena.c -o "$RUNNER_TEMP/halo-direct-arena-test"
+          "$RUNNER_TEMP/halo-direct-arena-test"
           clang -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_runtime_failure.c -o "$RUNNER_TEMP/halo-runtime-diagnostics-test"
           "$RUNNER_TEMP/halo-runtime-diagnostics-test"
           clang -std=c11 -O2 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_texture_check.c -o "$RUNNER_TEMP/halo-texture-test"
@@ -359,9 +369,15 @@ jobs:
           "$RUNNER_TEMP/halo-disc-test"
 
       - name: Build device host app
+        env:
+          COMPATIBILITY_TEST: ${{ inputs.compatibility_test || false }}
         run: |
           set -euxo pipefail
           rm -rf build/ios
+          HOST_FLAGS=()
+          if [ "$COMPATIBILITY_TEST" = true ]; then
+            HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_ALIGNED_ARENA_TEST=1')
+          fi
           xcodebuild \
             -project port/ios/HaloIOS.xcodeproj \
             -scheme HaloIOS \
@@ -371,9 +387,12 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
+            "${HOST_FLAGS[@]}" \
             build
 
       - name: Bundle real arm64_32 guest and ad-hoc sign
+        env:
+          COMPATIBILITY_TEST: ${{ inputs.compatibility_test || false }}
         run: |
           set -euxo pipefail
           APP=$(find build/ios/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
@@ -385,11 +404,16 @@ jobs:
           test -f "$APP/$EXECUTABLE"
           test -x "$APP/$EXECUTABLE"
           test -s "$APP/halo_guest.elf"
+          if [ "$COMPATIBILITY_TEST" = true ]; then
+            /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.haloceuniversal.ios.compatibility' "$APP/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Halo Compatibility Test' "$APP/Info.plist"
+          fi
 
           /usr/bin/codesign --force --sign - \
             --entitlements port/ios/HaloIOS/HaloIOS.entitlements \
             --timestamp=none "$APP"
           /usr/bin/codesign --verify --verbose=2 "$APP"
+          python3 tools/verify_ios_signing.py "$APP"
 
       - name: Package HaloCE.ipa
         run: |
@@ -408,7 +432,7 @@ jobs:
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: HaloCE-iOS
+          name: ${{ inputs.compatibility_test && 'HaloCE-iOS-Compatibility-Test' || 'HaloCE-iOS' }}
           path: build/ios/HaloCE.ipa
           if-no-files-found: error
           retention-days: 14
