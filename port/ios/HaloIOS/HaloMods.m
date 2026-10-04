@@ -64,6 +64,24 @@ static void Replace(NSURL *source,NSURL *dest) {
     BOOL ok=[fm fileExistsAtPath:dest.path]?[fm replaceItemAtURL:dest withItemAtURL:tmp backupItemName:nil options:0 resultingItemURL:nil error:nil]:[fm moveItemAtURL:tmp toURL:dest error:nil];
     if(!ok)[fm removeItemAtURL:tmp error:nil];HaloBackupRequire(ok,@"Cannot replace map.");
 }
+NSArray<NSDictionary *> *HaloModsPlanBaseImport(NSArray<NSURL *> *files,NSURL *stage) {
+    HaloBackupRequire(![NSFileManager.defaultManager fileExistsAtPath:ModFile(@"journal.plist").path],@"Restart Halo to recover pending mod changes before importing a disc.");
+    NSMutableDictionary *base=[[NSDictionary dictionaryWithContentsOfURL:ModFile(@"base.plist")] mutableCopy]?:[NSMutableDictionary dictionary];
+    NSURL *maps=[NSURL fileURLWithPath:[HaloBackupRoot() stringByAppendingPathComponent:@"maps"] isDirectory:YES];
+    NSMutableArray *plan=[NSMutableArray array];BOOL changed=NO;
+    for(NSURL *file in files){NSString *name=file.lastPathComponent;HaloBackupRequire(ValidName(name),@"Invalid disc map name.");
+        NSURL *target=base[name]?[ModFile(@"base") URLByAppendingPathComponent:name]:MapTarget(maps,name);
+        [plan addObject:@{@"source":file,@"target":target}];
+        if(base[name]){base[name]=@YES;changed=YES;}
+    }
+    if(changed){
+        NSURL *catalog=[stage URLByAppendingPathComponent:@"base.plist"],*pending=[stage URLByAppendingPathComponent:@"pending.plist"];
+        HaloBackupRequire([base writeToURL:catalog atomically:YES] && [@{@"pending":@YES} writeToURL:pending atomically:YES],@"Cannot stage mod originals.");
+        [plan addObject:@{@"source":catalog,@"target":ModFile(@"base.plist")}];
+        [plan addObject:@{@"source":pending,@"target":ModFile(@"pending.plist")}];
+    }
+    return plan;
+}
 BOOL HaloModsApply(NSError **error) {
     NSFileManager *fm=NSFileManager.defaultManager;NSURL *maps=[NSURL fileURLWithPath:[HaloBackupRoot() stringByAppendingPathComponent:@"maps"] isDirectory:YES];
     @try {

@@ -40,7 +40,7 @@ Things to know:
 ## 3. First launch
 
 1. Open **Halo CE**. The first launch creates the app's folders and shows the setup screen.
-2. Import your maps with **Import maps**, or copy them in with the Files app. Include `ui.map`. See [Game data](GAME_DATA.md).
+2. Use **Import maps** for `.map` files, **Import disc image** for an Xbox Halo CE `.iso` / `.xiso`, or copy maps in with Files. Include `ui.map`. See [Game data](GAME_DATA.md).
 3. Tap **Start Halo**. After the first run, the app can start the engine immediately; you can change this in Settings → Controls → *On app launch*.
 4. Tap the gear button at any time to open Settings.
 

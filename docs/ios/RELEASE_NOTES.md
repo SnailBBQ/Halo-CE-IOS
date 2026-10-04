@@ -1,18 +1,19 @@
 # Release notes
 
-The current update is **M2.6.55**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.56**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Source update:** M2.6.55 adds configurable input shortcuts, Settings icon customization, shared in-game preferences, player-profile editing and separate campaign-save imports. Both apps remain on Halo CE Universal build 94. The [official IPA build](https://github.com/SnailBBQ/Halo-CE-IOS/actions/runs/37192857268) passed. Device validation is still required.
+**Source update:** [M2.6.56](../../port/ios/UPDATE_M2656.md) adds on-device Xbox disc import with validated staging, Keep/Replace, progress, cancellation and interrupted-install recovery. Import maps and mod-original restoration are preserved. Both apps remain on Halo CE Universal build 94. Disc-import device validation is still required.
 
 ## Recent updates at a glance
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.56 | On-device Xbox ISO/XISO map extraction, Keep/Replace, cancellation and mod-original preservation. |
 | M2.6.55 | Input shortcuts, icon customization, Jetpack Jump thrust, shared settings and separate save/profile imports. |
 | M2.6.54 | Universal build 94: campaign melee, weapon pickup/swap, scoreboard and browser fixes. |
 | M2.6.52 | Settings organization, optional 1080p, draggable performance overlay, LAN permission check and external save backups. Apple/device validation pending. |

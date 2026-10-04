@@ -8,3 +8,6 @@ void HaloModsMove(NSUInteger index, NSInteger delta);
 NSURL *HaloModsExport(NSUInteger index);
 BOOL HaloModsPending(void);
 BOOL HaloModsApply(NSError **error);
+/* Disc imports replace an enabled mod's saved ORIGINAL, not its live overlay.
+ * Returns transaction records; staged metadata is committed with the maps. */
+NSArray<NSDictionary *> *HaloModsPlanBaseImport(NSArray<NSURL *> *files, NSURL *stage);

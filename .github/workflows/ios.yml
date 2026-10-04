@@ -59,6 +59,9 @@ on:
       - 'tools/tests/test_ios_preset_activation.m'
       - 'tools/tests/test_ios_map_pictures.m'
       - 'tools/tests/test_ios_mods.m'
+      - 'tools/tests/test_ios_xiso.py'
+      - 'tools/tests/ios_xiso_driver.c'
+      - 'tools/tests/test_ios_disc_install.m'
       - 'tools/tests/test_ios_log_classify.c'
       - 'tools/tests/test_ios_net.c'
       - 'tools/tests/test_ios_hash.c'
@@ -341,6 +344,12 @@ jobs:
         run: |
           clang -fobjc-arc -DHALO_BACKUP_TEST -framework Foundation -Iport/ios/HaloIOS port/ios/HaloIOS/HaloMods.m port/ios/HaloIOS/HaloBackupArchive.m tools/tests/test_ios_mods.m -o "$RUNNER_TEMP/halo-mods-test"
           "$RUNNER_TEMP/halo-mods-test"
+
+      - name: Verify disc extraction, cancellation and mod originals
+        run: |
+          python3 tools/tests/test_ios_xiso.py
+          clang -fobjc-arc -DHALO_BACKUP_TEST -framework Foundation -Iport/ios/HaloIOS port/ios/HaloIOS/HaloDiscImport.m port/ios/HaloIOS/HaloMods.m port/ios/HaloIOS/HaloBackupArchive.m tools/tests/test_ios_disc_install.m -o "$RUNNER_TEMP/halo-disc-test"
+          "$RUNNER_TEMP/halo-disc-test"
 
       - name: Build device host app
         run: |

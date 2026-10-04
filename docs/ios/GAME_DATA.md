@@ -29,14 +29,22 @@ The app does not include game maps. Supply them from your own copy of *Halo: Com
 
 ## Getting the maps from a disc image (ISO or XISO)
 
-The app imports `.map` files. **It does not open disc images itself.** (The desktop and Android versions of Halo CE Universal can open a
-disc image directly; the iOS app cannot yet.) Extract the maps on a computer first:
+On the title screen, choose **Import disc image**, then select an `.iso` or `.xiso` in Files.
+The app extracts `maps/*.map` on the device into the same `Documents/Halo/maps` folder used by **Import maps**.
+Download an iCloud image in Files first. Keep enough free storage for the extracted maps; the app opens the image in place.
 
-1. Start with a disc image of your own copy of the game, an `.iso` or `.xiso` file.
-2. Extract its files with a tool that reads Xbox disc images, for example `extract-xiso` or `xdvdfs`. With extract-xiso the command is
-   along the lines of `extract-xiso -x "Halo - Combat Evolved.iso"`; check the help of the tool you use.
-3. Open the extracted `maps` folder. It holds `ui.map` and the campaign and multiplayer maps.
-4. Copy the `.map` files to your device (see below).
+Every map must have the Xbox cache v5 `head`, version and `foot` fields, with build **01.10.12.2276 (NTSC)** or
+**01.01.14.2342 (PAL)**. Disc regions, retail revision names, Platinum Hits labels and ISO filenames are not filters.
+Version 5 describes the map format, not the disc revision. PC, MCC and Custom Edition disc images are unsupported.
+
+If maps already exist, choose **Keep** to preserve matching files and add missing ones, or **Replace** to install matching disc originals.
+Files are validated and copied into private staging before installation. **Cancel** preserves the previous library; an interrupted
+installation is recovered before the next engine launch. An incomplete `ui.map` is never installed.
+Enabled mods remain separate and apply on the next app launch. Replacing a modded map updates its saved original, so unloading
+the mod restores the newly imported disc map. Existing maps not found on the disc are preserved.
+
+You can still extract maps on a computer with `extract-xiso` or `xdvdfs`, then use **Import maps** as before.
+An existing `ui.map` never causes Halo to wait for a disc image.
 
 ## Importing maps into the app
 

@@ -2,6 +2,9 @@
 
 # M2.6.50 — Picture options and touch aiming
 
+On-device disc extraction was requested against this older milestone but added to the newer tree in
+[M2.6.56](UPDATE_M2656.md). These historical M2.6.50 notes remain unchanged below.
+
 The same feature commit is integrated into the regular app and the separate mod-test branch.
 App identity, private storage, map ceilings, multiplayer protocol and the existing execution bridge are preserved.
 Mod conversion remains paused.

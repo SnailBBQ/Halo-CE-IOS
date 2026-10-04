@@ -8,6 +8,9 @@
 #import "HaloSettingsStore.h"
 #import "HaloLibrary.h"
 #import "HaloMods.h"
+#import "HaloDiscImport.h"
+#import "HaloBackupArchive.h"
+#include "halo_xiso.h"
 #import "HaloUI.h"
 #import "halo_ios_audio.h"
 #import "halo_ios_platform.h"
@@ -18,6 +21,22 @@
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 extern NSString * const HaloIOSFirstFramePresentedNotification;
+
+@interface HaloDiscJob : NSObject
+@property(atomic) BOOL cancelled;
+@property(nonatomic,copy) void (^progress)(NSString *,uint64_t,uint64_t);
+@property(nonatomic) CFAbsoluteTime lastUpdate;
+@end
+@implementation HaloDiscJob
+@end
+static int DiscProgress(void *context,const char *name,uint64_t done,uint64_t total){
+    HaloDiscJob *job=(__bridge HaloDiscJob *)context;
+    CFAbsoluteTime now=CFAbsoluteTimeGetCurrent();
+    if(now-job.lastUpdate>0.15 || (total&&done==total)){
+        job.lastUpdate=now;if(job.progress)job.progress([NSString stringWithUTF8String:name],done,total);
+    }
+    return job.cancelled;
+}
 
 /* Keeps the screen edges for the game: no home-indicator swipe or status bar while playing. */
 @interface HaloViewController : UIViewController
@@ -58,6 +77,8 @@ static NSString *HaloPerfLine(void)
 @property(nonatomic, copy) NSString *bootText;
 @property(nonatomic, strong) UISegmentedControl *logSource;
 @property(nonatomic, strong) UIButton *importButton;
+@property(nonatomic,strong) UIButton *discButton;
+@property(nonatomic) BOOL choosingDisc;
 @property(nonatomic, strong) UIButton *startButton;
 @property(nonatomic, copy) void (^startBoot)(void);
 @property(nonatomic) BOOL engineStarted;
@@ -147,6 +168,7 @@ static NSString *HaloPerfLine(void)
     });
     self.logSource.hidden = YES;
     self.importButton.hidden = YES;
+    self.discButton.hidden = YES;
     self.startButton.hidden = YES;
     self.bootOverlay.hidden = NO;   /* clean launch card until the first presented frame */
     [self updateControlsVisibility];
@@ -164,6 +186,7 @@ static NSString *HaloPerfLine(void)
 }
 - (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     (void)controller;
+    if(self.choosingDisc){self.choosingDisc=NO;[self chooseDiscPolicy:urls.firstObject];return;}
     if (self.engineStarted || self.importing) return;
     self.importing = YES;
     self.importButton.enabled = NO;
@@ -215,6 +238,79 @@ static NSString *HaloPerfLine(void)
             [self.window.rootViewController presentViewController:alert animated:YES completion:nil];
         });
     });
+}
+- (void)importDisc:(UIButton *)sender {
+    (void)sender;if(self.engineStarted||self.importing)return;
+    self.importing=YES;self.choosingDisc=YES;self.startButton.enabled=NO;self.importButton.enabled=NO;self.discButton.enabled=NO;self.settingsButton.enabled=NO;
+    /* Open in place: do not duplicate a multi-GB ISO in the app's Inbox. The
+     * coordinated security-scoped read lasts through the complete C job. */
+    UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:NO];
+    picker.delegate=self;picker.allowsMultipleSelection=NO;[self.window.rootViewController presentViewController:picker animated:YES completion:nil];
+}
+- (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
+    (void)controller;if(!self.choosingDisc)return;self.choosingDisc=NO;[self finishDiscUI];
+}
+- (void)finishDiscUI {
+    self.importing=NO;self.importButton.enabled=YES;self.discButton.enabled=YES;self.settingsButton.enabled=YES;[self.launchSpinner stopAnimating];
+    if(!HaloDiscImportPending())[self refreshSetup];
+    else {self.startButton.enabled=NO;self.launchHeading.text=@"Import recovery required";self.launchDescription.text=@"Close and reopen Halo to restore interrupted map changes.";}
+}
+- (void)chooseDiscPolicy:(NSURL *)url {
+    if(!url){[self finishDiscUI];return;}
+    NSString *ext=url.pathExtension.lowercaseString;
+    if(![@[@"iso",@"xiso"] containsObject:ext]){
+        UIAlertController *a=[UIAlertController alertControllerWithTitle:@"Choose a disc image" message:@"Choose an Xbox Halo CE .iso or .xiso file. Use Import maps for .map files." preferredStyle:UIAlertControllerStyleAlert];
+        [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){(void)action;[self finishDiscUI];}]];[self.window.rootViewController presentViewController:a animated:YES completion:nil];return;
+    }
+    BOOL existing=NO;for(NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:[self mapsFolder] error:nil])if([name.pathExtension.lowercaseString isEqual:@"map"])existing=YES;
+    if(!existing){[self extractDisc:url replace:NO];return;}
+    UIAlertController *a=[UIAlertController alertControllerWithTitle:@"Existing maps" message:@"Keep preserves matching maps and adds missing maps. Replace installs disc originals for matching maps. Enabled mods still apply on the next launch." preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"Keep" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){(void)action;[self extractDisc:url replace:NO];}]];
+    [a addAction:[UIAlertAction actionWithTitle:@"Replace" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action){(void)action;[self extractDisc:url replace:YES];}]];
+    [a addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction *action){(void)action;[self finishDiscUI];}]];
+    [self.window.rootViewController presentViewController:a animated:YES completion:nil];
+}
+- (void)extractDisc:(NSURL *)url replace:(BOOL)replace {
+    HaloDiscJob *job=[HaloDiscJob new];self.launchHeading.text=@"Importing disc image";self.launchDescription.text=@"Validating Xbox Halo CE maps…";[self.launchSpinner startAnimating];
+    UIAlertController *progress=[UIAlertController alertControllerWithTitle:@"Import disc image" message:@"Reading Xbox filesystem…" preferredStyle:UIAlertControllerStyleAlert];
+    [progress addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction *action){(void)action;job.cancelled=YES;}]];
+    __weak AppDelegate *owner=self;
+    job.progress=^(NSString *name,uint64_t done,uint64_t total){dispatch_async(dispatch_get_main_queue(),^{
+        NSString *line=total?[NSString stringWithFormat:@"%@\n%.0f%% · %.1f / %.1f MB",name,100.0*done/total,done/1048576.0,total/1048576.0]:name;
+        progress.message=line;owner.launchDescription.text=line;
+    });};
+    [self.window.rootViewController presentViewController:progress animated:YES completion:^{
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
+            NSURL *stage=[HaloBackupWork() URLByAppendingPathComponent:[@"disc-stage-" stringByAppendingString:NSUUID.UUID.UUIDString] isDirectory:YES];
+            NSFileManager *fm=NSFileManager.defaultManager;__block NSError *failure=nil;__block int result=0;NSUInteger installed=0,kept=0;
+            BOOL scoped=[url startAccessingSecurityScopedResource];
+            if(![fm createDirectoryAtURL:stage withIntermediateDirectories:YES attributes:nil error:&failure])result=0;
+            else{
+                NSFileCoordinator *coordinator=[[NSFileCoordinator alloc] initWithFilePresenter:nil];NSError *coordination=nil;
+                [coordinator coordinateReadingItemAtURL:url options:0 error:&coordination byAccessor:^(NSURL *readURL){
+                    char reason[512]={0};result=halo_xiso_extract(readURL.path.UTF8String,stage.path.UTF8String,DiscProgress,(__bridge void *)job,reason,sizeof(reason));
+                    if(result==0)failure=HaloBackupFailure([NSString stringWithUTF8String:reason]);
+                }];if(coordination){result=0;failure=coordination;}
+            }
+            if(scoped)[url stopAccessingSecurityScopedResource];
+            if(result==1){
+                job.progress(@"Installing validated maps…",0,0);
+                if(!HaloDiscInstall(stage,replace,^BOOL{return job.cancelled;},&installed,&kept,&failure))result=job.cancelled?-1:0;
+            }
+            [fm removeItemAtURL:stage error:nil];
+            job.progress=nil; /* break alert -> Cancel action -> job -> progress */
+            dispatch_async(dispatch_get_main_queue(),^{
+                void (^finish)(void)=^{
+                    NSString *message=result==1?[NSString stringWithFormat:@"Imported %lu maps. Kept %lu existing maps.",(unsigned long)installed,(unsigned long)kept]:
+                        (failure.localizedDescription?:@"Disc import cancelled. Existing maps were preserved.");
+                    UIAlertController *a=[UIAlertController alertControllerWithTitle:result==1?@"Maps imported":result==-1?@"Import cancelled":@"Disc import stopped" message:message preferredStyle:UIAlertControllerStyleAlert];
+                    [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){(void)action;[self finishDiscUI];}]];
+                    [self.window.rootViewController presentViewController:a animated:YES completion:nil];
+                };
+                if(progress.presentingViewController)[progress dismissViewControllerAnimated:YES completion:finish];else finish();
+            });
+        });
+    }];
 }
 - (void)shareLogs:(UIView *)sender {
     NSMutableArray<NSURL *> *files = [NSMutableArray array];
@@ -471,12 +567,12 @@ static NSString *HaloPerfLine(void)
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     NSString *pending=[[[NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask].firstObject.path stringByAppendingPathComponent:@"HaloBackups"] stringByAppendingPathComponent:@"pending.plist"];
-    if(![NSFileManager.defaultManager fileExistsAtPath:pending] && !HaloModsPending())return [self finishLaunch:application options:launchOptions];
+    if(![NSFileManager.defaultManager fileExistsAtPath:pending] && !HaloModsPending() && !HaloDiscImportPending())return [self finishLaunch:application options:launchOptions];
     self.restoringBackup=YES;
     self.window=[[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];UIViewController *screen=[UIViewController new];screen.view.backgroundColor=UIColor.blackColor;self.window.rootViewController=screen;
     UILabel *message=[UILabel new];message.text=@"Preparing Halo…\nApplying library changes. Keep the app open.";message.textColor=UIColor.whiteColor;message.textAlignment=NSTextAlignmentCenter;message.numberOfLines=0;message.translatesAutoresizingMaskIntoConstraints=NO;[screen.view addSubview:message];[NSLayoutConstraint activateConstraints:@[[message.centerXAnchor constraintEqualToAnchor:screen.view.centerXAnchor],[message.centerYAnchor constraintEqualToAnchor:screen.view.centerYAnchor],[message.widthAnchor constraintLessThanOrEqualToAnchor:screen.view.widthAnchor constant:-40]]];[self.window makeKeyAndVisible];
     /* Large map hashing/copies must not block application launch or the UI thread. */
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{NSError *error=nil;BOOL restored=HaloApplyPendingRestore(&error);if(restored)restored=HaloModsApply(&error);
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{NSError *error=nil;BOOL restored=HaloDiscImportRecover(&error);if(restored)restored=HaloApplyPendingRestore(&error);if(restored)restored=HaloModsApply(&error);
         dispatch_async(dispatch_get_main_queue(),^{
             if(restored){self.restoringBackup=NO;[self finishLaunch:application options:launchOptions];if(self.deferredInvite){HaloSetPendingInvite(self.deferredInvite.absoluteString);self.deferredInvite=nil;}return;}
             UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Restore stopped" message:error.localizedDescription preferredStyle:UIAlertControllerStyleAlert];[alert addAction:[UIAlertAction actionWithTitle:@"Close Halo" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){(void)a;halo_ios_quit_app();}]];if(HaloModsPending())[alert addAction:[UIAlertAction actionWithTitle:@"Manage Mods" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){(void)action;UIViewController *manager=HaloMapsController();manager.modalPresentationStyle=UIModalPresentationFullScreen;[screen presentViewController:manager animated:YES completion:nil];}]];[screen presentViewController:alert animated:YES completion:nil];
@@ -601,6 +697,7 @@ static NSString *HaloPerfLine(void)
     [import setTitle:@"Import maps" forState:UIControlStateNormal];
     [import addTarget:self action:@selector(importMaps:) forControlEvents:UIControlEventTouchUpInside];
     self.importButton = import;
+    UIButton *disc=[UIButton buttonWithType:UIButtonTypeSystem];[disc setTitle:@"Import disc image" forState:UIControlStateNormal];[disc addTarget:self action:@selector(importDisc:) forControlEvents:UIControlEventTouchUpInside];self.discButton=disc;
     UIButton *start = [UIButton buttonWithType:UIButtonTypeSystem];
     [start setTitle:@"Play Halo CE" forState:UIControlStateNormal];
     [start addTarget:self action:@selector(startHalo:) forControlEvents:UIControlEventTouchUpInside];
@@ -608,12 +705,12 @@ static NSString *HaloPerfLine(void)
     UIButton *share = [UIButton buttonWithType:UIButtonTypeSystem];
     [share setTitle:@"Share logs" forState:UIControlStateNormal];
     [share addTarget:self action:@selector(shareLogs:) forControlEvents:UIControlEventTouchUpInside];
-    UIStackView *actions = [[UIStackView alloc] initWithArrangedSubviews:@[import, start, share]];
+    UIStackView *actions = [[UIStackView alloc] initWithArrangedSubviews:@[import, disc, start, share]];
     actions.translatesAutoresizingMaskIntoConstraints = NO;
     actions.axis = UILayoutConstraintAxisHorizontal;
     actions.spacing = 24;
     actions.distribution=UIStackViewDistributionFillEqually;actions.spacing=12;
-    for(UIButton *button in @[import,start,share]){button.backgroundColor=button==start?HaloUIAccent():HaloUICard();button.layer.cornerRadius=12;[button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];button.titleLabel.font=[UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];}
+    for(UIButton *button in @[import,disc,start,share]){button.backgroundColor=button==start?HaloUIAccent():HaloUICard();button.layer.cornerRadius=12;[button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];button.titleLabel.font=[UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];button.titleLabel.adjustsFontSizeToFitWidth=YES;button.titleLabel.minimumScaleFactor=0.75;}
     [bootOverlay addSubview:actions];
     UISegmentedControl *source = [[UISegmentedControl alloc] initWithItems:@[@"Boot log", @"Game log"]];
     source.translatesAutoresizingMaskIntoConstraints = NO;
