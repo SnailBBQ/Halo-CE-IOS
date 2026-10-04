@@ -1,3 +1,5 @@
+> Historical milestone note. Features, limits and validation statements describe this update when written. For current behaviour, use the [Settings guide](../../docs/ios/SETTINGS.md) and [project status](../../IOS_PORT_STATUS.md).
+
 # iOS performance migration review
 
 Grok's proposal correctly identifies repeated guest-pointer fault handling as a major candidate for improvement. Current device logs show rendering dominating CPU time; small native color conversion has not materially improved FPS. This evidence supports moving repeated work into native helpers, but does not identify every remaining cost.

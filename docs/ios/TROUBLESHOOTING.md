@@ -3,7 +3,7 @@
 ## Safe Start
 
 If the last start did not finish, the app starts in **Safe Start** and says so in Settings → Advanced. Safe Start turns off sound, internet play, smooth 60 FPS,
-hi-res HUD and text, the profiler, the PC menus and the picture options so the game has the best chance of opening. A start that runs for 15 seconds turns it off by itself, or
+hi-res HUD and text, the profiler, the PC menus and the picture options so the game has the best chance of opening. Running for 15 seconds after the first frame marks the launch as successful, so normal options return on the next launch; or
 use **Leave safe mode** in Advanced. If Safe Start keeps appearing, share your logs.
 
 ## Logs and problem reports
@@ -19,13 +19,13 @@ When you report a problem, include the app version (Settings → Advanced → Ab
 
 | Problem | What to try |
 | --- | --- |
-| The app will not open after about a week | A free Apple ID signs apps for 7 days. Re-install or refresh the app in your sideloading tool. Your data stays if the bundle ID is unchanged. |
-| "Untrusted developer" | Trust your profile in **Settings → General → VPN & Device Management**. On iOS 16 or later also turn on **Developer Mode**. |
+| The app will not open after about a week | A free Apple ID signs apps for 7 days. Re-install or refresh the app in your sideloading tool. Update in place with the same bundle ID and signing identity; back up first and do not delete the app. |
+| "Untrusted developer" | Trust your profile in **Settings → General → VPN & Device Management**. For development-signed apps, your installation method may also require **Developer Mode** on iOS 16 or later. |
 | **Start Halo** is disabled | `ui.map` is missing or too small. Import it. See [Game data](GAME_DATA.md). |
 | Black screen, crash, or the app closes while starting | Open the app again to get Safe Start, then share your logs. |
 | A map fails to load | Check that it is an Xbox version-5 `.map`. The library in **Settings → Mods** shows a header check. PC and MCC maps do not work. |
 | LAN games are not found | Allow **Local Network** for Halo CE in iOS Settings and put both devices on the same Wi-Fi. |
-| A friend cannot join, or you cannot join them | Both sides need the same Halo CE Universal build and the same maps. An invite only works while that game is running. Try the [invite file](MULTIPLAYER.md#the-invite-file). |
+| A friend cannot join, or you cannot join them | Use compatible protocol versions and matching map content, preferably matching tested Universal builds. An invite only works while that game is running. Try the [invite file](MULTIPLAYER.md#the-invite-file). |
 | Low frame rate, or the phone gets hot | Use **60 · Smooth**, lower **Render detail**, keep *Lower the frame rate when the phone is hot* on, close other apps, and use the **Performance overlay** to watch heat and memory. |
 | Sound cuts out or crackles | **Settings → Audio → Restart audio output**. |
 | The first-person weapon or hands look wrong | Try the other options under **Settings → Display → First-person view**, and report which one helps. |

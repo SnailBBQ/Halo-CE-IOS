@@ -1,3 +1,5 @@
+> Historical milestone note. Features, limits and validation statements describe this update when written. For current behaviour, use the [Settings guide](../../docs/ios/SETTINGS.md) and [project status](../../IOS_PORT_STATUS.md).
+
 > Historical experiment: launch crashes led to disabling this path. The M2.6.29 shipping workflow keeps it disabled; see [current status](PERFORMANCE_M2629.md).
 
 # M2.6.27 — Selective iOS pointer fast path (Phase 1)

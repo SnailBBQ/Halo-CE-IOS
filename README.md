@@ -7,8 +7,10 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 > **You are on the regular app branch.** A separate **Mod Test** app lives on the [`ios/cursed-a10-mod-test`](https://github.com/xSkullHD/Halo-CE-IOS/tree/ios/cursed-a10-mod-test) branch.
 
 > **Status: playable.** The current update is **M2.6.50**. The campaign and cross-play multiplayer work on a physical iPhone:
-> `a10` and multiplayer are fully working, and the other campaign maps tried so far load fine. Some of the newest features are still being
+> The maintainer reports playable `a10` and PC cross-play, with other tested campaign maps loading successfully. This is not a guarantee for every map or device. Some of the newest features are still being
 > validated on a device; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
+
+**Pending update:** M2.6.51 integrates Halo CE Universal build 84, including public server discovery. It is still in the [regular app review](https://github.com/xSkullHD/Halo-CE-IOS/pull/2) and [Mod Test review](https://github.com/xSkullHD/Halo-CE-IOS/pull/3); it has not passed an Apple build or device testing and is not the current release.
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of Halo CE Universal on PC" width="760"><br>
@@ -28,20 +30,20 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 - **Controller support.** Xbox, PlayStation and other controllers supported by Apple's GameController framework, with stick tuning and button remapping.
 - **Multiplayer.** Cross-play with Halo CE Universal on PC: invite links, an invite file in iCloud Drive or the app's folder, a QR code,
   recent games, LAN games, and the Direct Link and Create Game screens. [Multiplayer guide](docs/ios/MULTIPLAYER.md)
-- **Display.** 30 FPS original, smooth 60 or uncapped; 4:3, widescreen or fullscreen; three render-detail levels; a live HUD editor;
+- **Display.** 30 FPS original, a 60 FPS target or uncapped; 4:3, widescreen or fullscreen; three render-detail levels; a live HUD editor;
   first-person view options; AirPlay mirroring. [Display / AirPlay](docs/ios/DISPLAY_AIRPLAY.md), [Settings reference](docs/ios/SETTINGS.md)
 - **Sound.** Native audio with separate Master, Music, Dialogue, Effects and Ambient volumes.
 - **Campaign tools.** An optional, campaign-only Cheats menu organised into sections (survival, weapons, power-ups, movement, world,
   checkpoints, teleport, spawn), with a saved cheat recipe for each control scheme.
-- **Your data, kept safe.** A map library with Mods support, versioned backups you can export to Files or iCloud Drive, profile export and import,
+- **Backups and data management.** A map library with Mods support, versioned backups you can export to Files or iCloud Drive, profile export and import,
   and diagnostics with a one-tap problem report. [Backups](docs/ios/BACKUPS.md)
 
 ## Quick start
 
-1. **Get the app.** Download the pre-built `HaloCE.ipa` from the [latest release](https://github.com/xSkullHD/Halo-CE-IOS/releases/latest), or
-   [build it yourself](docs/ios/BUILD.md) with GitHub Actions. No Mac is needed.
+1. **Get the app.** Download `HaloCE.ipa` from a successful [Actions run](https://github.com/xSkullHD/Halo-CE-IOS/actions), or
+   [build it yourself](docs/ios/BUILD.md). There is no published iOS release yet. GitHub Actions can build it without a local Mac when account usage allows.
 2. **Install it.** The IPA must be re-signed and sideloaded onto your device. [Install guide](docs/ios/INSTALL.md)
-3. **Add your game data.** The app does not include any game files. Import the Xbox `.map` files from your own copy of the game,
+3. **Add your game data.** The app does not include game maps. Import the Xbox `.map` files from your own copy of the game,
    including `ui.map`. [Game data guide](docs/ios/GAME_DATA.md)
 4. **Play.** Open Halo CE, import your maps and start the game. Open the gear button at any time for Settings.
 
@@ -105,6 +107,8 @@ See [Official project and other platforms](docs/UPSTREAM.md#credits) for details
 ## Legal
 
 This is an unofficial, non-commercial fan project. It is not affiliated with or endorsed by Microsoft, Xbox Game Studios, 343 Industries or
-Bungie. *Halo* and related names are trademarks of Microsoft. **No game data is included.** You need your own copy of the game, and you
+Bungie. *Halo* and related names are trademarks of Microsoft. **No game maps or original engine executable are included.** Documentation contains gameplay screenshots, and the port includes replacement UI artwork and fonts. You need your own copy of the game, and you
 are responsible for using it in line with its license. The source code in this repository is released under [CC0 1.0](LICENSE.md); bundled third-party
-code keeps its own license.
+code and fonts keep their own licenses. See the [asset and library credits](docs/UPSTREAM.md#credits).
+
+For maintainers, the [public release checklist](docs/ios/PUBLIC_RELEASE.md) records the remaining publication and verification steps.

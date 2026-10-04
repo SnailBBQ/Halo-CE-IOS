@@ -1,6 +1,6 @@
 # Build the IPA
 
-You can build the app yourself without a Mac. GitHub's servers do the work and give you an `HaloCE.ipa` that you then
+You can build the app yourself without a Mac. GitHub's servers do the work and give you a `HaloCE.ipa` that you then
 [sideload](INSTALL.md).
 
 ## How the build works
@@ -20,13 +20,13 @@ The result is an IPA that must be re-signed on install. The iOS Simulator is not
 2. If GitHub asks, enable **Actions** for your copy.
 3. Open **Actions → Halo CE iOS — Build IPA → Run workflow**.
 4. Choose the branch (`main` for the regular app) and, if you wish, set the options below. Start the run.
-5. Wait for both jobs to finish, normally well under their 40-minute limit.
+5. Wait for both jobs to succeed. Each job has a 40-minute timeout.
 6. Open the finished run and download the **HaloCE-iOS** artifact. Extract the ZIP to get **`HaloCE.ipa`**.
 
 Re-running an old run builds its original commit. To test newer changes, start a new run. Pushes that change the app, the engine
 sources or the workflow also start a build by themselves.
 
-macOS build minutes count against your GitHub plan.
+Standard GitHub-hosted runners are free for public repositories. Private repositories use the account's included allowance and any paid usage. Account payment or spending restrictions can prevent a run from starting. See [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
 
 ### Options
 
@@ -55,8 +55,7 @@ Both workflows run checks before packaging. Besides the engine build, they cover
 - the map order, controller remapping, colour and key-name code;
 - the campaign cheat rules and the cheat tick and actions, run against the real engine code with mocked state;
 - the guest-conversion and build configuration;
-- that every Apple framework the app uses is linked, that every function the game calls on its host is implemented, and that no function is
-  called before it is declared;
+- source checks for Apple framework links, guest host-import coverage and project function declarations; these checks supplement compilation and do not replace it;
 - the real backup, mod and settings stores, compiled with Apple's tools on macOS.
 
 Passing checks do not prove that the app looks or feels right on a device. Each [release note](RELEASE_NOTES.md) lists what to test.
@@ -99,13 +98,14 @@ Re-sign `build/ios/HaloCE.ipa` when you install it. The internal target and bund
 
 ## Publishing a release
 
-The workflow does not publish releases by itself. To publish the pre-built IPA that the README links to:
+The workflow does not publish releases by itself. No iOS release is currently published. Before publishing an IPA:
 
-1. Run the workflow on the branch and wait for a green run.
+1. Run the workflow on the exact release commit and wait for both jobs to succeed. Complete the relevant device checklist, including campaign, multiplayer, save/reload and app relaunch.
 2. Download the **HaloCE-iOS** artifact and extract `HaloCE.ipa`.
-3. On GitHub, open **Releases → Draft a new release**, create a tag such as `ios-M2.6.50`, attach `HaloCE.ipa`, and describe the changes
+3. Verify the IPA version matches that commit. On GitHub, open **Releases → Draft a new release**, create a tag at the tested commit, such as `ios-M2.6.50`, attach `HaloCE.ipa`, and describe the changes
    (the [release notes](RELEASE_NOTES.md) are a good start).
-4. Do the same for `HaloCE-ModTest.ipa` from the Mod Test branch, with its own tag, if you publish that app.
+4. If publishing `HaloCE-ModTest.ipa`, use its own tested commit and tag and mark it as a **prerelease**. Do not describe converted mods as playable without device evidence.
+5. Update the download instructions only after the corresponding release and IPA attachment exist. Follow the [public release checklist](PUBLIC_RELEASE.md).
 
 ## Where things are
 

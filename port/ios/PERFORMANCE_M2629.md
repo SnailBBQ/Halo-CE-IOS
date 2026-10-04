@@ -1,3 +1,5 @@
+> Historical milestone note. Features, limits and validation statements describe this update when written. For current behaviour, use the [Settings guide](../../docs/ios/SETTINGS.md) and [project status](../../IOS_PORT_STATUS.md).
+
 # M2.6.29 — object filtering correctness and focused performance measurements
 
 This update repairs M2.6.26 object filtering and synchronizes the desktop workflow with GitHub's M2.6.28 cleanup. It establishes a reliable a10 performance comparison; a numeric FPS gain has not been measured on a device.

@@ -3,6 +3,12 @@
 The current update is **M2.6.50**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
+## Publication status
+
+No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
+
+**Pending update:** M2.6.51 integrates Halo CE Universal build 84, including public server discovery. It is still in the [regular app review](https://github.com/xSkullHD/Halo-CE-IOS/pull/2) and [Mod Test review](https://github.com/xSkullHD/Halo-CE-IOS/pull/3); it has not passed an Apple build or device testing and is not the current release.
+
 ## Recent updates at a glance
 
 | Update | Highlights |

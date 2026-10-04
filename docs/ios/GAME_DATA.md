@@ -1,6 +1,6 @@
 # Game data
 
-The app does not include any game files. You supply the maps from your own copy of *Halo: Combat Evolved*.
+The app does not include game maps. Supply them from your own copy of *Halo: Combat Evolved*.
 
 ## What you need
 

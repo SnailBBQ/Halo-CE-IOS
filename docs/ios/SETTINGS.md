@@ -18,10 +18,10 @@ See the [Multiplayer guide](MULTIPLAYER.md) for how each part works.
 | Item | What it does |
 | --- | --- |
 | Connection status | Whether you are hosting, joined or connecting, the tunnel ping, connected peers, the current map and mode. Refreshes every two seconds. |
-| Join this invite / Join the invite on the clipboard | Join a `halo://join/` link, or the bare 64-digit code. |
+| Join this invite / Join the invite on the clipboard | Join a `halo://join/` link, or the bare 64-character hexadecimal code. |
 | Invite file · iCloud Drive | Choose an iCloud Drive folder for `game_invite.txt`, and **Join from game_invite.txt**. |
 | Host a game | Shows your current invite, which is also written to the invite file, and lets you share it or show a QR code. |
-| Join links on the clipboard automatically | Off by default, because iOS asks permission every time the clipboard is read. Opening a `halo://` link joins without it. |
+| Join links on the clipboard automatically | Off by default, because iOS may request permission when the clipboard is read. Opening a `halo://` link joins without it. |
 | Finding games on your Wi-Fi | Help for LAN discovery and the Local Network permission. |
 | Invite QR code | Appears while you host. |
 | Recent games | The last eight games you hosted or joined, with **Join again**, a QR code, and **Clear recent games**. |
@@ -50,17 +50,17 @@ Each option is explained, with a screenshot, in [Display / AirPlay](DISPLAY_AIRP
 
 | Card | Options |
 | --- | --- |
-| Frame rate | **30 · Original**, **60 · Smooth** (a frame for every refresh, held at 60) or **Uncapped**. **Show FPS** shows a counter. Moving between 30 and the others applies *next launch*; between 60 and Uncapped, immediately. |
+| Frame rate | **30 · Original**, **60 · Smooth** (targets a maximum of 60 FPS when the device keeps up) or **Uncapped**. **Show FPS** shows a counter. Moving between 30 and the others applies *next launch*; between 60 and Uncapped, immediately. |
 | Game picture | **Aspect ratio**: Default · 4:3, Widescreen · 16:9 or Fullscreen (the device's own shape). **Render detail**: Standard · 480p, High · 720p or Very high · 960p. Both apply *next launch*. Default stays 640×480, and Safe Start always uses it. Higher detail uses more GPU and memory. |
 | AirPlay and external screens | How to show the game on a TV. See [Display / AirPlay](DISPLAY_AIRPLAY.md#airplay-and-external-displays). |
 | Game HUD profile | Choose the default HUD or a saved recipe for the current scheme. |
 | Game HUD and FPS | **Edit game HUD** opens a live editor over the game for the FPS counter, weapon HUD, health/shields/radar, navigation and damage indicators. Position, scale, opacity and visibility can be changed per group or all together. Three named recipes can be saved. |
 | First-person view | **Both**, **Weapon**, **Hands** or **Hidden**: which first-person models are drawn. Applies at once and does not affect the HUD, attacks or other players. |
 | HUD and text | **High-res HUD** and **High-res text**, the upstream options for crisper HUD and menu text. *Next launch*. |
-| Heat and battery | **Lower the frame rate when the phone is hot**: Smooth 60 and Uncapped drop to 45 under serious heat or Low Power Mode and to 30 when critical, and return when the phone cools (30 · Original is never changed). **Performance overlay** adds frame time, memory in use and remaining, and heat under the FPS counter. |
+| Heat and battery | **Lower the frame rate when the phone is hot**: Smooth 60 and Uncapped drop to 45 under serious heat or Low Power Mode and to 30 when critical, and return when the phone cools (30 · Original is never changed). **Performance overlay** adds frame time, memory in use, estimated memory headroom, and heat under the FPS counter. |
 | Menus | **PC menus (new)**: the Halo Custom Edition menus from Halo CE Universal, with Join Game (LAN and Direct Link), Create Game (Internet or LAN) and redrawn screens. **Xbox menus**: the original menus, including System Link. *Next launch*; Safe Start uses the Xbox menus. |
 
-The public **Server Browser** entry in the PC menus is empty for now because the upstream project has not built the public server list yet.
+M2.6.50 has no public listings. Upstream build 84 adds public discovery; its M2.6.51 integration is [pending review](https://github.com/xSkullHD/Halo-CE-IOS/pull/2) and device testing.
 
 ## Audio
 
@@ -89,7 +89,7 @@ or join a game. Cheats that spawn things use only assets the current map has alr
 | --- | --- |
 | Survival | God mode; One-hit kills (hostile units only); No fall damage; **Restore health and shield** (a one-time refill; an over-charged shield is never lowered). |
 | Weapons | Infinite ammo; Infinite grenades; Bottomless clip (no reloading); Rapid fire; No recoil. |
-| Power-ups | **Active Camo** and **Overshield**, each with *Infinite* (refreshes only the living local player and stops when switched off), *Spawn* and *Apply*. Applied camo uses the normal timer. |
+| Power-ups | **Active Camo** and **Overshield**, each with *Infinite* (refreshes only the living local player and stops when switched off), *Spawn* and *Apply*. Applied camo uses the normal pickup timer. Applied overshield charges once and is consumed by damage; it has no universal expiry timer. |
 | Movement | Jetpack; Noclip (aim to move, jump rises, crouch descends); Super jump (1–10); Player speed (1–5). |
 | World | Slow motion (75%, 50%, 25% or 10%, which also slows cutscenes); AI ignores you; Third person; Unlimited flashlight; Vertical FOV (0 is the normal setting, otherwise 20–90 degrees). |
 | Checkpoints | **Save checkpoint (when safe)** waits up to eight seconds for a moment without combat; **Force checkpoint now** saves at once; **Revert to last checkpoint** asks first and needs a checkpoint to exist. These are the game's own checkpoints. |
@@ -134,9 +134,10 @@ A profile is your whole setup: control schemes with their layouts and recipes, H
 | Item | What it does |
 | --- | --- |
 | Quit Game | Closes the app after a confirmation. iOS cannot reopen an app by itself, so tap its icon to start again. |
-| Startup | **Performance profiler** adds timing diagnostics. |
+| Startup | **Start Halo screen** or **Boot Halo immediately**, saved with the current control scheme. |
+| Diagnostics | **Performance profiler** adds timing diagnostics. |
 | Share log files / Report a problem… | Share the logs, or make one text file with your device, settings (never running cheats) and the end of the logs. See [Troubleshooting](TROUBLESHOOTING.md). |
-| Safe Start | Appears when the last start did not finish. Sound, internet play, smooth 60 FPS, hi-res HUD and text, the profiler, the PC menus and the picture options are off until a start runs for 15 seconds. **Leave safe mode** makes the next start normal. |
+| Safe Start | Appears when the last start did not finish. Sound, internet play, smooth 60 FPS, hi-res HUD and text, the profiler, the PC menus and the picture options are disabled for that launch. Running for 15 seconds after the first frame marks the launch as successful; normal options return on the next launch. **Leave safe mode** makes the next start normal. |
 | Backups | **Manage backups**. See [Backups](BACKUPS.md). |
 | About | App version and the Halo CE Universal build the game is based on. |
 | Credits | A link to this project on GitHub. Full credits are in the [README](../../README.md#credits). |

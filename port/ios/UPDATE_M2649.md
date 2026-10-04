@@ -1,3 +1,5 @@
+> Historical milestone note. Features, limits and validation statements describe this update when written. For current behaviour, use the [Settings guide](../../docs/ios/SETTINGS.md) and [project status](../../IOS_PORT_STATUS.md).
+
 # M2.6.49 — Halo CE Universal update (PC menus) and build fixes
 
 Based on M2.6.48. Merged with a newer Halo CE Universal. Nothing here has been compiled for iOS or run on a device; CI compiles

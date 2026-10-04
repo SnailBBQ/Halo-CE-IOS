@@ -48,12 +48,12 @@ From its offline audit:
 | Largest tag + BSP | 20.9 MiB | 22 MiB | about 1.1 MiB (roughly 5%) |
 | File size (compressed) | about 176 MiB | n/a | n/a |
 
-The offline checks prove structure only. They do not prove scripts, audio, animation, checkpoint reload or gameplay.
+Device attempts with converted Cursed Halo maps have failed, including script type errors. No playable Cursed Halo conversion has been established. The offline checks prove structure only. They do not prove scripts, audio, animation, checkpoint reload or gameplay.
 
 ## Known limits
 
 - The headroom for tags and geometry is small, so the map has little room for further changes.
 - The BSP safety check runs for **every** map, stock maps included, and is stricter than the original loader. If a stock map is rejected, look for `MOD TEST: rejected BSP range` and report it.
 - You need over 1 GB of free storage: the map, its expansion and the cache slots.
-- Public server discovery is unfinished in the upstream project and is not part of this experiment.
+- M2.6.50 has no public discovery. Upstream build 84 integration is pending separately; it does not establish mod compatibility.
 - The branch contains no copyrighted maps or extracted tags. Supply your own.

@@ -32,8 +32,7 @@ The Linux page also describes the controls, settings and multiplayer functions, 
 
 ## Staying compatible
 
-Multiplayer needs the same game build on every machine. This app is built from the Halo CE Universal update that added the PC menus, and it follows the official project: new upstream builds are
-merged in as they appear. When you update the app, update your PC game as well, and the other way round. See [Multiplayer](ios/MULTIPLAYER.md#compatibility).
+Multiplayer needs compatible protocol versions and map content. Matching tested game builds are recommended. This app is built from the Halo CE Universal update that added the PC menus, and it follows the official project: upstream updates are reviewed and integrated separately. Build 84 is pending in [PR #2](https://github.com/xSkullHD/Halo-CE-IOS/pull/2) and [PR #3](https://github.com/xSkullHD/Halo-CE-IOS/pull/3), not released for iOS yet. When you update the app, update your PC game as well, and the other way round. See [Multiplayer](ios/MULTIPLAYER.md#compatibility).
 
 ## What this fork adds
 
@@ -48,7 +47,7 @@ This port would not exist without the people below.
   the Custom Edition style menus and the updater, and they publish the project this app is built on. Thank you.
 - **bnunu/halo-1** ([bnunu/halo-1](https://github.com/bnunu/halo-1)), the decompilation of the Xbox build 2342 (`cachebeta.exe`, SHA-256 `4cc87b45f721270392a96f1674ed2b5cd4a7bb4355faeab4531d1cf1884d9520`) that Halo CE Universal starts from.
 - **punpckhdq/halo** ([punpckhdq/halo](https://github.com/punpckhdq/halo)), the project that bnunu's decompilation is a fork of.
-- **Bungie**, who created *Halo: Combat Evolved*, and **Microsoft / Xbox Game Studios** and **343 Industries**, who carry the series today. This is an unofficial fan project and is not affiliated with or endorsed by them. *Halo* and related names are trademarks of Microsoft.
+- **Bungie**, who created *Halo: Combat Evolved*, and **Microsoft / Xbox Game Studios** and **343 Industries**, for their work on the series. This is an unofficial fan project and is not affiliated with or endorsed by them. *Halo* and related names are trademarks of Microsoft.
 - **Open-source libraries** bundled in [`port/third_party`](../port/third_party), each under its own license:
 
 | Library | Folder |
@@ -64,4 +63,6 @@ This port would not exist without the people below.
 
 - **The iOS port** in this repository is maintained by [xSkullHD](https://github.com/xSkullHD).
 
-The code in this repository is released under [CC0 1.0](../LICENSE.md). **No game data is included**; you need your own copy of the game.
+Project code is released under [CC0 1.0](../LICENSE.md); third-party components retain their own licenses. Fonts include Overpass and OpenCE under the SIL Open Font License and Newtown under its documented public-domain terms; see [font credits and notices](../port/assets/fonts/README.md). Menu artwork is described in the [menu asset guide](../port/assets/menus/README.md).
+
+**No game maps or original engine executable are included.** Documentation includes gameplay screenshots. Supply maps from your own copy of the game.

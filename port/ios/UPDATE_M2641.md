@@ -1,3 +1,5 @@
+> Historical milestone note. Features, limits and validation statements describe this update when written. For current behaviour, use the [Settings guide](../../docs/ios/SETTINGS.md) and [project status](../../IOS_PORT_STATUS.md).
+
 # M2.6.41 — geometry mirror coherence
 
 The M2.6.40 recording shows obstructed multiplayer first-person meshes, a normally rendered campaign assault rifle/hands, and later corrupted a10 world geometry. CPU pose diagnostics show finite matrices and scale 1.0. Device logs show approximately 60 FPS before an execution fault at guest_glUniform4fv with guest address 0x10. The fault is real, but the logs do not establish whether the weapon cheat caused it. This release does not claim to resolve that separate fault.

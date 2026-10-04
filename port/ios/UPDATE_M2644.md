@@ -1,3 +1,5 @@
+> Historical milestone note. Features, limits and validation statements describe this update when written. For current behaviour, use the [Settings guide](../../docs/ios/SETTINGS.md) and [project status](../../IOS_PORT_STATUS.md).
+
 # M2.6.44 — Settings, power-ups and backups
 
 October 3, 2026. Based on M2.6.43, including its guest memory-leak fix and crash diagnostics. The user's M2.6.43 test reports working cross-platform multiplayer and nearly all of a10 without graphical glitches. This release does not claim that every performance or audio issue is resolved.

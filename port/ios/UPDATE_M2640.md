@@ -1,3 +1,5 @@
+> Historical milestone note. Features, limits and validation statements describe this update when written. For current behaviour, use the [Settings guide](../../docs/ios/SETTINGS.md) and [project status](../../IOS_PORT_STATUS.md).
+
 # M2.6.40 — first-person isolation and iCloud invites
 
 Updated October 2, 2026. Based on M2.6.39 / Halo CE Universal build 73, protocol 10.
