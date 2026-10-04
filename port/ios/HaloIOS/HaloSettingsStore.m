@@ -1,4 +1,5 @@
 #import "HaloSettingsStore.h"
+#include "halo_engine_settings.h"
 #ifdef HALO_SETTINGS_TEST
 /* Exercise this actual store on CI's Foundation host, without audio/GL devices. */
 extern void halo_ios_set_channel_gains(float,float,float);
@@ -28,6 +29,7 @@ static NSString *const kSettingsKey = @"HaloSettingsV1";
 
 @implementation HaloSettingsStore {
     HsSettings _settings;
+    BOOL _importingEngine;
     NSLock *_lock;
     BOOL _campaignActive;
 }
@@ -47,6 +49,9 @@ static NSString *const kSettingsKey = @"HaloSettingsV1";
         _lock = [[NSLock alloc] init];
         NSString *text = [[NSUserDefaults standardUserDefaults] stringForKey:kSettingsKey];
         hs_parse(&_settings, text.UTF8String); /* defaults when nothing or garbage is saved */
+#ifndef HALO_SETTINGS_TEST
+        halo_ios_engine_settings_changed(NULL, &_settings);
+#endif
         halo_ios_set_channel_gains(_settings.music_volume,_settings.dialogue_volume,_settings.effects_volume);
         halo_ios_audio_set_volume(_settings.audio_enabled ? _settings.volume : 0.0f);
         halo_ios_set_profiler_enabled(_settings.profiler);
@@ -114,6 +119,9 @@ static NSString *const kSettingsKey = @"HaloSettingsV1";
     }
     BOOL activate=_campaignActive && next.active!=previousPreset;
     if(activate)hs_apply_preset_cheats(&next,next.active);
+#ifndef HALO_SETTINGS_TEST
+    if (!_importingEngine) halo_ios_engine_settings_changed(&_settings, &next);
+#endif
     _settings = next;
     [_lock unlock];
 
@@ -140,4 +148,15 @@ static NSString *const kSettingsKey = @"HaloSettingsV1";
     });
 }
 
+- (void)acceptEngineValue:(NSString *)value index:(int)index {
+    NSAssert(NSThread.isMainThread, @"Engine settings are imported on the main queue");
+    if(index<0 || index>=HE_COUNT)return;
+    HsSettings current=[self snapshot],candidate=current;
+    he_set(&candidate,index,value.UTF8String);
+    char before[64],after[64];he_text(&current,index,before);he_text(&candidate,index,after);
+    if(!strcmp(before,after) && !(index==17 && !current.game_profile_ready))return;
+    _importingEngine=YES;
+    [self update:^(HsSettings *s){he_set(s,index,value.UTF8String);}];
+    _importingEngine=NO;
+}
 @end

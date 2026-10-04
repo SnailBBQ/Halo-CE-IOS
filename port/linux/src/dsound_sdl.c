@@ -561,6 +561,9 @@ static void audio_start(void)
 		return;
 	audio_started = TRUE;
 	master_volume = (float)config_real("audio.volume");
+#ifdef HALO_IOS_GUEST
+    master_volume = 1.f; /* the synchronized iOS master gain owns this layer */
+#endif
 
 #ifdef HALO_IOS_GUEST
 	if (config_boolean("audio.enabled") && host_audio_open(OUTPUT_RATE, OUTPUT_CHANNELS))
@@ -833,6 +836,9 @@ VOID WINAPI DirectSoundDoWork(void)
 	{
 		volume_read_at = config_changes();
 		master_volume = (float)config_real("audio.volume");
+#ifdef HALO_IOS_GUEST
+        master_volume = 1.f;
+#endif
 	}
 	streams_complete_finished();
 }

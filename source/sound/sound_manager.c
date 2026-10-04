@@ -1123,6 +1123,11 @@ unsigned long config_changes(void);
 static real sound_manager_port_volume(
 	short class_index)
 {
+#ifdef HALO_IOS_GUEST
+    /* Shared menu values are applied once by the host's class gains. */
+    (void)class_index;
+    return 1.f;
+#else
 	static unsigned long read_at = (unsigned long)-1;
 	static real music_volume = 1.f;
 	static real effects_volume = 1.f;
@@ -1134,6 +1139,7 @@ static real sound_manager_port_volume(
 		effects_volume = PIN((real)config_real("audio.effects_volume"), 0.f, 1.f);
 	}
 	return class_index == _sound_class_music ? music_volume : effects_volume;
+#endif
 }
 
 static real sound_manager_master_gain(

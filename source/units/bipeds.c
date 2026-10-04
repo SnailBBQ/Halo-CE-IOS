@@ -2242,7 +2242,18 @@ static void biped_update_jumping(
 		}
 	}
 
-	if (cheat.jetpack && biped->unit.player_index != NONE)
+#ifdef HALO_IOS_GUEST
+    /* Touch-friendly thrust: use Jump rather than requiring Fire + Grenade.
+     * The campaign gate prevents this from affecting network players or AI. */
+    if (ios_cheat_enabled(biped_index, IOS_CHEAT_JETPACK) &&
+        biped->unit.parent_seat_index == NONE &&
+        TEST_FLAG(biped->unit.control_flags, _unit_control_jump_bit))
+    {
+        biped->object.translational_velocity.k = MAX(biped->object.translational_velocity.k, 0.12f);
+        SET_FLAG(biped->biped.flags, _biped_airborne_bit, TRUE);
+    }
+#endif
+    if (cheat.jetpack && biped->unit.player_index != NONE)
 	{
 		struct player_datum *player = player_get(biped->unit.player_index);
 		boolean impulse = FALSE;

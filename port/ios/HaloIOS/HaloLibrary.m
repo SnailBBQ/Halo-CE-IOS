@@ -51,6 +51,7 @@ static NSURL *HaloExportExternalSaves(void) {
 @interface HaloLibraryController:UIViewController<UIDocumentPickerDelegate>
 @property BOOL maps;
 @property unsigned mask;
+@property unsigned initialMask;
 @property NSInteger pickerKind;
 @property(nonatomic,copy) NSString *thumbnailName;
 @property(nonatomic,strong) UIStackView *rows;
@@ -61,7 +62,7 @@ static NSURL *HaloExportExternalSaves(void) {
 @property(nonatomic,strong) NSURL *temporaryExport;
 @end
 @implementation HaloLibraryController
-- (void)viewDidLoad { [super viewDidLoad];self.view.backgroundColor=HaloUIBackground();self.title=self.maps?@"Mods":@"Backups";self.navigationController.navigationBar.tintColor=HaloUIAccent();self.mask=54;self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(close)];self.rows=HaloUIScrollingStack(self.view,12);[self render]; }
+- (void)viewDidLoad { [super viewDidLoad];self.view.backgroundColor=HaloUIBackground();self.title=self.maps?@"Mods":@"Backups";self.navigationController.navigationBar.tintColor=HaloUIAccent();self.mask=self.initialMask?self.initialMask:54;self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(close)];self.rows=HaloUIScrollingStack(self.view,12);[self render]; }
 - (void)close { if(!self.busy)[self dismissViewControllerAnimated:YES completion:nil]; }
 - (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
     (void)controller;if(self.temporaryExport){[NSFileManager.defaultManager removeItemAtURL:self.temporaryExport error:nil];self.temporaryExport=nil;}
@@ -209,4 +210,5 @@ static NSURL *HaloExportExternalSaves(void) {
 }
 @end
 UIViewController *HaloBackupsController(void) { HaloLibraryController *c=[HaloLibraryController new];c.maps=NO;return [[UINavigationController alloc] initWithRootViewController:c]; }
+UIViewController *HaloBackupsControllerForSections(unsigned sections) { HaloLibraryController *c=[HaloLibraryController new];c.initialMask=sections&63u;return [[UINavigationController alloc] initWithRootViewController:c]; }
 UIViewController *HaloMapsController(void) { HaloLibraryController *c=[HaloLibraryController new];c.maps=YES;return [[UINavigationController alloc] initWithRootViewController:c]; }

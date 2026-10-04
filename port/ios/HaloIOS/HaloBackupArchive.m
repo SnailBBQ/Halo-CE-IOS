@@ -26,7 +26,7 @@ BOOL HaloBackupAllowed(NSString *path) {
     for(NSString *part in path.pathComponents)if([part isEqual:@".."] || [part isEqual:@"."] || !part.length)return NO;
     return [path hasPrefix:@"save/"] || ([path hasPrefix:@"maps/"] && [path.pathExtension.lowercaseString isEqual:@"map"]) ||
         ([path hasPrefix:@"map_thumbnails/"] && [@[@"png",@"jpg",@"jpeg"] containsObject:path.pathExtension.lowercaseString]) ||
-        [path isEqual:@"settings.txt"] || [path isEqual:@"config.toml"];
+        [path isEqual:@"settings-icon.png"] || [path isEqual:@"settings.txt"] || [path isEqual:@"config.toml"];
 }
 /* Bit 1 remains the legacy combined saves/profiles selection. New bits 16 and
  * 32 select each independently. Cache maps and volatile checkpoints under z:

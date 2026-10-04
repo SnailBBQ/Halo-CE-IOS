@@ -113,6 +113,9 @@ void player0_look_invert_pitch(
 	boolean invert);
 
 /* ---------- globals */
+#ifdef HALO_IOS_GUEST
+boolean player_ui_ios_initialized(void);
+#endif
 
 /* ---------- public code */
 

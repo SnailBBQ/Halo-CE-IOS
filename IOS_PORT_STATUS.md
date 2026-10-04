@@ -1,9 +1,9 @@
 # Halo CE iOS — Project status
 
-**Status: playable.** **Current update: M2.6.54** (regular app 0.2.54, Mod Test app 0.2.54.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
+**Status: playable.** **Current update: M2.6.55** (regular app 0.2.55, Mod Test app 0.2.55.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
 are still waiting for device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
 
-**Source update:** M2.6.54 integrates Halo CE Universal build 94 on `main` and `ios/modtest`, alongside campaign tools, direct checkpoint editing and smaller, separate save/profile backups. This source update still requires Apple compilation and device validation.
+**Source update:** M2.6.55 adds configurable input shortcuts, Settings icon customization, shared in-game preferences, player-profile editing and separate campaign-save imports. Both apps remain on Halo CE Universal build 94. This update requires Apple compilation and device validation.
 
 ## Two apps
 

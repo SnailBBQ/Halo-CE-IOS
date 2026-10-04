@@ -1,4 +1,5 @@
 #import "halo_guest_runner.h"
+#import "halo_ios_controls.h"
 
 #import <Foundation/Foundation.h>
 
@@ -33,6 +34,7 @@
 #include "halo_launch_state.h"
 #import "HaloSettingsStore.h"
 #include "../../include/halo_ios_campaign_options.h"
+#include "halo_engine_settings.h"
 #include <string.h>
 #include <strings.h>
 #include <zlib.h>
@@ -708,6 +710,68 @@ static _Atomic float g_music_gain=1.f,g_dialogue_gain=1.f,g_effects_gain=1.f,g_a
 void halo_ios_set_ambient_gain(float gain) { atomic_store(&g_ambient_gain,gain<0.f?0.f:gain>1.f?1.f:gain); }
 void halo_ios_set_channel_gains(float music,float dialogue,float effects) {
  atomic_store(&g_music_gain,music);atomic_store(&g_dialogue_gain,dialogue);atomic_store(&g_effects_gain,effects);
+}
+static pthread_mutex_t g_settings_sync_lock = PTHREAD_MUTEX_INITIALIZER;
+static unsigned g_settings_pending;
+static unsigned g_settings_generation[HE_COUNT];
+static uint32_t g_settings_profile=UINT32_MAX;
+static HsSettings g_settings_wanted;
+void halo_ios_engine_settings_changed(const void *before, const void *after) {
+    const HsSettings *old=before,*next=after;
+    if(!next)return;
+    pthread_mutex_lock(&g_settings_sync_lock);
+    for(int i=0;i<HE_COUNT;i++) {
+        if(he_is_profile(i) && (!old || !next->game_profile_ready))continue;
+        char a[64],b[64];he_text(next,i,b);if(old)he_text(old,i,a);
+        if(!old || strcmp(a,b)){g_settings_pending|=1u<<i;g_settings_generation[i]++;}
+    }
+    g_settings_wanted=*next;
+    pthread_mutex_unlock(&g_settings_sync_lock);
+}
+/* Each slot is a 64-byte text value; validate before reading or writing. */
+static int ios_settings_value(uint32_t index,uint32_t address,uint32_t profile) {
+    if(index==UINT32_MAX) {
+        pthread_mutex_lock(&g_settings_sync_lock);
+        BOOL changed=profile!=g_settings_profile;
+        if(changed) {
+            g_settings_profile=profile;
+            for(int i=HE_PROFILE;i<19;i++) {
+                g_settings_pending &= ~(1u<<i);
+                g_settings_generation[i]++;
+            }
+        }
+        pthread_mutex_unlock(&g_settings_sync_lock);
+        if(changed && profile==UINT32_MAX)dispatch_async(dispatch_get_main_queue(), ^{
+            [HaloSettingsStore.shared update:^(HsSettings *s){s->game_profile_ready=0;}];
+        });
+        return 0;
+    }
+    if(index>=HE_COUNT)return 0;
+    /* Recovery launch overrides remain temporary, and must neither be undone
+     * by synchronization nor written back as the player's normal preference. */
+    if(halo_ios_safe_level() && (index==4 || index==5 || index==8))return 0;
+    char *guest=gp(address,64);if(!guest || !memchr(guest,0,64))return 0;
+    char incoming[64];memcpy(incoming,guest,64);
+    pthread_mutex_lock(&g_settings_sync_lock);
+    if(he_is_profile((int)index) && (profile==UINT32_MAX || profile!=g_settings_profile)) {
+        pthread_mutex_unlock(&g_settings_sync_lock);return 0;
+    }
+    if(g_settings_pending & (1u<<index)) {
+        he_text(&g_settings_wanted,(int)index,guest);
+        g_settings_pending &= ~(1u<<index);
+        pthread_mutex_unlock(&g_settings_sync_lock);return 1;
+    }
+    unsigned generation=g_settings_generation[index];
+    pthread_mutex_unlock(&g_settings_sync_lock);
+    NSString *value=[NSString stringWithUTF8String:incoming];if(!value)return 0;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        pthread_mutex_lock(&g_settings_sync_lock);
+        BOOL current=generation==g_settings_generation[index];
+        pthread_mutex_unlock(&g_settings_sync_lock);
+        if(!current)return;
+        [HaloSettingsStore.shared acceptEngineValue:value index:(int)index];
+    });
+    return 0;
 }
 static float ios_audio_class_gain(uint32_t category) {
  return atomic_load(category==32?&g_music_gain:(category==19 || category==44 || category==46 || category==47)?&g_dialogue_gain:(category==28 || category==29 || category==30 || (category>=33 && category<=35))?&g_ambient_gain:&g_effects_gain);
@@ -2261,8 +2325,9 @@ static int ios_sdl_gamepad_type(uint32_t gamepad)
 
 static int ios_sdl_rumble(uint32_t gamepad, uint32_t low, uint32_t high, uint32_t milliseconds)
 {
-    (void)gamepad; (void)low; (void)high; (void)milliseconds;
-    return 0;
+    if (gamepad != 1) return 0;
+    halo_ios_controller_rumble(low,high,milliseconds);
+    return 1;
 }
 
 static uint32_t ios_sdl_open_audio(uint32_t device, uint32_t spec,
@@ -2631,6 +2696,7 @@ static void *resolve_host_import(const char *name)
     MAP("host_touch_auto_fire", ios_touch_auto_fire);
     MAP("host_active_invite", ios_active_invite);
     MAP("host_campaign_options", ios_campaign_options);
+    MAP("host_settings_value", ios_settings_value);
     MAP("host_audio_class_gain",ios_audio_class_gain);
     MAP("host_hud_options",ios_hud_options);
     MAP("host_network_status",ios_network_status);

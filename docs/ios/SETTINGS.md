@@ -113,9 +113,16 @@ Recipes are saved with the scheme and applied when you enter a solo campaign or 
 
 ## Profiles
 
-A profile is your whole setup: control schemes with their layouts and recipes, HUD, display, audio and colours. It does not include maps, saves or running cheats.
+Three kinds of data are kept separate:
+
+- **App settings profile:** control schemes, layouts, cheat recipes, HUD, display, audio, shortcuts and colours. Exported as `.haloprofile`; active cheats and Halo saves are excluded.
+- **Halo player profile:** in-game name, multiplayer armor color, controller preferences and campaign completion records. Create/select a named profile in-game, then edit it here. Built-in default profiles do not persist edits.
+- **Campaign save:** checkpoint progress for that player. Multiplayer uses player profiles and game variants, not campaign checkpoints.
 
 - **What a profile holds** shows a summary.
+- **Import / export campaign saves** and **Import / export Halo player profiles** open separate `.halobackup` workflows with only that category selected. Restore creates a recovery backup first and takes effect next launch. A fresh install may also need the matching Halo player profile. See [Backups](BACKUPS.md).
+- **Halo controller settings** synchronize look sensitivity, look/flight inversion, auto-center, button/stick layouts, vibration and in-game help with the active player profile. Vibration requires compatible controller hardware.
+- **Network setup** shares Internet play, UPnP, clipboard joining and player-name visibility with the in-game menu. Reopen the network session after changing connection options. The desktop self-updater does not install iOS IPAs.
 - **Edit campaign checkpoint** edits validated finite health, shields, grenade counts and existing weapon ammo directly in a saved checkpoint. Changes apply on the next launch with recovery backups; see [Backups](BACKUPS.md#campaign-checkpoint-editor).
 - **Export profile…** saves a `.haloprofile` file for Files, AirDrop or sharing. **Import profile…** replaces your settings with a file's, so export first if you want to keep yours.
 - **Reset all settings to defaults** restores everything after a confirmation. Maps, saves and mods are not touched.
@@ -125,6 +132,8 @@ A profile is your whole setup: control schemes with their layouts and recipes, H
 | Item | What it does |
 | --- | --- |
 | Settings button | Size from 75% to 175%, and a reset for its size and position. The touch target is never smaller than 44 points. |
+| Hide / show shortcut | Defaults to Up, Up, Down, Down, Left, Right, Left, Right, B, A. Set a 1–16 button sequence, maximum gap (0.25–10 seconds) and total duration (1–60 seconds), or leave it empty to disable. Inputs still reach the game. Three-finger double-tap restores the icon, as does relaunching. Hidden state is session-only. |
+| Icon appearance | Opacity from 15% to 100%; gear, sliders, controller, grid or an image from Files (up to 8 MB and 2048 pixels per side). A small PNG copy is included in preference backups; `.haloprofile` alone does not embed the image. |
 | Accent color | Blue, Green, Purple, Amber or Rose for Settings buttons, switches, sliders and selections. Gameplay colours are separate. |
 | Custom color | Any colour from the colour wheel or a hex value such as `#3385FA`. Very dark or very light colours are adjusted slightly so text stays readable. |
 | Chroma (RGB) mode | The accent colour cycles through the spectrum while Settings is open, with a cycle time of 3 to 60 seconds. |

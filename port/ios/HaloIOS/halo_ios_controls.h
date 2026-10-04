@@ -19,6 +19,9 @@
 
 /* Starts listening for MFi / Xbox / PlayStation controllers. `changed` runs on
  * the main queue with YES while at least one controller is connected. */
+/* Rising-edge shortcut inputs; always delivered on the main queue. */
+void halo_ios_shortcut_button(int button);
+void halo_ios_controller_rumble(unsigned low, unsigned high, unsigned milliseconds);
 void halo_ios_controllers_start(void (^changed)(BOOL connected));
 
 #endif

@@ -101,6 +101,87 @@ boolean ui_widget_port_saved_game(char const **map_name, short *level, short *di
 short main_get_solo_level_from_name(char const *name);
 boolean player_name_clean(wchar_t *name, long count);
 
+#ifdef HALO_IOS_GUEST
+extern int host_settings_value(unsigned index, char text[64], long profile_index);
+static byte *profile_setting_field(struct player_profile *profile, short field);
+/* Poll on the game thread, never by dereferencing live engine state on UIKit.
+ * Configuration writes use the engine's parser/persistence path. Profile
+ * changes use its active-profile and save APIs, retaining file checksums. */
+void pc_menu_ios_sync_settings(void)
+{
+    static unsigned long next;
+    unsigned long now=system_milliseconds();
+    char const *names[9]={"audio.volume","audio.music_volume","audio.effects_volume",
+        "display.vsync","display.interpolation","network.online","network.allow_upnp",
+        "network.join_from_clipboard","audio.enabled"};
+    short i;
+    long profile_index;
+    struct player_profile profile;
+    boolean changed=FALSE;
+    if((long)(now-next)<0)return;
+    next=now+250;
+    for(i=0;i<9;i++) {
+        char text[64],original[64],value[64];
+        if(!config_text(names[i],original,sizeof(original)))continue;
+        if(i<3)snprintf(text,sizeof(text),"%.4f",atof(original));
+        else snprintf(text,sizeof(text),"%d",!strcmp(original,"true")?1:0);
+        if(!host_settings_value((unsigned)i,text,NONE))continue;
+        if(i<3)snprintf(value,sizeof(value),"%.4f",PIN(atof(text),0.,1.));
+        else snprintf(value,sizeof(value),"%s",atof(text)!=0?"true":"false");
+        if(strcmp(original,value))config_write(names[i],value);
+    }
+    profile_index=player_ui_ios_initialized()?player_ui_get_active_player_profile_index(0):NONE;
+    {
+        char const *values[4]={"all","allies","enemies","none"};
+        char text[64],original[64];
+        if(config_text("display.player_names",original,sizeof(original))) {
+            short value=0;
+            for(i=0;i<4;i++)if(!strcmp(values[i],original))value=i;
+            snprintf(text,sizeof(text),"%d",value);
+            if(host_settings_value(19,text,NONE)) {
+                value=(short)PIN(atol(text),0,3);
+                if(strcmp(original,values[value]))config_write("display.player_names",values[value]);
+            }
+        }
+    }
+    host_settings_value((unsigned)-1,NULL,profile_index);
+    if(profile_index==NONE)return;
+    player_ui_get_active_player_profile(0,&profile);
+    for(i=0;i<8;i++) {
+        byte *field=profile_setting_field(&profile,i);
+        char text[64];long value;
+        if(!field)continue;
+        snprintf(text,sizeof(text),"%u",(unsigned)((i==6 || i==7)?!*field:*field));
+        if(!host_settings_value((unsigned)(9+i),text,profile_index))continue;
+        value=atol(text);value=PIN(value,i==0?1:0,i==0?10:i==4?4:i==5?3:1);
+        if(i==6 || i==7)value=!value;
+        if(*field!=(byte)value){*field=(byte)value;changed=TRUE;}
+    }
+    {
+        char text[64];unsigned j;
+        for(j=0;j<11 && profile.player_name[j];j++)text[j]=profile.player_name[j]<128?(char)profile.player_name[j]:'?';
+        text[j]=0;
+        if(host_settings_value(17,text,profile_index)) {
+            wchar_t name[MAXIMUM_PLAYER_PROFILE_NAME_LENGTH];
+            memset(name,0,sizeof(name));
+            for(j=0;j<11 && text[j];j++)name[j]=(unsigned char)text[j];
+            if(player_name_clean(name,NUMBEROF(name)) && memcmp(profile.player_name,name,sizeof(name))) {
+                memcpy(profile.player_name,name,sizeof(name));changed=TRUE;
+            }
+        }
+        snprintf(text,sizeof(text),"%d",profile.primary_color_index);
+        if(host_settings_value(18,text,profile_index)) {
+            short color=(short)PIN(atol(text),0,(long)player_profile_number_of_available_primary_colors()-1);
+            if(profile.primary_color_index!=color){profile.primary_color_index=color;changed=TRUE;}
+        }
+    }
+    if(changed) {
+        player_ui_set_active_player_profile(0,profile_index,&profile);
+        if(!TEST_FLAG(profile.flags,_player_profile_default_profile_bit))player_profile_save(profile_index,&profile);
+    }
+}
+#endif
+
 boolean pc_menu_event_function_invoke(struct widget_instance *widget, struct event_record *event,
 	long function_index, boolean *widget_deleted);
 void pc_menu_game_data_function_invoke(struct widget_instance *widget, long function);

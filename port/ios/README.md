@@ -9,7 +9,7 @@ This folder holds the native iOS app. For using the app, see the [documentation]
   4 GiB-aligned arena, so a 32-bit guest pointer is the same as an offset from the arena base. A build step (`tools/android_asm_convert.py --ios-arena-fastpath`) rewrites guest loads and stores to add the
   base directly, and a fault bridge remains as a safety net.
 - **Graphics.** EAGL with OpenGL ES 3. The guest's GL calls go through generated imports (`tools/ios_gl_stubs.py`) to the host.
-- **Audio.** Native audio engine with a lock-free ring; per-class gains applied in the engine.
+- **Audio.** Native audio engine with a lock-free ring; per-class gains applied once by the native mixer. Shared audio preferences synchronize with the in-game configuration.
 - **Network.** A translated socket layer for system link and the invite-link protocol of Halo CE Universal.
 - **Settings.** `halo_settings_core.h` is plain C so it can be tested anywhere; `HaloSettingsStore` persists it and `HaloSettingsViewController` shows it.
 

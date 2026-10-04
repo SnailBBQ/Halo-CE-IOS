@@ -914,6 +914,9 @@ void platform_scoreboard_scroll(int open, long *notches, long *pages)
 	pthread_mutex_unlock(&input_lock);
 }
 
+#ifdef HALO_IOS_GUEST
+void pc_menu_ios_sync_settings(void);
+#endif
 void platform_pump_events(void)
 {
 	/* debug.exit_after (seconds) ends the game that long after the window
@@ -925,6 +928,9 @@ void platform_pump_events(void)
 
 	if (!platform_window || SDL_GetCurrentThreadID() != platform_event_thread)
 		return;
+#ifdef HALO_IOS_GUEST
+    pc_menu_ios_sync_settings();
+#endif
 	if (exit_ticks == (Uint64)-1)
 	{
 		double seconds = config_real("debug.exit_after");

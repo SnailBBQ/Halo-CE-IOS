@@ -68,6 +68,7 @@ static NSString *HaloPerfLine(void)
 @property(nonatomic) BOOL physicalPadConnected;
 @property(nonatomic, strong) UIButton *settingsButton;
 @property(nonatomic) CGPoint gearDragOffset;
+@property(nonatomic) BOOL settingsHiddenByShortcut;
 @property(nonatomic) BOOL draggingGear;
 @property(nonatomic, strong) UILabel *fpsLabel;
 @property(nonatomic, strong) NSTimer *fpsTimer;
@@ -286,6 +287,13 @@ static NSString *HaloPerfLine(void)
     UIView *root=self.window.rootViewController.view;if(!self.settingsButton)return;
     CGRect safe=UIEdgeInsetsInsetRect(root.bounds,root.safeAreaInsets);
     HsSettings settings=[HaloSettingsStore.shared snapshot];
+    self.settingsButton.alpha = settings.gear_opacity;
+    NSArray *icons = @[@"gearshape.fill", @"slider.horizontal.3", @"gamecontroller.fill", @"circle.grid.2x2.fill"];
+    UIImage *icon = settings.gear_icon < 4 ? [UIImage systemImageNamed:icons[settings.gear_icon]] :
+        [UIImage imageWithContentsOfFile:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Halo/settings-icon.png"]];
+    if (settings.gear_icon==4) icon=[icon imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+    [self.settingsButton setImage:icon ?: [UIImage systemImageNamed:@"gearshape.fill"] forState:UIControlStateNormal];
+    self.settingsButton.imageView.contentMode = UIViewContentModeScaleAspectFit;
     CGFloat x=settings.gear_placed?CGRectGetMinX(safe)+settings.gear_x*safe.size.width:CGRectGetMidX(safe);
     CGFloat y=settings.gear_placed?CGRectGetMinY(safe)+settings.gear_y*safe.size.height:CGRectGetMinY(safe)+26;
     CGFloat halfW=MAX(44,48*settings.gear_scale)/2,halfH=MAX(44,44*settings.gear_scale)/2;
@@ -293,6 +301,12 @@ static NSString *HaloPerfLine(void)
     [self.settingsButton setPreferredSymbolConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:20*settings.gear_scale weight:UIImageSymbolWeightSemibold] forImageInState:UIControlStateNormal];
     self.settingsButton.center=CGPointMake(MAX(CGRectGetMinX(safe)+halfW,MIN(CGRectGetMaxX(safe)-halfW,x)),MAX(CGRectGetMinY(safe)+halfH,MIN(CGRectGetMaxY(safe)-halfH,y)));
     [root bringSubviewToFront:self.settingsButton];
+}
+- (void)recoverSettings:(UITapGestureRecognizer *)gesture {
+    (void)gesture;
+    self.settingsHiddenByShortcut = NO;
+    self.settingsButton.hidden = NO;
+    [self layoutSettingsButton];
 }
 - (void)dragSettings:(UILongPressGestureRecognizer *)gesture {
     UIView *root=self.settingsButton.superview;CGPoint point=[gesture locationInView:root];
@@ -352,7 +366,7 @@ static NSString *HaloPerfLine(void)
         HaloControlsView *controls = (HaloControlsView *)owner.menuControls;
         owner.settingsButton.hidden = YES;
         controls.onEditFinished = ^{
-            owner.settingsButton.hidden = NO;
+            owner.settingsButton.hidden = owner.settingsHiddenByShortcut;
             [owner updateControlsVisibility];
         };
         owner.menuControls.hidden = NO;
@@ -535,6 +549,19 @@ static NSString *HaloPerfLine(void)
     [gear addTarget:self action:@selector(showSettings:) forControlEvents:UIControlEventTouchUpInside];
     [vc.view addSubview:gear];
     self.settingsButton = gear;
+    __weak AppDelegate *shortcutOwner = self;
+    [[NSNotificationCenter defaultCenter] addObserverForName:@"HaloSettingsVisibilityShortcut" object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+        (void)note;
+        AppDelegate *owner = shortcutOwner;
+        owner.settingsHiddenByShortcut = !owner.settingsHiddenByShortcut;
+        owner.settingsButton.hidden = owner.settingsHiddenByShortcut;
+    }];
+    UITapGestureRecognizer *recover = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(recoverSettings:)];
+    recover.numberOfTouchesRequired = 3;
+    recover.numberOfTapsRequired = 2;
+    recover.cancelsTouchesInView = NO;
+    vc.view.multipleTouchEnabled = YES;
+    [vc.view addGestureRecognizer:recover];
     self.bootLog = log;
     HaloControlsView *menu = [[HaloControlsView alloc] initWithFrame:CGRectZero];
     menu.translatesAutoresizingMaskIntoConstraints = NO;

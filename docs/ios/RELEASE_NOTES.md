@@ -1,18 +1,19 @@
 # Release notes
 
-The current update is **M2.6.54**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.55**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Source update:** M2.6.54 integrates Halo CE Universal build 94 on `main` and `ios/modtest`, alongside campaign tools, direct checkpoint editing and smaller, separate save/profile backups. This source update still requires Apple compilation and device validation.
+**Source update:** M2.6.55 adds configurable input shortcuts, Settings icon customization, shared in-game preferences, player-profile editing and separate campaign-save imports. Both apps remain on Halo CE Universal build 94. This update requires Apple compilation and device validation.
 
 ## Recent updates at a glance
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.55 | Input shortcuts, icon customization, Jetpack Jump thrust, shared settings and separate save/profile imports. |
 | M2.6.54 | Universal build 94: campaign melee, weapon pickup/swap, scoreboard and browser fixes. |
 | M2.6.52 | Settings organization, optional 1080p, draggable performance overlay, LAN permission check and external save backups. Apple/device validation pending. |
 | M2.6.51 | Universal build 84: public server browser, signed lobby listings and multiplayer lifecycle fixes. Device validation pending. |

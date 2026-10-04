@@ -49,6 +49,8 @@ void halo_ios_set_touch_controller_connected(int connected);
 void halo_ios_post_focus_event(void);
 
 void halo_ios_set_channel_gains(float music,float dialogue,float effects);
+/* Host-side copies only. Changes are applied on the guest game thread. */
+void halo_ios_engine_settings_changed(const void *before, const void *after);
 /* Environment sounds (the device and ambient sound classes); 0 ... 1. */
 void halo_ios_set_ambient_gain(float gain);
 #ifdef __OBJC__

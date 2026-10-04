@@ -58,6 +58,8 @@ typedef NS_ENUM(NSInteger, HaloCategory) {
 @property(nonatomic,strong) NSMutableSet<NSString *> *openCheatSections;
 @property(nonatomic) NSInteger pickerKind; /* 0 invite folder, 2 profile import */
 @property(nonatomic,strong) UILabel *connectionLabel;
+- (void)editShortcut:(int)slot;
+- (UIView *)engineControllerCard:(const HsSettings *)settings;
 @end
 
 @implementation HaloSettingsViewController
@@ -363,6 +365,26 @@ static NSString *HaloCategorySymbol(HaloCategory c)
 - (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls
 {
     if (!urls.count) return;
+    if (self.pickerKind == 3) {
+        self.pickerKind = 0;
+        NSURL *url = urls.firstObject;
+        BOOL access = [url startAccessingSecurityScopedResource];
+        NSNumber *size = nil;
+        [url getResourceValue:&size forKey:NSURLFileSizeKey error:nil];
+        NSData *data = size && size.unsignedLongLongValue > 0 && size.unsignedLongLongValue <= 8*1024*1024 ? [NSData dataWithContentsOfURL:url] : nil;
+        if (access) [url stopAccessingSecurityScopedResource];
+        UIImage *image = data ? [UIImage imageWithData:data] : nil;
+        if (!image || !image.CGImage || CGImageGetWidth(image.CGImage) > 2048 || CGImageGetHeight(image.CGImage) > 2048) { halo_ios_toast("Choose an image up to 8 MB and 2048 pixels"); return; }
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(128,128)];
+        UIImage *icon = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+            (void)context; CGFloat scale = MIN(128/image.size.width,128/image.size.height);
+            CGSize fitted=CGSizeMake(image.size.width*scale,image.size.height*scale);
+            [image drawInRect:CGRectMake((128-fitted.width)/2,(128-fitted.height)/2,fitted.width,fitted.height)];
+        }];
+        NSString *path = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Halo/settings-icon.png"];
+        if (![UIImagePNGRepresentation(icon) writeToFile:path atomically:YES]) { halo_ios_toast("Could not save the icon"); return; }
+        [self update:^(HsSettings *s) { s->gear_icon=4; }]; [self renderSoon]; return;
+    }
     if (self.pickerKind == 2) {   /* a profile file to import */
         self.pickerKind = 0;
         NSData *data = [NSData dataWithContentsOfURL:urls.firstObject options:0 error:nil];
@@ -477,6 +499,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
     [padRows addObject:HaloUISliderRow(@"Stick response", 1.0f, 3.0f, settings->pad_curve, @"%.1f", ^(float v) { [self update:^(HsSettings *s) { s->pad_curve = v; }]; })];
     [padRows addObject:HaloUINote(@"The dead zone is removed rather than cut off, so movement still starts from zero. A response above 1.0 gives finer control near the centre.")];
     [self add:HaloUICardView(@"Controller", padRows)];
+    [self add:[self engineControllerCard:settings]];
 
     NSMutableArray<NSString *> *buttonNames = [NSMutableArray array];
     for (int b = 0; b < HP_BUTTONS; b++) [buttonNames addObject:[NSString stringWithUTF8String:hp_names[b]]];
@@ -556,6 +579,8 @@ static NSString *HaloCategorySymbol(HaloCategory c)
             [self renderSoon];
         }),
         HaloUINote(note),
+        HaloUISwitchRow(@"VSync", @"Shared with the in-game video setting. iOS still controls EAGL presentation timing; switching this off cannot force tearing or exceed the screen’s refresh rate.",settings->game_vsync,^(BOOL on){[self update:^(HsSettings *s){s->game_vsync=on;}];}),
+        HaloUISwitchRow(@"Smooth motion", @"Shared with in-game interpolation. Changing between original 30 FPS and smooth rendering requires an app relaunch.",settings->fps_mode!=0,^(BOOL on){[self update:^(HsSettings *s){s->fps_mode=on?(s->fps_mode?s->fps_mode:1):0;}];[self renderSoon];}),
         HaloUISwitchRow(@"Show FPS", @"Display the frame-rate counter.", settings->show_fps, ^(BOOL on) { [self update:^(HsSettings *s) { s->show_fps = on; }]; }),
         HaloUINote(@"Switching between 30 and the other two takes effect the next time you open the app. Switching between 60 and Uncapped takes effect now.")])];
 
@@ -602,7 +627,7 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUISliderRow(@"Music",0,1,settings->music_volume,@"%.2f",^(float v){[self update:^(HsSettings *s){s->music_volume=v;}];}),
         HaloUISliderRow(@"Dialogue",0,1,settings->dialogue_volume,@"%.2f",^(float v){[self update:^(HsSettings *s){s->dialogue_volume=v;}];}),
         HaloUISliderRow(@"Effects",0,1,settings->effects_volume,@"%.2f",^(float v){[self update:^(HsSettings *s){s->effects_volume=v;}];}),
-        HaloUINote(@"Halo plays even when the ring/silent switch is on, like a game console.")])];
+        HaloUINote(@"Master, Music, Effects and Sound synchronize with the in-game audio menu. Dialogue and Ambient are additional iOS controls. Halo plays even when the ring/silent switch is on.")])];
     [self add:HaloUICardView(@"Ambient sound", @[
         HaloUISliderRow(@"Ambient volume", 0.0f, 1.0f, settings->ambient_volume, @"%.2f", ^(float v) { [self update:^(HsSettings *s) { s->ambient_volume = v; }]; }),
         HaloUINote(@"The environment: water, wind, machinery and computer hum, and the sounds of doors and devices. If a strange background noise bothers you, lower this to find out whether it is one of these.")])];
@@ -628,9 +653,44 @@ static NSString *HaloCategorySymbol(HaloCategory c)
 }
 
 static NSString *HaloOnCount(int count) { return count ? [NSString stringWithFormat:@"%d on", count] : @"All off"; }
+static NSArray<NSString *> *HaloShortcutActions(void) {
+    return @[@"Disabled",@"God mode",@"Infinite ammo",@"Infinite grenades",@"Bottomless clip",@"Jetpack",@"Noclip",@"Infinite Active Camo",@"Infinite Overshield",@"Low Gravity",@"Third person",@"Wireframe",@"Unlimited flashlight",@"Rapid fire",@"No recoil",@"One-hit kills",@"No fall damage",@"AI ignores you",@"Medusa Mode",@"Infinite Vehicle Health",@"Detach Camera",@"Bumper Cars",@"Hijack NPCs",@"Apply Active Camo",@"Spawn Active Camo",@"Apply Overshield",@"Spawn Overshield",@"Restore health and shields",@"Drop Weapon Ring",@"All Equipment Spawns",@"Teleport To Camera",@"Erase All AI"];
+}
+
+- (void)editShortcut:(int)slot {
+    NSArray *names=@[@"A",@"B",@"X",@"Y",@"Back",@"Guide",@"Start",@"LS",@"RS",@"White",@"Black",@"Up",@"Down",@"Left",@"Right",@"LT",@"RT"];
+    NSArray *actions=HaloShortcutActions();
+    HsSettings settings=[HaloSettingsStore.shared snapshot];HsShortcut shortcut=settings.shortcuts[slot];
+    NSMutableArray *steps=[NSMutableArray array];
+    for(NSString *part in [[NSString stringWithUTF8String:shortcut.sequence] componentsSeparatedByString:@","])
+        if(part.length && part.intValue>=0 && part.intValue<17)[steps addObject:names[part.intValue]];
+    UIAlertController *alert=[UIAlertController alertControllerWithTitle:slot?@"Cheat shortcut":@"Settings visibility shortcut" message:@"Enter 1–16 button names separated by commas. Use A, B, X, Y, Up, Down, Left, Right, LT, RT, LS, RS, White, Black, Start or Back. Leave empty to disable. Inputs also reach the game. Timers are seconds." preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *f){f.text=[steps componentsJoinedByString:@","];f.placeholder=@"Input sequence";f.autocapitalizationType=UITextAutocapitalizationTypeNone;f.autocorrectionType=UITextAutocorrectionTypeNo;}];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *f){f.text=[NSString stringWithFormat:@"%.2f",shortcut.gap];f.placeholder=@"Maximum gap between presses";f.keyboardType=UIKeyboardTypeDecimalPad;}];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *f){f.text=[NSString stringWithFormat:@"%.2f",shortcut.total];f.placeholder=@"Maximum total duration";f.keyboardType=UIKeyboardTypeDecimalPad;}];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Save" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){
+        (void)action;NSMutableArray *encoded=[NSMutableArray array];NSString *input=alert.textFields[0].text;
+        if(input.length)for(NSString *part in [input componentsSeparatedByString:@","]){NSString *token=[[part stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet] lowercaseString];NSInteger found=NSNotFound;for(NSUInteger i=0;i<names.count;i++)if([token isEqualToString:[names[i] lowercaseString]])found=(NSInteger)i;
+            if(found==NSNotFound || found==5 || encoded.count>=16){halo_ios_toast("Use 1–16 supported button names");return;}[encoded addObject:@(found).stringValue];}
+        NSString *sequence=[encoded componentsJoinedByString:@","];float gap=alert.textFields[1].text.floatValue,total=alert.textFields[2].text.floatValue;
+        if(!isfinite(gap) || !isfinite(total) || gap<.25f || gap>10 || total<1 || total>60){halo_ios_toast("Gap: 0.25–10 seconds. Total: 1–60 seconds.");return;}
+        void (^save)(NSUInteger)=^(NSUInteger choice){[self update:^(HsSettings *s){snprintf(s->shortcuts[slot].sequence,96,"%s",sequence.UTF8String);s->shortcuts[slot].gap=gap;s->shortcuts[slot].total=total;if(slot)s->shortcuts[slot].action=(int)choice;}];};
+        if(slot)[self dismissViewControllerAnimated:YES completion:^{[self presentChoices:@"Shortcut action" names:actions from:self pick:save];}];else save(0);
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
 
 - (void)buildCheats:(const HsSettings *)settings
 {
+    NSMutableArray *bindings = [NSMutableArray array];
+    for (int k=1;k<4;k++) {
+        int slot=k;
+        NSString *action=HaloShortcutActions()[settings->shortcuts[k].action];
+        [bindings addObject:HaloUIButton([NSString stringWithFormat:@"Shortcut %d · %@",k,action],0,^(UIButton *button){(void)button;[self editShortcut:slot];})];
+    }
+    [bindings addObject:HaloUINote(@"Three independent input sequences toggle modifiers or run one-time actions in campaign. Multiplayer disables them; active modifier states are never saved.")];
+    [self add:HaloUICardView(@"Cheat shortcuts",bindings)];
     [self add:HaloUINote(@"The selected control preset activates its saved cheat recipe automatically in solo campaign. Multiplayer disables all cheats.")];
     [self add:HaloUINote(@"Tap a section to open it. Everything here works only in the solo campaign and switches itself off in multiplayer and network games.")];
 #define CHEAT_SWITCH(title, sub, field) HaloUISwitchRow(title, sub, settings->field, ^(BOOL on) { [self update:^(HsSettings *s) { s->field = on; }]; })
@@ -905,6 +965,18 @@ static NSString *HaloAge(NSTimeInterval stamp)
 
 #pragma mark - Profiles
 
+- (UIView *)engineControllerCard:(const HsSettings *)settings {
+    if(!settings->game_profile_ready)return HaloUICardView(@"Halo controller settings",@[HaloUINote(@"Select a Halo player profile in-game to edit its controller preferences here.")]);
+    NSMutableArray *rows=[NSMutableArray array];
+    [rows addObject:HaloUISliderRow(@"Look sensitivity",1,10,settings->game_controls[0],@"%.0f",^(float value){[self update:^(HsSettings *s){s->game_controls[0]=(int)lroundf(value);}];})];
+    NSArray *labels=@[@"Invert look",@"Invert flight",@"Auto-center look",@"Vibration",@"In-game help"];
+    const int fields[5]={1,2,3,6,7};
+    for(int i=0;i<5;i++){int field=fields[i];[rows addObject:HaloUISwitchRow(labels[i],nil,settings->game_controls[field],^(BOOL on){[self update:^(HsSettings *s){s->game_controls[field]=on;}];})];}
+    [rows addObject:HaloUIButton(@"Button layout",0,^(UIButton *b){(void)b;[self presentChoices:@"Halo button layout" names:@[@"Standard",@"Swap triggers",@"Swap A and left trigger",@"Swap B and left trigger",@"Swap B and right stick"] from:self pick:^(NSUInteger choice){[self update:^(HsSettings *s){s->game_controls[4]=(int)choice;}];}];})];
+    [rows addObject:HaloUIButton(@"Stick layout",0,^(UIButton *b){(void)b;[self presentChoices:@"Halo stick layout" names:@[@"Standard",@"Southpaw",@"Legacy",@"Legacy Southpaw"] from:self pick:^(NSUInteger choice){[self update:^(HsSettings *s){s->game_controls[5]=(int)choice;}];}];})];
+    [rows addObject:HaloUINote(@"Shared with the selected in-game player profile. In-game changes synchronize after they are saved. These layouts apply after the iOS physical-button remap; touch-look inversion remains separate. Vibration requires a controller with supported haptics.")];
+    return HaloUICardView(@"Halo controller settings",rows);
+}
 - (void)buildProfiles:(const HsSettings *)settings
 {
     HsPreset preset = settings->presets[settings->active];
@@ -912,14 +984,38 @@ static NSString *HaloAge(NSTimeInterval stamp)
     NSString *hud = preset.hud_choice == 0 ? @"Default" : [NSString stringWithUTF8String:settings->hud_presets[preset.hud_choice - 1].name];
     unsigned recipeCount = (unsigned)__builtin_popcount(preset.cheat_flags) + (preset.cheat_slow ? 1u : 0u) + (preset.cheat_alliance?1u:0u) + (preset.cheat_projectile?1u:0u);
     [self add:HaloUICardView(@"What a profile holds", @[
-        HaloUINote(@"A profile is everything you have set up: your five control schemes with their layouts and cheat recipes, the HUD, display, audio and accent color choices. This is an app settings profile, separate from Halo’s player profile and checkpoint files. It does not include maps, saves, or active cheats. The campaign save editor changes validated on-disk health, shields, grenades and existing weapon ammo. Live cheats do not change an existing checkpoint. Backups (Advanced) can also keep it with your saves."),
+        HaloUIValueRow(@"App settings profile", @"Controls, HUD, audio, display and shortcuts", nil),
+        HaloUIValueRow(@"Halo player profile", @"Name, color, controller options and level records", nil),
+        HaloUIValueRow(@"Campaign checkpoint", @"Your progress inside a campaign level", nil),
+        HaloUINote(@"Multiplayer has player profiles and match variants, not campaign-style progress saves. App profile exports exclude maps and checkpoints; active cheat states are never saved."),
         HaloUIValueRow(@"Control scheme in use", [NSString stringWithUTF8String:preset.name], nil),
         HaloUIValueRow(@"Game HUD", hud, nil),
         HaloUIValueRow(@"Frame rate", frameModes[(NSUInteger)settings->fps_mode % 3], nil),
         HaloUIValueRow(@"Volumes", [NSString stringWithFormat:@"Master %d · Music %d · Voices %d · Effects %d · Ambient %d", (int)lround(settings->volume * 100), (int)lround(settings->music_volume * 100), (int)lround(settings->dialogue_volume * 100), (int)lround(settings->effects_volume * 100), (int)lround(settings->ambient_volume * 100)], nil),
         HaloUIValueRow(@"Left-handed · Gyro", [NSString stringWithFormat:@"%@ · %@", preset.mirror ? @"On" : @"Off", preset.gyro ? @"On" : @"Off"], nil),
         HaloUIValueRow(@"Cheat recipe in this scheme", recipeCount ? [NSString stringWithFormat:@"%u items", recipeCount] : @"None", nil)])];
-    [self add:HaloUICardView(@"Campaign saves", @[HaloUIButton(@"Edit campaign checkpoint",1,^(UIButton *b){(void)b;UIViewController *editor=HaloCheckpointEditorController();editor.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:editor animated:YES completion:nil];}),HaloUINote(@"Direct edits apply on the next launch with recovery backups. Halo player profiles and campaign checkpoints can be exported separately in Manage backups.")])];
+    [self add:HaloUICardView(@"Campaign saves", @[
+        HaloUIButton(@"Import / export campaign saves",1,^(UIButton *b){(void)b;UIViewController *c=HaloBackupsControllerForSections(16);c.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:c animated:YES completion:nil];}),
+        HaloUIButton(@"Edit campaign checkpoint",0,^(UIButton *b){(void)b;UIViewController *editor=HaloCheckpointEditorController();editor.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:editor animated:YES completion:nil];}),
+        HaloUINote(@"Restore from a .halobackup archive on the next launch with a recovery backup. For a fresh installation, also restore its matching Halo player profile. Checkpoint edits cover health, shields, grenades and existing weapon ammo.")])];
+    [self add:HaloUICardView(@"Halo player profiles", @[
+        HaloUIButton(@"In-game name",0,^(UIButton *b){(void)b;HsSettings current=[HaloSettingsStore.shared snapshot];if(!current.game_profile_ready){halo_ios_toast("Select a Halo player profile in-game first");return;}
+            UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"In-game name" message:@"Up to 11 ASCII letters, numbers or supported punctuation. Saved to the active Halo profile; new games use the updated name." preferredStyle:UIAlertControllerStyleAlert];
+            [alert addTextFieldWithConfigurationHandler:^(UITextField *f){f.text=[NSString stringWithUTF8String:current.game_name];f.autocorrectionType=UITextAutocorrectionTypeNo;}];
+            [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+            [alert addAction:[UIAlertAction actionWithTitle:@"Save" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){(void)a;NSString *name=alert.textFields[0].text;NSData *ascii=[name dataUsingEncoding:NSASCIIStringEncoding allowLossyConversion:NO];if(!ascii.length || ascii.length>11){halo_ios_toast("Use 1–11 ASCII characters");return;}[self update:^(HsSettings *s){snprintf(s->game_name,24,"%s",name.UTF8String);}];}]];
+            [self presentViewController:alert animated:YES completion:nil];}),
+        HaloUIButton(@"Multiplayer armor color",0,^(UIButton *b){(void)b;if(![HaloSettingsStore.shared snapshot].game_profile_ready){halo_ios_toast("Select a Halo player profile first");return;}
+            [self presentChoices:@"Armor color" names:@[@"White",@"Black",@"Red",@"Blue",@"Gray",@"Yellow",@"Green",@"Pink",@"Purple",@"Cyan",@"Light blue",@"Orange",@"Teal",@"Dark green",@"Brown",@"Tan",@"Maroon",@"Salmon"] from:self pick:^(NSUInteger choice){[self update:^(HsSettings *s){s->game_color=(int)choice;}];}];}),
+        HaloUIButton(@"Import / export Halo player profiles",1,^(UIButton *b){(void)b;UIViewController *c=HaloBackupsControllerForSections(32);c.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:c animated:YES completion:nil];})])];
+    [self add:HaloUINote(@"Name and color edit the active Halo player profile. Rejoin a multiplayer session to publish changes to other players. Built-in default profiles are temporary; create a named profile in-game to keep changes after relaunch.")];
+    [self add:[self engineControllerCard:settings]];
+    [self add:HaloUICardView(@"Network setup",@[
+        HaloUISwitchRow(@"Internet play",nil,settings->game_online,^(BOOL on){[self update:^(HsSettings *s){s->game_online=on;}];}),
+        HaloUISwitchRow(@"UPnP port forwarding",@"Allow the engine to ask your router for a port mapping. Router support is required.",settings->game_upnp,^(BOOL on){[self update:^(HsSettings *s){s->game_upnp=on;}];}),
+        HaloUISwitchRow(@"Join from clipboard",nil,settings->join_from_clipboard,^(BOOL on){[self update:^(HsSettings *s){s->join_from_clipboard=on;}];}),
+        HaloUISegmentRow(@"Player names",@[@"All",@"Allies",@"Enemies",@"None"],settings->game_player_names,^(NSInteger choice){[self update:^(HsSettings *s){s->game_player_names=(int)choice;}];}),
+        HaloUINote(@"Shared with in-game Network Setup. Connection options may require leaving and reopening a network session. This does not change iOS Local Network permission or router settings directly.")])];
     [self add:HaloUICardView(@"Share or move a profile", @[
         HaloUIButton(@"Export profile…", 1, ^(UIButton *b) { [self exportProfile:b]; }),
         HaloUIButton(@"Import profile…", 0, ^(UIButton *b) { (void)b;
@@ -927,7 +1023,7 @@ static NSString *HaloAge(NSTimeInterval stamp)
             UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:YES];
             picker.delegate = self; picker.allowsMultipleSelection = NO;
             [self presentViewController:picker animated:YES completion:nil]; }),
-        HaloUINote(@"Export makes a .haloprofile file you can save to Files, AirDrop or send. Importing replaces everything above with the file's settings, so export first if you want to keep what you have.")])];
+        HaloUINote(@"A .haloprofile contains app settings and layouts, not Halo player profiles or campaign checkpoints. Import replaces app preferences; use the separate save and player-profile cards for game data.")])];
     [self add:HaloUICardView(@"Start over", @[
         HaloUIButton(@"Reset all settings to defaults", 2, ^(UIButton *b) { (void)b;
             UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Reset every setting?" message:@"Control schemes, HUD, display, audio and colors all return to their defaults. Maps, saves and mods are not touched. Export a profile first if you may want this back." preferredStyle:UIAlertControllerStyleAlert];
@@ -1000,6 +1096,13 @@ static UIColor *HaloColorFromRGB(unsigned rgb) {
 
 - (void)buildOptions:(const HsSettings *)settings {
     [self add:HaloUICardView(@"Settings button",@[
+        HaloUIButton(@"Hide / show shortcut",1,^(UIButton *button){(void)button;[self editShortcut:0];}),
+        HaloUINote(@"Default: Up, Up, Down, Down, Left, Right, Left, Right, B, A. Works on touch controls or a controller. Three-finger double-tap always restores the icon; relaunch also restores it."),
+        HaloUISliderRow(@"Opacity",.15f,1.f,settings->gear_opacity,@"%.2f",^(float value){[self update:^(HsSettings *s){s->gear_opacity=value;}];}),
+        HaloUIButton(@"Choose icon",0,^(UIButton *button){(void)button;[self presentChoices:@"Settings icon" names:@[@"Default gear",@"Sliders",@"Controller",@"Grid",@"Image from Files…"] from:self pick:^(NSUInteger choice){
+            if(choice<4){[self update:^(HsSettings *s){s->gear_icon=(int)choice;}];return;}
+            self.pickerKind=3;UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeImage] asCopy:YES];picker.delegate=self;[self presentViewController:picker animated:YES completion:nil];
+        }];}),
         HaloUISliderRow(@"Size",.75f,1.75f,settings->gear_scale,@"%.2f×",^(float value){[self update:^(HsSettings *s){s->gear_scale=value;}];}),
         HaloUINote(@"Touch and hold the gear to move it. Its touch target remains at least 44 points."),
         HaloUIButton(@"Reset size and position",0,^(UIButton *button){(void)button;[self update:^(HsSettings *s){s->gear_scale=1;s->gear_placed=0;}];[self renderSoon];})])];

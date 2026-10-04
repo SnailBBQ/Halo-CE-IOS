@@ -3,8 +3,10 @@
 #import "halo_controls_layout.h"
 #import "HaloSettingsStore.h"
 #import "HaloHudEditor.h"
+#include "halo_shortcut.h"
 
 #import <GameController/GameController.h>
+#import <CoreHaptics/CoreHaptics.h>
 #import <QuartzCore/QuartzCore.h>
 #import <CoreMotion/CoreMotion.h>
 #import "halo_pad_input.h"
@@ -19,6 +21,63 @@ static void HaloPadReload(void)
     g_pad.dead = settings.pad_dead;
     g_pad.curve = settings.pad_curve;
     memcpy(g_pad.map, settings.pad_map, HP_BUTTONS);
+}
+
+/* Shortcuts observe discrete presses without consuming gameplay input. State
+ * lives on the main queue and no guest pointers cross this boundary. */
+static HaloShortcutState g_shortcuts[4];
+static unsigned g_shortcut_pad_previous;
+static void HaloResetShortcuts(void) { memset(g_shortcuts,0,sizeof(g_shortcuts));g_shortcut_pad_previous=0; }
+void halo_ios_shortcut_button(int button)
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        HsSettings settings = [HaloSettingsStore.shared snapshot];
+        double now = CACurrentMediaTime();
+        for (int k = 0; k < 4; k++) {
+            HsShortcut q = settings.shortcuts[k];
+            if (k && ![HaloSettingsStore.shared campaignActive]) {
+                g_shortcuts[k].progress = 0;
+                continue;
+            }
+            if (!halo_shortcut_press(&g_shortcuts[k],&q,button,now)) continue;
+            if (!k) {
+                [[NSNotificationCenter defaultCenter] postNotificationName:@"HaloSettingsVisibilityShortcut" object:nil];
+                continue;
+            }
+            if (q.action>=23 && q.action<=31) {
+                const unsigned actions[]={1,3,4,2,10,11,12,13,14};
+                halo_ios_queue_campaign_action(actions[q.action-23]);
+                continue;
+            }
+            [HaloSettingsStore.shared update:^(HsSettings *s) {
+                switch (q.action) {
+                    case 1: s->cheat_god = !s->cheat_god; break;
+                    case 2: s->cheat_ammo = !s->cheat_ammo; break;
+                    case 3: s->cheat_grenades = !s->cheat_grenades; break;
+                    case 4: s->cheat_reload = !s->cheat_reload; break;
+                    case 5: s->cheat_jetpack = !s->cheat_jetpack; break;
+                    case 6: s->cheat_noclip = !s->cheat_noclip; break;
+                    case 7: s->cheat_camo = !s->cheat_camo; break;
+                    case 8: s->cheat_overshield = !s->cheat_overshield; break;
+                    case 9: s->cheat_low_gravity = !s->cheat_low_gravity; break;
+                    case 10: s->cheat_third_person = !s->cheat_third_person; break;
+                    case 11: s->cheat_wireframe = !s->cheat_wireframe; break;
+                    case 12: s->cheat_flashlight = !s->cheat_flashlight; break;
+                    case 13: s->cheat_rapid = !s->cheat_rapid; break;
+                    case 14: s->cheat_no_recoil = !s->cheat_no_recoil; break;
+                    case 15: s->cheat_one_hit = !s->cheat_one_hit; break;
+                    case 16: s->cheat_no_fall = !s->cheat_no_fall; break;
+                    case 17: s->cheat_ai_ignore = !s->cheat_ai_ignore; break;
+                    case 18: s->cheat_medusa = !s->cheat_medusa; break;
+                    case 19: s->cheat_vehicle_health = !s->cheat_vehicle_health; break;
+                    case 20: s->cheat_detach_camera = !s->cheat_detach_camera; break;
+                    case 21: s->cheat_hijack_vehicle = !s->cheat_hijack_vehicle; break;
+                    case 22: s->cheat_hijack_npc = !s->cheat_hijack_npc; break;
+                    default: break;
+                }
+            }];
+        }
+    });
 }
 
 /* ---- gyro aiming: the device's turning rate becomes look movement, scaled like a finger drag (halo_pad_input.h).
@@ -473,6 +532,7 @@ static NSNumber *HaloTouchKey(UITouch *touch)
 - (void)press:(int)index
 {
     const HcControl *c = &_controls[index];
+    if (!_holds[index]) halo_ios_shortcut_button(c->button >= 0 ? c->button : (index == HC_LT ? 15 : 16));
     if (_holds[index]++ > 0) return;
     if (c->button >= 0 && ([self preset]->toggle_mask & (1u << index) & HS_TOGGLE_ALLOWED)) {
         /* a latching button: each tap flips it, and it stays down between taps */
@@ -545,7 +605,7 @@ static NSNumber *HaloTouchKey(UITouch *touch)
     for (int bit = 0; bit < 4; bit++) {
         if (!((changed >> bit) & 1u)) continue;
         halo_ios_menu_button(HC_BTN_DPAD_UP + bit, (mask >> bit) & 1u);
-        if ((mask >> bit) & 1u) [self buzz];
+        if ((mask >> bit) & 1u) { halo_ios_shortcut_button(HC_BTN_DPAD_UP + bit); [self buzz]; }
     }
     _dpadMask = mask;
 }
@@ -871,6 +931,12 @@ static void HaloPushGamepad(GCExtendedGamepad *pad)
     if (pad.dpad.down.isPressed) b |= 1u << HC_BTN_DPAD_DOWN;
     if (pad.dpad.left.isPressed) b |= 1u << HC_BTN_DPAD_LEFT;
     if (pad.dpad.right.isPressed) b |= 1u << HC_BTN_DPAD_RIGHT;
+    unsigned shortcuts = b;
+    if (pad.leftTrigger.value > .5f) shortcuts |= 1u << 15;
+    if (pad.rightTrigger.value > .5f) shortcuts |= 1u << 16;
+    for (int k = 0; k < 17; k++)
+        if ((shortcuts & ~g_shortcut_pad_previous) & (1u << k)) halo_ios_shortcut_button(k);
+    g_shortcut_pad_previous = shortcuts;
     b = hp_remap(b, g_pad.map);
     int32_t axes[6];
     float lx = pad.leftThumbstick.xAxis.value, ly = pad.leftThumbstick.yAxis.value;
@@ -889,8 +955,39 @@ static void HaloPushGamepad(GCExtendedGamepad *pad)
     halo_ios_physical_pad_state(b, axes);
 }
 
+static CHHapticEngine *g_controller_haptics;
+static id<CHHapticPatternPlayer> g_controller_rumble;
+static __weak GCController *g_rumble_controller;
+
+void halo_ios_controller_rumble(unsigned low, unsigned high, unsigned milliseconds)
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        GCController *controller = nil;
+        for (GCController *candidate in GCController.controllers)
+            if (candidate.extendedGamepad && candidate.haptics) { controller=candidate; break; }
+        if (controller != g_rumble_controller) {
+            [g_controller_rumble stopAtTime:CHHapticTimeImmediate error:nil];
+            [g_controller_haptics stopWithCompletionHandler:nil];
+            g_controller_rumble=nil;
+            g_controller_haptics=[controller.haptics createEngineWithLocality:GCHapticsLocalityDefault];
+            g_rumble_controller=controller;
+        }
+        [g_controller_rumble stopAtTime:CHHapticTimeImmediate error:nil];
+        g_controller_rumble=nil;
+        if (!g_controller_haptics || !milliseconds || !(low || high)) return;
+        if (![g_controller_haptics startAndReturnError:nil]) return;
+        float intensity=MIN(65535u,MAX(low,high))/65535.f;
+        CHHapticEventParameter *gain=[[CHHapticEventParameter alloc] initWithParameterID:CHHapticEventParameterIDHapticIntensity value:intensity];
+        CHHapticEvent *event=[[CHHapticEvent alloc] initWithEventType:CHHapticEventTypeHapticContinuous parameters:@[gain] relativeTime:0 duration:MIN(milliseconds,5000u)/1000.];
+        CHHapticPattern *pattern=[[CHHapticPattern alloc] initWithEvents:@[event] parameters:@[] error:nil];
+        g_controller_rumble=[g_controller_haptics createPlayerWithPattern:pattern error:nil];
+        [g_controller_rumble startAtTime:CHHapticTimeImmediate error:nil];
+    });
+}
+
 static void HaloAttachController(GCController *controller)
 {
+    controller.handlerQueue = dispatch_get_main_queue();
     GCExtendedGamepad *pad = controller.extendedGamepad;
     if (!pad) return;
     pad.valueChangedHandler = ^(GCExtendedGamepad *gamepad, GCControllerElement *element) {
@@ -906,6 +1003,7 @@ static void HaloReportControllers(void)
     for (GCController *controller in GCController.controllers)
         if (controller.extendedGamepad) connected = YES;
     if (!connected) {
+        halo_ios_controller_rumble(0,0,0);
         int32_t zero[6] = { 0, 0, 0, 0, 0, 0 };
         halo_ios_physical_pad_state(0, zero);
     }
@@ -918,6 +1016,8 @@ void halo_ios_controllers_start(void (^changed)(BOOL connected))
     g_controllers_changed = [changed copy];
     NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
     HaloPadReload();
+    for (NSString *name in @[HaloCampaignStateChangedNotification,UIApplicationDidEnterBackgroundNotification,GCControllerDidDisconnectNotification])
+        [center addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) { (void)note; HaloResetShortcuts(); halo_ios_controller_rumble(0,0,0); }];
     [center addObserverForName:HaloSettingsChangedNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) { (void)note; HaloPadReload(); }];
     [center addObserverForName:GCControllerDidConnectNotification object:nil queue:NSOperationQueue.mainQueue
                     usingBlock:^(NSNotification *note) {

@@ -83,6 +83,16 @@ changed by the touch options.
 
 The defaults pass everything through unchanged.
 
+**Halo controller settings** additionally exposes the active Halo player profile's sensitivity, inversion, auto-center, stick/button presets, vibration and help. Saving in either menu updates the other; these engine presets apply after the iOS physical-button remap. Touch inversion remains independent. Controller vibration is sent to supported GameController haptics.
+
+## Input shortcuts
+
+Options → Settings button configures the visibility shortcut. The default Konami sequence is **Up, Up, Down, Down, Left, Right, Left, Right, B, A**. Use discrete presses on the touch D-pad/buttons or a physical controller. Shortcuts observe inputs without consuming gameplay actions. Wrong inputs and expired timers reset progress.
+
+Cheats provides **three programmable shortcuts**, initially disabled. Each has its own sequence, timing and toggle or one-time action. They only execute during solo campaign and reset partial progress when campaign state changes or the app backgrounds. Bindings persist; active cheats do not. For PlayStation layouts, A/B/X/Y correspond to Cross/Circle/Square/Triangle, and LT/RT/LS/RS to L2/R2/L3/R3.
+
+If the Settings icon is hidden, **double-tap with three fingers** to restore it. Relaunching also restores the icon.
+
 ## Menus
 
 Move through the menus with the on-screen D-pad (or a controller) and press **A** to select and **B** to go back. The PC menus are designed for a mouse and keyboard; touch behaviour in them has not been fully validated, and the Xbox menus

@@ -10,6 +10,7 @@ extern NSString *const HaloCampaignStateChangedNotification;
 - (HsSettings)snapshot;
 - (BOOL)campaignActive;
 - (void)setCampaignActive:(BOOL)active;
+- (void)acceptEngineValue:(NSString *)value index:(int)index;
 /* Runs `block` on a copy, sanitizes and saves the result, applies audio, and posts
  * HaloSettingsChangedNotification on the main queue. */
 - (void)update:(void (^)(HsSettings *settings))block;

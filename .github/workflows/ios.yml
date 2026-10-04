@@ -127,6 +127,7 @@ jobs:
           python3 tools/tests/test_ios_geometry_mirror.py
           python3 tools/tests/test_ios_powerups.py
           python3 tools/tests/test_ios_world_cheats.py
+          python3 tools/tests/test_ios_jetpack_jump.py
           python3 tools/tests/test_ios_store_build_modes.py
           python3 tools/tests/test_ios_header_declarations.py
           python3 tools/tests/test_ios_touch_aiming.py

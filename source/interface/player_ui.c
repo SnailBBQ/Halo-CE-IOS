@@ -281,6 +281,13 @@ void player_ui_initialize(
 	return;
 }
 
+#ifdef HALO_IOS_GUEST
+boolean player_ui_ios_initialized(void)
+{
+    return player_ui_globals.initialized;
+}
+#endif
+
 void player_ui_clear_multiplayer_joins(
 	void)
 {
