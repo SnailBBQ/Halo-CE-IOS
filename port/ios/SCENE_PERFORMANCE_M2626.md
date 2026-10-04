@@ -1,3 +1,5 @@
+> Historical milestone note. Features, limits and validation statements describe this update when written. For current behaviour, use the [Settings guide](../../docs/ios/SETTINGS.md) and [project status](../../IOS_PORT_STATUS.md).
+
 > Historical M2.6.26 experiment: its in-place/invisible filter was superseded by [M2.6.29](PERFORMANCE_M2629.md). Do not use its safety claims as the current implementation contract.
 
 # M2.6.26 object render list prefilter

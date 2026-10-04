@@ -3,6 +3,12 @@
 The current update is **M2.6.51**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
+## Publication status
+
+No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
+
+**Source update:** M2.6.51 integrates Halo CE Universal build 84, including public server discovery, on `main` and `ios/modtest`. Apple builds and device validation are still required before publishing an IPA.
+
 ## Recent updates at a glance
 
 | Update | Highlights |

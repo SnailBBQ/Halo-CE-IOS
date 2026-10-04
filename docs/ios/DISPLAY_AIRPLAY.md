@@ -23,7 +23,7 @@ Everything that changes how the game looks, how fast it runs and where it is sho
 ## Frame rate
 
 - **30 · Original** runs the game at its original rate.
-- **60 · Smooth** shows a frame for every screen refresh, held at 60. It is smooth and easy on the battery.
+- **60 · Smooth** targets a maximum of 60 FPS. Actual performance depends on the device, scene, render detail and thermal state.
 - **Uncapped** lets the game draw as fast as the phone can.
 - **Show FPS** puts a frame counter on screen.
 
@@ -53,7 +53,7 @@ Choose which first-person models are drawn: **Both**, **Weapon**, **Hands** or *
 ## Heat and battery
 
 - **Lower the frame rate when the phone is hot.** Smooth 60 and Uncapped drop to 45 when iOS reports serious heat or Low Power Mode and to 30 when the phone is critically hot, and they return when it cools. **30 · Original** is never changed.
-- **Performance overlay** adds, under the frame counter, how long a frame takes, the memory the app is using and how much is left before iOS closes it, and how hot the phone is.
+- **Performance overlay** adds, under the frame counter, how long a frame takes, the memory the app is using and estimated memory headroom (not a guaranteed termination threshold), and how hot the phone is.
 
 ## Menus
 
@@ -74,7 +74,7 @@ What to expect:
 
 - **Mirroring, not a second window.** The whole screen is mirrored, including the touch controls. A separate game window on the TV with controls only on the phone is not implemented.
 - **Hiding the controls.** Connect a controller and leave *Settings → Controls → Touch controls* on **Auto**, or choose **Hide**, to remove the touch buttons on both screens.
-- **Picture shape.** On a widescreen TV choose **Widescreen · 16:9** or **Fullscreen** under [Game picture](#game-picture). These apply the next time you open the app.
+- **Picture shape.** For a 16:9 TV, choose **Widescreen · 16:9**. **Fullscreen** follows the phone's aspect ratio and may still leave borders on the TV. Set these under [Game picture](#game-picture). These apply the next time you open the app.
 - **Cost.** Higher render detail uses more GPU and memory. Watch the frame rate and heat; the Performance overlay helps.
 - **Quality and delay** depend on the receiver and your network. Mirroring has not been measured on a real receiver for this app yet.
 

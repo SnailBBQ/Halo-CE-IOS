@@ -33,23 +33,22 @@ Opening a native screen or leaving the app releases any held touch input.
 ### Five control schemes
 
 Each scheme keeps its own layout, look settings, HUD link and cheat recipe. You can rename them and reset a scheme to the Xbox layout. The first scheme is
-**Classic Xbox UI** and the second is **Playstation UI**, which shows the PlayStation symbols (×, ○, □, △) while sending the same positional actions as Xbox A, B, X and Y.
+**Classic Xbox UI** and the second is **Playstation UI** (the current saved preset name), which shows the PlayStation symbols (×, ○, □, △) while sending the same positional actions as Xbox A, B, X and Y.
 
 ### Editing the layout
 
 **Edit button layout…** opens a drag-to-edit mode over the game. Drag a control to move it; use the toolbar to select a control, change its size, show or hide it,
-set its opacity, and reset the selected control or the whole layout. It is also reachable from Settings → Display.
+set its opacity, and reset the selected control or the whole layout. The Display section has a separate game HUD editor.
 
 ### Looking
 
 - **Drag to look** turns on touch look in the open screen area. **Look speed**, **look acceleration** and **invert look** tune it.
-- **Floating sticks** place the move stick where your thumb lands. **Dead zone** and **move stick response** tune it.
+- **Floating sticks** centre a stick where your thumb lands within its allowed area. **Dead zone** and **move stick response** tune it.
 - **Button opacity** and **haptic feedback** are per scheme.
 
 ### Left-handed layout
 
-Mirrors the whole layout: move with the right thumb, with look and the face buttons on the left. You still edit the layout in its normal orientation;
-the mirror is applied when it is drawn.
+Mirrors the whole layout: move with the right thumb, with look and the face buttons on the left. The editor displays the mirrored layout; positions are stored in the normal orientation and mirrored when drawn.
 
 ### Toggle crouch and zoom
 

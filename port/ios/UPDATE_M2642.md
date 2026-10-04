@@ -1,3 +1,5 @@
+> Historical milestone note. Features, limits and validation statements describe this update when written. For current behaviour, use the [Settings guide](../../docs/ios/SETTINGS.md) and [project status](../../IOS_PORT_STATUS.md).
+
 # M2.6.42 — geometry caching, session cheats and preset editors
 
 Updated October 2, 2026. Based on M2.6.41, Halo CE Universal build 73, protocol 10.

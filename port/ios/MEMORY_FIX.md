@@ -1,3 +1,5 @@
+> Historical milestone note. Features, limits and validation statements describe this update when written. For current behaviour, use the [Settings guide](../../docs/ios/SETTINGS.md) and [project status](../../IOS_PORT_STATUS.md).
+
 # Memory leak in the guest allocator, and a backtrace for the next crash
 
 ## What the a10 log showed

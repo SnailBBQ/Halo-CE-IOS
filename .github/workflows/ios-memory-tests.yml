@@ -3,39 +3,12 @@ name: Halo CE iOS — Memory and diagnostics tests
 # Fast checks (about a minute, no iOS toolchain) of the guest address-space allocator, the release of freed memory,
 # and the log report. They also run as part of "Halo CE iOS — Build IPA" when that workflow includes them.
 on:
-  push:
-    paths:
-      - 'port/ios/HaloIOS/halo_guest_vm.h'
-      - 'port/ios/HaloIOS/halo_guest_runtime.c'
-      - 'port/ios/HaloIOS/halo_guest_runtime.h'
-      - 'port/ios/HaloIOS/halo_log_report.h'
-      - 'port/ios/HaloIOS/halo_log_classify.h'
-      - 'tools/tests/test_ios_guest_vm.c'
-      - 'tools/tests/test_ios_declaration_order.py'
-      - 'port/ios/HaloIOS/*.m'
-      - 'port/ios/HaloIOS/*.c'
-      - 'tools/tests/test_ios_log_report.c'
-      - 'tools/tests/test_ios_settings_core.c'
-      - 'tools/tests/test_ios_map_order.c'
-      - 'tools/tests/test_ios_pad_input.c'
-      - 'tools/tests/test_ios_color.c'
-      - 'tools/tests/test_ios_scancodes.c'
-      - 'tools/tests/test_ios_store_build_modes.py'
-      - 'tools/tests/test_ios_header_declarations.py'
-      - 'tools/tests/test_ios_frameworks_linked.py'
-      - 'tools/tests/test_ios_import_coverage.py'
-      - 'port/android/host_imports.list'
-      - 'port/ios/HaloIOS.xcodeproj/**'
-      - 'tools/tests/test_ios_world_cheats.py'
-      - 'port/ios/HaloIOS/*.h'
-      - 'source/game/cheats.c'
-      - 'tools/tests/test_ios_image_load.c'
-      - 'tools/tests/fixtures/**'
-      - '.github/workflows/ios-memory-tests.yml'
+  workflow_call:
   workflow_dispatch:
 
 jobs:
   test:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout

@@ -1,3 +1,5 @@
+> Historical milestone note. Features, limits and validation statements describe this update when written. For current behaviour, use the [Settings guide](../../docs/ios/SETTINGS.md) and [project status](../../IOS_PORT_STATUS.md).
+
 # M2.6.34 — Halo CE Universal build 73
 
 ## Why
@@ -75,8 +77,8 @@ with no error, which means a hard crash or the system ending the app; the log al
 
 Run **Halo CE iOS — Build IPA** by hand (Actions → Run workflow) and change one input at a time:
 
-1. Defaults (PGO off). If this starts, PGO was the problem.
-2. `arena_fastpath` = false. If this starts, the rewrite breaks something in the build 73 code.
+1. Defaults (PGO off). If this starts reliably while a matching PGO build fails, PGO is a candidate cause; compare fresh logs before concluding.
+2. `arena_fastpath` = false. If only this build starts reliably, the rewrite is a candidate cause; compare equivalent builds and logs.
 3. If neither starts, the cause is in the build 73 merge or the M2.6.33 runtime changes; send `crash.txt` and `launch-phase.txt` from Share logs.
 
 

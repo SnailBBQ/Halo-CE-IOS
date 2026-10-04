@@ -1,7 +1,7 @@
-name: Build
+name: Native ports — manual build
 
 # Debug and release builds of the native ports (Linux, Windows, Android) for
-# every pushed commit, uploaded as artifacts. tools/ci_build.py does each
+# manual requests only, uploaded as artifacts. tools/ci_build.py does each
 # build; see it for the options.
 #
 # Kept cheap:
@@ -20,11 +20,6 @@ name: Build
 # https://github.com/<repository>/releases/latest/download/<file> always
 # gives the latest build; the last five are kept.
 on:
-  push:
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - "research/**"
   workflow_dispatch:
 
 concurrency:

@@ -1,3 +1,5 @@
+> Historical milestone note. Features, limits and validation statements describe this update when written. For current behaviour, use the [Settings guide](../../docs/ios/SETTINGS.md) and [project status](../../IOS_PORT_STATUS.md).
+
 # M2.6.50 — Picture options and touch aiming
 
 The same feature commit is integrated into the regular app and the separate mod-test branch.

@@ -13,6 +13,7 @@ on:
         type: boolean
         default: false
   push:
+    branches: [main]
     paths:
       - 'port/ios/**'
       - '.github/workflows/ios.yml'
@@ -79,9 +80,22 @@ on:
       - 'port/assets/**'
       - 'tools/embed_assets.py'
 
+permissions:
+  contents: read
+
+concurrency:
+  group: halo-ios-main
+  cancel-in-progress: true
+
 jobs:
+  diagnostics:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/ios-memory-tests.yml
+
   build-arm64_32-guest:
     name: Build Halo engine guest
+    if: github.ref == 'refs/heads/main'
+    needs: diagnostics
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     permissions:
@@ -286,6 +300,7 @@ jobs:
 
   build-ios-app:
     name: Build and package iOS app
+    if: github.ref == 'refs/heads/main'
     needs: build-arm64_32-guest
     runs-on: macos-latest
     timeout-minutes: 40

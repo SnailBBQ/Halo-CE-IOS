@@ -1,3 +1,5 @@
+> Historical milestone note. Features, limits and validation statements describe this update when written. For current behaviour, use the [Settings guide](../../docs/ios/SETTINGS.md) and [project status](../../IOS_PORT_STATUS.md).
+
 # M2.6.48 — Settings polish, cheat sections, controls, display, audio, multiplayer, profiles, diagnostics
 
 Based on M2.6.47. Nothing here has been compiled for iOS or run on a device when it was written; the game-side code is

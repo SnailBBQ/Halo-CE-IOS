@@ -1,6 +1,6 @@
 # Halo CE Mod Test
 
-**Halo CE Mod Test** is a second, separate app built from the [`ios/cursed-a10-mod-test`](https://github.com/xSkullHD/Halo-CE-IOS/tree/ios/cursed-a10-mod-test) branch. It is a device experiment, not a release, and
+**Halo CE Mod Test** is a second, separate app built from the [`ios/modtest`](https://github.com/SnailBBQ/Halo-CE-IOS/tree/ios/modtest) branch. It is a device experiment, not a release, and
 it makes no claim of general PC or Master Chief Collection mod compatibility. Mod conversion itself is paused. Everything else in the project is shared: the Mod Test app has all the
 features of the regular app and receives every update at the same time.
 
@@ -8,13 +8,13 @@ features of the regular app and receives every update at the same time.
 
 | | Halo CE (regular) | Halo CE Mod Test |
 | --- | --- | --- |
-| Branch | `main` | `ios/cursed-a10-mod-test` |
+| Branch | `main` | `ios/modtest` |
 | Name on the device | Halo CE | Halo CE Mod Test |
 | Bundle ID | `com.haloceuniversal.ios.m0` | `com.haloceuniversal.ios.modtest` |
 | Invite scheme | `halo://` | `halomodtest://` |
 | Version | 0.2.51 | 0.2.51.1 |
-| Workflow | Halo CE iOS — Build IPA | Halo CE iOS — Mod Loading Test |
-| Output | `HaloCE.ipa`, artifact `HaloCE-iOS` | `HaloCE-ModTest.ipa`, artifact `HaloCE-iOS-ModTest` |
+| Build | Automatic IPA pipeline on `main` | Separate local Mac build; no automatic IPA pipeline |
+| Output | `HaloCE.ipa`, artifact `HaloCE-iOS` | `HaloCE-ModTest.ipa` |
 | Data | Its own maps, saves and settings | Its own, completely separate |
 | Largest campaign map | The stock limit, about 278 MiB expanded | Up to 384 MiB expanded |
 | Disk cache | Stock slot sizes | Two campaign slots of 384 MiB plus a sector (about 770 MiB of logical disk space) |
@@ -24,7 +24,7 @@ campaign maps may be larger than stock. The engine changes are limited to the iO
 
 ## Install and test
 
-1. Build the app with the **Halo CE iOS — Mod Loading Test** workflow on its branch, and install `HaloCE-ModTest.ipa` next to the regular app. See [Build the IPA](BUILD.md) and [Install](INSTALL.md).
+1. Build the separate ModTest app on a Mac from `ios/modtest` with a matching ModTest guest image, and install `HaloCE-ModTest.ipa` next to the regular app. See [Build the IPA](BUILD.md) and [Install](INSTALL.md).
    Check the app's name and its separate Files folder before copying any content.
 2. Import your working Xbox version-5 `ui.map` into the test app. Leave the regular app and its maps alone.
 3. Import the converted map under the exact file name **`a10.map`**. PC version-609 maps and raw extracted tags are not supported inputs.
@@ -48,7 +48,7 @@ From its offline audit:
 | Largest tag + BSP | 20.9 MiB | 22 MiB | about 1.1 MiB (roughly 5%) |
 | File size (compressed) | about 176 MiB | n/a | n/a |
 
-The offline checks prove structure only. They do not prove scripts, audio, animation, checkpoint reload or gameplay.
+Device attempts with converted Cursed Halo maps have failed, including script type errors. No playable Cursed Halo conversion has been established. The offline checks prove structure only. They do not prove scripts, audio, animation, checkpoint reload or gameplay.
 
 ## Known limits
 

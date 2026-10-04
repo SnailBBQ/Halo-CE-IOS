@@ -2,15 +2,15 @@
 
 The game can play system link games on a local network and over the internet, and this app can host and join them.
 
-- Up to 128 players on up to 128 machines in a system link game (the upstream project's figure).
-- **Cross-play.** The app plays with Halo CE Universal on Windows, Linux and Android.
-- **No server is needed** for an internet game. An invite link connects the machines directly.
+- Upstream supports up to 128 players on 128 machines. That ceiling has not been load-tested on iOS; it is not a recommended phone-host capacity.
+- **Cross-play.** The protocol is shared with Halo CE Universal on Windows, Linux and Android. Device testing reported here covers iPhone-to-PC play; the other combinations still need testing.
+- **No dedicated game server is needed** for an invite game. Connection setup uses public signalling brokers and STUN infrastructure, then attempts a direct connection between players. Network restrictions can prevent that connection.
 - The netcode is new: each machine moves its own player immediately, and the host decides the game. The
   [upstream netcode notes](https://github.com/cybersecurity/halo-ce-universal/blob/main/port/linux/NETCODE.md) describe it.
 
 ## Compatibility
 
-Everyone in a game must run **the same Halo CE Universal build**, and have the same map files. Update the app and your PC game together. If you use mods or custom maps,
+For reliable cross-play, use matching tested Halo CE Universal builds and compatible map content. The network protocol and content must be compatible; the app version alone does not prove compatibility. Update the app and your PC game together. If you use mods or custom maps,
 keep every player on matching content. Settings → Advanced → About shows the version of the app and the game build it was made from.
 
 The two apps use separate invite schemes: the regular app opens `halo://` links and the [Mod Test app](MOD_TEST.md) opens `halomodtest://` links.
@@ -24,12 +24,12 @@ The two apps use separate invite schemes: the regular app opens `halo://` links 
 
 | Way | How |
 | --- | --- |
-| Invite link | In **Settings → Multiplayer**, paste a `halo://join/` link (or just its 64-digit code) into **Join this invite**, or use **Join the invite on the clipboard**. Tapping a `halo://` link in another app also joins. |
-| Clipboard automatically | Turn on *Join links on the clipboard automatically*. It is off by default because iOS asks permission every time the clipboard is read. Opening a link does not need it. |
+| Invite link | In **Settings → Multiplayer**, paste a `halo://join/` link (or just its 64-character hexadecimal code) into **Join this invite**, or use **Join the invite on the clipboard**. Tapping a `halo://` link in another app also joins. |
+| Clipboard automatically | Turn on *Join links on the clipboard automatically*. It is off by default because iOS may request permission when the clipboard is read. Opening a link does not need it. |
 | Invite file | Choose an iCloud Drive folder; a PC player can paste an invite into the file, and you press **Join from game_invite.txt**. See below. |
 | Recent games | **Join again** reuses a game you hosted or joined. It only works while that game is still running. |
 | LAN | Games on the same Wi-Fi appear in the LAN list. Allow **Local Network** for Halo CE in iOS Settings. |
-| PC menus | **Join Game → Direct Link** takes an invite from a link, the clipboard or Discord. **Join Game → LAN** lists local games. **Join Game → Server Browser** lists compatible public Internet games; Refresh and Join use upstream’s invite system. |
+| PC menus | **Join Game → Direct Link** accepts manual invites; use native Settings to paste or read an invite file on iOS. Discord-client integration is not available on iOS. **Join Game → LAN** lists local games. **Join Game → Server Browser** lists compatible public Internet games; Refresh and Join use upstream’s invite system. |
 
 ## Hosting a game
 
@@ -40,7 +40,13 @@ While you host:
 - It is written to **game_invite.txt** (see below).
 - **Invite QR code** shows it as a code that someone next to you can scan with their camera.
 
-Ending the game clears the invite. An old link cannot rejoin a game that has ended.
+Ending hosting clears this app's owned invite export. A stopped lobby cannot be joined, but M2.6.50 may reuse the same token when hosting resumes within the same app session. Do not treat an old token as permanently revoked.
+
+## Public discovery update
+
+**Source update:** M2.6.51 integrates Halo CE Universal build 84, including public server discovery, on `main` and `ios/modtest`. Apple builds and device validation are still required before publishing an IPA.
+
+Until that update is built and tested, use manual invites or LAN. Public discovery depends on upstream signalling infrastructure and an active public host; it does not list every stock Halo PC or MCC server.
 
 ## The invite file
 

@@ -41,3 +41,19 @@ assert '--ios-arena-fastpath' in (scratch/'build.ninja').read_text()
 (scratch/'build.ninja').write_bytes((generated+'\n-DHALO_ANDROID=1\nld.lld -m aarch64linux -static\ntools/android_gl_stubs.py\n').encode())
 assert subprocess.run([sys.executable,'-c',body],cwd=scratch,env=env,capture_output=True).returncode!=0
 print('PASS: real android_guest_cc command emitted by repository Ninja writer, LF/CRLF continuation matching and full workflow transformation (arena fast path on/off/default/missing target)')
+
+# Only regular-app main pushes may spend hosted build time. Keep expensive
+# jobs behind diagnostics and cancel obsolete builds on replacement pushes.
+assert "  push:\n    branches: [main]\n    paths:" in wf
+assert "  group: halo-ios-main\n  cancel-in-progress: true" in wf
+assert "    needs: diagnostics" in wf
+assert "    uses: ./.github/workflows/ios-memory-tests.yml" in wf
+assert wf.count("if: github.ref == 'refs/heads/main'") == 3
+assert 'pull_request:' not in wf and 'schedule:' not in wf
+memory=(r/'.github/workflows/ios-memory-tests.yml').read_text()
+assert '  workflow_call:' in memory and '  push:' not in memory
+assert "if: github.ref == 'refs/heads/main'" in memory
+native=(r/'.github/workflows/build.yml').read_text()
+assert '  push:' not in native and '  workflow_dispatch:' in native
+assert 'pull_request:' not in native and 'schedule:' not in native
+print('PASS: main-only automatic IPA, diagnostics dependency, latest-run cancellation and manual-only native workflows')

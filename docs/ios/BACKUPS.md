@@ -16,7 +16,7 @@ You can switch each part on or off before you export, and again before you resto
 
 **Never included:** the active invite file, temporary networking state, log files and running cheat toggles. A backup captures progress that is
 saved on disk, not a live snapshot of a game in progress. The mod library's catalogue is not part of the optional map backup, so export
-important mods individually from Settings → Mods.
+important mods individually from Settings → Mods. Disable active map replacements before restoring base maps so the mod library can restore its originals first.
 
 ## Exporting
 

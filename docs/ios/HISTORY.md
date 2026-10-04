@@ -9,7 +9,7 @@ Current iOS update: **M2.6.51** — Universal build 84 public server discovery a
 
 Updated October 3, 2026. Current development milestone: **M2.6.51** (device testing pending).
 
-### Current status
+### Collected status notes (historical)
 
 M2.6.42 replaces M2.6.41’s costly upload-every-draw fallback with exact native geometry comparisons: unchanged pages avoid GPU uploads while modified/reused pages remain fresh. Active cheats are session-only; presets have gear editors, campaign recipes and Xbox/PlayStation face-button styles. Advanced adds explicit Quit, manual Restart instructions and GitHub Credits. Device FPS, visuals and client stability need validation.
 
@@ -38,7 +38,7 @@ Halo's real main menu rendered on a physical iPhone with **M2.6.12**. The test r
 
 **M2.6.20 launch regression:** the user reports a launch crash. M2.6.21 disables the direct pointer experiment and awaits testing. Original M2.6.20 scope: selective direct pointer conversion, performance defaults and a successful-presentation FPS metric.
 
-### Current capabilities
+### Early capabilities (M2.6.19 era)
 
 | Area | Status |
 | --- | --- |
@@ -52,7 +52,7 @@ Halo's real main menu rendered on a physical iPhone with **M2.6.12**. The test r
 | Campaign | `a10` intro and initial gameplay reached with M2.6.19; performance remains very low. |
 | Multiplayer | Not yet validated on iOS. |
 
-### Remaining work
+### Remaining work at that milestone
 
 - Compare M2.6.20 presentation FPS and update/render CPU times in the menu, intro and initial gameplay.
 - Reduce guest/host pointer overhead while preserving collision, visibility and rendering correctness.
@@ -201,7 +201,7 @@ Not compiled or run on a device yet.
 
 ### M2.6.41 geometry correction
 
-Device testing found campaign world corruption as well as multiplayer mesh distortion. The iOS GPU geometry mirror incorrectly treated no-op write-tracking generations as unchanged data. Requested ranges now refresh before every draw, including same-frame writes and reused map addresses. This may increase upload cost; FPS and visual correctness need device validation. The guest_glUniform4fv execution fault remains under investigation. See [release notes](../../port/ios/UPDATE_M2642.md). Swipe-away terminates the app through iOS; final callbacks and iCloud cleanup are best-effort, with existing next-launch cleanup retained.
+Device testing found campaign world corruption as well as multiplayer mesh distortion. The iOS GPU geometry mirror incorrectly treated no-op write-tracking generations as unchanged data. Requested ranges now refresh before every draw, including same-frame writes and reused map addresses. This may increase upload cost; FPS and visual correctness need device validation. The guest_glUniform4fv execution fault remains under investigation. See [M2.6.41 release notes](../../port/ios/UPDATE_M2641.md). Swipe-away terminates the app through iOS; final callbacks and iCloud cleanup are best-effort, with existing next-launch cleanup retained.
 
 ### M2.6.42 update
 
@@ -233,7 +233,7 @@ Local source/settings checks pass; an Apple build and device tests are still req
 
 ## Historical development notes
 
-The sections below describe earlier milestones and their then-current limitations. Use the current guide and release notes above for M2.6.40.
+The sections below describe earlier milestones and their then-current limitations. Use the [current Settings guide](SETTINGS.md) and [release notes](RELEASE_NOTES.md) for present behaviour.
 
 ### M2.6.16 performance and loading diagnostics
 
@@ -315,7 +315,7 @@ Choose Settings > Multiplayer > Choose iCloud Drive folder, then select a folder
 
 ### M2.6.41 geometry correction
 
-Device testing found campaign world corruption as well as multiplayer mesh distortion. The iOS GPU geometry mirror incorrectly treated no-op write-tracking generations as unchanged data. Requested ranges now refresh before every draw, including same-frame writes and reused map addresses. This may increase upload cost; FPS and visual correctness need device validation. The guest_glUniform4fv execution fault remains under investigation. See [release notes](../../port/ios/UPDATE_M2642.md). Swipe-away terminates the app through iOS; final callbacks and iCloud cleanup are best-effort, with existing next-launch cleanup retained.
+Device testing found campaign world corruption as well as multiplayer mesh distortion. The iOS GPU geometry mirror incorrectly treated no-op write-tracking generations as unchanged data. Requested ranges now refresh before every draw, including same-frame writes and reused map addresses. This may increase upload cost; FPS and visual correctness need device validation. The guest_glUniform4fv execution fault remains under investigation. See [M2.6.41 release notes](../../port/ios/UPDATE_M2641.md). Swipe-away terminates the app through iOS; final callbacks and iCloud cleanup are best-effort, with existing next-launch cleanup retained.
 
 ### M2.6.42 update
 

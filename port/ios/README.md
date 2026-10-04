@@ -36,8 +36,7 @@ Engine changes for iOS live in the shared `source/` and `port/linux/` files behi
 ## Checks
 
 The tests are in [`tools/tests`](../../tools/tests) and run in `.github/workflows/ios.yml` and `.github/workflows/ios-memory-tests.yml`. Beyond unit tests of the settings, map order, controller, colour and key-name code,
-three checks guard mistakes that only Apple's compiler would otherwise catch: every function is declared before it is called (and in a header the caller includes), every framework the app uses is linked, and every host import the game can call is
-implemented by the runner. A test also makes sure the iOS-only blocks in the shared engine files do not change their structure.
+three source checks catch known project declaration, framework-link and host-import coverage mistakes. They supplement the actual Apple build; they are not a complete compiler or linker check. A test also makes sure the iOS-only blocks in the shared engine files do not change their structure.
 
 Run a test locally, for example:
 
@@ -55,7 +54,7 @@ cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_settin
 
 ## Following the upstream project
 
-New Halo CE Universal builds are merged with a three-way merge of the previous upstream build, this repository and the new build, then checked against the full test set. Files that are only upstream's are taken as they are. See
+New Halo CE Universal builds are merged with a three-way merge of the previous upstream build, this repository and the new build, then checked locally where possible and by the Apple workflow before release. The pending build 84 integration has local checks but still needs an Apple build and device tests. Files that are only upstream's are taken as they are. See
 [the official project and credits](../../docs/UPSTREAM.md).
 
 ## Release notes
