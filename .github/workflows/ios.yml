@@ -407,6 +407,7 @@ jobs:
           if [ "$COMPATIBILITY_TEST" = true ]; then
             /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.haloceuniversal.ios.compatibility' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Halo Compatibility Test' "$APP/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Delete :CFBundleURLTypes' "$APP/Info.plist"
           fi
 
           /usr/bin/codesign --force --sign - \

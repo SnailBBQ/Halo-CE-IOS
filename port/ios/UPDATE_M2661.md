@@ -18,6 +18,8 @@ Manually run the main iOS workflow with `compatibility_test=true`. It produces
 ID `com.haloceuniversal.ios.compatibility`. It has a separate data container;
 import compatible maps or restore a backup explicitly. It does not replace the
 regular or Mod Test app and is not a fourth maintained gameplay branch.
+It does not register the regular app's invite URL scheme; use manual invite entry
+when testing multiplayer so installing the test cannot capture regular invite links.
 
 This host build calls `mach_vm_map` for exactly 4 GiB with a 4 GiB alignment mask,
 `VM_FLAGS_ANYWHERE` and no initial page access. It never overwrites occupied
