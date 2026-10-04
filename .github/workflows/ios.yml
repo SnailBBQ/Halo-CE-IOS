@@ -374,7 +374,7 @@ jobs:
         run: |
           set -euxo pipefail
           rm -rf build/ios
-          HOST_FLAGS=()
+          HOST_FLAGS=('OTHER_CFLAGS=$(inherited)')
           if [ "$COMPATIBILITY_TEST" = true ]; then
             HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_ALIGNED_ARENA_TEST=1')
           fi
