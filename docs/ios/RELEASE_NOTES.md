@@ -7,7 +7,7 @@ cannot prove how the app looks or feels on a device, so every note says what sti
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Source update:** M2.6.55 adds configurable input shortcuts, Settings icon customization, shared in-game preferences, player-profile editing and separate campaign-save imports. Both apps remain on Halo CE Universal build 94. This update requires Apple compilation and device validation.
+**Source update:** M2.6.55 adds configurable input shortcuts, Settings icon customization, shared in-game preferences, player-profile editing and separate campaign-save imports. Both apps remain on Halo CE Universal build 94. The [official IPA build](https://github.com/SnailBBQ/Halo-CE-IOS/actions/runs/37192857268) passed. Device validation is still required.
 
 ## Recent updates at a glance
 

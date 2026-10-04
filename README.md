@@ -10,7 +10,7 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 > The maintainer reports playable `a10` and PC cross-play in earlier builds; results vary by device and scene. Some of the newest features are still being
 > validated on a device; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
-**Source update:** M2.6.55 adds configurable input shortcuts, Settings icon customization, shared in-game preferences, player-profile editing and separate campaign-save imports. Both apps remain on Halo CE Universal build 94. This update requires Apple compilation and device validation.
+**Source update:** M2.6.55 adds configurable input shortcuts, Settings icon customization, shared in-game preferences, player-profile editing and separate campaign-save imports. Both apps remain on Halo CE Universal build 94. The [official IPA build](https://github.com/SnailBBQ/Halo-CE-IOS/actions/runs/37192857268) passed. Device validation is still required.
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of Halo CE Universal on PC" width="760"><br>
