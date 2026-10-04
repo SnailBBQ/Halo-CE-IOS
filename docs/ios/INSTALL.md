@@ -100,6 +100,10 @@ This is an allocation experiment, not a way to grant missing signing privileges.
    is rejected, follow [SideStore's current JIT guide](https://docs.sidestore.io/docs/advanced/jit)
    for the exact device/OS and try again. JIT enabling is external to Halo; support
    on newer iOS versions can be limited to particular apps. Halo is not yet verified.
+   Before that test, turn off **Boot Halo to Main Menu** in Settings so the app
+   stays at its title screen. Attach using the compatible external helper before
+   pressing **Play Halo CE**. A failed engine launch is not safely retried in the
+   same process; do not assume attaching after the failure restarts the engine.
 4. Compare with the regular app under the same signing method and record whether
    allocation, engine execution and the first game frame each succeed.
 
