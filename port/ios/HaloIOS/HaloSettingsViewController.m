@@ -965,6 +965,14 @@ static NSString *HaloAge(NSTimeInterval stamp)
 
 #pragma mark - Profiles
 
+static UIView *HaloProfileSummary(NSString *title,NSString *detail) {
+    UIStackView *row=[[UIStackView alloc] initWithArrangedSubviews:@[
+        HaloUILabel(title,15,UIFontWeightSemibold,nil),HaloUINote(detail)]];
+    row.axis=UILayoutConstraintAxisVertical;
+    row.spacing=3;
+    return row;
+}
+
 - (UIView *)engineControllerCard:(const HsSettings *)settings {
     if(!settings->game_profile_ready)return HaloUICardView(@"Halo controller settings",@[HaloUINote(@"Select a Halo player profile in-game to edit its controller preferences here.")]);
     NSMutableArray *rows=[NSMutableArray array];
@@ -980,19 +988,15 @@ static NSString *HaloAge(NSTimeInterval stamp)
 - (void)buildProfiles:(const HsSettings *)settings
 {
     HsPreset preset = settings->presets[settings->active];
-    NSArray<NSString *> *frameModes = @[@"30 · Original", @"60 · Smooth", @"Uncapped"];
     NSString *hud = preset.hud_choice == 0 ? @"Default" : [NSString stringWithUTF8String:settings->hud_presets[preset.hud_choice - 1].name];
     unsigned recipeCount = (unsigned)__builtin_popcount(preset.cheat_flags) + (preset.cheat_slow ? 1u : 0u) + (preset.cheat_alliance?1u:0u) + (preset.cheat_projectile?1u:0u);
     [self add:HaloUICardView(@"What a profile holds", @[
-        HaloUIValueRow(@"App settings profile", @"Controls, HUD, audio, display and shortcuts", nil),
-        HaloUIValueRow(@"Halo player profile", @"Name, color, controller options and level records", nil),
-        HaloUIValueRow(@"Campaign checkpoint", @"Your progress inside a campaign level", nil),
+        HaloProfileSummary(@"App settings profile", @"Controls, HUD, audio, display and shortcuts."),
+        HaloProfileSummary(@"Halo player profile", @"Name, color, controller preferences and completed levels."),
+        HaloProfileSummary(@"Campaign checkpoint", @"Progress inside a campaign level; stored separately from profiles."),
         HaloUINote(@"Multiplayer has player profiles and match variants, not campaign-style progress saves. App profile exports exclude maps and checkpoints; active cheat states are never saved."),
         HaloUIValueRow(@"Control scheme in use", [NSString stringWithUTF8String:preset.name], nil),
         HaloUIValueRow(@"Game HUD", hud, nil),
-        HaloUIValueRow(@"Frame rate", frameModes[(NSUInteger)settings->fps_mode % 3], nil),
-        HaloUIValueRow(@"Volumes", [NSString stringWithFormat:@"Master %d · Music %d · Voices %d · Effects %d · Ambient %d", (int)lround(settings->volume * 100), (int)lround(settings->music_volume * 100), (int)lround(settings->dialogue_volume * 100), (int)lround(settings->effects_volume * 100), (int)lround(settings->ambient_volume * 100)], nil),
-        HaloUIValueRow(@"Left-handed · Gyro", [NSString stringWithFormat:@"%@ · %@", preset.mirror ? @"On" : @"Off", preset.gyro ? @"On" : @"Off"], nil),
         HaloUIValueRow(@"Cheat recipe in this scheme", recipeCount ? [NSString stringWithFormat:@"%u items", recipeCount] : @"None", nil)])];
     [self add:HaloUICardView(@"Campaign saves", @[
         HaloUIButton(@"Import / export campaign saves",1,^(UIButton *b){(void)b;UIViewController *c=HaloBackupsControllerForSections(16);c.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:c animated:YES completion:nil];}),
