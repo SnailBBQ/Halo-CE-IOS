@@ -268,6 +268,8 @@ int halo_ios_gl_set_swap_interval(int interval)
 /* Settings > Display: 60 holds the presented rate there; 0 lets the display's refresh decide. */
 static _Atomic int g_frame_cap;
 static HaloFramePacer g_pacer;
+static HaloPresentTiming g_last_present_timing;
+HaloPresentTiming halo_ios_gl_last_present_timing(void) { return g_last_present_timing; }
 
 void halo_ios_gl_set_frame_cap(int fps)
 {
@@ -277,17 +279,20 @@ void halo_ios_gl_set_frame_cap(int fps)
 static void pace_present(void)
 {
     int cap = atomic_load_explicit(&g_frame_cap, memory_order_relaxed);
-    uint64_t wait = halo_pacer_wait(&g_pacer, clock_gettime_nsec_np(CLOCK_UPTIME_RAW), cap);
+    uint64_t started=clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+    uint64_t wait = halo_pacer_wait(&g_pacer, started, cap);
 
     if (wait) {
         struct timespec nap = { (time_t)(wait / 1000000000ull), (long)(wait % 1000000000ull) };
         nanosleep(&nap, NULL);
+        g_last_present_timing.cap_wait_ns=clock_gettime_nsec_np(CLOCK_UPTIME_RAW)-started;
     }
 }
 
 int halo_ios_gl_swap_window(uint32_t window)
 {
     (void)window;
+    g_last_present_timing=(HaloPresentTiming){0};
     if (!g_context)
         return 0;
     pace_present();
@@ -304,7 +309,9 @@ int halo_ios_gl_swap_window(uint32_t window)
             report_gl("GL error 0x%04x before presentation %lu", error, g_present_attempts);
     }
     glBindRenderbuffer(GL_RENDERBUFFER, g_drawable_color);
+    uint64_t drawable_started=clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
     BOOL ok = [g_context presentRenderbuffer:GL_RENDERBUFFER];
+    g_last_present_timing.drawable_ns=clock_gettime_nsec_np(CLOCK_UPTIME_RAW)-drawable_started;
 
     if (!ok) ++g_present_failures;
     if (g_present_attempts == 1 || g_present_attempts == 60 ||

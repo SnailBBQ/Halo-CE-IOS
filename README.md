@@ -10,7 +10,7 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 > The maintainer reports playable `a10` and PC cross-play in earlier builds; results vary by device and scene. Some of the newest features are still being
 > validated on a device; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
-**Source update:** [M2.6.62](port/ios/UPDATE_M2662.md) refreshes cheat shortcuts with touch/gamepad button entry, reorganizes controls and weapons, and corrects gyro yaw. Startup Help is shared by the official and Mod Test apps. Allocation experiments now use the existing Mod Test app; ordinary sideloading compatibility remains unverified.
+**Source update:** [M2.6.63](port/ios/UPDATE_M2663.md) reduces frequent diagnostic clock reads and adds slow-frame and presentation-wait reporting. Gameplay, resolution, signing and validated renderer behavior are unchanged. Device testing is required to measure the performance improvement; ordinary sideloading compatibility remains unverified.
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of Halo CE Universal on PC" width="760"><br>

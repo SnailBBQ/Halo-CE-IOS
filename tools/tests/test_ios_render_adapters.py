@@ -9,6 +9,7 @@ prefix=r"""#include <assert.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdatomic.h>
+#include "halo_timing_sample.h"
 #include "ios_render_scan.h"
 #include "halo_render_scan_native.h"
 typedef int GLsizei;
@@ -17,7 +18,7 @@ static unsigned aborted,uploads;
 static float uploaded;
 static void *gp(uint64_t va,size_t size) { return va && va<=sizeof(arena) && size<=sizeof(arena)-va?arena+va:NULL; }
 static uint64_t halo_guest_exec_thread_pointer_upgrades(void) { return 17; }
-static double loading_seconds(void) { return 1; }
+static unsigned clock_reads; static double loading_seconds(void) { clock_reads++;return 1; }
 #define HALO_GUEST_ABORT_HOST 5
 static void say(const char *format,...) { (void)format; }
 static void halo_guest_exec_abort(int reason) { assert(reason==5);aborted++; }
@@ -58,6 +59,12 @@ int main(void) {
     ios_uniform_apply(3,256,128,257,0);assert(aborted==before+2);
     ios_uniform_apply(3,256,260,1,0);assert(aborted==before+3 && uploads==3);
     assert(atomic_load(&g_uniform_calls)==4 && atomic_load(&g_uniform_uploads)==3);
+    uint64_t calls_before=atomic_load(&g_uniform_calls), samples_before=atomic_load(&g_uniform_samples);
+    unsigned reads_before=clock_reads, uploads_before=uploads;
+    for(unsigned i=0;i<65536;i++)ios_uniform_apply(3,256,256,1,1);
+    uint64_t samples=atomic_load(&g_uniform_samples)-samples_before;
+    assert(atomic_load(&g_uniform_calls)-calls_before==65536 && uploads==uploads_before);
+    assert(samples>30 && samples<100 && clock_reads-reads_before==samples*2);
     puts("PASS: actual renderer adapters, changed index data, complete spans, packet ABI, invalid inputs, uniform shadow-before-upload order and telemetry");
     return 0;
 }

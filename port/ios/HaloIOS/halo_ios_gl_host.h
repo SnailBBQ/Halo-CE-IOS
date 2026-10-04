@@ -2,6 +2,7 @@
 #define HALO_IOS_GL_HOST_H
 
 #include <stdint.h>
+#include "halo_frame_diagnostics.h"
 
 #ifdef __OBJC__
 #import <UIKit/UIKit.h>
@@ -20,6 +21,8 @@ uint32_t halo_ios_gl_create_context(uint32_t window);
 int halo_ios_gl_make_current(uint32_t window, uint32_t context);
 int halo_ios_gl_set_swap_interval(int interval);
 int halo_ios_gl_swap_window(uint32_t window);
+/* Render-thread-only snapshot of the last swap; wall time, not GPU execution time. */
+HaloPresentTiming halo_ios_gl_last_present_timing(void);
 /* Caps the presented frame rate (0: only the display limits it); takes effect on the next frame. */
 void halo_ios_gl_set_frame_cap(int fps);
 

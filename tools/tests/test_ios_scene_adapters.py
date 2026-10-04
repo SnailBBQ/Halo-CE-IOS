@@ -9,13 +9,14 @@ prefix=r"""#include <assert.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdatomic.h>
+#include "halo_timing_sample.h"
 #include "ios_scene_scan.h"
 #include "halo_scene_scan_native.h"
 static unsigned char arena[65536];
 static unsigned aborted;
 static _Atomic uint64_t g_native_loop_upgrades;
 static uint64_t halo_guest_exec_thread_pointer_upgrades(void){return 9;}
-static double loading_seconds(void){return 1;}
+static unsigned clock_reads; static double loading_seconds(void){clock_reads++;return 1;}
 static void *gp(uint64_t va,size_t size){return va && va<=sizeof(arena) && size<=sizeof(arena)-va?arena+va:NULL;}
 #define HALO_GUEST_ABORT_HOST 5
 static void halo_guest_exec_abort(int reason){assert(reason==5);aborted++;}
@@ -84,6 +85,13 @@ int main(void){
     memcpy(arena+9000,original,12);
     assert(!ios_scene_filter_objects(1536,9000,3,1,1024,2048));
     assert(!memcmp(arena+9000,original,12));
+    assert(atomic_load(&g_native_loop_upgrades)==0);
+    uint64_t calls_before=atomic_load(&g_scene_calls[6]), samples_before=atomic_load(&g_scene_samples[6]);
+    unsigned reads_before=clock_reads;
+    for(unsigned i=0;i<65536;i++)assert(ios_scene_filter_objects(1536,9000,1,2,1024,2048));
+    uint64_t samples=atomic_load(&g_scene_samples[6])-samples_before;
+    assert(atomic_load(&g_scene_calls[6])-calls_before==65536);
+    assert(samples>30 && samples<100 && clock_reads-reads_before==samples*2);
     assert(atomic_load(&g_native_loop_upgrades)==0);
     puts("PASS: actual scene adapters, full spans, overlap rejection, packet ABI, iterator writeback, diagnostic fallback and zero helper upgrades");return 0;
 }
