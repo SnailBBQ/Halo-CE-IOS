@@ -24,6 +24,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("app", type=Path)
     parser.add_argument("--report-only", action="store_true", help="Report missing capabilities without failing")
+    parser.add_argument("--require-absent-memory", action="store_true",
+                        help="Fail if a kernel memory entitlement is present. Used by the SideStore IPA, which must not ask for any.")
     args = parser.parse_args()
     result = subprocess.run(["codesign", "-d", "--entitlements", ":-", str(args.app)],
                             capture_output=True, check=True)
@@ -39,6 +41,10 @@ def main():
         allowed = "not inspected (no provisioning profile)" if state["profile"] is None else str(state["profile"]).lower()
         print(f"{key}: signed={str(state['signed']).lower()}, profile-authorized={allowed}")
     print("This checks signature/profile contents only. Installation may change signing; execution still needs device validation.")
+    if args.require_absent_memory:
+        if any(report[k]["signed"] for k in MEMORY_KEYS):
+            raise SystemExit("SideStore build must not be signed with kernel memory entitlements.")
+        return
     if not args.report_only and any(not report[k]["signed"] or report[k]["profile"] is False for k in MEMORY_KEYS):
         raise SystemExit("Required memory capabilities are missing or not authorized by the embedded profile.")
 

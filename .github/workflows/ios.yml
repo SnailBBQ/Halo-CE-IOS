@@ -16,6 +16,10 @@ on:
         description: 'Pointer rewrite: on by default. Rewrites guest loads and stores so pointers do not fault. Turn off only to compare with an older build.'
         type: boolean
         default: true
+      sidestore:
+        description: 'SideStore: a separate app whose game code is signed into the IPA and remapped. No kernel entitlements. For SideStore, Sideloadly and AltStore. Manual builds only.'
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
@@ -74,6 +78,8 @@ on:
       - 'tools/tests/test_ios_audio_ring.c'
       - 'tools/tests/test_ios_sdl_event_numbers.c'
       - 'tools/tests/test_ios_workflow_configuration.py'
+      - 'tools/ios_signed_guest.py'
+      - 'tools/tests/test_ios_signed_guest.py'
       - 'tools/verify_ios_signing.py'
       - 'tools/tests/test_ios_signing.py'
       - 'tools/tests/test_ios_direct_arena.c'
@@ -94,7 +100,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: halo-ios-${{ inputs.non_jailbreak && 'non-jailbreak' || inputs.compatibility_test && 'modtest' || 'main' }}
+  group: halo-ios-${{ inputs.sidestore && 'sidestore' || inputs.non_jailbreak && 'non-jailbreak' || inputs.compatibility_test && 'modtest' || 'main' }}
   cancel-in-progress: true
 
 jobs:
@@ -116,9 +122,14 @@ jobs:
         env:
           COMPATIBILITY_TEST: ${{ inputs.compatibility_test || false }}
           NON_JAILBREAK: ${{ inputs.non_jailbreak || false }}
+          SIDESTORE: ${{ inputs.sidestore || false }}
         run: |
           if [ "$COMPATIBILITY_TEST" = true ] && [ "$NON_JAILBREAK" = true ]; then
             echo "::error::Choose either compatibility_test (Mod Test) or non_jailbreak, not both."
+            exit 1
+          fi
+          if [ "$SIDESTORE" = true ] && { [ "$COMPATIBILITY_TEST" = true ] || [ "$NON_JAILBREAK" = true ]; }; then
+            echo "::error::SideStore is its own app. Do not combine it with Mod Test or Non-Jailbreak."
             exit 1
           fi
 
@@ -139,6 +150,7 @@ jobs:
         run: |
           set -euxo pipefail
           python3 tools/tests/test_ios_workflow_configuration.py
+          python3 tools/tests/test_ios_signed_guest.py
           python3 tools/tests/test_ios_source_structure.py
           cc -std=c11 -Wall -Wextra -Werror tools/tests/test_ios_vertex_constants.c -o "$RUNNER_TEMP/halo-constants-test"
           "$RUNNER_TEMP/halo-constants-test"
@@ -365,11 +377,22 @@ jobs:
         env:
           COMPATIBILITY_TEST: ${{ inputs.compatibility_test || false }}
           NON_JAILBREAK: ${{ inputs.non_jailbreak || false }}
+          SIDESTORE: ${{ inputs.sidestore || false }}
         run: |
           set -euxo pipefail
           rm -rf build/ios
           HOST_FLAGS=('OTHER_CFLAGS=$(inherited)')
-          if [ "$COMPATIBILITY_TEST" = true ]; then
+          if [ "$SIDESTORE" = true ]; then
+            python3 tools/ios_signed_guest.py build/guest/halo_guest.elf build/ios/signed
+            xcrun --sdk iphoneos clang -target arm64-apple-ios15.0 -c \
+              build/ios/signed/halo_signed_guest.S -o build/ios/signed/halo_signed_guest.o
+            xcrun --sdk iphoneos clang -target arm64-apple-ios15.0 -c \
+              build/ios/signed/halo_signed_guest_meta.c -o build/ios/signed/halo_signed_guest_meta.o
+            HOST_FLAGS=(
+              'OTHER_CFLAGS=$(inherited) -DHALO_SIGNED_GUEST=1 -DHALO_NON_JAILBREAK=1'
+              "OTHER_LDFLAGS=\$(inherited) $PWD/build/ios/signed/halo_signed_guest.o $PWD/build/ios/signed/halo_signed_guest_meta.o"
+            )
+          elif [ "$COMPATIBILITY_TEST" = true ]; then
             HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_ALIGNED_ARENA_TEST=1 -DHALO_MOD_TEST=1')
           elif [ "$NON_JAILBREAK" = true ]; then
             HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_NON_JAILBREAK=1')
@@ -390,6 +413,7 @@ jobs:
         env:
           COMPATIBILITY_TEST: ${{ inputs.compatibility_test || false }}
           NON_JAILBREAK: ${{ inputs.non_jailbreak || false }}
+          SIDESTORE: ${{ inputs.sidestore || false }}
         run: |
           set -euxo pipefail
           APP=$(find build/ios/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
@@ -405,11 +429,17 @@ jobs:
           # The Non-Jailbreak Version's code exists in the executable only when it was asked for, so an ordinary build is
           # proved to be without it. (The strings are read into a variable first: a pipe into grep -q would fail on SIGPIPE.)
           EXECUTABLE_STRINGS=$(/usr/bin/strings -a "$APP/$EXECUTABLE")
-          if [ "$NON_JAILBREAK" = true ]; then
+          if [ "$NON_JAILBREAK" = true ] || [ "$SIDESTORE" = true ]; then
             grep -q -- 'Non-Jailbreak Version (' <<< "$EXECUTABLE_STRINGS"
             grep -q -- 'Address-space probe (nothing stays reserved)' <<< "$EXECUTABLE_STRINGS"
           elif grep -q -e 'Non-Jailbreak Version (' -e 'Address-space probe (nothing stays reserved)' <<< "$EXECUTABLE_STRINGS"; then
             echo "::error::Non-Jailbreak code is present in a build that did not ask for it."
+            exit 1
+          fi
+          if [ "$SIDESTORE" = true ]; then
+            grep -q -- 'SIGNED GUEST:' <<< "$EXECUTABLE_STRINGS"
+          elif grep -q -- 'SIGNED GUEST:' <<< "$EXECUTABLE_STRINGS"; then
+            echo "::error::SideStore signed-code path is present in a build that did not ask for it."
             exit 1
           fi
           if [ "$COMPATIBILITY_TEST" = true ]; then
@@ -421,17 +451,34 @@ jobs:
             /usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 267001' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 halomodtest' "$APP/Info.plist"
           fi
+          if [ "$SIDESTORE" = true ]; then
+            /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.haloceuniversal.ios.sidestore' "$APP/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Set :CFBundleName Halo CE SideStore' "$APP/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLName com.haloceuniversal.ios.sidestore.invite' "$APP/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Halo CE SideStore' "$APP/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Set :CFBundleShortVersionString 0.2.71' "$APP/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 2671' "$APP/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 halosidestore' "$APP/Info.plist"
+          fi
 
+          if [ "$SIDESTORE" = true ]; then
+            ENTITLEMENTS=port/ios/HaloIOS/HaloIOS-Sidestore.entitlements
+            SIGNING_CHECK=(python3 tools/verify_ios_signing.py --require-absent-memory "$APP")
+          else
+            ENTITLEMENTS=port/ios/HaloIOS/HaloIOS.entitlements
+            SIGNING_CHECK=(python3 tools/verify_ios_signing.py "$APP")
+          fi
           /usr/bin/codesign --force --sign - \
-            --entitlements port/ios/HaloIOS/HaloIOS.entitlements \
+            --entitlements "$ENTITLEMENTS" \
             --timestamp=none "$APP"
           /usr/bin/codesign --verify --verbose=2 "$APP"
-          python3 tools/verify_ios_signing.py "$APP"
+          "${SIGNING_CHECK[@]}"
           python3 tools/verify_ios_icons.py "$APP"
 
       - name: Package HaloCE.ipa
         env:
           NON_JAILBREAK: ${{ inputs.non_jailbreak || false }}
+          SIDESTORE: ${{ inputs.sidestore || false }}
         run: |
           set -euxo pipefail
           APP=$(find build/ios/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
@@ -444,14 +491,16 @@ jobs:
           /usr/bin/unzip -Z1 HaloCE.ipa | grep -qx 'Payload/HaloIOS.app/Info.plist'
           /usr/bin/unzip -Z1 HaloCE.ipa | grep -qx 'Payload/HaloIOS.app/HaloIOS'
           /usr/bin/unzip -Z1 HaloCE.ipa | grep -qx 'Payload/HaloIOS.app/halo_guest.elf'
-          if [ "$NON_JAILBREAK" = true ]; then
+          if [ "$SIDESTORE" = true ]; then
+            mv HaloCE.ipa HaloCE-Sidestore.ipa
+          elif [ "$NON_JAILBREAK" = true ]; then
             mv HaloCE.ipa HaloCE-NonJailbreak.ipa
           fi
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.non_jailbreak && 'HaloCE-iOS-NonJailbreak' || inputs.compatibility_test && 'HaloCE-iOS-ModTest' || 'HaloCE-iOS' }}
-          path: build/ios/${{ inputs.non_jailbreak && 'HaloCE-NonJailbreak.ipa' || 'HaloCE.ipa' }}
+          name: ${{ inputs.sidestore && 'HaloCE-iOS-Sidestore' || inputs.non_jailbreak && 'HaloCE-iOS-NonJailbreak' || inputs.compatibility_test && 'HaloCE-iOS-ModTest' || 'HaloCE-iOS' }}
+          path: build/ios/${{ inputs.sidestore && 'HaloCE-Sidestore.ipa' || inputs.non_jailbreak && 'HaloCE-NonJailbreak.ipa' || 'HaloCE.ipa' }}
           if-no-files-found: error
           retention-days: 14
