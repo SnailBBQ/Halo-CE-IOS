@@ -307,6 +307,16 @@ void sound_cache_sound_finished(
 			cache_sound->software_reference_count,
 			cache_sound->sound);
 	}
+#ifdef HALO_IOS_GUEST
+	/* Retain the assertion: report the ownership state before halting so a
+	 * distinct mismatch cannot be mistaken for the fixed preemption path. */
+	if (!cache_sound->software_reference_count)
+		error(_error_silent,
+			"sound reference mismatch: block=%ld tag=%08lx loaded=%d initialized=%d hardware=%d caller=%p",
+			sound->cache_block_index, sound->runtime_tag_index,
+			cache_sound->loaded, cache_sound->initialized,
+			cache_sound->hardware_reference_count, __builtin_return_address(0));
+#endif
 	match_assert(
 		"c:\\halo\\SOURCE\\cache\\xbox_sound_cache.c",
 		263,

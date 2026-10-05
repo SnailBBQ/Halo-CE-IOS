@@ -6,11 +6,11 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 
 > **You are on the regular app branch.** A separate **Mod Test** app lives on the [`ios/modtest`](https://github.com/SnailBBQ/Halo-CE-IOS/tree/ios/modtest) branch.
 
-> **Status: playable.** The current update is **M2.6.65**. The campaign and cross-play multiplayer work on a physical iPhone:
+> **Status: playable.** The current update is **M2.6.66**. The campaign and cross-play multiplayer work on a physical iPhone:
 > The maintainer reports playable `a10` and PC cross-play in earlier builds; results vary by device and scene. Some of the newest features are still being
 > validated on a device; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
-**Source update:** [M2.6.65](port/ios/UPDATE_M2665.md) integrates Universal build 98, including multiplayer split-screen lobby handling and the updated broker list. Confirming Exit Halo in the in-game main menu now closes the iOS app. M2.6.64 performance diagnostics are preserved. Device validation remains required.
+**Source update:** [M2.6.66](port/ios/UPDATE_M2666.md) fixes a looping-sound lifetime bug during channel preemption and adds sound-reference diagnostics. Universal build 98 and M2.6.64 performance diagnostics are preserved. The reported multiplayer assertion still requires device retesting.
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of Halo CE Universal on PC" width="760"><br>

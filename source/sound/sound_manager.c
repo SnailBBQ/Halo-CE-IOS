@@ -2941,7 +2941,16 @@ static void update_channel_for_looping_sound(
 					(!channel->playing_permutation ||
 						channel->playing_permutation->next_permutation_index == NONE))
 				{
+#ifdef HALO_IOS_GUEST
+					/* Changing definition can preempt and delete this very sound.
+					 * Do not queue another permutation or read its released datum. */
+					long changing_sound_index = channel->sound_index;
+					sound_set_definition_end(changing_sound_index);
+					if (channel->sound_index != changing_sound_index)
+						return;
+#else
 					sound_set_definition_end(channel->sound_index);
+#endif
 					definition = sound_definition_get(sound->definition_index);
 					pitch_range = TAG_BLOCK_GET_ELEMENT(
 						&definition->pitch_ranges,
@@ -3534,6 +3543,12 @@ static void update_channels(
 				update_channel_for_looping_sound(channel_index, fade);
 			}
 
+#ifdef HALO_IOS_GUEST
+			/* The looping update may have stopped its own sound while enforcing
+			 * the replacement definition's channel limits. */
+			if (channel->sound_index == NONE)
+				continue;
+#endif
 			if (sound_class_get(definition->sound_class)->speech &&
 				sound->track_proc == track_object_impulse_sound)
 			{
