@@ -52,12 +52,21 @@ except SystemExit as error:
 else:
     raise SystemExit("writable overlap was accepted")
 
-unaligned = elf([(5, 0x88000010, code, len(code))])
-try:
-    signed.extract_from_bytes(unaligned)
-except SystemExit as error:
-    assert "aligned" in str(error)
-else:
-    raise SystemExit("unaligned executable segment was accepted")
+unaligned = elf([(4, 0x88000000, b"HDR!", 4), (5, 0x88000030, code, len(code))])
+start, blob = signed.extract_from_bytes(unaligned)
+assert start == 0x88000000
+assert blob[0:4] == b"HDR!"
+assert blob[0x30:0x30 + len(code)] == code
 
-print("PASS: signed guest blob keeps code and rodata, and rejects a writable page overlap")
+same_page_write = elf([
+    (5, 0x88000030, code, len(code)),
+    (6, 0x88002000, b"WRITABLE", 8),
+])
+try:
+    signed.extract_from_bytes(same_page_write)
+except SystemExit as error:
+    assert "writable" in str(error)
+else:
+    raise SystemExit("writable overlap was accepted")
+
+print("PASS: signed guest blob keeps code and rodata, allows an unaligned text start, and rejects a writable page overlap")

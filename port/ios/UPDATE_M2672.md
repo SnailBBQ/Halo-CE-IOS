@@ -2,6 +2,8 @@
 
 Regular app stays **0.2.70**. Tick **Non-Jailbreak** to build the stock-iOS IPA. There is no separate SideStore checkbox.
 
+The guest text segment starts at `0x88000030`, 48 bytes after the image header, so it is not itself 16 KiB aligned. The signed blob starts at the 16 KiB page base and keeps that offset. `vm_remap` still maps whole pages.
+
 ## What changed
 
 M2.6.71 added a SideStore checkbox beside the old Non-Jailbreak checkbox. That old checkbox only added diagnostics. It still copied `halo_guest.elf` and asked iOS to mark the copy executable, which SideStore and Sideloadly cannot do.

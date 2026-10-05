@@ -59,11 +59,8 @@ def signed_span(segments):
         raise SystemExit("signed guest: the ELF has no executable segment")
     start = min(page_down(segment["vaddr"]) for segment in executable)
     end = max(page_up(segment["vaddr"] + segment["memsz"]) for segment in executable)
-    for segment in executable:
-        if segment["vaddr"] & (PAGE - 1):
-            raise SystemExit(
-                f"signed guest: executable segment {segment['index']} starts at "
-                f"0x{segment['vaddr']:x}, which is not 16 KiB aligned")
+    # A segment may begin inside a 16 KiB page. vm_remap needs the whole page,
+    # so the blob starts at the page base and the code keeps its offset.
     for segment in segments:
         seg_end = segment["vaddr"] + segment["memsz"]
         overlaps = segment["vaddr"] < end and start < seg_end
