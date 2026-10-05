@@ -35,9 +35,9 @@ Standard GitHub-hosted runners are free for public repositories. Private reposit
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| Mod Test | off | Builds the second app, with the larger campaign-map loader. It does not replace Halo CE. |
-| Non-Jailbreak | off | The normal app plus address-space diagnostics for a stock install. Same bundle ID and multiplayer. Manual only. |
-| Pointer rewrite | on | Rewrites guest loads and stores so pointers do not fault. Turn off only to compare with an older build. |
+| Mod Test app | off | Builds the second app, with the larger campaign-map loader. It does not replace Halo CE. |
+| Non-Jailbreak Version | off | The normal app plus address-space and JIT diagnostics and a fallback memory window, for installs not signed by TrollStore or a jailbreak. Same bundle ID and multiplayer. Manual only. |
+| Pointer rewrite (recommended) | on | Rewrites guest loads and stores so pointers do not fault. Turn off only to compare with an older build. |
 
 ### Artifacts
 
@@ -126,4 +126,7 @@ The workflow does not publish releases by itself. No iOS release is currently pu
 
 ## Non-Jailbreak Version (manual build)
 
-The Non-Jailbreak Version is the stock-iOS build for SideStore, Sideloadly and AltStore. The game code is linked into the signed app and mapped with `vm_remap`. It does not request kernel entitlements, and it keeps the same bundle ID. See [UPDATE_M2672.md](../../port/ios/UPDATE_M2672.md). To build it, open **Actions → Halo CE iOS — Build IPA → Run workflow**, choose `main`, tick `non_jailbreak` and leave `compatibility_test` unticked. Leave **Pointer rewrite** checked. The artifact is `HaloCE-iOS-NonJailbreak` and contains `HaloCE-NonJailbreak.ipa`. Automatic builds never include it. It has not been installed with those tools yet. The regular IPA remains the TrollStore build.
+The Non-Jailbreak Version is the regular app with address-space and JIT diagnostics and a fallback memory window, for installs not signed by TrollStore or a jailbreak;
+see [UPDATE_M2673.md](../../port/ios/UPDATE_M2673.md). To build it, open **Actions → Halo CE iOS — Build IPA → Run workflow**, choose `main`, tick **Non-Jailbreak Version** and leave
+**Mod Test app** unticked. The artifact is `HaloCE-iOS-NonJailbreak` and contains `HaloCE-NonJailbreak.ipa`. It keeps the regular app's bundle ID and multiplayer, requests no kernel
+memory entitlements, and its log opens with an address-space map. Automatic builds never include it. It is experimental and has not been tested on a device.

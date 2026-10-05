@@ -3,17 +3,17 @@
 **Status: playable.** **Current update: M2.6.72** (regular app still 0.2.70, Mod Test 0.2.70.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
 are still waiting for device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
 
-**Source update:** [M2.6.72](port/ios/UPDATE_M2672.md) makes **Non-Jailbreak** the signed-code build for SideStore, Sideloadly and AltStore. The separate SideStore checkbox is gone. This repository does not build Windows, Linux or Android.
+**Source update:** [M2.6.73](port/ios/UPDATE_M2673.md) takes the signed-code experiment out of the Non-Jailbreak Version, which is a diagnostics build again, and adds an address-space map to its log. Mod Test as a build option, the build menu, and the removal of the profile-guided option and the native-ports workflow stay as in [M2.6.70](port/ios/UPDATE_M2670.md). Windows, Linux and Android stay on [Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE/releases). Nothing here has been tested on a device.
 
 ## Two apps, plus a stock-iOS build
 
 | App | How to build | Output |
 | --- | --- | --- |
 | Halo CE (regular) | `main`, options off | `HaloCE.ipa` |
-| Halo CE Mod Test | `main`, tick **Mod Test** | artifact `HaloCE-iOS-ModTest` |
-| Halo CE Non-Jailbreak | `main`, tick **Non-Jailbreak** | artifact `HaloCE-iOS-NonJailbreak` |
+| Halo CE Mod Test | `main`, tick **Mod Test app** | artifact `HaloCE-iOS-ModTest` |
+| Non-Jailbreak Version | `main`, tick **Non-Jailbreak Version** | artifact `HaloCE-iOS-NonJailbreak` |
 
-The regular app and Mod Test share the same features and are updated together. The Mod Test app adds an experimental loader for very large converted campaign maps; see [Mod Test](docs/ios/MOD_TEST.md). Non-Jailbreak is the same app built so SideStore, Sideloadly and AltStore can run it; see [M2.6.72](port/ios/UPDATE_M2672.md).
+The regular app and Mod Test share the same features and are updated together. The Mod Test app adds an experimental loader for very large converted campaign maps; see [Mod Test](docs/ios/MOD_TEST.md). The Non-Jailbreak Version is the regular app with address-space and JIT diagnostics and a fallback memory window, for installs not signed by TrollStore or a jailbreak; see [M2.6.73](port/ios/UPDATE_M2673.md).
 
 ## What works (reported from device testing)
 

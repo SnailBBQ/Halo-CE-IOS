@@ -12,6 +12,11 @@
 #endif
 #if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
 #include "halo_va_plan.h"
+#include "halo_va_map.h"
+#if defined(__APPLE__)
+#include <mach/mach.h>
+#include <mach/vm_map.h>
+#endif
 extern int csops(pid_t pid, unsigned int ops, void *useraddr, size_t usersize);
 #endif
 
@@ -104,6 +109,61 @@ void halo_guest_runtime_exec_report(char *out, size_t size)
 #endif
     halo_jit_describe(&probe, out, size);
 }
+
+/* The process's own address-space map, for the Non-Jailbreak Version's log: the range the system allows, what is already mapped and
+ * where the free gaps are. Read-only; nothing is reserved. Run before the arena is reserved so the map shows what the game starts with. */
+#if defined(__APPLE__)
+void halo_guest_runtime_vm_report(char *out, size_t size)
+{
+    HaloVaRegion regions[HALO_VA_REGION_MAX];
+    HaloVaMapStats stats;
+    unsigned count = 0;
+    int truncated = 0;
+    uint64_t low = 0, high = 0;
+    task_vm_info_data_t info;
+    mach_msg_type_number_t info_count = TASK_VM_INFO_COUNT;
+    vm_address_t address = 0;
+    natural_t depth = 0;
+
+    memset(&info, 0, sizeof(info));
+    if (task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&info, &info_count) == KERN_SUCCESS)
+    {
+        low = (uint64_t)info.min_address;
+        high = (uint64_t)info.max_address;
+    }
+    for (;;)
+    {
+        vm_size_t length = 0;
+        vm_region_submap_info_data_64_t region;
+        mach_msg_type_number_t region_count = VM_REGION_SUBMAP_INFO_COUNT_64;
+        if (vm_region_recurse_64(mach_task_self(), &address, &length, &depth, (vm_region_recurse_info_t)&region, &region_count) != KERN_SUCCESS)
+            break;
+        if (region.is_submap)
+        {
+            depth++;
+            continue;
+        }
+        if (count < HALO_VA_REGION_MAX)
+        {
+            regions[count].start = (uint64_t)address;
+            regions[count].size = (uint64_t)length;
+            count++;
+        }
+        else
+            truncated = 1;
+        if (!length || address + length < address)
+            break;
+        address += length;
+    }
+    halo_va_map_analyze(regions, count, truncated, low, high, &stats);
+    halo_va_map_format(&stats, out, size);
+}
+#else
+void halo_guest_runtime_vm_report(char *out, size_t size)
+{
+    snprintf(out, size, "Address-space map: not available on this platform.\n");
+}
+#endif
 #endif
 
 int halo_guest_runtime_init(void)
@@ -176,8 +236,12 @@ int halo_guest_runtime_init(void)
                 g_guest_base = (uint8_t *)(uintptr_t)fixed;
                 return 1;
             }
-            halo_va_text(g_nonjb_report, sizeof(g_nonjb_report), &used,
-                "Fallback: no fixed 4 GiB window could be reserved either (%u tried, first error %d).\n", tried, fixed_error);
+            {
+                char why[48];
+                halo_va_error_text(fixed_error, why, sizeof(why));
+                halo_va_text(g_nonjb_report, sizeof(g_nonjb_report), &used,
+                    "Fallback: no fixed 4 GiB window could be reserved either (%u tried, first refusal: %s).\n", tried, why);
+            }
         }
 #endif
         return 0;

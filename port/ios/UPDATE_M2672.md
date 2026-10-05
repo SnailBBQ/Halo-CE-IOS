@@ -1,5 +1,7 @@
 # M2.6.72 — Non-Jailbreak is the signed-code build
 
+> **Superseded.** the signed-code Non-Jailbreak build described here was removed in [M2.6.73](UPDATE_M2673.md): its extractor rejected the real guest layout, and the address-space reservation it could not help with is what stops a stock install. The notes below are kept as history.
+
 Regular app stays **0.2.70**. Tick **Non-Jailbreak** to build the stock-iOS IPA. There is no separate SideStore checkbox.
 
 The guest text segment starts at `0x88000030`, 48 bytes after the image header, so it is not itself 16 KiB aligned. The signed blob starts at the 16 KiB page base and keeps that offset. `vm_remap` still maps whole pages.

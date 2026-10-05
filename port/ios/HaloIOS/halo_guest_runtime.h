@@ -28,6 +28,8 @@ int halo_guest_base_is_4gb_aligned(void);
    (empty otherwise); the second says whether this process may make memory executable. Neither executes anything. */
 const char *halo_guest_runtime_nonjb_report(void);
 void halo_guest_runtime_exec_report(char *out, size_t size);
+/* The process's address-space map (range, mapped ranges, free gaps), read before anything is reserved. */
+void halo_guest_runtime_vm_report(char *out, size_t size);
 #endif
 
 #endif

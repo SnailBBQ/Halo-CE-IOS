@@ -41,7 +41,7 @@ static Space make_space(uint64_t limit_gib) { Space s; memset(&s, 0, sizeof(s));
 static HaloVaReserver reserver(Space *s) { HaloVaReserver r = { s, space_reserve, space_release }; return r; }
 
 static void test_candidates(void) {
-    CHECK(halo_va_candidate(0) == UINT64_C(0x200000000), "the first window is at 8 GiB");
+    CHECK(halo_va_candidate(0) == UINT64_C(0x100000000), "the first window is at 4 GiB");
     for (unsigned i = 0; i < HALO_VA_CANDIDATES; i++) {
         CHECK((halo_va_candidate(i) & (HALO_VA_ARENA - 1)) == 0, "candidate %u is 4 GiB aligned", i);
         if (i) CHECK(halo_va_candidate(i) == halo_va_candidate(i - 1) + HALO_VA_ARENA, "candidate %u follows the previous one", i);
@@ -96,11 +96,14 @@ static void test_format(void) {
     Space s = make_space(6); HaloVaReserver r = reserver(&s);
     halo_va_probe_run(&r, &p);
     halo_va_probe_format(&p, text, sizeof(text));
-    CHECK(strstr(text, "6 GiB ok") && strstr(text, "8 GiB FAILED (error 12)") && strstr(text, "held at once in 1 GiB steps: 6 GiB (stopped by error 12)") && strstr(text, "24 of 24 usable (first at 0x200000000)"), "report text:\n%s", text);
+    CHECK(strstr(text, "6 GiB ok") && strstr(text, "8 GiB FAILED (error 12)") && strstr(text, "held at once in 1 GiB steps: 6 GiB (stopped by error 12)") && strstr(text, "24 of 24 usable (first at 0x100000000)"), "report text:\n%s", text);
     s = make_space(3); r = reserver(&s); halo_va_probe_run(&r, &p); halo_va_probe_format(&p, text, sizeof(text));
     CHECK(strstr(text, "0 of 24 usable (first refusal: error 12)") && strstr(text, "4 GiB FAILED"), "report text for 3 GiB:\n%s", text);
     s = make_space(100); r = reserver(&s); halo_va_probe_run(&r, &p); halo_va_probe_format(&p, text, sizeof(text));
     CHECK(strstr(text, "(reached the 16 GiB test limit)"), "report text for 100 GiB:\n%s", text);
+    /* a fixed request that the system places elsewhere is described in words, not as an error number */
+    s = make_space(100); s.lie = 1; r = reserver(&s); halo_va_probe_run(&r, &p); halo_va_probe_format(&p, text, sizeof(text));
+    CHECK(strstr(text, "0 of 24 usable (first refusal: the system placed it elsewhere)") && !strstr(text, "error -1"), "report text when fixed requests are placed elsewhere:\n%s", text);
     /* a small buffer is never overrun and is always terminated */
     for (size_t size = 0; size <= 120; size += (size < 8 ? 1 : 37)) {
         unsigned char guarded[160];

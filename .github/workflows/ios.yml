@@ -5,15 +5,15 @@ on:
   workflow_dispatch:
     inputs:
       compatibility_test:
-        description: 'Mod Test: a second app for large campaign maps. Same engine and cross-play. It does not replace Halo CE.'
+        description: 'Mod Test app: a second app for large campaign maps. Same engine and cross-play. It does not replace Halo CE.'
         type: boolean
         default: false
       non_jailbreak:
-        description: 'Non-Jailbreak: the stock-iOS app for SideStore, Sideloadly and AltStore. Game code is signed into the IPA and remapped. No kernel entitlements. Same bundle ID. Manual builds only.'
+        description: 'Non-Jailbreak Version: the official app plus address-space and JIT diagnostics and a fallback memory window, for installs not signed by TrollStore or a jailbreak. Same bundle ID. Manual builds only.'
         type: boolean
         default: false
       arena_fastpath:
-        description: 'Pointer rewrite: on by default. Rewrites guest loads and stores so pointers do not fault. Turn off only to compare with an older build.'
+        description: 'Pointer rewrite (recommended): rewrites guest loads and stores so pointers do not fault. Turn off only to compare with an older build.'
         type: boolean
         default: true
   push:
@@ -74,8 +74,6 @@ on:
       - 'tools/tests/test_ios_audio_ring.c'
       - 'tools/tests/test_ios_sdl_event_numbers.c'
       - 'tools/tests/test_ios_workflow_configuration.py'
-      - 'tools/ios_signed_guest.py'
-      - 'tools/tests/test_ios_signed_guest.py'
       - 'tools/verify_ios_signing.py'
       - 'tools/tests/test_ios_signing.py'
       - 'tools/tests/test_ios_direct_arena.c'
@@ -141,7 +139,6 @@ jobs:
         run: |
           set -euxo pipefail
           python3 tools/tests/test_ios_workflow_configuration.py
-          python3 tools/tests/test_ios_signed_guest.py
           python3 tools/tests/test_ios_source_structure.py
           cc -std=c11 -Wall -Wextra -Werror tools/tests/test_ios_vertex_constants.c -o "$RUNNER_TEMP/halo-constants-test"
           "$RUNNER_TEMP/halo-constants-test"
@@ -372,18 +369,10 @@ jobs:
           set -euxo pipefail
           rm -rf build/ios
           HOST_FLAGS=('OTHER_CFLAGS=$(inherited)')
-          if [ "$NON_JAILBREAK" = true ]; then
-            python3 tools/ios_signed_guest.py build/guest/halo_guest.elf build/ios/signed
-            xcrun --sdk iphoneos clang -target arm64-apple-ios15.0 -c \
-              build/ios/signed/halo_signed_guest.S -o build/ios/signed/halo_signed_guest.o
-            xcrun --sdk iphoneos clang -target arm64-apple-ios15.0 -c \
-              build/ios/signed/halo_signed_guest_meta.c -o build/ios/signed/halo_signed_guest_meta.o
-            HOST_FLAGS=(
-              'OTHER_CFLAGS=$(inherited) -DHALO_SIGNED_GUEST=1 -DHALO_NON_JAILBREAK=1'
-              "OTHER_LDFLAGS=\$(inherited) $PWD/build/ios/signed/halo_signed_guest.o $PWD/build/ios/signed/halo_signed_guest_meta.o"
-            )
-          elif [ "$COMPATIBILITY_TEST" = true ]; then
+          if [ "$COMPATIBILITY_TEST" = true ]; then
             HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_ALIGNED_ARENA_TEST=1 -DHALO_MOD_TEST=1')
+          elif [ "$NON_JAILBREAK" = true ]; then
+            HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_NON_JAILBREAK=1')
           fi
           xcodebuild \
             -project port/ios/HaloIOS.xcodeproj \
@@ -419,9 +408,17 @@ jobs:
           if [ "$NON_JAILBREAK" = true ]; then
             grep -q -- 'Non-Jailbreak Version (' <<< "$EXECUTABLE_STRINGS"
             grep -q -- 'Address-space probe (nothing stays reserved)' <<< "$EXECUTABLE_STRINGS"
-            grep -q -- 'SIGNED GUEST:' <<< "$EXECUTABLE_STRINGS"
-          elif grep -q -e 'Non-Jailbreak Version (' -e 'Address-space probe (nothing stays reserved)' -e 'SIGNED GUEST:' <<< "$EXECUTABLE_STRINGS"; then
+          elif grep -q -e 'Non-Jailbreak Version (' -e 'Address-space probe (nothing stays reserved)' <<< "$EXECUTABLE_STRINGS"; then
             echo "::error::Non-Jailbreak code is present in a build that did not ask for it."
+            exit 1
+          fi
+          # The same proof for the Mod Test app: its engine and host code exist only in a build that asked for it.
+          GUEST_STRINGS=$(/usr/bin/strings -a "$APP/halo_guest.elf")
+          if [ "$COMPATIBILITY_TEST" = true ]; then
+            grep -q -- 'MOD TEST:' <<< "$GUEST_STRINGS"
+            grep -q -- 'Mod Test build:' <<< "$EXECUTABLE_STRINGS"
+          elif grep -q -e 'MOD TEST:' <<< "$GUEST_STRINGS" || grep -q -- 'Mod Test build:' <<< "$EXECUTABLE_STRINGS"; then
+            echo "::error::Mod Test code is present in a build that did not ask for it."
             exit 1
           fi
           if [ "$COMPATIBILITY_TEST" = true ]; then
@@ -429,8 +426,11 @@ jobs:
             /usr/libexec/PlistBuddy -c 'Set :CFBundleName Halo CE Mod Test' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLName com.haloceuniversal.ios.modtest.invite' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Halo CE Mod Test' "$APP/Info.plist"
-            /usr/libexec/PlistBuddy -c 'Set :CFBundleShortVersionString 0.2.70.1' "$APP/Info.plist"
-            /usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 267001' "$APP/Info.plist"
+            # the Mod Test app's version is the official one with a trailing .1 (0.2.73 / 2673 becomes 0.2.73.1 / 267301)
+            OFFICIAL_SHORT=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")
+            OFFICIAL_BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
+            /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${OFFICIAL_SHORT}.1" "$APP/Info.plist"
+            /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${OFFICIAL_BUILD}01" "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 halomodtest' "$APP/Info.plist"
           fi
 

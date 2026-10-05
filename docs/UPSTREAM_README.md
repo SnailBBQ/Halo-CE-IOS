@@ -29,7 +29,7 @@ problems.
 
 The game updates itself. At start-up it looks for a newer release, and asks
 if you want to install it. Refer to "Updates" in
-[port/linux/README.md](port/linux/README.md#updates).
+[port/linux/README.md](../port/linux/README.md#updates).
 
 Each build of the `main` branch that passes on all three platforms is a new
 release. The [Releases](https://github.com/OpenCommunityEdition/OpenCE/releases)
@@ -50,7 +50,7 @@ so players of the two versions can play together.
 
 On Linux and Windows, the game puts `maps/` next to the executable. On
 Android, copy the disc image to the phone first. The app puts `maps/` in its
-data folder. Refer to [port/android/README.md](port/android/README.md).
+data folder. Refer to [port/android/README.md](../port/android/README.md).
 
 ## Platforms
 
@@ -58,9 +58,9 @@ Each platform has its own instructions:
 
 | Platform | Instructions |
 | --- | --- |
-| Linux (32-bit x86 executable, OpenGL 4.5, SDL3) | [port/linux/README.md](port/linux/README.md) |
-| Windows (32-bit x86 executable, OpenGL 4.5, SDL3) | [port/windows/README.md](port/windows/README.md) |
-| Android (arm64 app, OpenGL ES 3, SDL3) | [port/android/README.md](port/android/README.md) |
+| Linux (32-bit x86 executable, OpenGL 4.5, SDL3) | [port/linux/README.md](../port/linux/README.md) |
+| Windows (32-bit x86 executable, OpenGL 4.5, SDL3) | [port/windows/README.md](../port/windows/README.md) |
+| Android (arm64 app, OpenGL ES 3, SDL3) | [port/android/README.md](../port/android/README.md) |
 
 The Linux README also gives the controls, the settings and the multiplayer
 functions. These are almost the same on all platforms.
@@ -75,12 +75,12 @@ The game can play system link games on a local network and on the internet:
   this project is necessary.
 - The netcode is new. Each machine moves its own player at once,
   and the host makes the decisions for the game. Refer to
-  [port/linux/NETCODE.md](port/linux/NETCODE.md).
+  [port/linux/NETCODE.md](../port/linux/NETCODE.md).
 
 ## Build the game
 
 You do not need the Xbox SDK. The port supplies the SDK declarations that
-the game uses. Refer to [port/include/xdk](port/include/xdk/README.md).
+the game uses. Refer to [port/include/xdk](../port/include/xdk/README.md).
 
 To build the game:
 

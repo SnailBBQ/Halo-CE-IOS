@@ -36,8 +36,8 @@ typedef struct HaloVaProbe {
     int aligned_error;             /* the error of the first window that failed */
 } HaloVaProbe;
 
-/* the fixed 4 GiB-aligned windows tried, from 8 GiB upward (the first 4 GiB belong to the executable's page zero) */
-static inline uint64_t halo_va_candidate(unsigned index) { return ((uint64_t)index + 2u) << 32; }
+/* the fixed 4 GiB-aligned windows tried, from 4 GiB upward (the first 4 GiB belong to the executable's page zero) */
+static inline uint64_t halo_va_candidate(unsigned index) { return ((uint64_t)index + 1u) << 32; }
 
 /* Reserve exactly `hint` (or anywhere when 0). A reserver that answers with a different address is refused and released. */
 static inline int halo_va_reserve_at(const HaloVaReserver *r, uint64_t hint, uint64_t size, uint64_t *placed, int *error) {
@@ -106,6 +106,12 @@ static inline void halo_va_text(char *out, size_t size, size_t *used, const char
     *used += ((size_t)n < size - *used) ? (size_t)n : size - *used - 1;
 }
 
+/* an error code in words: -1 is how a fixed request that the system placed elsewhere is recorded */
+static inline void halo_va_error_text(int code, char *out, size_t size) {
+    if (code == -1) snprintf(out, size, "the system placed it elsewhere");
+    else snprintf(out, size, "error %d", code);
+}
+
 static inline void halo_va_probe_format(const HaloVaProbe *p, char *out, size_t size) {
     size_t used = 0;
     if (!size) return;
@@ -120,7 +126,11 @@ static inline void halo_va_probe_format(const HaloVaProbe *p, char *out, size_t 
     else halo_va_text(out, size, &used, " (reached the %u GiB test limit)", (unsigned)HALO_VA_CHAIN_MAX);
     halo_va_text(out, size, &used, "\n  fixed 4 GiB-aligned windows: %u of %u usable", p->aligned_ok, p->aligned_tried);
     if (p->aligned_ok) halo_va_text(out, size, &used, " (first at 0x%llx)", (unsigned long long)p->first_aligned);
-    else halo_va_text(out, size, &used, " (first refusal: error %d)", p->aligned_error);
+    else {
+        char why[48];
+        halo_va_error_text(p->aligned_error, why, sizeof(why));
+        halo_va_text(out, size, &used, " (first refusal: %s)", why);
+    }
     halo_va_text(out, size, &used, "\n");
 }
 

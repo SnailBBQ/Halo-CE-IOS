@@ -3038,51 +3038,6 @@ static void *resolve_host_import(const char *name)
 
 /* ---------- ELF image ---------- */
 
-#if defined(HALO_SIGNED_GUEST) && HALO_SIGNED_GUEST
-/* Non-Jailbreak build for SideStore, Sideloadly and AltStore. The executable bytes
- * were linked into the signed app, so they can run without marking fresh memory executable. */
-extern const uint8_t halo_signed_guest_code[];
-extern const uint32_t halo_signed_guest_va;
-extern const uint32_t halo_signed_guest_size;
-
-static int remap_signed_guest_code(void)
-{
-    uintptr_t source = (uintptr_t)halo_signed_guest_code;
-    size_t page = halo_guest_page_size();
-    if (!page || (source & (page - 1)) || (halo_signed_guest_size & (page - 1)) ||
-        !halo_signed_guest_size || (uint64_t)halo_signed_guest_va + halo_signed_guest_size > FOUR_GB)
-    {
-        say("SIGNED GUEST: signed code is missing or not aligned to the device page (source 0x%llx, %u bytes, page %zu).",
-            (unsigned long long)source, halo_signed_guest_size, page);
-        say("STARTUP BLOCKED: SIGNED CODE");
-        return 0;
-    }
-    void *guest = halo_guest_ptr(halo_signed_guest_va, halo_signed_guest_size);
-    if (!guest)
-    {
-        say("SIGNED GUEST: guest address 0x%08x is outside the arena.", halo_signed_guest_va);
-        say("STARTUP BLOCKED: SIGNED CODE");
-        return 0;
-    }
-    vm_address_t target = (vm_address_t)guest;
-    vm_prot_t current = 0, maximum = 0;
-    kern_return_t result = vm_remap(mach_task_self(), &target, (vm_size_t)halo_signed_guest_size, 0,
-        VM_FLAGS_FIXED | VM_FLAGS_OVERWRITE, mach_task_self(), (vm_address_t)source,
-        FALSE, &current, &maximum, VM_INHERIT_COPY);
-    if (result != KERN_SUCCESS || target != (vm_address_t)guest ||
-        !(current & VM_PROT_EXECUTE) || (current & VM_PROT_WRITE))
-    {
-        say("SIGNED GUEST: vm_remap failed (kern %d, protection %d).", (int)result, (int)current);
-        say("STARTUP BLOCKED: SIGNED CODE");
-        return 0;
-    }
-    sys_icache_invalidate(guest, halo_signed_guest_size);
-    say("SIGNED GUEST: remapped signed app code at 0x%08x, %u bytes, protection %d.",
-        halo_signed_guest_va, halo_signed_guest_size, (int)current);
-    return 1;
-}
-#endif
-
 static int load_guest_image(NSString *path)
 {
     NSError *error=nil;
@@ -3138,7 +3093,7 @@ static int load_guest_image(NSString *path)
     halo_crash_phase("guest image: mapping the image span");
     if(!halo_guest_commit(span_low,span_high-span_low))
     {
-#if defined(HALO_MOD_TEST)
+#if defined(HALO_MOD_TEST) || defined(HALO_NON_JAILBREAK)
         int memory_error=errno;
         say("Startup memory detail: RW commit errno=%d (%s)",memory_error,strerror(memory_error));
         say("STARTUP BLOCKED: GUEST IMAGE COMMIT");
@@ -3146,11 +3101,6 @@ static int load_guest_image(NSString *path)
         say("FULL GUEST: could not map the guest image (0x%08x..0x%08x, %u MiB).",span_low,span_high,(span_high-span_low)>>20);
         return 0;
     }
-#if defined(HALO_SIGNED_GUEST) && HALO_SIGNED_GUEST
-    halo_crash_phase("guest image: remapping signed code");
-    if(!remap_signed_guest_code()) return 0;
-#endif
-
     uint32_t low=UINT32_MAX, high=0;
     for(uint16_t i=0;i<g_ehdr->e_phnum;i++)
     {
@@ -3158,21 +3108,6 @@ static int load_guest_image(NSString *path)
 
         uint32_t va=(uint32_t)ph[i].p_vaddr;
         uint32_t mem=(uint32_t)ph[i].p_memsz;
-#if defined(HALO_SIGNED_GUEST) && HALO_SIGNED_GUEST
-        {
-            uint64_t signed_end=(uint64_t)halo_signed_guest_va+halo_signed_guest_size;
-            uint64_t seg_end=(uint64_t)va+mem;
-            int overlaps=va<signed_end && seg_end>halo_signed_guest_va;
-            int inside=va>=halo_signed_guest_va && seg_end<=signed_end;
-            if(overlaps && !inside)
-            {
-                say("SIGNED GUEST: segment %u crosses the signed code.",(unsigned)i);
-                say("STARTUP BLOCKED: SIGNED CODE");
-                return 0;
-            }
-            if(inside) continue;
-        }
-#endif
         void *dst=halo_guest_ptr(va,mem);
         if(!dst){ say("FULL GUEST: segment %u has no host address.",(unsigned)i); return 0; }
         halo_crash_phase("guest image: copying segments");
@@ -3235,27 +3170,6 @@ static int load_guest_image(NSString *path)
             if(ph[i].p_flags&PF_X)prot|=PROT_EXEC;
         }
 
-#if defined(HALO_SIGNED_GUEST) && HALO_SIGNED_GUEST
-        {
-            uint64_t signed_end=(uint64_t)halo_signed_guest_va+halo_signed_guest_size;
-            if(page>=halo_signed_guest_va && page_end<=signed_end)
-            {
-                if(prot&PROT_WRITE)
-                {
-                    say("SIGNED GUEST: signed page 0x%08x also needs to be writable.",(uint32_t)page);
-                    say("STARTUP BLOCKED: SIGNED CODE");
-                    return 0;
-                }
-                continue;
-            }
-            if(prot&PROT_EXEC)
-            {
-                say("SIGNED GUEST: executable page 0x%08x is outside the signed remap.",(uint32_t)page);
-                say("STARTUP BLOCKED: SIGNED CODE");
-                return 0;
-            }
-        }
-#endif
         if(prot && !halo_guest_protect((uint32_t)page,(size_t)page_size,prot))
         {
             int error=errno;
@@ -3720,7 +3634,7 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
     const uint32_t stack_size=16*1024*1024;
     if(!halo_guest_commit(stack_va,stack_size))
     {
-#if defined(HALO_MOD_TEST)
+#if defined(HALO_MOD_TEST) || defined(HALO_NON_JAILBREAK)
         int memory_error=errno;
         say("Startup memory detail: RW commit errno=%d (%s)",memory_error,strerror(memory_error));
         say("STARTUP BLOCKED: GUEST STACK COMMIT");

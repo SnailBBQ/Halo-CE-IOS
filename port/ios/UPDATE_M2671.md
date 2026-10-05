@@ -1,5 +1,7 @@
 # M2.6.71 — SideStore build: run the signed game code
 
+> **Superseded.** the SideStore signed-code build described here was removed in [M2.6.73](UPDATE_M2673.md): its extractor rejected the real guest layout, and the address-space reservation it could not help with is what stops a stock install. The notes below are kept as history.
+
 Regular app stays **0.2.70**. This is a manual third app, **Halo CE SideStore 0.2.71**, bundle ID `com.haloceuniversal.ios.sidestore`. It does not replace the TrollStore IPA.
 
 ## What changed

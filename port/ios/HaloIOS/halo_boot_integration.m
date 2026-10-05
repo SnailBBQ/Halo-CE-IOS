@@ -80,7 +80,7 @@ static void boot_non_jailbreak_diagnostics(void (^line)(const char *))
     struct kinfo_proc process;
     size_t process_size = sizeof(process);
     memset(&process, 0, sizeof(process));
-    line("Non-Jailbreak Version (M2.6.69): the official app plus address-space and JIT diagnostics. Nothing changes when the normal reservation works.");
+    line("Non-Jailbreak Version (M2.6.73): the official app plus address-space and JIT diagnostics. Nothing changes when the normal reservation works.");
     say(line, "Host compiled: %s %s; bundle=%s", __DATE__, __TIME__, NSBundle.mainBundle.bundleIdentifier.UTF8String ?: "unknown");
     if (sysctl(mib, 4, &process, &process_size, NULL, 0) == 0 && process_size == sizeof(process))
         say(line, "Debugger attached at boot: %s (does not prove JIT authorization)", (process.kp_proc.p_flag & P_TRACED) ? "yes" : "no");
@@ -88,6 +88,11 @@ static void boot_non_jailbreak_diagnostics(void (^line)(const char *))
         say(line, "Debugger attached at boot: unknown (sysctl errno=%d)", errno);
     halo_guest_runtime_exec_report(text, sizeof(text));
     line(text);
+    {
+        char map[2048];
+        halo_guest_runtime_vm_report(map, sizeof(map));
+        say_block(line, map);
+    }
 }
 #endif
 
@@ -95,7 +100,7 @@ void halo_ios_start_game_boot(void (^line)(const char *text))
 {
     line("Halo CE iOS — starting engine");
 #if defined(HALO_MOD_TEST)
-    line("Mod Test: separate app for large campaign maps. Not a PC or Master Chief Collection loader.");
+    line("Mod Test build: separate app for large campaign maps. Not a PC or Master Chief Collection loader.");
 #endif
     line("");
 #if defined(HALO_ALIGNED_ARENA_TEST) && HALO_ALIGNED_ARENA_TEST

@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 HOST = ROOT / "port/ios/HaloIOS"
 FLAGGED_FILES = ["halo_guest_runtime.c", "halo_guest_runtime.h", "halo_boot_integration.m"]
-NEW_TOKENS = ["halo_va_plan", "halo_va_", "HaloVaProbe", "HaloVaReserver", "HaloJitProbe", "nonjb_", "exec_report", "csops", "boot_non_jailbreak_diagnostics", "say_block", "Non-Jailbreak"]   # not kinfo_proc: Mod Test's own S1 logging uses it unconditionally
+NEW_TOKENS = ["halo_va_plan", "halo_va_", "HaloVaProbe", "HaloVaReserver", "HaloJitProbe", "nonjb_", "exec_report", "csops", "boot_non_jailbreak_diagnostics", "say_block", "halo_va_map", "vm_report", "HaloVaMapStats", "HaloVaRegion", "Non-Jailbreak"]   # not kinfo_proc: Mod Test's own S1 logging uses it unconditionally
 
 
 def outside_flag_blocks(text):
@@ -43,9 +43,10 @@ class NonJailbreakFlagTests(unittest.TestCase):
 
     def test_no_other_source_pulls_the_planner_in(self):
         for path in list(HOST.glob("*.[chm]")) + list((ROOT / "port/ios").glob("*.c")):
-            if path.name in ("halo_va_plan.h", "halo_guest_runtime.c"):
+            if path.name in ("halo_va_plan.h", "halo_va_map.h", "halo_guest_runtime.c"):
                 continue
-            self.assertNotIn("halo_va_plan.h", path.read_text(encoding="utf-8", errors="replace"), path.name)
+            for header in ("halo_va_plan.h", "halo_va_map.h"):
+                self.assertNotIn(header, path.read_text(encoding="utf-8", errors="replace"), path.name)
 
     def compile(self, folder, flag, extra, output):
         cmd = [os.environ.get("CC", "cc"), "-std=gnu11", "-Wall", "-Wextra", "-Werror", "-I" + str(HOST)] + (["-DHALO_NON_JAILBREAK=" + flag] if flag is not None else []) + extra + [str(HOST / "halo_guest_runtime.c")]
@@ -68,9 +69,9 @@ class NonJailbreakFlagTests(unittest.TestCase):
                 self.assertEqual(built.returncode, 0, built.stderr[-1500:])
                 symbols[label] = subprocess.run([nm, str(Path(folder) / f"{label}.o")], capture_output=True, text=True).stdout
             for label in ("off", "undefined"):
-                for new in ("nonjb", "exec_report", "halo_va_", "csops"):
+                for new in ("nonjb", "exec_report", "vm_report", "halo_va_", "csops"):
                     self.assertNotIn(new, symbols[label], f"flag {label}: symbol '{new}' leaked into the ordinary build")
-            for new in ("halo_guest_runtime_nonjb_report", "halo_guest_runtime_exec_report"):
+            for new in ("halo_guest_runtime_nonjb_report", "halo_guest_runtime_exec_report", "halo_guest_runtime_vm_report"):
                 self.assertIn(new, symbols["on"], f"flag on: {new} is missing")
             self.assertEqual(symbols["off"].replace("_off", ""), symbols["undefined"].replace("_undefined", ""), "flag=0 and no flag must build identically")
 

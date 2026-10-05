@@ -60,13 +60,18 @@ assert 'gh release' not in wf and 'gh release' not in memory
 assert "      non_jailbreak:\n        description:" in wf and "        type: boolean\n        default: false\n      arena_fastpath:" in wf
 assert wf.count('-DHALO_NON_JAILBREAK=1') == 1 and "if [ \"$NON_JAILBREAK\" = true ]; then" in wf
 assert "sidestore:" not in wf and "com.haloceuniversal.ios.sidestore" not in wf and "HaloCE-iOS-Sidestore" not in wf
-assert "tools/ios_signed_guest.py" in wf and "HaloIOS-NonJailbreak.entitlements" in wf and "--require-absent-memory" in wf
+assert "ios_signed_guest" not in wf and "HALO_SIGNED_GUEST" not in wf and "SIGNED GUEST" not in wf and "HaloIOS-NonJailbreak.entitlements" in wf and "--require-absent-memory" in wf
+assert "elif [ \"$NON_JAILBREAK\" = true ]; then\n            HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_NON_JAILBREAK=1')" in wf, 'the Non-Jailbreak flag links nothing into the app'
 assert wf.count('uses: actions/checkout@v4') == 2 and 'ref:' not in wf, 'every iOS build uses the commit you started, not another branch'
 identity=wf.split("if [ \"$COMPATIBILITY_TEST\" = true ]; then\n            /usr/libexec/PlistBuddy",1)[1].split('\n          fi',1)[0]
 assert 'NON_JAILBREAK' not in identity and 'com.haloceuniversal.ios.modtest' in identity, 'only Mod Test changes the bundle identifier'
 assert '-DHALO_MOD_TEST=1' in wf and '-DHALO_ALIGNED_ARENA_TEST=1 -DHALO_MOD_TEST=1' in wf
 assert wf.index('Reject conflicting build flavors') < wf.index('- name: Install Ninja') and 'not both' in wf
 assert "inputs.non_jailbreak && 'HaloCE-iOS-NonJailbreak' || inputs.compatibility_test && 'HaloCE-iOS-ModTest' || 'HaloCE-iOS'" in wf
-assert "Address-space probe (nothing stays reserved)" in wf and "elif grep -q -e 'Non-Jailbreak Version (' -e 'Address-space probe (nothing stays reserved)' -e 'SIGNED GUEST:'" in wf
-assert 'va_plan' in memory and 'test_ios_non_jailbreak_flag.py' in memory and 'test_ios_mod_cache_policy.c' in memory
+assert "Address-space probe (nothing stays reserved)" in wf and "elif grep -q -e 'Non-Jailbreak Version (' -e 'Address-space probe (nothing stays reserved)' <<<" in wf
+assert 'va_plan' in memory and 'va_map' in memory and 'test_ios_non_jailbreak_flag.py' in memory and 'test_ios_mod_test_flag.py' in memory and 'test_ios_mod_cache_policy.c' in memory
+# Mod Test: its version follows the official one, and its code is proved absent from every other build.
+assert "Set :CFBundleShortVersionString ${OFFICIAL_SHORT}.1" in wf and "Set :CFBundleVersion ${OFFICIAL_BUILD}01" in wf and '0.2.70.1' not in wf and '267001' not in wf
+assert "elif grep -q -e 'MOD TEST:'" in wf and "'Mod Test build:'" in wf
+assert "Mod Test app: " in wf and "Non-Jailbreak Version: " in wf and "Pointer rewrite (recommended)" in wf
 print('PASS: main-only automatic IPA, diagnostics dependency, per-flavor cancellation, no native-port workflow, no profile-guided option, and Mod Test and Non-Jailbreak flavors that cannot touch an ordinary run')

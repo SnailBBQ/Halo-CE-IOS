@@ -1,13 +1,15 @@
 # Release notes
 
-The current update is **M2.6.72**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.73**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.72](../../port/ios/UPDATE_M2672.md) removes the separate SideStore checkbox. **Non-Jailbreak** is now the signed-code IPA for SideStore, Sideloadly and AltStore. The regular TrollStore IPA is unchanged.
+**Latest:** [M2.6.73](../../port/ios/UPDATE_M2673.md) takes the signed-code experiment out of the Non-Jailbreak Version, which is a diagnostics build again, and adds an address-space map to its log. Nothing is device-tested yet.
+
+**Previous:** [M2.6.72](../../port/ios/UPDATE_M2672.md) made Non-Jailbreak a signed-code build. Removed in M2.6.73.
 
 **Previous:** [M2.6.71](../../port/ios/UPDATE_M2671.md) added that signed-code path as its own SideStore checkbox. Superseded by M2.6.72.
 
@@ -37,6 +39,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.73 | Non-Jailbreak Version is a diagnostics build again (signed-code path removed); address-space map in its log; Mod Test version derived. Device validation pending. |
 | M2.6.72 | Non-Jailbreak is the signed-code IPA. The separate SideStore checkbox is gone. Device validation pending. |
 | M2.6.69 | Manual Non-Jailbreak Version build: address-space and JIT diagnostics and a fixed 4 GiB window fallback; ordinary builds unchanged. Device validation pending. |
 | M2.6.68 | Clearer checkpoint identity and ammo fields; 999% vitality and 127-grenade limits. |
