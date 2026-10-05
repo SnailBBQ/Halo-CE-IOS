@@ -1297,6 +1297,13 @@ static long dsound_volume_from_gain(
 {
 	long volume= maximum_volume;
 
+	/* A sound tag can store a gain outside 0..1. Playing it at the nearest
+	 * legal volume must not halt a checked build. */
+	if (!(gain>=0.f))
+		gain= 0.f;
+	else if (gain>1.f)
+		gain= 1.f;
+
 	match_assert(
 		"c:\\halo\\source\\sound\\sound_dsound.h",
 		35,
@@ -2383,16 +2390,28 @@ static void dsound_channel_set_properties(
 	boolean gain_only)
 {
 	struct sound_channel *channel= channel_get(channel_index);
-	real gain= dsound_globals.pause_gain*properties->gain;
+	real requested= properties->gain;
+	real pause= dsound_globals.pause_gain;
+
+	if (!(requested>=0.f))
+		requested= 0.f;
+	else if (requested>1.f)
+		requested= 1.f;
+	if (!(pause>=0.f))
+		pause= 0.f;
+	else if (pause>1.f)
+		pause= 1.f;
+
+	real gain= pause*requested;
 
 	match_assert(
 		"c:\\halo\\SOURCE\\sound\\sound_dsound_xbox.c",
 		980,
-		properties->gain>=0.f && properties->gain<=1.f);
+		requested>=0.f && requested<=1.f);
 	match_assert(
 		"c:\\halo\\SOURCE\\sound\\sound_dsound_xbox.c",
 		981,
-		dsound_globals.pause_gain>=0 && dsound_globals.pause_gain<=1.f);
+		pause>=0 && pause<=1.f);
 	match_assert(
 		"c:\\halo\\SOURCE\\sound\\sound_dsound_xbox.c",
 		982,
