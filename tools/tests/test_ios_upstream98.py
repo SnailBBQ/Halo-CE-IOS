@@ -77,3 +77,6 @@ runner=(r/'port/ios/HaloIOS/halo_guest_runner.m').read_text(encoding='utf-8')
 assert 'if(g_guest_exit_code==0)halo_ios_quit_app();' in runner
 assert 'NSDataWritingAtomic error:&brokerError' in runner
 print('PASS: broker packaging and atomic installation; only normal zero-code guest exit quits the app')
+
+for declaration in ("static _Atomic(uint32_t) g_phys_held[2];", "static _Atomic(int32_t) g_phys_axis[2][6];"):
+ assert runner.index(declaration)<runner.index("static int ios_settings_value("), "native input state must be declared before the routing guard"

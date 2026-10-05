@@ -784,6 +784,8 @@ void halo_ios_engine_settings_changed(const void *before, const void *after) {
 /* Each slot is a 64-byte text value; validate before reading or writing. */
 static _Atomic int g_local_coop;
 static _Atomic int g_phys_present[2];
+static _Atomic(int32_t) g_phys_axis[2][6];
+static _Atomic(uint32_t) g_phys_held[2];
 static _Atomic int g_coop_primary = -1, g_coop_secondary = 0;
 int halo_ios_coop_touch_primary(void) { return atomic_load(&g_local_coop) && atomic_load(&g_coop_primary)<0; }
 static int physical_slot(uint32_t pad) {
@@ -2444,9 +2446,7 @@ static int ios_sdl_show_simple_message_box(uint32_t flags, uint32_t title, uint3
 
 static _Atomic(uint32_t) g_menu_held;
 static _Atomic(uint32_t) g_menu_pending;
-static _Atomic(uint32_t) g_phys_held[2];
 static _Atomic(int32_t) g_touch_axis[6];
-static _Atomic(int32_t) g_phys_axis[2][6];
 
 static int32_t clamp_axis(int32_t value, int axis)
 {
