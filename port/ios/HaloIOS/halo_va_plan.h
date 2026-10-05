@@ -18,12 +18,21 @@
 #define HALO_VA_CHAIN_MAX 16
 #define HALO_VA_CANDIDATES 24
 
+/* recorded in place of a system error code */
+#define HALO_VA_ERR_PLACED_ELSEWHERE (-1)   /* a fixed request that the system answered at another address */
+#define HALO_VA_ERR_UNALIGNED (-2)          /* the system returned a window that is not aligned to its size */
+#define HALO_VA_ERR_NOT_ATTEMPTED (-3)      /* this platform cannot ask the system to find an aligned window */
+#define HALO_VA_ERR_NO_REASON (-4)          /* the request failed and gave no reason */
+
 typedef struct HaloVaReserver {
     void *context;
     /* Reserve size bytes of address space with no access. hint 0: anywhere. A non-zero hint asks for exactly that address and
        must not move or overwrite anything. Returns 1 and the base, or 0 and the system's error code. */
     int (*reserve)(void *context, uint64_t hint, uint64_t size, uint64_t *base, int *error);
     void (*release)(void *context, uint64_t base, uint64_t size);
+    /* Optional (NULL when the platform cannot): ask the system itself for a window of `size` bytes aligned to `size`, at whatever address
+       it finds free. Returns 1 and the base, or 0 and the system's error code. */
+    int (*reserve_aligned)(void *context, uint64_t size, uint64_t *base, int *error);
 } HaloVaReserver;
 
 typedef struct HaloVaProbe {
@@ -34,6 +43,9 @@ typedef struct HaloVaProbe {
     unsigned aligned_tried, aligned_ok;
     uint64_t first_aligned;        /* the first 4 GiB-aligned window that could be reserved (0: none) */
     int aligned_error;             /* the error of the first window that failed */
+    unsigned aligned_vm_tried, aligned_vm_ok;   /* the system's own search for an aligned 4 GiB window (one try) */
+    uint64_t aligned_vm_base;
+    int aligned_vm_error;
 } HaloVaProbe;
 
 /* the fixed 4 GiB-aligned windows tried, from 4 GiB upward (the first 4 GiB belong to the executable's page zero) */
@@ -46,6 +58,20 @@ static inline int halo_va_reserve_at(const HaloVaReserver *r, uint64_t hint, uin
     if (!r->reserve(r->context, hint, size, &base, &code)) { if (error) *error = code ? code : -1; return 0; }
     if (hint && base != hint) { r->release(r->context, base, size); if (error) *error = -1; return 0; }
     if (placed) *placed = base;
+    return 1;
+}
+
+/* Ask the system to find a 4 GiB window aligned to 4 GiB itself. This needs only 4 GiB of address space, where the production path
+   needs 8, and it is the only request a system with a small address space may grant. On success the window stays reserved for the
+   caller. A window that is not aligned is released and refused. */
+static inline int halo_va_try_aligned_arena(const HaloVaReserver *r, uint64_t *base, int *error) {
+    uint64_t placed = 0;
+    int code = 0;
+    if (!r->reserve_aligned) { if (error) *error = HALO_VA_ERR_NOT_ATTEMPTED; return 0; }
+    if (!r->reserve_aligned(r->context, HALO_VA_ARENA, &placed, &code)) { if (error) *error = code ? code : HALO_VA_ERR_NO_REASON; return 0; }
+    if (placed & (HALO_VA_ARENA - 1)) { r->release(r->context, placed, HALO_VA_ARENA); if (error) *error = HALO_VA_ERR_UNALIGNED; return 0; }
+    *base = placed;
+    if (error) *error = 0;
     return 1;
 }
 
@@ -93,6 +119,13 @@ static inline void halo_va_probe_run(const HaloVaReserver *r, HaloVaProbe *p) {
             r->release(r->context, candidate, HALO_VA_ARENA);
         } else if (!p->aligned_error) p->aligned_error = code;
     }
+    p->aligned_vm_tried = r->reserve_aligned != NULL;
+    if (p->aligned_vm_tried) {
+        uint64_t base = 0;
+        int code = 0;
+        if (halo_va_try_aligned_arena(r, &base, &code)) { p->aligned_vm_ok = 1; p->aligned_vm_base = base; r->release(r->context, base, HALO_VA_ARENA); }
+        else p->aligned_vm_error = code;
+    }
 }
 
 static inline void halo_va_text(char *out, size_t size, size_t *used, const char *fmt, ...) {
@@ -106,10 +139,21 @@ static inline void halo_va_text(char *out, size_t size, size_t *used, const char
     *used += ((size_t)n < size - *used) ? (size_t)n : size - *used - 1;
 }
 
-/* an error code in words: -1 is how a fixed request that the system placed elsewhere is recorded */
+/* an error code in words: the negative codes are this planner's own (see above), the others the system's */
 static inline void halo_va_error_text(int code, char *out, size_t size) {
-    if (code == -1) snprintf(out, size, "the system placed it elsewhere");
+    if (code == HALO_VA_ERR_PLACED_ELSEWHERE) snprintf(out, size, "the system placed it elsewhere");
+    else if (code == HALO_VA_ERR_UNALIGNED) snprintf(out, size, "the system returned a window that is not 4 GiB-aligned");
+    else if (code == HALO_VA_ERR_NOT_ATTEMPTED) snprintf(out, size, "not attempted on this platform");
+    else if (code == HALO_VA_ERR_NO_REASON) snprintf(out, size, "the system gave no reason");
     else snprintf(out, size, "error %d", code);
+}
+
+/* the same for the system's own search, whose positive codes are Mach kernel return codes */
+static inline void halo_va_aligned_error_text(int code, char *out, size_t size) {
+    if (code == 3) snprintf(out, size, "no free aligned 4 GiB range (KERN_NO_SPACE, 3)");
+    else if (code == 4) snprintf(out, size, "invalid argument (KERN_INVALID_ARGUMENT, 4)");
+    else if (code > 0) snprintf(out, size, "kernel error %d", code);
+    else halo_va_error_text(code, out, size);
 }
 
 static inline void halo_va_probe_format(const HaloVaProbe *p, char *out, size_t size) {
@@ -127,9 +171,17 @@ static inline void halo_va_probe_format(const HaloVaProbe *p, char *out, size_t 
     halo_va_text(out, size, &used, "\n  fixed 4 GiB-aligned windows: %u of %u usable", p->aligned_ok, p->aligned_tried);
     if (p->aligned_ok) halo_va_text(out, size, &used, " (first at 0x%llx)", (unsigned long long)p->first_aligned);
     else {
-        char why[48];
+        char why[96];
         halo_va_error_text(p->aligned_error, why, sizeof(why));
         halo_va_text(out, size, &used, " (first refusal: %s)", why);
+    }
+    halo_va_text(out, size, &used, "\n  4 GiB window aligned and found by the system itself (vm_map): ");
+    if (!p->aligned_vm_tried) halo_va_text(out, size, &used, "not attempted on this platform");
+    else if (p->aligned_vm_ok) halo_va_text(out, size, &used, "ok at 0x%llx", (unsigned long long)p->aligned_vm_base);
+    else {
+        char why[96];
+        halo_va_aligned_error_text(p->aligned_vm_error, why, sizeof(why));
+        halo_va_text(out, size, &used, "refused (%s)", why);
     }
     halo_va_text(out, size, &used, "\n");
 }

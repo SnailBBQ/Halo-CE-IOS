@@ -13,6 +13,9 @@ typedef struct {
     Range blocked[8]; unsigned blocked_count;   /* addresses something else already occupies */
     int lie;                            /* answer a fixed request with a different address */
     unsigned bad_releases;
+    int aligned_error;                  /* the system refuses its own aligned search with this code */
+    int aligned_misplaced;              /* the system answers its own aligned search with an unaligned address */
+    unsigned aligned_calls;
 } Space;
 
 static int overlaps(Range a, uint64_t base, uint64_t size) { return base < a.base + a.size && a.base < base + size; }
@@ -37,8 +40,22 @@ static void space_release(void *context, uint64_t base, uint64_t size) {
         if (s->held[i].base == base && s->held[i].size == size) { s->held[i] = s->held[--s->count]; s->used -= size; return; }
     s->bad_releases++;
 }
+/* the system's own search: the first 4 GiB-aligned address above where "anywhere" goes next, if the process may hold that much more */
+static int space_reserve_aligned(void *context, uint64_t size, uint64_t *base, int *error) {
+    Space *s = context;
+    uint64_t at;
+    s->aligned_calls++;
+    if (s->aligned_error) { *error = s->aligned_error; return 0; }
+    if (s->used + size > s->limit) { *error = 3; return 0; }
+    at = (s->cursor + size - 1) & ~(size - 1);
+    *base = s->aligned_misplaced ? at + 4096 : at;
+    s->held[s->count].base = *base; s->held[s->count].size = size; s->count++; s->used += size;
+    s->cursor = at + size;
+    return 1;
+}
 static Space make_space(uint64_t limit_gib) { Space s; memset(&s, 0, sizeof(s)); s.limit = limit_gib * HALO_VA_GIB; s.cursor = UINT64_C(0x4000000000); return s; }
-static HaloVaReserver reserver(Space *s) { HaloVaReserver r = { s, space_reserve, space_release }; return r; }
+static HaloVaReserver reserver(Space *s) { HaloVaReserver r = { .context = s, .reserve = space_reserve, .release = space_release }; return r; }
+static HaloVaReserver reserver_with_search(Space *s) { HaloVaReserver r = reserver(s); r.reserve_aligned = space_reserve_aligned; return r; }
 
 static void test_candidates(void) {
     CHECK(halo_va_candidate(0) == UINT64_C(0x100000000), "the first window is at 4 GiB");
@@ -91,6 +108,43 @@ static void test_fixed_arena(void) {
     CHECK(s.count == 0 && s.bad_releases == 0, "the probe also releases a wrongly placed answer");
 }
 
+static void test_aligned_arena(void) {
+    uint64_t base = 0; int error = 0, fixed_error = 0; unsigned tried = 0; HaloVaProbe p; char text[1536];
+    Space s = make_space(6); HaloVaReserver r = reserver_with_search(&s);
+    CHECK(halo_va_try_aligned_arena(&r, &base, &error) && error == 0 && base % HALO_VA_ARENA == 0 && base != 0, "6 GiB: the system finds an aligned window (0x%llx)", (unsigned long long)base);
+    CHECK(s.count == 1 && s.held[0].base == base && s.held[0].size == HALO_VA_ARENA && s.aligned_calls == 1, "exactly that 4 GiB window stays reserved for the caller");
+
+    s = make_space(3); r = reserver_with_search(&s);
+    CHECK(!halo_va_try_aligned_arena(&r, &base, &error) && error == 3 && s.count == 0, "3 GiB: the system has no aligned 4 GiB range (error %d) and nothing stays reserved", error);
+
+    s = make_space(100); s.aligned_error = 4; r = reserver_with_search(&s);
+    CHECK(!halo_va_try_aligned_arena(&r, &base, &error) && error == 4 && s.count == 0, "a refusal's code is passed on");
+    CHECK(halo_va_try_fixed_arena(&r, &base, &fixed_error, &tried) && base == halo_va_candidate(0), "when the system's own search is refused the fixed windows are still tried");
+
+    s = make_space(100); s.aligned_misplaced = 1; r = reserver_with_search(&s);
+    CHECK(!halo_va_try_aligned_arena(&r, &base, &error) && error == HALO_VA_ERR_UNALIGNED && s.count == 0 && s.bad_releases == 0, "an unaligned answer is refused and released (error %d)", error);
+
+    s = make_space(100); r = reserver(&s);
+    CHECK(!halo_va_try_aligned_arena(&r, &base, &error) && error == HALO_VA_ERR_NOT_ATTEMPTED && s.count == 0 && s.aligned_calls == 0, "a platform without the search is told so, and nothing is asked");
+
+    s = make_space(6); r = reserver_with_search(&s); halo_va_probe_run(&r, &p); halo_va_probe_format(&p, text, sizeof(text));
+    CHECK(p.aligned_vm_tried && p.aligned_vm_ok && p.aligned_vm_base % HALO_VA_ARENA == 0 && s.count == 0 && s.bad_releases == 0, "the probe tries the system's search once and releases what it got");
+    CHECK(strstr(text, "found by the system itself (vm_map): ok at 0x"), "report with a window:\n%s", text);
+    s = make_space(3); r = reserver_with_search(&s); halo_va_probe_run(&r, &p); halo_va_probe_format(&p, text, sizeof(text));
+    CHECK(p.aligned_vm_tried && !p.aligned_vm_ok && p.aligned_vm_error == 3 && strstr(text, "(vm_map): refused (no free aligned 4 GiB range (KERN_NO_SPACE, 3))"), "report when refused:\n%s", text);
+    s = make_space(100); s.aligned_misplaced = 1; r = reserver_with_search(&s); halo_va_probe_run(&r, &p); halo_va_probe_format(&p, text, sizeof(text));
+    CHECK(strstr(text, "refused (the system returned a window that is not 4 GiB-aligned)") && s.count == 0, "report for an unaligned answer:\n%s", text);
+    s = make_space(100); r = reserver(&s); halo_va_probe_run(&r, &p); halo_va_probe_format(&p, text, sizeof(text));
+    CHECK(!p.aligned_vm_tried && strstr(text, "(vm_map): not attempted on this platform"), "report without the search:\n%s", text);
+    for (size_t size = 0; size <= 400; size += (size < 8 ? 1 : 41)) {
+        unsigned char guarded[460];
+        memset(guarded, 0xA5, sizeof(guarded));
+        halo_va_probe_format(&p, (char *)guarded, size);
+        for (size_t i = size; i < sizeof(guarded); i++) if (guarded[i] != 0xA5) { CHECK(0, "buffer of %zu bytes was overrun at %zu", size, i); break; }
+        if (size) CHECK(memchr(guarded, 0, size) != NULL, "buffer of %zu bytes is not terminated", size);
+    }
+}
+
 static void test_format(void) {
     HaloVaProbe p; char text[1024];
     Space s = make_space(6); HaloVaReserver r = reserver(&s);
@@ -129,7 +183,7 @@ static void test_jit(void) {
 }
 
 int main(void) {
-    test_candidates(); test_ceilings(); test_fixed_arena(); test_format(); test_jit();
+    test_candidates(); test_ceilings(); test_fixed_arena(); test_aligned_arena(); test_format(); test_jit();
     if (!failures) printf("PASS: the address-space planner reports exact ceilings, takes the first free fixed 4 GiB-aligned window, never leaks or accepts a misplaced answer, formats safely, and classifies JIT availability\n");
     return failures ? 1 : 0;
 }

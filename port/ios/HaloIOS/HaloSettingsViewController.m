@@ -1272,7 +1272,7 @@ static UIColor *HaloColorFromRGB(unsigned rgb) {
     NSString *version = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?";
     [self add:HaloUICardView(@"About", @[
         HaloUIValueRow(@"App version", version, nil),
-        HaloUIValueRow(@"Game", @"Halo CE Universal build 89", nil),
+        HaloUIValueRow(@"Game", @"OpenCE build 115 (Halo CE Universal)", nil),
         HaloUINote(@"Everyone in a multiplayer game must be on the same game build.")])];
     [self add:HaloUICardView(@"Credits",@[
         HaloUINote(@"Halo CE Universal and the iOS port contributors."),

@@ -6,11 +6,11 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak diagnostic build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The current update is **M2.6.73**. The campaign and cross-play multiplayer work on a physical iPhone:
+> **Status: playable.** The current update is **M2.6.74**. The campaign and cross-play multiplayer work on a physical iPhone:
 > The maintainer reports playable `a10` and PC cross-play in earlier builds; results vary by device and scene. Some of the newest features are still being
 > validated on a device; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
-**Source update:** [M2.6.73](port/ios/UPDATE_M2673.md) takes the signed-code experiment out of the Non-Jailbreak Version, which is a diagnostics build again, and adds an address-space map to its log. Mod Test as a build option, the build menu, and the removal of the profile-guided option and the native-ports workflow stay as in [M2.6.70](port/ios/UPDATE_M2670.md). Windows, Linux and Android stay on [Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE/releases). Nothing here has been tested on a device.
+**Source update:** [M2.6.74](port/ios/UPDATE_M2674.md) integrates OpenCE build 115 (network co-op and co-op spectating, new display options, interface and gamepad changes) and adds the system's own aligned-window request to the Non-Jailbreak Version. Nothing in it has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of Halo CE Universal on PC" width="760"><br>

@@ -87,5 +87,20 @@ class NonJailbreakFlagTests(unittest.TestCase):
                 self.assertEqual("Address-space probe (nothing stays reserved)" in text, expected, f"flag={flag}")
 
 
+class AlignedAttemptOrderTests(unittest.TestCase):
+    """When the 8 GiB reservation is refused, the system's own aligned search comes before the fixed windows, and only in this flavor."""
+
+    def test_the_search_is_tried_first_and_only_inside_the_flagged_block(self):
+        text = (ROOT / "port/ios/HaloIOS/halo_guest_runtime.c").read_text(encoding="utf-8").replace("\r\n", "\n")
+        init = text[text.index("int halo_guest_runtime_init(void)"):]
+        refused = init[init.index("8 GiB virtual reservation failed"):]
+        self.assertLess(refused.index("halo_va_try_aligned_arena("), refused.index("halo_va_try_fixed_arena("))
+        flagged = refused[:refused.index("#endif")]
+        self.assertIn("halo_va_try_aligned_arena(", flagged)
+        self.assertIn("nonjb_reserve_aligned", text)
+        production = init[:init.index("8 GiB virtual reservation failed")]
+        self.assertNotIn("halo_va_try_aligned_arena(", production, "the production path must not use the planner")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=0)

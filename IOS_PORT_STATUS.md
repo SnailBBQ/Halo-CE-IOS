@@ -3,7 +3,7 @@
 **Status: playable.** **Current update: M2.6.72** (regular app still 0.2.70, Mod Test 0.2.70.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
 are still waiting for device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
 
-**Source update:** [M2.6.73](port/ios/UPDATE_M2673.md) takes the signed-code experiment out of the Non-Jailbreak Version, which is a diagnostics build again, and adds an address-space map to its log. Mod Test as a build option, the build menu, and the removal of the profile-guided option and the native-ports workflow stay as in [M2.6.70](port/ios/UPDATE_M2670.md). Windows, Linux and Android stay on [Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE/releases). Nothing here has been tested on a device.
+**Source update:** [M2.6.74](port/ios/UPDATE_M2674.md) integrates OpenCE build 115 (network co-op and co-op spectating, new display options, interface and gamepad changes) and adds the system's own aligned-window request to the Non-Jailbreak Version. Nothing in it has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 ## Two apps, plus a stock-iOS build
 
@@ -23,7 +23,7 @@ The regular app and Mod Test share the same features and are updated together. T
 
 ## Implemented, waiting for build/device validation
 
-- Halo CE Universal build 94 baseline, including multiplayer pause Settings/End Game, HUD name filtering and vehicle-seat fixes. Earlier build 84 integration added: signed public lobby discovery, public/private hosting and multiplayer join/leave fixes (M2.6.51).
+- OpenCE build 115 baseline (device-tested up to Halo CE Universal build 94), including multiplayer pause Settings/End Game, HUD name filtering and vehicle-seat fixes. Earlier build 84 integration added: signed public lobby discovery, public/private hosting and multiplayer join/leave fixes (M2.6.51).
 - The Settings additions of M2.6.48 (cheat sections and new cheats, left-handed layout, gyro, controller remap, heat-aware frame cap, performance overlay, Ambient volume, recent games and QR, Profiles, problem report, custom accent colours).
 - Picture options, touch aiming and AirPlay mirroring (M2.6.50).
 - The Mod Test loader has offline structural checks. Device attempts with converted Cursed Halo maps have failed; playable mod compatibility is not established.

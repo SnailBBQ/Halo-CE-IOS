@@ -67,17 +67,19 @@ struct xgpu_capabilities xgpu_capabilities;
 The Xbox screen is 640x480. The native ports can draw a wider one: 480
 lines, and as many columns as the display's shape gives. On Android that is
 display.screen_width (port_config.c; 640 keeps 4:3); on the desktop, the
-display's shape while the game is fullscreen, and 640 in a window. The
-game's camera derives its horizontal field of view from the viewport, so the
-3D view simply widens. The menus and full-screen overlays are laid out for
-640 columns; while they draw (halo_screen_ui_offset), everything shifts right
-to center them.
+shape of the window (of the display while the game is fullscreen, or of
+display.resolution), and 640 where display.resolution_scaling is "original".
+The game's camera derives its horizontal field of view from the viewport, so
+the 3D view simply widens. The menus and full-screen overlays are laid out
+for 640 columns; while they draw (halo_screen_ui_offset), everything shifts
+right to center them.
 
-Fullscreen on the desktop also draws at the display's resolution: render
+The desktop also draws at that resolution (platform_screen_mode): render
 targets the size of the screen get that many pixels (screen_scale), and
 viewports, clears and visibility counts are scaled to match, so the game
-still works in its 480 lines. The width and the scale change only between
-frames, after one is presented (halo_screen_commit). */
+still works in its 480 lines; "original" draws 640x480, scaled up at
+presentation. The width and the scale change only between frames, after one
+is presented (halo_screen_commit). */
 
 #define SCREEN_HEIGHT 480
 #define SCREEN_MAXIMUM_WIDTH 1920
@@ -2325,13 +2327,11 @@ extern void host_debug_state(int,unsigned int);
 #endif
 static void bind_textures(struct nv2a_pixel_shader_key *key, float texture_scale[4][4])
 {
+	/* Bind only after resolving every stage, since texture uploads can
+	overwrite the active unit's binding. */
+	GLenum gl_targets[D3DTSS_MAXSTAGES];
+	GLuint gl_textures[D3DTSS_MAXSTAGES];
 	int stage;
-#ifdef HALO_IOS_GUEST
-    GLenum prepared_targets[D3DTSS_MAXSTAGES];
-    GLuint prepared_textures[D3DTSS_MAXSTAGES];
-    BOOL prepared_mips[D3DTSS_MAXSTAGES] = {0};
-    BOOL prepared_hires[D3DTSS_MAXSTAGES] = {0};
-#endif
 
 	for (stage = 0; stage < D3DTSS_MAXSTAGES; stage++)
 	{
@@ -2342,12 +2342,8 @@ static void bind_textures(struct nv2a_pixel_shader_key *key, float texture_scale
 		texture_scale[stage][2] = texture_scale[stage][3] = 1.0f;
 		if (!texture || !texture->Data || mode == 0 || mode == 0x04 || mode == 0x05 || mode == 0x11)
 		{
-#ifdef HALO_IOS_GUEST
-			prepared_targets[stage] = GL_TEXTURE_2D;
-			prepared_textures[stage] = 0;
-#else
-			state_texture(stage, GL_TEXTURE_2D, 0);
-#endif
+			gl_targets[stage] = GL_TEXTURE_2D;
+			gl_textures[stage] = 0;
 			key->sampler_type[stage] = mode == 0x11 ? _xgpu_sampler_2d : _xgpu_sampler_none;
 			continue;
 		}
@@ -2361,10 +2357,6 @@ static void bind_textures(struct nv2a_pixel_shader_key *key, float texture_scale
 			{
 				xgpu_texture_describe(texture->Format, texture->Size, &description);
 				gl_texture = target->texture;
-#ifdef HALO_IOS_GUEST
-				if (feedback_source == target->texture)
-					gl_texture = feedback_texture;
-#endif
 				gl_target = GL_TEXTURE_2D;
 				if (description.linear)
 				{
@@ -2389,35 +2381,18 @@ static void bind_textures(struct nv2a_pixel_shader_key *key, float texture_scale
 					texture_scale[stage][1] = 1.0f / (float)description.height;
 				}
 			}
-#ifdef HALO_IOS_GUEST
-			prepared_targets[stage] = gl_target;
-			prepared_textures[stage] = gl_texture;
-			prepared_mips[stage] = description.levels > 1;
-			prepared_hires[stage] = description.hires;
-#else
-			state_texture(stage, gl_target, gl_texture);
+			gl_targets[stage] = gl_target;
+			gl_textures[stage] = gl_texture;
 			state_sampler(stage, device.samplers[stage]);
 			configure_sampler(stage, description.levels > 1, description.hires);
-#endif
 			if (stage == 0)
 				key->coverage_alpha = description.hires_coverage != FALSE;
 			key->sampler_type[stage] = gl_target == GL_TEXTURE_CUBE_MAP ? _xgpu_sampler_cube :
 				gl_target == GL_TEXTURE_3D ? _xgpu_sampler_3d : _xgpu_sampler_2d;
 		}
 	}
-#ifdef HALO_IOS_GUEST
-    /* Uploads and mip copies can change the active unit's binding. Resolve
-       every stage first, then establish all bindings for this draw. */
-    for (stage = 0; stage < D3DTSS_MAXSTAGES; ++stage)
-    {
-        state_texture(stage, prepared_targets[stage], prepared_textures[stage]);
-        if (key->sampler_type[stage] != _xgpu_sampler_none && prepared_textures[stage])
-        {
-            state_sampler(stage, device.samplers[stage]);
-            configure_sampler(stage, prepared_mips[stage], prepared_hires[stage]);
-        }
-    }
-#endif
+	for (stage = 0; stage < D3DTSS_MAXSTAGES; stage++)
+		state_texture(stage, gl_targets[stage], gl_textures[stage]);
 }
 #ifdef HALO_IOS_GUEST
 #undef bind_textures

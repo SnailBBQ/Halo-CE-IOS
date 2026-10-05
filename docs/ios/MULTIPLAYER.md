@@ -44,7 +44,9 @@ Ending hosting clears this app's owned invite export. A stopped lobby cannot be 
 
 ## Public discovery update
 
-**Source update:** M2.6.67 integrates OpenCE build 101. It includes upstream multiplayer split-screen lobby join/leave handling and adding local players before joining an in-progress match and loads signalling brokers from a packaged `brokers.txt` beside config.toml. The default list is refreshed at launch; choose another filename with `network.brokers_file` for a custom list. The retired `network.signalling_brokers` string is no longer used.
+**Source update:** M2.6.74 integrates OpenCE build 115, which adds network co-op code and co-op spectating on top of the M2.6.67 (build 101) lobby, split-screen and broker changes described next. Mixed builds may not interoperate, so update PC players to the matching OpenCE release.
+
+M2.6.67 integrated OpenCE build 101. It includes upstream multiplayer split-screen lobby join/leave handling and adding local players before joining an in-progress match and loads signalling brokers from a packaged `brokers.txt` beside config.toml. The default list is refreshed at launch; choose another filename with `network.brokers_file` for a custom list. The retired `network.signalling_brokers` string is no longer used.
 
 Public discovery depends on an active public host and reachable upstream brokers; it does not list every stock Halo PC or MCC server. iOS exposes two local input slots: touch plus one controller or two controllers. Upstream desktop support for four local players does not imply four-controller support in this iOS host. Build 98 cross-platform and local-player join/leave behavior still need device testing.
 

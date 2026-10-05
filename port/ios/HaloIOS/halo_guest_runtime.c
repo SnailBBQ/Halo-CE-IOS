@@ -72,6 +72,34 @@ static void nonjb_release(void *context, uint64_t base, uint64_t size)
     munmap((void *)(uintptr_t)base, (size_t)size);
 }
 
+/* Let the system search for a free window aligned to its own size. This is the same request the Mod Test app's direct allocation makes
+ * (vm_map, any address, aligned to the size, no access until committed); the Non-Jailbreak Version tries it only after the production
+ * reservation was refused. */
+#if defined(__APPLE__)
+static int nonjb_reserve_aligned(void *context, uint64_t size, uint64_t *base, int *error)
+{
+    vm_address_t address = 0;
+    kern_return_t result;
+    (void)context;
+    result = vm_map(mach_task_self(), &address, (vm_size_t)size, (vm_offset_t)(size - 1), VM_FLAGS_ANYWHERE, MEMORY_OBJECT_NULL, 0, FALSE,
+        VM_PROT_NONE, VM_PROT_ALL, VM_INHERIT_NONE);
+    if (result != KERN_SUCCESS)
+    {
+        *error = (int)result;
+        return 0;
+    }
+    *base = (uint64_t)address;
+    return 1;
+}
+#else
+static int nonjb_reserve_aligned(void *context, uint64_t size, uint64_t *base, int *error)
+{
+    (void)context; (void)size; (void)base;
+    *error = HALO_VA_ERR_NOT_ATTEMPTED;
+    return 0;
+}
+#endif
+
 /* Whether this process may make memory executable. Nothing is executed: pages are only mapped and re-protected, then released. */
 void halo_guest_runtime_exec_report(char *out, size_t size)
 {
@@ -217,15 +245,26 @@ int halo_guest_runtime_init(void)
             /* Non-Jailbreak Version only, and only because the production reservation was just refused: survey what this
              * install allows, then try one fixed 4 GiB-aligned window instead of the 8 GiB one. That window is exactly what
              * the production path would have kept, so nothing after this point differs. */
-            HaloVaReserver reserver = { NULL, nonjb_reserve, nonjb_release };
+            HaloVaReserver reserver = { NULL, nonjb_reserve, nonjb_release, nonjb_reserve_aligned };
             HaloVaProbe probe;
             uint64_t fixed = 0;
             int fixed_error = 0;
+            int aligned_error = 0;
             unsigned tried = 0;
             size_t used;
             halo_va_probe_run(&reserver, &probe);
             halo_va_probe_format(&probe, g_nonjb_report, sizeof(g_nonjb_report));
             used = strlen(g_nonjb_report);
+            if (halo_va_try_aligned_arena(&reserver, &fixed, &aligned_error))
+            {
+                halo_va_text(g_nonjb_report, sizeof(g_nonjb_report), &used,
+                    "Fallback: the 8 GiB reservation failed (errno %d), but the system itself found a 4 GiB-aligned 4 GiB window at 0x%llx.\n",
+                    error, (unsigned long long)fixed);
+                g_init_error[0] = 0;
+                g_page_size = (size_t)page;
+                g_guest_base = (uint8_t *)(uintptr_t)fixed;
+                return 1;
+            }
             if (halo_va_try_fixed_arena(&reserver, &fixed, &fixed_error, &tried))
             {
                 halo_va_text(g_nonjb_report, sizeof(g_nonjb_report), &used,
@@ -237,10 +276,12 @@ int halo_guest_runtime_init(void)
                 return 1;
             }
             {
-                char why[48];
+                char why[96], aligned_why[96];
                 halo_va_error_text(fixed_error, why, sizeof(why));
+                halo_va_aligned_error_text(aligned_error, aligned_why, sizeof(aligned_why));
                 halo_va_text(g_nonjb_report, sizeof(g_nonjb_report), &used,
-                    "Fallback: no fixed 4 GiB window could be reserved either (%u tried, first refusal: %s).\n", tried, why);
+                    "Fallback: no 4 GiB-aligned window could be had. The system's own search was refused (%s), and no fixed window could be reserved either (%u tried, first refusal: %s).\n",
+                    aligned_why, tried, why);
             }
         }
 #endif

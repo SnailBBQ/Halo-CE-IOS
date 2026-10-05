@@ -21,6 +21,38 @@ with ideas from VALORANT's netcode articles, keeping the 30 Hz tick:
   vehicle it drives) from its local input at once. Remote players are
   driven by the inputs the host relays every tick, the latest one held
   until a newer arrives.
+- **Actors driven.** Only the host runs the AI. Each tick it sends its
+  clients the control its actors gave their units (how they move, where
+  they face, aim and look, their trigger and buttons, their animation
+  impulses) with the units' state, those near a client's players every
+  tick and others less often; a client drives each unit with the latest
+  it has, as it drives a remote player's, until it hears nothing of it for
+  two seconds (`port/linux/game/network_actors.c`).
+- **Co-op.** A network game on a campaign level with no game engine
+  (Create Game's Map screen, whose campaign levels follow the multiplayer
+  maps over LAN and the internet) is co-op. Only the host runs the
+  level's scripts and spawns players. `network_coop.c` sends the clients
+  everything the scripts do that they would otherwise miss:
+  - every tick: the cinematic, camera, screen fade, the HUD settings the
+    scripts control (what is shown, the mission timer) and the skip vote;
+  - once each, numbered so nothing is applied twice: script sounds,
+    chapter titles, help and objective text, "Checkpoint" messages, screen
+    shake, nav points, and custom animations on units and scenery;
+  - device groups (doors, elevators, switches; a client sets none itself,
+    and its player's use of one is relayed to the host);
+  - which named objects exist, so scripted creates and deletes match.
+
+  Every machine follows the host's structure BSP. A dead player watches a
+  living teammate (`coop_spectate.c`) and comes back beside one once it is
+  safe. With everyone dead they come back where they were at the last
+  checkpoint, since only the host could revert. A level won ends the round
+  as in multiplayer, and the next round is the campaign's next level.
+
+  Cutscenes are skipped by vote: more than half the machines must press
+  skip. The host then reverts as single player does, but keeps its clock
+  moving forward (the netcode depends on that) and moves the script
+  threads' wake times along with it. The object, device and name syncs
+  bring the clients up to date.
 - **Host authoritative.** The host alone decides damage, deaths, spawns,
   pickups, scores and the game's objects; clients do not decide them but
   apply what the host sends.
@@ -93,7 +125,10 @@ is dead; version 8 is the first whose clients play by the host's rules
 (below), so a build without them joins no host of it; version 9 tells
 every machine of a player the host dropped for cheating, each client
 tells the host its Discord user, and a machine's join request carries its
-hardware id; version 10 sends every player's ping for the scoreboard.
+hardware id; version 10 sends every player's ping for the scoreboard;
+version 11 sends with the game's settings its gametype's PC options;
+version 12 plays the campaign together (co-op, above), drives the host's
+actors on its clients and sends the flinches and deaths the host picked.
 
 A client plays by its host's rules: in another's game (searching for it,
 in its lobby, or playing it) the developer console, the telnet console
@@ -282,8 +317,10 @@ a pregame keep-alive every five seconds from the host
      host's latest tick it had heard of when it made the report.
    - The host deals a report once it has checked it: from that machine's
      player; damage one of their weapons (a vehicle's a driver's or
-     gunner's; now or in the last ten seconds), their grenades (while they
-     have them, and for a while after) or the vehicle they drove (in the
+     gunner's; now or in the last ten seconds), a grenade the host's own game
+     saw them throw in the last ten seconds that has not gone off (each
+     throw's explosion is taken once, its other hits that tick with it:
+     holding grenades deals nothing) or the vehicle they drove (in the
      last ten seconds: its collisions) can deal (its projectiles' impacts
      and detonations, followed through the tags), no harder than it can be
      (all of it, but an airborne melee blow's half again); of the shape the

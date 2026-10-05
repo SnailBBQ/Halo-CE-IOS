@@ -5,7 +5,7 @@ statements about "current" behaviour in it describe the milestone they were writ
 
 ## Part 1 — Status log (the former project status page)
 
-Current iOS update: **M2.6.57** — Universal build 94, local split-screen campaign co-op, campaign tools, checkpoint editing and separate save/profile backups, shared by the regular and ModTest apps. See [release notes](../../port/ios/UPDATE_M2657.md). Device validation of local co-op is pending.
+Current iOS update: **M2.6.74** — OpenCE build 115. The earlier milestones below are kept as history; see the [release notes](RELEASE_NOTES.md) for the current state.
 
 Updated October 3, 2026. Current development milestone: **M2.6.51** (device testing pending).
 

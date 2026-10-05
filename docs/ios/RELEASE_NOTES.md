@@ -1,13 +1,15 @@
 # Release notes
 
-The current update is **M2.6.73**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.74**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.73](../../port/ios/UPDATE_M2673.md) takes the signed-code experiment out of the Non-Jailbreak Version, which is a diagnostics build again, and adds an address-space map to its log. Nothing is device-tested yet.
+**Latest:** [M2.6.74](../../port/ios/UPDATE_M2674.md) integrates OpenCE build 115 and adds the system's own aligned-window request to the Non-Jailbreak Version. Nothing is built on Apple hardware or device-tested yet.
+
+**Previous:** [M2.6.73](../../port/ios/UPDATE_M2673.md) took the signed-code experiment out of the Non-Jailbreak Version and added its address-space map.
 
 **Previous:** [M2.6.72](../../port/ios/UPDATE_M2672.md) made Non-Jailbreak a signed-code build. Removed in M2.6.73.
 
@@ -39,6 +41,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.74 | OpenCE build 115 (network co-op, co-op spectating, display options); the Non-Jailbreak Version asks the system for an aligned 4 GiB window. Device validation pending. |
 | M2.6.73 | Non-Jailbreak Version is a diagnostics build again (signed-code path removed); address-space map in its log; Mod Test version derived. Device validation pending. |
 | M2.6.72 | Non-Jailbreak is the signed-code IPA. The separate SideStore checkbox is gone. Device validation pending. |
 | M2.6.69 | Manual Non-Jailbreak Version build: address-space and JIT diagnostics and a fixed 4 GiB window fallback; ordinary builds unchanged. Device validation pending. |
