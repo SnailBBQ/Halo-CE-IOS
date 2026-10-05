@@ -3039,8 +3039,8 @@ static void *resolve_host_import(const char *name)
 /* ---------- ELF image ---------- */
 
 #if defined(HALO_SIGNED_GUEST) && HALO_SIGNED_GUEST
-/* SideStore / Sideloadly build. The executable bytes were linked into the signed
- * app, so they can run without marking fresh memory executable. */
+/* Non-Jailbreak build for SideStore, Sideloadly and AltStore. The executable bytes
+ * were linked into the signed app, so they can run without marking fresh memory executable. */
 extern const uint8_t halo_signed_guest_code[];
 extern const uint32_t halo_signed_guest_va;
 extern const uint32_t halo_signed_guest_size;

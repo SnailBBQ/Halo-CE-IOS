@@ -1,8 +1,9 @@
 """Copy the guest ELF's executable bytes into one 16 KiB-aligned blob.
 
-SideStore and Sideloadly can run code that was inside the signed app. They
-cannot mark a freshly copied ELF executable. The blob is linked into __TEXT
-and vm_remap'd over the guest addresses. Writable segments stay out of it.
+SideStore, Sideloadly and AltStore can run code that was inside the signed app.
+They cannot mark a freshly copied ELF executable. The Non-Jailbreak IPA links
+this blob into __TEXT and vm_remap's it over the guest addresses. Writable
+segments stay out of it.
 """
 import argparse
 import struct

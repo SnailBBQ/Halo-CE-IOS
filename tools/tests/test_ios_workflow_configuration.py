@@ -45,7 +45,7 @@ print('PASS: real android_guest_cc command emitted by repository Ninja writer, L
 # Only regular-app main pushes may spend hosted build time. Keep expensive
 # jobs behind diagnostics and cancel obsolete builds on replacement pushes.
 assert "  push:\n    branches: [main]\n    paths:" in wf
-assert "  group: halo-ios-${{ inputs.sidestore && 'sidestore' || inputs.non_jailbreak && 'non-jailbreak' || inputs.compatibility_test && 'modtest' || 'main' }}\n  cancel-in-progress: true" in wf, 'official pushes must keep the halo-ios-main group; manual flavors get their own'
+assert "  group: halo-ios-${{ inputs.non_jailbreak && 'non-jailbreak' || inputs.compatibility_test && 'modtest' || 'main' }}\n  cancel-in-progress: true" in wf, 'official pushes must keep the halo-ios-main group; manual flavors get their own'
 assert "    needs: diagnostics" in wf
 assert "    uses: ./.github/workflows/ios-memory-tests.yml" in wf
 assert wf.count("if: github.ref == 'refs/heads/main'") == 3
@@ -58,16 +58,15 @@ assert 'guest_pgo' not in wf and 'ios/modtest' not in wf and '--pgo=off' in wf
 assert 'gh release' not in wf and 'gh release' not in memory
 # The Non-Jailbreak build is a manual flag on the official app. It never changes an ordinary run.
 assert "      non_jailbreak:\n        description:" in wf and "        type: boolean\n        default: false\n      arena_fastpath:" in wf
-assert wf.count('-DHALO_NON_JAILBREAK=1') == 2 and "elif [ \"$NON_JAILBREAK\" = true ]; then\n            HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_NON_JAILBREAK=1')" in wf
-assert "      sidestore:\n        description:" in wf and "com.haloceuniversal.ios.sidestore" in wf
-assert "tools/ios_signed_guest.py" in wf and "HaloIOS-Sidestore.entitlements" in wf and "--require-absent-memory" in wf
-assert "inputs.sidestore && 'HaloCE-iOS-Sidestore'" in wf
+assert wf.count('-DHALO_NON_JAILBREAK=1') == 1 and "if [ \"$NON_JAILBREAK\" = true ]; then" in wf
+assert "sidestore:" not in wf and "com.haloceuniversal.ios.sidestore" not in wf and "HaloCE-iOS-Sidestore" not in wf
+assert "tools/ios_signed_guest.py" in wf and "HaloIOS-NonJailbreak.entitlements" in wf and "--require-absent-memory" in wf
 assert wf.count('uses: actions/checkout@v4') == 2 and 'ref:' not in wf, 'every iOS build uses the commit you started, not another branch'
 identity=wf.split("if [ \"$COMPATIBILITY_TEST\" = true ]; then\n            /usr/libexec/PlistBuddy",1)[1].split('\n          fi',1)[0]
 assert 'NON_JAILBREAK' not in identity and 'com.haloceuniversal.ios.modtest' in identity, 'only Mod Test changes the bundle identifier'
 assert '-DHALO_MOD_TEST=1' in wf and '-DHALO_ALIGNED_ARENA_TEST=1 -DHALO_MOD_TEST=1' in wf
 assert wf.index('Reject conflicting build flavors') < wf.index('- name: Install Ninja') and 'not both' in wf
 assert "inputs.non_jailbreak && 'HaloCE-iOS-NonJailbreak' || inputs.compatibility_test && 'HaloCE-iOS-ModTest' || 'HaloCE-iOS'" in wf
-assert "Address-space probe (nothing stays reserved)" in wf and "elif grep -q -e 'Non-Jailbreak Version (' -e" in wf
+assert "Address-space probe (nothing stays reserved)" in wf and "elif grep -q -e 'Non-Jailbreak Version (' -e 'Address-space probe (nothing stays reserved)' -e 'SIGNED GUEST:'" in wf
 assert 'va_plan' in memory and 'test_ios_non_jailbreak_flag.py' in memory and 'test_ios_mod_cache_policy.c' in memory
 print('PASS: main-only automatic IPA, diagnostics dependency, per-flavor cancellation, no native-port workflow, no profile-guided option, and Mod Test and Non-Jailbreak flavors that cannot touch an ordinary run')

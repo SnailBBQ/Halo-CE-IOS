@@ -126,8 +126,4 @@ The workflow does not publish releases by itself. No iOS release is currently pu
 
 ## Non-Jailbreak Version (manual build)
 
-The Non-Jailbreak Version is the official app built with extra address-space and JIT diagnostics and a fixed-window fallback; see
-[UPDATE_M2669.md](../../port/ios/UPDATE_M2669.md). To build it, open **Actions → Halo CE iOS — Build IPA → Run workflow**, choose `main`, tick
-`non_jailbreak` and leave `compatibility_test` unticked. The artifact is `HaloCE-iOS-NonJailbreak` and contains `HaloCE-NonJailbreak.ipa`.
-Automatic builds never include it. It is experimental: it has not been tested on a device, and stock installs may still need a tool that enables
-JIT.
+The Non-Jailbreak Version is the stock-iOS build for SideStore, Sideloadly and AltStore. The game code is linked into the signed app and mapped with `vm_remap`. It does not request kernel entitlements, and it keeps the same bundle ID. See [UPDATE_M2672.md](../../port/ios/UPDATE_M2672.md). To build it, open **Actions → Halo CE iOS — Build IPA → Run workflow**, choose `main`, tick `non_jailbreak` and leave `compatibility_test` unticked. Leave **Pointer rewrite** checked. The artifact is `HaloCE-iOS-NonJailbreak` and contains `HaloCE-NonJailbreak.ipa`. Automatic builds never include it. It has not been installed with those tools yet. The regular IPA remains the TrollStore build.
