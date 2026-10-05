@@ -10,6 +10,12 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 > The maintainer reports playable `a10` and PC cross-play in earlier builds; results vary by device and scene. Some of the newest features are still being
 > validated on a device; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
+## Current Status
+
+> **Jailbreak required:** Halo CE iOS is currently confirmed working on jailbroken iOS devices.
+>
+> **Non-jailbreak support:** A non-jailbreak version is currently a work in progress and is not yet considered ready for general use.
+
 **Source update:** [M2.6.74](port/ios/UPDATE_M2674.md) integrates OpenCE build 115 (network co-op and co-op spectating, new display options, interface and gamepad changes) and adds the system's own aligned-window request to the Non-Jailbreak Version. Nothing in it has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 <p align="center">
@@ -109,7 +115,8 @@ See [Official project and other platforms](docs/UPSTREAM.md#credits) for details
   <img src="docs/ios/images/prometheus_gearbox-shaded.png" width="256" alt="Halo CE iOS app icon">
   <br><br>
   <strong>App icon artwork by ORION</strong><br>
-  <a href="https://discord.com/users/758542539241685003">Discord Profile</a>
+  <a href="https://github.com/OrionMelaeno">GitHub</a> ·
+  <a href="https://discord.com/users/758542539241685003">Discord</a>
 </p>
 
 ## Legal
