@@ -27,10 +27,17 @@ int main(int argc,char **argv) {
     unsigned reserve[4][2]={{222,0}},loaded[4][2]={{33,0}};
     CHECK(!hc_edit(b,HC_SIZE,&view,0,1,4,4,reserve,loaded));CHECK(!memcmp(b,original,HC_SIZE));
     CHECK(!hc_edit(b,HC_SIZE,&view,NAN,1,4,4,reserve,loaded));CHECK(!memcmp(b,original,HC_SIZE));
-    CHECK(!hc_edit(b,HC_SIZE,&view,1,1,5,4,reserve,loaded));CHECK(!memcmp(b,original,HC_SIZE));
-    CHECK(hc_edit(b,HC_SIZE,&view,1,.8f,4,4,reserve,loaded));CHECK(hc_read(b,HC_SIZE,&after));
-    CHECK(hc_float(b,view.unit+0x90)==1&&b[view.unit+0x2ce]==4);
-    if(view.weapons)CHECK(hc_u16(b,view.weapon[0]+0x25e)==222&&hc_u16(b,view.weapon[0]+0x260)==33);
+    CHECK(!hc_edit(b,HC_SIZE,&view,1,1,128,4,reserve,loaded));CHECK(!memcmp(b,original,HC_SIZE));
+    CHECK(!hc_edit(b,HC_SIZE,&view,1,1,4,999,reserve,loaded));CHECK(!memcmp(b,original,HC_SIZE));
+    CHECK(!hc_edit(b,HC_SIZE,&view,10,1,4,4,reserve,loaded));CHECK(!memcmp(b,original,HC_SIZE));
+    CHECK(!hc_edit(b,HC_SIZE,&view,1,10,4,4,reserve,loaded));CHECK(!memcmp(b,original,HC_SIZE));
+    CHECK(!hc_edit(b,HC_SIZE,&view,1,INFINITY,4,4,reserve,loaded));CHECK(!memcmp(b,original,HC_SIZE));
+    reserve[0][0]=1000;
+    if(view.weapons){CHECK(!hc_edit(b,HC_SIZE,&view,1,1,4,4,reserve,loaded));CHECK(!memcmp(b,original,HC_SIZE));}
+    reserve[0][0]=999;reserve[0][1]=222;loaded[0][0]=999;loaded[0][1]=33;
+    CHECK(hc_edit(b,HC_SIZE,&view,HC_MAX_VITALITY,HC_MAX_VITALITY,127,127,reserve,loaded));CHECK(hc_read(b,HC_SIZE,&after));
+    CHECK(hc_float(b,view.unit+0x90)==HC_MAX_VITALITY&&hc_float(b,view.unit+0x94)==HC_MAX_VITALITY&&b[view.unit+0x2ce]==127&&b[view.unit+0x2cf]==127);
+    if(view.weapons)CHECK(hc_u16(b,view.weapon[0]+0x25e)==999&&hc_u16(b,view.weapon[0]+0x260)==999&&hc_u16(b,view.weapon[0]+0x26a)==222&&hc_u16(b,view.weapon[0]+0x26c)==33);
     /* Only requested scalar fields and the checksum can differ. */
     for(size_t i=0;i<HC_SIZE;i++)if(b[i]!=original[i]) {
         int allowed=(i>=0x148&&i<0x14c)||(i>=view.unit+0x90&&i<view.unit+0x98)||(i>=view.unit+0x2ce&&i<view.unit+0x2d0);

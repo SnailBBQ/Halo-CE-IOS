@@ -64,4 +64,6 @@ Older backups remain readable, but their temporary cache files are no longer res
 
 Settings → Profiles → Edit campaign checkpoint validates the Xbox 2342 header, checksum, bounded guest references and local-player inventory. It edits finite health/shields, grenade counts and the magazine records of weapons already in the save. It queues the replacement for the next launch and creates recovery archives; it never writes into a live game. A checkpoint without a living local player or with an unsupported layout is rejected. Energy weapons can use a separate charge system; this editor does not create or replace weapon objects.
 
+The editor identifies the selected filename, folder and campaign map. Health accepts 1–999%, shields 0–999%, and each grenade type 0–127 (the signed-byte storage limit). Current Magazine and Reserve Ammo each accept 0–999 per ammo pool. Pool 2 is a second weapon-defined magazine, not a second weapon; most weapons use only Pool 1. These values are finite and gameplay can consume or clamp them.
+
 Unlock/completion data belongs to Halo player profiles, not this checkpoint editor. Runtime invincibility, gravity, time, HUD colors, projectile swaps and camera modes are not exposed as fictitious save fields. Skulls and a consumable vehicle-boost system are not established in this recovered build.

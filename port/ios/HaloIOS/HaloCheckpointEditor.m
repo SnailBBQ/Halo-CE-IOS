@@ -58,24 +58,31 @@
 - (UIView *)field:(NSString *)title value:(unsigned)value maximum:(unsigned)maximum {
     UIStackView *row=[[UIStackView alloc] init];row.axis=UILayoutConstraintAxisHorizontal;row.spacing=16;row.alignment=UIStackViewAlignmentCenter;
     UILabel *label=[UILabel new];label.text=[NSString stringWithFormat:@"%@ (0–%u)",title,maximum];label.textColor=UIColor.whiteColor;label.numberOfLines=0;
-    UITextField *input=[UITextField new];input.text=[NSString stringWithFormat:@"%u",value];input.keyboardType=UIKeyboardTypeNumberPad;input.textColor=UIColor.whiteColor;input.borderStyle=UITextBorderStyleRoundedRect;input.accessibilityLabel=title;
+    UITextField *input=[UITextField new];input.text=[NSString stringWithFormat:@"%u",value];input.keyboardType=UIKeyboardTypeNumberPad;input.textColor=UIColor.whiteColor;input.borderStyle=UITextBorderStyleRoundedRect;input.accessibilityLabel=title;input.tag=maximum;
     [input.widthAnchor constraintEqualToConstant:100].active=YES;[row addArrangedSubview:label];[row addArrangedSubview:input];[self.fields addObject:input];return row;
 }
 - (void)editor:(HcView)view {
     [self clear];self.fields=[NSMutableArray array];const unsigned char *b=self.checkpoint.bytes;__weak typeof(self) weakSelf=self;
     NSString *map=[NSString stringWithUTF8String:(const char *)b+4];
-    [self.rows addArrangedSubview:HaloUICardView(@"Checkpoint",@[HaloUINote(map),HaloUINote(@"A recovery backup is created before replacement. Editing does not change installed map files or multiplayer. Health must be at least 1%. Ammo changes affect the two magazine records of each existing weapon; energy weapons can use a separate charge system.")])];
+    NSString *mapID=map.lastPathComponent;
+    /* Scenario paths use Windows separators inside Xbox checkpoints. */
+    mapID=[[map componentsSeparatedByString:@"\\"] lastObject];
+    NSDictionary *mapNames=@{@"a10":@"The Pillar of Autumn",@"a30":@"Halo",@"a50":@"The Truth and Reconciliation",@"b30":@"The Silent Cartographer",@"b40":@"Assault on the Control Room",@"c10":@"343 Guilty Spark",@"c20":@"The Library",@"c40":@"Two Betrayals",@"d20":@"Keyes",@"d40":@"The Maw"};
+    NSString *mapTitle=mapNames[mapID.lowercaseString]?:mapID;
+    [self.rows addArrangedSubview:HaloUICardView(@"Selected save",@[
+        HaloUINote([NSString stringWithFormat:@"File: %@\nFolder: %@\nMap: %@ (%@)",self.relativePath.lastPathComponent,self.relativePath.stringByDeletingLastPathComponent,mapTitle,mapID]),
+        HaloUINote(@"A recovery backup is created before replacement. Changes apply after reopening Halo and resuming this save. Health must be at least 1%. Higher values are finite and may be reduced by normal gameplay. Grenades are limited to 127 by the checkpoint format.")])];
     [self.rows addArrangedSubview:HaloUICardView(@"Player",@[
-        [self field:@"Health %" value:(unsigned)lroundf(hc_float(b,view.unit+0x90)*100) maximum:100],
-        [self field:@"Shields %" value:(unsigned)lroundf(fminf(1,hc_float(b,view.unit+0x94))*100) maximum:100],
-        [self field:@"Frag grenades" value:b[view.unit+0x2ce] maximum:4],
-        [self field:@"Plasma grenades" value:b[view.unit+0x2cf] maximum:4]])];
+        [self field:@"Health %" value:(unsigned)lroundf(hc_float(b,view.unit+0x90)*100) maximum:999],
+        [self field:@"Shields %" value:(unsigned)lroundf(hc_float(b,view.unit+0x94)*100) maximum:999],
+        [self field:@"Frag grenades" value:b[view.unit+0x2ce] maximum:HC_MAX_GRENADES],
+        [self field:@"Plasma grenades" value:b[view.unit+0x2cf] maximum:HC_MAX_GRENADES]])];
     for(unsigned i=0;i<view.weapons;i++) {
-        NSMutableArray *items=[NSMutableArray array];
+        NSMutableArray *items=[NSMutableArray arrayWithObject:HaloUINote(@"Current Magazine is ammo ready to fire. Reserve Ammo is available for reloading. Most weapons use Ammo Pool 1; Ammo Pool 2 only applies if the weapon defines a second magazine. Energy weapons may use a separate charge system.")];
         for(unsigned m=0;m<2;m++) {
             size_t p=view.weapon[i]+0x258+m*12;
-            [items addObject:[self field:[NSString stringWithFormat:@"Magazine %u reserve",m+1] value:hc_u16(b,p+6) maximum:999]];
-            [items addObject:[self field:[NSString stringWithFormat:@"Magazine %u loaded",m+1] value:hc_u16(b,p+8) maximum:999]];
+            [items addObject:[self field:[NSString stringWithFormat:@"Reserve Ammo · Pool %u",m+1] value:hc_u16(b,p+6) maximum:999]];
+            [items addObject:[self field:[NSString stringWithFormat:@"Current Magazine · Pool %u",m+1] value:hc_u16(b,p+8) maximum:999]];
         }
         [self.rows addArrangedSubview:HaloUICardView([NSString stringWithFormat:@"Existing weapon %u",i+1],items)];
     }
@@ -87,7 +94,7 @@
     unsigned values[20]={0};if(self.fields.count>20)return;
     for(NSUInteger i=0;i<self.fields.count;i++) {
         NSString *text=self.fields[i].text;NSScanner *scanner=[NSScanner scannerWithString:text?:@""];int value;
-        if(![scanner scanInt:&value]||!scanner.isAtEnd||value<0||value>999){[self message:@"Enter whole numbers within the displayed ranges."];return;}values[i]=(unsigned)value;
+        if(![scanner scanInt:&value]||!scanner.isAtEnd||value<0||value>self.fields[i].tag){[self message:@"Enter whole numbers within the displayed ranges."];return;}values[i]=(unsigned)value;
     }
     unsigned reserve[4][2]={{0}},loaded[4][2]={{0}};
     for(unsigned i=0;i<view.weapons;i++)for(unsigned m=0;m<2;m++){reserve[i][m]=values[4+i*4+m*2];loaded[i][m]=values[5+i*4+m*2];}

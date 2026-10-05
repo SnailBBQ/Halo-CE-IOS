@@ -9,6 +9,8 @@
 #include <math.h>
 #define HC_SIZE (16u * 1024u * 1024u)
 #define HC_BASE 0x81a00000u
+#define HC_MAX_VITALITY 9.99f /* UI percentage: 999%. */
+#define HC_MAX_GRENADES 127u /* Guest grenade_counts is a signed char. */
 typedef struct { size_t unit, weapon[4]; unsigned weapons; } HcView;
 static uint16_t hc_u16(const unsigned char *b,size_t p) { return (uint16_t)(b[p]|(unsigned)b[p+1]<<8); }
 static uint32_t hc_u32(const unsigned char *b,size_t p) { return hc_u16(b,p)|((uint32_t)hc_u16(b,p+2)<<16); }
@@ -61,7 +63,7 @@ static int hc_read(const unsigned char *b,size_t size,HcView *view) {
         if(++found>1)return 0;
         view->unit=u;
         float health=hc_float(b,u+0x90),shield=hc_float(b,u+0x94);
-        if((hc_u16(b,u+0xb6)&4u)||!isfinite(health)||!isfinite(shield)||health<=0||health>1||shield<0||shield>3||b[u+0x2ce]>4||b[u+0x2cf]>4)return 0;
+        if((hc_u16(b,u+0xb6)&4u)||!isfinite(health)||!isfinite(shield)||health<=0||health>HC_MAX_VITALITY||shield<0||shield>HC_MAX_VITALITY||b[u+0x2ce]>HC_MAX_GRENADES||b[u+0x2cf]>HC_MAX_GRENADES)return 0;
         for(unsigned slot=0;slot<4;slot++) {
             uint32_t id=hc_u32(b,u+0x2a8+slot*4);if(id==UINT32_MAX)continue;
             size_t w;if(!hc_object(b,headers,id,2,0x27c,&w))return 0;
@@ -77,7 +79,7 @@ static int hc_edit(unsigned char *b,size_t size,const HcView *view,float health,
                    const unsigned reserve[4][2],const unsigned loaded[4][2]) {
     if(!view)return 0;
     HcView verified;if(!hc_read(b,size,&verified)||memcmp(&verified,view,sizeof(verified))||
-       !isfinite(health)||health<=0||health>1||!isfinite(shield)||shield<0||shield>1||frag>4||plasma>4)return 0;
+       !isfinite(health)||health<=0||health>HC_MAX_VITALITY||!isfinite(shield)||shield<0||shield>HC_MAX_VITALITY||frag>HC_MAX_GRENADES||plasma>HC_MAX_GRENADES)return 0;
     for(unsigned i=0;i<view->weapons;i++)for(unsigned m=0;m<2;m++)if(reserve[i][m]>999||loaded[i][m]>999)return 0;
     hc_putfloat(b,view->unit+0x90,health);hc_putfloat(b,view->unit+0x94,shield);
     b[view->unit+0x2ce]=(unsigned char)frag;b[view->unit+0x2cf]=(unsigned char)plasma;

@@ -6,11 +6,11 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 
 > **You are on the regular app branch.** A separate **Mod Test** app lives on the [`ios/modtest`](https://github.com/SnailBBQ/Halo-CE-IOS/tree/ios/modtest) branch.
 
-> **Status: playable.** The current update is **M2.6.67**. The campaign and cross-play multiplayer work on a physical iPhone:
+> **Status: playable.** The current update is **M2.6.68**. The campaign and cross-play multiplayer work on a physical iPhone:
 > The maintainer reports playable `a10` and PC cross-play in earlier builds; results vary by device and scene. Some of the newest features are still being
 > validated on a device; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
-**Source update:** [M2.6.67](port/ios/UPDATE_M2667.md) integrates OpenCE build 101 and refreshes the SpringBoard icon identity. The sound-lifecycle fix, performance diagnostics and iOS settings are preserved. Device validation remains required.
+**Source update:** [M2.6.68](port/ios/UPDATE_M2668.md) improves campaign checkpoint identification, ammo labels and editable limits. OpenCE build 101, the sound-lifecycle fix and SpringBoard icon refresh are preserved. Device validation remains required.
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of Halo CE Universal on PC" width="760"><br>
