@@ -10,6 +10,10 @@
 #include <mach/mach.h>
 #include <mach/vm_map.h>
 #endif
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+#include "halo_va_plan.h"
+extern int csops(pid_t pid, unsigned int ops, void *useraddr, size_t usersize);
+#endif
 
 #define HALO_GUEST_SPAN    (UINT64_C(1) << 32)
 #define HALO_RESERVE_SPAN  (UINT64_C(2) << 32)
@@ -41,6 +45,66 @@ static int guest_page_range(halo_guest_va_t va, size_t size,
     *hi_out = hi;
     return 1;
 }
+
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+/* Non-Jailbreak Version only. See halo_va_plan.h. */
+static char g_nonjb_report[1536];
+const char *halo_guest_runtime_nonjb_report(void) { return g_nonjb_report; }
+
+static int nonjb_reserve(void *context, uint64_t hint, uint64_t size, uint64_t *base, int *error)
+{
+    void *request = hint ? (void *)(uintptr_t)hint : NULL;
+    void *placed = mmap(request, (size_t)size, PROT_NONE, MAP_PRIVATE | MAP_ANON, -1, 0);
+    (void)context;
+    if (placed == MAP_FAILED) { *error = errno; return 0; }
+    *base = (uint64_t)(uintptr_t)placed;   /* halo_va_reserve_at refuses a different address than a fixed request */
+    return 1;
+}
+
+static void nonjb_release(void *context, uint64_t base, uint64_t size)
+{
+    (void)context;
+    munmap((void *)(uintptr_t)base, (size_t)size);
+}
+
+/* Whether this process may make memory executable. Nothing is executed: pages are only mapped and re-protected, then released. */
+void halo_guest_runtime_exec_report(char *out, size_t size)
+{
+    HaloJitProbe probe;
+    unsigned int flags = 0;
+    const size_t probe_size = 16384;
+    void *writable, *direct;
+    memset(&probe, 0, sizeof(probe));
+    probe.csops_ok = csops(getpid(), 0 /* CS_OPS_STATUS */, &flags, sizeof(flags)) == 0;
+    probe.debugged = probe.csops_ok && (flags & 0x10000000u) != 0;   /* CS_DEBUGGED */
+    writable = mmap(NULL, probe_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+    if (writable == MAP_FAILED)
+        probe.mprotect_error = errno;
+    else
+    {
+        if (mprotect(writable, probe_size, PROT_READ | PROT_EXEC) != 0)
+            probe.mprotect_error = errno;
+        munmap(writable, probe_size);
+    }
+    direct = mmap(NULL, probe_size, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
+    if (direct == MAP_FAILED)
+        probe.direct_error = errno;
+    else
+        munmap(direct, probe_size);
+#ifdef MAP_JIT
+    {
+        void *jit = mmap(NULL, probe_size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON | MAP_JIT, -1, 0);
+        if (jit == MAP_FAILED)
+            probe.map_jit_error = errno;
+        else
+            munmap(jit, probe_size);
+    }
+#else
+    probe.map_jit_error = -1;
+#endif
+    halo_jit_describe(&probe, out, size);
+}
+#endif
 
 int halo_guest_runtime_init(void)
 {
@@ -88,6 +152,34 @@ int halo_guest_runtime_init(void)
     if(raw==MAP_FAILED) {
         int error=errno; /* Preserve the original error before any logging. */
         snprintf(g_init_error,sizeof(g_init_error),"8 GiB virtual reservation failed: mmap errno=%d (%s)",error,strerror(error));
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+        {
+            /* Non-Jailbreak Version only, and only because the production reservation was just refused: survey what this
+             * install allows, then try one fixed 4 GiB-aligned window instead of the 8 GiB one. That window is exactly what
+             * the production path would have kept, so nothing after this point differs. */
+            HaloVaReserver reserver = { NULL, nonjb_reserve, nonjb_release };
+            HaloVaProbe probe;
+            uint64_t fixed = 0;
+            int fixed_error = 0;
+            unsigned tried = 0;
+            size_t used;
+            halo_va_probe_run(&reserver, &probe);
+            halo_va_probe_format(&probe, g_nonjb_report, sizeof(g_nonjb_report));
+            used = strlen(g_nonjb_report);
+            if (halo_va_try_fixed_arena(&reserver, &fixed, &fixed_error, &tried))
+            {
+                halo_va_text(g_nonjb_report, sizeof(g_nonjb_report), &used,
+                    "Fallback: the 8 GiB reservation failed (errno %d), but a fixed 4 GiB window at 0x%llx was reserved after %u tries.\n",
+                    error, (unsigned long long)fixed, tried);
+                g_init_error[0] = 0;
+                g_page_size = (size_t)page;
+                g_guest_base = (uint8_t *)(uintptr_t)fixed;
+                return 1;
+            }
+            halo_va_text(g_nonjb_report, sizeof(g_nonjb_report), &used,
+                "Fallback: no fixed 4 GiB window could be reserved either (%u tried, first error %d).\n", tried, fixed_error);
+        }
+#endif
         return 0;
     }
 

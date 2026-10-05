@@ -45,7 +45,7 @@ print('PASS: real android_guest_cc command emitted by repository Ninja writer, L
 # Only regular-app main pushes may spend hosted build time. Keep expensive
 # jobs behind diagnostics and cancel obsolete builds on replacement pushes.
 assert "  push:\n    branches: [main]\n    paths:" in wf
-assert "  group: halo-ios-main\n  cancel-in-progress: true" in wf
+assert "  group: halo-ios-${{ inputs.non_jailbreak && 'non-jailbreak' || inputs.compatibility_test && 'modtest' || 'main' }}\n  cancel-in-progress: true" in wf, 'official pushes must keep the halo-ios-main group; manual flavors get their own'
 assert "    needs: diagnostics" in wf
 assert "    uses: ./.github/workflows/ios-memory-tests.yml" in wf
 assert wf.count("if: github.ref == 'refs/heads/main'") == 3
@@ -60,4 +60,14 @@ assert 'pull_request:' not in native and 'schedule:' not in native
 release_job=native.split('\n  release:\n',1)[1].split('\n  notify:\n',1)[0]
 assert 'if: ${{ false }}' in release_job and 'contents: write' not in release_job
 assert 'gh release' not in wf and 'gh release' not in memory
-print('PASS: main-only automatic IPA, diagnostics dependency, latest-run cancellation, manual-only native workflows and no CI-published releases')
+# The Non-Jailbreak Version is a manual, flag-selected flavor of the official app: it never changes what an ordinary run does.
+assert "      non_jailbreak:\n        description:" in wf and "        type: boolean\n        default: false\n      arena_fastpath:" in wf
+assert wf.count('-DHALO_NON_JAILBREAK=1') == 1 and "elif [ \"$NON_JAILBREAK\" = true ]; then\n            HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_NON_JAILBREAK=1')" in wf
+assert wf.count("ref: ${{ inputs.compatibility_test && 'ios/modtest' || github.sha }}") == 2 and not [l for l in wf.splitlines() if 'ref:' in l and 'non_jailbreak' in l], 'the flavor builds the same source as the official app'
+identity=wf.split("if [ \"$COMPATIBILITY_TEST\" = true ]; then\n            /usr/libexec/PlistBuddy",1)[1].split('\n          fi',1)[0]
+assert 'NON_JAILBREAK' not in identity and 'com.haloceuniversal.ios.modtest' in identity, 'only Mod Test changes the bundle identifier'
+assert wf.index('Reject conflicting build flavors') < wf.index('- name: Install Ninja') and 'not both' in wf
+assert "inputs.non_jailbreak && 'HaloCE-iOS-NonJailbreak' || inputs.compatibility_test && 'HaloCE-iOS-ModTest' || 'HaloCE-iOS'" in wf
+assert "Address-space probe (nothing stays reserved)" in wf and "elif grep -q -e 'Non-Jailbreak Version (' -e" in wf
+assert 'va_plan' in memory and 'test_ios_non_jailbreak_flag.py' in memory
+print('PASS: main-only automatic IPA, diagnostics dependency, per-flavor cancellation, manual-only native workflows, no CI-published releases, and a Non-Jailbreak flavor that cannot touch an ordinary run')

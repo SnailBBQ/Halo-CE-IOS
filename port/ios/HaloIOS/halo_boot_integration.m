@@ -10,6 +10,12 @@
 #include <sys/utsname.h>
 #include <stdarg.h>
 #include <stdio.h>
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+#include <errno.h>
+#include <string.h>
+#include <sys/sysctl.h>
+#include <unistd.h>
+#endif
 
 static void say(void (^line)(const char *), const char *fmt, ...)
 {
@@ -48,6 +54,43 @@ static void boot_signing_diagnostics(void (^line)(const char *)) {
     line("Capability inspection does not confirm authorization to execute loaded guest code.");
 }
 
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+/* Non-Jailbreak Version only. Observation and reporting; nothing here attaches a debugger or changes what the game does. */
+static void say_block(void (^line)(const char *), const char *text)
+{
+    char buffer[1024];
+    const char *start = text;
+    while (start && *start)
+    {
+        const char *end = strchr(start, '\n');
+        size_t length = end ? (size_t)(end - start) : strlen(start);
+        if (length >= sizeof(buffer))
+            length = sizeof(buffer) - 1;
+        memcpy(buffer, start, length);
+        buffer[length] = 0;
+        line(buffer);
+        start = end ? end + 1 : NULL;
+    }
+}
+
+static void boot_non_jailbreak_diagnostics(void (^line)(const char *))
+{
+    char text[640];
+    int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid() };
+    struct kinfo_proc process;
+    size_t process_size = sizeof(process);
+    memset(&process, 0, sizeof(process));
+    line("Non-Jailbreak Version (M2.6.69): the official app plus address-space and JIT diagnostics. Nothing changes when the normal reservation works.");
+    say(line, "Host compiled: %s %s; bundle=%s", __DATE__, __TIME__, NSBundle.mainBundle.bundleIdentifier.UTF8String ?: "unknown");
+    if (sysctl(mib, 4, &process, &process_size, NULL, 0) == 0 && process_size == sizeof(process))
+        say(line, "Debugger attached at boot: %s (does not prove JIT authorization)", (process.kp_proc.p_flag & P_TRACED) ? "yes" : "no");
+    else
+        say(line, "Debugger attached at boot: unknown (sysctl errno=%d)", errno);
+    halo_guest_runtime_exec_report(text, sizeof(text));
+    line(text);
+}
+#endif
+
 void halo_ios_start_game_boot(void (^line)(const char *text))
 {
     line("Halo CE iOS — starting engine");
@@ -59,15 +102,27 @@ void halo_ios_start_game_boot(void (^line)(const char *text))
 #endif
     boot_signing_diagnostics(line);
 
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+    boot_non_jailbreak_diagnostics(line);
+#endif
+
     if (!halo_guest_runtime_init())
     {
         line("FATAL: 4-GiB-aligned original-address guest runtime failed.");
         say(line,"Runtime initialization detail: %s",halo_guest_runtime_last_error());
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+        say_block(line, halo_guest_runtime_nonjb_report());
+        line("Non-Jailbreak Version: iOS refused the address space the game needs, and no fixed 4 GiB window was available either. This usually means the installer did not keep the extended-virtual-addressing entitlement; the report above shows how much address space this install can reserve.");
+#endif
         line("Check the installed app's signing capabilities. This failure occurs before map loading; it is not a Jetsam termination report.");
         line("STARTUP BLOCKED: ADDRESS SPACE");
         return;
     }
 
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+    if (halo_guest_runtime_nonjb_report()[0])
+        say_block(line, halo_guest_runtime_nonjb_report());
+#endif
     say(line, "Guest arena: base=%p span=0x%llx page=%zu aligned4G=%s",
         halo_guest_base_address(),
         (unsigned long long)halo_guest_span(),

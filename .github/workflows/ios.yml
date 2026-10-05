@@ -8,6 +8,10 @@ on:
         description: 'Mod Test app: direct aligned 4 GiB allocation (not a signing bypass)'
         type: boolean
         default: false
+      non_jailbreak:
+        description: 'Non-Jailbreak Version: the official app plus address-space and JIT diagnostics and a fixed-window fallback. Manual builds only; keeps the official bundle identifier and multiplayer'
+        type: boolean
+        default: false
       arena_fastpath:
         description: 'Rewrite guest loads/stores to avoid pointer faults (set false for an A/B baseline build)'
         type: boolean
@@ -95,7 +99,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: halo-ios-main
+  group: halo-ios-${{ inputs.non_jailbreak && 'non-jailbreak' || inputs.compatibility_test && 'modtest' || 'main' }}
   cancel-in-progress: true
 
 jobs:
@@ -113,6 +117,16 @@ jobs:
       contents: read
 
     steps:
+      - name: Reject conflicting build flavors
+        env:
+          COMPATIBILITY_TEST: ${{ inputs.compatibility_test || false }}
+          NON_JAILBREAK: ${{ inputs.non_jailbreak || false }}
+        run: |
+          if [ "$COMPATIBILITY_TEST" = true ] && [ "$NON_JAILBREAK" = true ]; then
+            echo "::error::Choose either compatibility_test (Mod Test) or non_jailbreak, not both."
+            exit 1
+          fi
+
       - name: Install Ninja
         run: |
           set -euxo pipefail
@@ -378,12 +392,15 @@ jobs:
       - name: Build device host app
         env:
           COMPATIBILITY_TEST: ${{ inputs.compatibility_test || false }}
+          NON_JAILBREAK: ${{ inputs.non_jailbreak || false }}
         run: |
           set -euxo pipefail
           rm -rf build/ios
           HOST_FLAGS=('OTHER_CFLAGS=$(inherited)')
           if [ "$COMPATIBILITY_TEST" = true ]; then
             HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_ALIGNED_ARENA_TEST=1')
+          elif [ "$NON_JAILBREAK" = true ]; then
+            HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_NON_JAILBREAK=1')
           fi
           xcodebuild \
             -project port/ios/HaloIOS.xcodeproj \
@@ -400,6 +417,7 @@ jobs:
       - name: Bundle real arm64_32 guest and ad-hoc sign
         env:
           COMPATIBILITY_TEST: ${{ inputs.compatibility_test || false }}
+          NON_JAILBREAK: ${{ inputs.non_jailbreak || false }}
         run: |
           set -euxo pipefail
           APP=$(find build/ios/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
@@ -412,6 +430,16 @@ jobs:
           test -f "$APP/$EXECUTABLE"
           test -x "$APP/$EXECUTABLE"
           test -s "$APP/halo_guest.elf"
+          # The Non-Jailbreak Version's code exists in the executable only when it was asked for, so an ordinary build is
+          # proved to be without it. (The strings are read into a variable first: a pipe into grep -q would fail on SIGPIPE.)
+          EXECUTABLE_STRINGS=$(/usr/bin/strings -a "$APP/$EXECUTABLE")
+          if [ "$NON_JAILBREAK" = true ]; then
+            grep -q -- 'Non-Jailbreak Version (' <<< "$EXECUTABLE_STRINGS"
+            grep -q -- 'Address-space probe (nothing stays reserved)' <<< "$EXECUTABLE_STRINGS"
+          elif grep -q -e 'Non-Jailbreak Version (' -e 'Address-space probe (nothing stays reserved)' <<< "$EXECUTABLE_STRINGS"; then
+            echo "::error::Non-Jailbreak code is present in a build that did not ask for it."
+            exit 1
+          fi
           if [ "$COMPATIBILITY_TEST" = true ]; then
             /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.haloceuniversal.ios.modtest' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleName Halo CE Mod Test' "$APP/Info.plist"
@@ -428,6 +456,8 @@ jobs:
           python3 tools/verify_ios_icons.py "$APP"
 
       - name: Package HaloCE.ipa
+        env:
+          NON_JAILBREAK: ${{ inputs.non_jailbreak || false }}
         run: |
           set -euxo pipefail
           APP=$(find build/ios/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d -print -quit)
@@ -440,11 +470,14 @@ jobs:
           /usr/bin/unzip -Z1 HaloCE.ipa | grep -qx 'Payload/HaloIOS.app/Info.plist'
           /usr/bin/unzip -Z1 HaloCE.ipa | grep -qx 'Payload/HaloIOS.app/HaloIOS'
           /usr/bin/unzip -Z1 HaloCE.ipa | grep -qx 'Payload/HaloIOS.app/halo_guest.elf'
+          if [ "$NON_JAILBREAK" = true ]; then
+            mv HaloCE.ipa HaloCE-NonJailbreak.ipa
+          fi
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.compatibility_test && 'HaloCE-iOS-ModTest' || 'HaloCE-iOS' }}
-          path: build/ios/HaloCE.ipa
+          name: ${{ inputs.non_jailbreak && 'HaloCE-iOS-NonJailbreak' || inputs.compatibility_test && 'HaloCE-iOS-ModTest' || 'HaloCE-iOS' }}
+          path: build/ios/${{ inputs.non_jailbreak && 'HaloCE-NonJailbreak.ipa' || 'HaloCE.ipa' }}
           if-no-files-found: error
           retention-days: 14

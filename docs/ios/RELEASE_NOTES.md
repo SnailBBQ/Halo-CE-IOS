@@ -1,13 +1,15 @@
 # Release notes
 
-The current update is **M2.6.68**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.69**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.68](../../port/ios/UPDATE_M2668.md) clarifies checkpoint identity and ammo pools, with higher finite health, shield and grenade limits.
+**Latest:** [M2.6.69](../../port/ios/UPDATE_M2669.md) adds a manual Non-Jailbreak Version build of the official app, with address-space and JIT diagnostics and a fixed-window fallback. Ordinary builds are unchanged; it has not been built or tested on a device.
+
+**Previous:** [M2.6.68](../../port/ios/UPDATE_M2668.md) clarifies checkpoint identity and ammo pools, with higher finite health, shield and grenade limits.
 
 **Previous:** [M2.6.64](../../port/ios/UPDATE_M2664.md) adds per-call OpenGL wall-time reporting and campaign map names to the performance log. It measures only and has not been built or tested on a device.
 
@@ -29,6 +31,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.69 | Manual Non-Jailbreak Version build: address-space and JIT diagnostics and a fixed 4 GiB window fallback; ordinary builds unchanged. Device validation pending. |
 | M2.6.68 | Clearer checkpoint identity and ammo fields; 999% vitality and 127-grenade limits. |
 | M2.6.67 | OpenCE build 101, co-op/lobby controller improvements and SpringBoard icon identity refresh. |
 | M2.6.66 | Looping-sound preemption lifetime fix and reference diagnostics; device retesting pending. |

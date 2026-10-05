@@ -117,3 +117,11 @@ The workflow does not publish releases by itself. No iOS release is currently pu
 | `tools/tests/` | The automated checks |
 | `docs/ios/` | This documentation |
 | `port/ios/UPDATE_*.md` | Release notes and device checklists for each update |
+
+## Non-Jailbreak Version (manual build)
+
+The Non-Jailbreak Version is the official app built with extra address-space and JIT diagnostics and a fixed-window fallback; see
+[UPDATE_M2669.md](../../port/ios/UPDATE_M2669.md). To build it, open **Actions → Halo CE iOS — Build IPA → Run workflow**, choose `main`, tick
+`non_jailbreak` and leave `compatibility_test` unticked. The artifact is `HaloCE-iOS-NonJailbreak` and contains `HaloCE-NonJailbreak.ipa`.
+Automatic builds never include it. It is experimental: it has not been tested on a device, and stock installs may still need a tool that enables
+JIT.
