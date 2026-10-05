@@ -795,6 +795,12 @@ static int ios_settings_value(uint32_t index,uint32_t address,uint32_t profile) 
     if(index==UINT32_MAX-1) {
         int coop=profile>=2;
         if(coop!=atomic_load(&g_local_coop)) {
+            uint32_t held[2];int32_t axes[2][6];
+            for(int pad=0;pad<2;pad++) {
+                held[pad]=atomic_load(&g_phys_held[pad]);
+                for(int axis=0;axis<6;axis++)axes[pad][axis]=atomic_load(&g_phys_axis[pad][axis]);
+            }
+            if(!halo_coop_switch_ready(held,axes))return 0;
             int a=atomic_load(&g_phys_present[0]),b=atomic_load(&g_phys_present[1]);
             int primary,secondary;halo_coop_route(a,b,&primary,&secondary);
             atomic_store(&g_coop_primary,primary);
@@ -3540,6 +3546,13 @@ static void *main_guest_thread(void *opaque)
 int halo_ios_run_full_guest(void (^line)(const char *text))
 {
     g_line=[line copy];
+    /* Build 98 reads the default broker list beside config.toml. Atomic write
+     * prevents partial lists; custom network.brokers_file paths are untouched. */
+    NSString *brokerSource=[NSBundle.mainBundle pathForResource:@"brokers" ofType:@"txt"];
+    NSData *brokers=brokerSource?[NSData dataWithContentsOfFile:brokerSource]:nil;
+    NSError *brokerError=nil;
+    if(!brokers || ![brokers writeToFile:[HaloDataFolder() stringByAppendingPathComponent:@"brokers.txt"] options:NSDataWritingAtomic error:&brokerError])
+        say("Internet play: cannot install bundled brokers.txt: %s",brokerError.localizedDescription.UTF8String ?: "missing bundled resource");
     halo_ios_gl_set_logger(g_line);
     g_guest_finished=0;
     g_guest_reason=0;
@@ -3815,6 +3828,7 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
     else if(g_guest_reason==HALO_GUEST_ABORT_EXIT)
     {
         say("REAL GUEST EXITED THROUGH ITS NORMAL EXIT PATH.");
+        if(g_guest_exit_code==0)halo_ios_quit_app();
         return g_guest_exit_code==0;
     }
 

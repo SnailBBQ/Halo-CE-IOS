@@ -884,7 +884,12 @@ menus' Quit: port/linux/game/menu_functions.c); Android's menus have none,
 as the system closes its apps */
 void platform_request_quit(void)
 {
-#ifndef HALO_ANDROID
+#ifdef HALO_IOS_GUEST
+	/* Only the accepted Exit Halo action reaches here. Reuse the existing
+	 * host exit import; the native host closes the app after guest unwinding. */
+	extern void host_exit(int code) __attribute__((noreturn));
+	host_exit(0);
+#elif !defined(HALO_ANDROID)
 	SDL_Event event;
 
 	memset(&event, 0, sizeof(event));

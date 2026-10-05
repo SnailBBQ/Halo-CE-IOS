@@ -44,9 +44,9 @@ Ending hosting clears this app's owned invite export. A stopped lobby cannot be 
 
 ## Public discovery update
 
-**Source update:** M2.6.57 integrates Halo CE Universal build 95 on `main` and `ios/modtest`, alongside campaign tools, direct checkpoint editing and smaller, separate save/profile backups. This source update still requires Apple compilation and device validation.
+**Source update:** M2.6.65 integrates Halo CE Universal build 98 on `main` and `ios/modtest`. It adds upstream multiplayer split-screen lobby join/leave handling and loads signalling brokers from a packaged `brokers.txt` beside config.toml. The default list is refreshed at launch; choose another filename with `network.brokers_file` for a custom list. The retired `network.signalling_brokers` string is no longer used.
 
-Until that update is built and tested, use manual invites or LAN. Public discovery depends on upstream signalling infrastructure and an active public host; it does not list every stock Halo PC or MCC server.
+Public discovery depends on an active public host and reachable upstream brokers; it does not list every stock Halo PC or MCC server. iOS exposes two local input slots: touch plus one controller or two controllers. Upstream desktop support for four local players does not imply four-controller support in this iOS host. Build 98 cross-platform and local-player join/leave behavior still need device testing.
 
 ## Alternate way of using invite codes: iCloud Drive
 
