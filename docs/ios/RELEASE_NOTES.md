@@ -1,13 +1,15 @@
 # Release notes
 
-The current update is **M2.6.69**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.70**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.69](../../port/ios/UPDATE_M2669.md) adds a manual Non-Jailbreak Version build of the official app, with address-space and JIT diagnostics and a fixed-window fallback. Ordinary builds are unchanged; it has not been built or tested on a device.
+**Latest:** [M2.6.70](../../port/ios/UPDATE_M2670.md) builds Mod Test from `main` (tick it in Actions). It removes the `ios/modtest` branch, the profile-guided build option, and the workflow that built the Linux, Windows and Android ports. Those ports stay on Halo CE Universal.
+
+**Previous:** [M2.6.69](../../port/ios/UPDATE_M2669.md) adds a manual Non-Jailbreak Version build of the official app, with address-space and JIT diagnostics and a fixed-window fallback. Ordinary builds are unchanged; it has not been built or tested on a device.
 
 **Previous:** [M2.6.68](../../port/ios/UPDATE_M2668.md) clarifies checkpoint identity and ammo pools, with higher finite health, shield and grenade limits.
 

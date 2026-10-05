@@ -19,12 +19,15 @@ The result is an IPA that must be re-signed on install. The iOS Simulator is not
 1. Sign in to GitHub and get your own copy of the repository (a fork, or push it to a repository of your own).
 2. If GitHub asks, enable **Actions** for your copy.
 3. Open **Actions → Halo CE iOS — Build IPA → Run workflow**.
-4. Choose the branch (`main` for the regular app) and, if you wish, set the options below. Start the run.
+4. Choose `main`. Tick an option only if you want that build. Start the run.
 5. Wait for diagnostics and both build jobs to succeed. Each job has a 40-minute timeout.
 6. Open the finished run and download the **HaloCE-iOS** artifact. Extract the ZIP to get **`HaloCE.ipa`**.
 
 Re-running an old run builds its original commit. To test newer changes, start a new run. Pushes that change the app, the engine
-sources or the workflow on `main` also start a build automatically. Other branches do not build automatically. A newer run cancels unfinished older runs. Documentation-only updates do not trigger an IPA build. Native Linux, Windows and Android builds are manual only.
+sources or the workflow on `main` also start a build automatically. Other branches do not build. A newer run cancels unfinished older runs. Documentation-only updates do not trigger an IPA build.
+
+This repository does not build the Windows, Linux or Android ports. Those apps, and their updates, are the official project:
+[Halo CE Universal releases](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 Standard GitHub-hosted runners are free for public repositories. Private repositories use the account's included allowance and any paid usage. Account payment or spending restrictions can prevent a run from starting. See [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
 
@@ -32,19 +35,22 @@ Standard GitHub-hosted runners are free for public repositories. Private reposit
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `arena_fastpath` | on | Rewrites the engine's memory accesses so they avoid a slow fault. Turn it off only to make a baseline build for comparison. |
-| `guest_pgo` | off | Optimises the engine with upstream's recorded profile. It needs a newer compiler and has not been proved on a device. |
+| Mod Test | off | Builds the second app, with the larger campaign-map loader. It does not replace Halo CE. |
+| Non-Jailbreak | off | The normal app plus address-space diagnostics for a stock install. Same bundle ID and multiplayer. Manual only. |
+| Pointer rewrite | on | Rewrites guest loads and stores so pointers do not fault. Turn off only to compare with an older build. |
 
 ### Artifacts
 
 | Artifact | Contains | Kept for |
 | --- | --- | --- |
-| `HaloCE-iOS` | `HaloCE.ipa`, the installable app | 14 days |
+| `HaloCE-iOS` | `HaloCE.ipa`, the regular app | 14 days |
+| `HaloCE-iOS-ModTest` | `HaloCE.ipa`, the Mod Test app (different bundle ID inside) | 14 days |
+| `HaloCE-iOS-NonJailbreak` | `HaloCE-NonJailbreak.ipa` | 14 days |
 | `HaloCE-iOS-Guest` | `halo_guest.elf`, an intermediate file that is not installable | 1 day |
 
 ### The Mod Test app
 
-The separate app is maintained on [`ios/modtest`](https://github.com/SnailBBQ/Halo-CE-IOS/tree/ios/modtest), with its own bundle identity and loader. It receives shared updates alongside `main`, but GitHub's IPA pipeline is restricted to `main` and does not package ModTest, including manual dispatches on that branch. Build ModTest separately on a Mac with a matching ModTest guest image. Its output remains `HaloCE-ModTest.ipa`. See [Mod Test](MOD_TEST.md).
+On **Actions → Halo CE iOS — Build IPA**, tick **Mod Test** and leave the other optional boxes off. The artifact is `HaloCE-iOS-ModTest`. It installs beside the regular app and keeps its own maps and saves. Do not tick it together with Non-Jailbreak. See [Mod Test](MOD_TEST.md).
 
 ## Automated checks
 

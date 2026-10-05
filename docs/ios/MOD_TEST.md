@@ -1,6 +1,6 @@
 # Halo CE Mod Test
 
-**Halo CE Mod Test** is a second, separate app built from the [`ios/modtest`](https://github.com/SnailBBQ/Halo-CE-IOS/tree/ios/modtest) branch. It is a device experiment, not a release, and
+**Halo CE Mod Test** is a second app built from `main` when you tick **Mod Test** on **Actions → Halo CE iOS — Build IPA**. It is a device experiment, not a release, and
 it makes no claim of general PC or Master Chief Collection mod compatibility. Mod conversion itself is paused. Everything else in the project is shared: the Mod Test app has all the
 features of the regular app and receives every update at the same time.
 
@@ -8,13 +8,13 @@ features of the regular app and receives every update at the same time.
 
 | | Halo CE (regular) | Halo CE Mod Test |
 | --- | --- | --- |
-| Branch | `main` | `ios/modtest` |
+| How to build | Actions → Build IPA, options off | Same workflow, tick **Mod Test** |
 | Name on the device | Halo CE | Halo CE Mod Test |
 | Bundle ID | `com.haloceuniversal.ios.m0` | `com.haloceuniversal.ios.modtest` |
 | Invite scheme | `halo://` | `halomodtest://` |
-| Version | 0.2.51 | 0.2.51.1 |
-| Build | Automatic IPA pipeline on `main` | Separate local Mac build; no automatic IPA pipeline |
-| Output | `HaloCE.ipa`, artifact `HaloCE-iOS` | `HaloCE-ModTest.ipa` |
+| Version | 0.2.70 | 0.2.70.1 |
+| Build | Automatic IPA on `main` | Manual: tick **Mod Test** |
+| Output | `HaloCE.ipa`, artifact `HaloCE-iOS` | `HaloCE.ipa`, artifact `HaloCE-iOS-ModTest` |
 | Data | Its own maps, saves and settings | Its own, completely separate |
 | Largest campaign map | The stock limit, about 278 MiB expanded | Up to 384 MiB expanded |
 | Disk cache | Stock slot sizes | Two campaign slots of 384 MiB plus a sector (about 770 MiB of logical disk space) |
@@ -24,7 +24,7 @@ campaign maps may be larger than stock. The engine changes are limited to the iO
 
 ## Install and test
 
-1. Build the separate ModTest app on a Mac from `ios/modtest` with a matching ModTest guest image, and install `HaloCE-ModTest.ipa` next to the regular app. See [Build the IPA](BUILD.md) and [Install](INSTALL.md).
+1. Run **Halo CE iOS — Build IPA** on `main` with **Mod Test** ticked. Install that IPA next to the regular app. See [Build the IPA](BUILD.md) and [Install](INSTALL.md).
    Check the app's name and its separate Files folder before copying any content.
 2. Import your working Xbox version-5 `ui.map` into the test app. Leave the regular app and its maps alone.
 3. Import the converted map under the exact file name **`a10.map`**. PC version-609 maps and raw extracted tags are not supported inputs.

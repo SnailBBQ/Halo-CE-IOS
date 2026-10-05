@@ -3093,6 +3093,11 @@ static int load_guest_image(NSString *path)
     halo_crash_phase("guest image: mapping the image span");
     if(!halo_guest_commit(span_low,span_high-span_low))
     {
+#if defined(HALO_MOD_TEST)
+        int memory_error=errno;
+        say("Startup memory detail: RW commit errno=%d (%s)",memory_error,strerror(memory_error));
+        say("STARTUP BLOCKED: GUEST IMAGE COMMIT");
+#endif
         say("FULL GUEST: could not map the guest image (0x%08x..0x%08x, %u MiB).",span_low,span_high,(span_high-span_low)>>20);
         return 0;
     }
@@ -3630,6 +3635,11 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
     const uint32_t stack_size=16*1024*1024;
     if(!halo_guest_commit(stack_va,stack_size))
     {
+#if defined(HALO_MOD_TEST)
+        int memory_error=errno;
+        say("Startup memory detail: RW commit errno=%d (%s)",memory_error,strerror(memory_error));
+        say("STARTUP BLOCKED: GUEST STACK COMMIT");
+#endif
         say("FULL GUEST BLOCKED: guest main stack allocation failed.");
         return 0;
     }

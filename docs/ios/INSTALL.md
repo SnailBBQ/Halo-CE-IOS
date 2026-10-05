@@ -84,8 +84,7 @@ Compare the same diagnostic IPA installed through a known-working environment an
 
 M2.6.62 uses the existing **Halo CE Mod Test** app for the optional direct-allocation
 experiment. It no longer creates a separate Compatibility Test app. Manually run
-the main IPA workflow with `compatibility_test=true` to build the maintained
-`ios/modtest` source with the aligned-allocation experiment enabled. It replaces
+**Halo CE iOS — Build IPA** on `main` and tick **Mod Test**. That build replaces
 the Mod Test installation, so export its saves and profiles before testing.
 The official app keeps the proven allocator. Both apps provide Startup Help
 and Share logs. The Sideloadly test on iOS 16.2 still failed to reserve the

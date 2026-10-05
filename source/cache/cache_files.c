@@ -128,6 +128,7 @@ symbols in this file:
 #include "tag_files/tag_groups.h"
 #include "tag_files/files.h"
 #include "cache_files.h"
+#include "cache_mod_test_policy.h"
 #include "physical_memory_map.h"
 #include "sound_cache.h"
 #include "texture_cache.h"
@@ -579,12 +580,25 @@ boolean cache_file_header_verify(
 	char const *scenario_name,
 	boolean fatal)
 {
-	if (header->header_signature != CACHE_FILE_HEADER_SIGNATURE ||
+	if (
+#if defined(HALO_MOD_TEST)
+		!halo_mod_test_header((uint32_t)header->file_length,
+			(uint32_t)header->tag_data_offset, (uint32_t)header->tag_data_size,
+			/* Bytes 0x60..0x63 stay reserved here. The Windows loader reads
+			 * the same bytes as the little-endian scenario-type short. */
+			(unsigned)header->reserved60[0] | ((unsigned)header->reserved60[1] << 8)) ||
+		!memchr(header->name, 0, sizeof(header->name)) ||
+#endif
+		header->header_signature != CACHE_FILE_HEADER_SIGNATURE ||
 		header->footer_signature != CACHE_FILE_FOOTER_SIGNATURE ||
 		header->file_length < 0 ||
-		header->file_length > 0x11600000 ||
+		header->file_length > HALO_ENGINE_CACHE_FILE_LIMIT ||
 		csstrlen(header->name) > 31)
 	{
+#if defined(HALO_MOD_TEST)
+		printf("MOD TEST: rejected cache header (length=%ld tags=%ld offset=%ld)\n",
+			header->file_length, header->tag_data_size, header->tag_data_offset);
+#endif
 		if (fatal)
 		{
 			match_vassert(
@@ -857,6 +871,21 @@ boolean scenario_structure_bsp_load(
 	byte *tag_cache_base_address;
 
 	tag_cache_base_address = physical_memory_get_tag_cache_base_address();
+#if defined(HALO_MOD_TEST)
+	if (!halo_mod_test_bsp((uint32_t)cache_file_globals.header.tag_data_size,
+			(uint32_t)reference->file_offset, (uint32_t)reference->file_size,
+			(uint32_t)cache_file_globals.header.file_length,
+			(uint32_t)(uintptr_t)reference->base_address,
+			(uint32_t)(uintptr_t)tag_cache_base_address))
+	{
+		printf("MOD TEST: rejected BSP range (offset=%ld size=%ld tags=%ld)\n",
+			reference->file_offset, reference->file_size,
+			cache_file_globals.header.tag_data_size);
+		return FALSE;
+	}
+	printf("MOD TEST: BSP load offset=%ld size=%ld tags=%ld capacity=23068672\n",
+		reference->file_offset, reference->file_size, cache_file_globals.header.tag_data_size);
+#endif
 	csmemset(
 		tag_cache_base_address + cache_file_globals.header.tag_data_size,
 		0xCD,

@@ -53,21 +53,18 @@ assert 'pull_request:' not in wf and 'schedule:' not in wf
 memory=(r/'.github/workflows/ios-memory-tests.yml').read_text()
 assert '  workflow_call:' in memory and '  push:' not in memory
 assert "if: github.ref == 'refs/heads/main'" in memory
-native=(r/'.github/workflows/build.yml').read_text()
-assert '  push:' not in native and '  workflow_dispatch:' in native
-assert 'pull_request:' not in native and 'schedule:' not in native
-# CI never publishes or deletes releases: upstream's native release job (it marks a build 'latest' and prunes build-* releases) stays off.
-release_job=native.split('\n  release:\n',1)[1].split('\n  notify:\n',1)[0]
-assert 'if: ${{ false }}' in release_job and 'contents: write' not in release_job
+assert not (r/'.github/workflows/build.yml').exists(), 'this fork does not build the Linux, Windows or Android ports'
+assert 'guest_pgo' not in wf and 'ios/modtest' not in wf and '--pgo=off' in wf
 assert 'gh release' not in wf and 'gh release' not in memory
-# The Non-Jailbreak Version is a manual, flag-selected flavor of the official app: it never changes what an ordinary run does.
+# The Non-Jailbreak build is a manual flag on the official app. It never changes an ordinary run.
 assert "      non_jailbreak:\n        description:" in wf and "        type: boolean\n        default: false\n      arena_fastpath:" in wf
 assert wf.count('-DHALO_NON_JAILBREAK=1') == 1 and "elif [ \"$NON_JAILBREAK\" = true ]; then\n            HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_NON_JAILBREAK=1')" in wf
-assert wf.count("ref: ${{ inputs.compatibility_test && 'ios/modtest' || github.sha }}") == 2 and not [l for l in wf.splitlines() if 'ref:' in l and 'non_jailbreak' in l], 'the flavor builds the same source as the official app'
+assert wf.count('uses: actions/checkout@v4') == 2 and 'ref:' not in wf, 'every iOS build uses the commit you started, not another branch'
 identity=wf.split("if [ \"$COMPATIBILITY_TEST\" = true ]; then\n            /usr/libexec/PlistBuddy",1)[1].split('\n          fi',1)[0]
 assert 'NON_JAILBREAK' not in identity and 'com.haloceuniversal.ios.modtest' in identity, 'only Mod Test changes the bundle identifier'
+assert '-DHALO_MOD_TEST=1' in wf and '-DHALO_ALIGNED_ARENA_TEST=1 -DHALO_MOD_TEST=1' in wf
 assert wf.index('Reject conflicting build flavors') < wf.index('- name: Install Ninja') and 'not both' in wf
 assert "inputs.non_jailbreak && 'HaloCE-iOS-NonJailbreak' || inputs.compatibility_test && 'HaloCE-iOS-ModTest' || 'HaloCE-iOS'" in wf
 assert "Address-space probe (nothing stays reserved)" in wf and "elif grep -q -e 'Non-Jailbreak Version (' -e" in wf
-assert 'va_plan' in memory and 'test_ios_non_jailbreak_flag.py' in memory
-print('PASS: main-only automatic IPA, diagnostics dependency, per-flavor cancellation, manual-only native workflows, no CI-published releases, and a Non-Jailbreak flavor that cannot touch an ordinary run')
+assert 'va_plan' in memory and 'test_ios_non_jailbreak_flag.py' in memory and 'test_ios_mod_cache_policy.c' in memory
+print('PASS: main-only automatic IPA, diagnostics dependency, per-flavor cancellation, no native-port workflow, no profile-guided option, and Mod Test and Non-Jailbreak flavors that cannot touch an ordinary run')

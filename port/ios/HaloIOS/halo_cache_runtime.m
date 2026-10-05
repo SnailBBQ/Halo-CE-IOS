@@ -5,6 +5,7 @@
 #include "halo_guest_runtime.h"
 
 #include <stdint.h>
+#include "../../../source/cache/cache_mod_test_policy.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -146,8 +147,16 @@ static int parse_cache_header(NSData *headerData,
      */
     if (version != 5)
         return 0;
+#if defined(HALO_MOD_TEST)
+    if (file_length < HALO_CACHE_HEADER_SIZE || file_length > HALO_MOD_TEST_CACHE_FILE_LIMIT)
+        return 0;
+    int scenario_type = b[0x60] | ((unsigned)b[0x61] << 8);
+    if (!halo_mod_test_header(file_length, tag_data_offset, tag_data_size, scenario_type))
+        return 0;
+#else
     if (file_length < HALO_CACHE_HEADER_SIZE || file_length > UINT32_C(0x11600000))
         return 0;
+#endif
     if (tag_data_size == 0 || tag_data_size > HALO_TAG_CACHE_CAPACITY)
         return 0;
     if ((uint64_t)tag_data_offset + tag_data_size > file_length)

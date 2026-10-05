@@ -1,16 +1,16 @@
 # Halo CE iOS — Project status
 
-**Status: playable.** **Current update: M2.6.56** (regular app 0.2.56, Mod Test app 0.2.56.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
+**Status: playable.** **Current update: M2.6.70** (regular app 0.2.70, Mod Test app 0.2.70.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
 are still waiting for device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
 
-**Source update:** [M2.6.56](port/ios/UPDATE_M2656.md) adds on-device Xbox ISO/XISO extraction, transactional Keep/Replace, cancellation and mod-original preservation. Both apps remain on Halo CE Universal build 94. Disc-import device validation is still required.
+**Source update:** [M2.6.70](port/ios/UPDATE_M2670.md) builds every iOS flavor from `main`. Mod Test is a checkbox, not a branch. This repository does not build Windows, Linux or Android.
 
 ## Two apps
 
-| App | Branch | Output |
+| App | How to build | Output |
 | --- | --- | --- |
-| Halo CE (regular) | `main` | `HaloCE.ipa` |
-| Halo CE Mod Test | `ios/modtest` | `HaloCE-ModTest.ipa` |
+| Halo CE (regular) | `main`, options off | `HaloCE.ipa` |
+| Halo CE Mod Test | `main`, tick **Mod Test** | artifact `HaloCE-iOS-ModTest` |
 
 Both share the same features and are updated together. The Mod Test app adds an experimental loader for very large converted campaign maps; see [Mod Test](docs/ios/MOD_TEST.md).
 
@@ -32,7 +32,7 @@ Both share the same features and are updated together. The Mod Test app adds an 
 ## Known limits
 
 - Public server discovery is integrated; iOS public browsing/hosting and cross-play need device validation. Discovery uses public MQTT signalling brokers and requires network connectivity.
-- The app imports `.map` files only. It does not open ISO or XISO disc images; extract the maps first (see [Game data](docs/ios/GAME_DATA.md)).
+- Disc import and **Import maps** both fill `Documents/Halo/maps`. Xbox cache version 5 only. See [Game data](docs/ios/GAME_DATA.md).
 - AirPlay is system screen mirroring. A separate TV-only game window is not implemented.
 - Bink videos are skipped.
 - Touch behaviour in the PC menus has not been validated; the Xbox menus remain available in Settings.

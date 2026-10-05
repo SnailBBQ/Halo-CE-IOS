@@ -5,21 +5,17 @@ on:
   workflow_dispatch:
     inputs:
       compatibility_test:
-        description: 'Mod Test app: direct aligned 4 GiB allocation (not a signing bypass)'
+        description: 'Mod Test: a second app for large campaign maps. Same engine and cross-play. It does not replace Halo CE.'
         type: boolean
         default: false
       non_jailbreak:
-        description: 'Non-Jailbreak Version: the official app plus address-space and JIT diagnostics and a fixed-window fallback. Manual builds only; keeps the official bundle identifier and multiplayer'
+        description: 'Non-Jailbreak: the normal app plus address-space diagnostics for stock iOS. Same bundle ID and multiplayer. Manual builds only.'
         type: boolean
         default: false
       arena_fastpath:
-        description: 'Rewrite guest loads/stores to avoid pointer faults (set false for an A/B baseline build)'
+        description: 'Pointer rewrite: on by default. Rewrites guest loads and stores so pointers do not fault. Turn off only to compare with an older build.'
         type: boolean
         default: true
-      guest_pgo:
-        description: 'Optimise the game with the committed upstream profile (clang 22; off until it has been proved on a device: set true to try it)'
-        type: boolean
-        default: false
   push:
     branches: [main]
     paths:
@@ -91,7 +87,6 @@ on:
       - 'tools/tests/test_ios_scene_scans.c'
       - 'tools/tests/test_ios_scene_adapters.py'
       - 'configure.py'
-      - 'pgo/**'
       - 'port/assets/**'
       - 'tools/embed_assets.py'
 
@@ -138,8 +133,7 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.compatibility_test && 'ios/modtest' || github.sha }}
+
 
       - name: Verify iOS pointer conversion
         run: |
@@ -218,36 +212,13 @@ jobs:
           path: build/android/third_party
           key: ios-guest-third-party-${{ hashFiles('tools/android_build.py', 'tools/ios_gl_stubs.py') }}
 
-      - name: Install clang 22 for profile-guided optimisation
-        if: ${{ github.event.inputs.guest_pgo == 'true' }}
-        run: |
-          # Upstream's committed profiles (pgo/) are LLVM 22 profiles; an older clang cannot read them and
-          # the build then goes without. This step is allowed to fail: the build continues with the
-          # runner's clang and says so.
-          set +e
-          wget -qO "$RUNNER_TEMP/llvm.sh" https://apt.llvm.org/llvm.sh
-          chmod +x "$RUNNER_TEMP/llvm.sh"
-          sudo "$RUNNER_TEMP/llvm.sh" 22 >"$RUNNER_TEMP/llvm-install.log" 2>&1
-          if command -v clang-22 >/dev/null 2>&1; then
-            echo "GUEST_CC=clang-22" >> "$GITHUB_ENV"
-            clang-22 --version
-          else
-            tail -n 20 "$RUNNER_TEMP/llvm-install.log"
-            echo "::warning::clang 22 could not be installed; building without profile-guided optimisation"
-          fi
-          exit 0
-
       - name: Configure recovered arm64_32 guest
         env:
           ARENA_FASTPATH: ${{ github.event.inputs.arena_fastpath || 'true' }}
-          GUEST_PGO: ${{ github.event.inputs.guest_pgo || 'false' }}
+          COMPATIBILITY_TEST: ${{ inputs.compatibility_test || false }}
         run: |
           set -euxo pipefail
-          PGO=use
-          if [ "$GUEST_PGO" != "true" ]; then PGO=off; fi
-          GUEST_CC_ARGS=()
-          if [ -n "${GUEST_CC:-}" ]; then GUEST_CC_ARGS=(--android-guest-cc "$GUEST_CC"); fi
-          python3 configure.py --pgo="$PGO" "${GUEST_CC_ARGS[@]}"
+          python3 configure.py --pgo=off
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -261,6 +232,8 @@ jobs:
               raise SystemExit("guest compile flags not found in build.ninja")
           s = s.replace("-DHALO_ANDROID=1", "-DHALO_ANDROID=1 -DHALO_IOS_GUEST=1")
           import os
+          if os.environ.get("COMPATIBILITY_TEST", "").lower() == "true":
+              s = s.replace("-DHALO_IOS_GUEST=1", "-DHALO_IOS_GUEST=1 -DHALO_MOD_TEST=1")
           if os.environ.get("ARENA_FASTPATH", "true").lower() != "false":
               converter = "tools/android_asm_convert.py $out.darwin.s $out.s"
               target = "--target=arm64_32-apple-watchos"
@@ -341,8 +314,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.compatibility_test && 'ios/modtest' || github.sha }}
+
 
       - name: Download recovered guest image
         uses: actions/download-artifact@v4
@@ -398,7 +370,7 @@ jobs:
           rm -rf build/ios
           HOST_FLAGS=('OTHER_CFLAGS=$(inherited)')
           if [ "$COMPATIBILITY_TEST" = true ]; then
-            HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_ALIGNED_ARENA_TEST=1')
+            HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_ALIGNED_ARENA_TEST=1 -DHALO_MOD_TEST=1')
           elif [ "$NON_JAILBREAK" = true ]; then
             HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_NON_JAILBREAK=1')
           fi
@@ -445,6 +417,8 @@ jobs:
             /usr/libexec/PlistBuddy -c 'Set :CFBundleName Halo CE Mod Test' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLName com.haloceuniversal.ios.modtest.invite' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Halo CE Mod Test' "$APP/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Set :CFBundleShortVersionString 0.2.70.1' "$APP/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 267001' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 halomodtest' "$APP/Info.plist"
           fi
 

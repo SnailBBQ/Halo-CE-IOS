@@ -38,4 +38,6 @@ jobs:
           for t in settings_core map_order pad_input color scancodes wireframe checkpoint timing_sample gl_wait_stats map_name va_plan; do
             cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS "tools/tests/test_ios_$t.c" -o "$RUNNER_TEMP/halo-$t-test" -lm
             "$RUNNER_TEMP/halo-$t-test"
+          cc -std=c11 -Wall -Wextra -Werror tools/tests/test_ios_mod_cache_policy.c -o "$RUNNER_TEMP/halo-mod-cache-test"
+          "$RUNNER_TEMP/halo-mod-cache-test"
           done

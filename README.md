@@ -4,13 +4,13 @@ A native iPhone and iPad port of *Halo: Combat Evolved*. It runs the recovered X
 [Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE) inside a native iOS app, with touch and
 controller support, cross-play multiplayer with Halo CE Universal players, and a full in-app Settings menu.
 
-> **You are on the regular app branch.** A separate **Mod Test** app lives on the [`ios/modtest`](https://github.com/SnailBBQ/Halo-CE-IOS/tree/ios/modtest) branch.
+> **One branch.** The regular app, Mod Test, and the Non-Jailbreak diagnostic build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The current update is **M2.6.69**. The campaign and cross-play multiplayer work on a physical iPhone:
+> **Status: playable.** The current update is **M2.6.70**. The campaign and cross-play multiplayer work on a physical iPhone:
 > The maintainer reports playable `a10` and PC cross-play in earlier builds; results vary by device and scene. Some of the newest features are still being
 > validated on a device; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
-**Source update:** [M2.6.69](port/ios/UPDATE_M2669.md) adds a manual **Non-Jailbreak Version** build of the official app: address-space and JIT diagnostics and a fixed-window fallback for installs that do not keep the extended-virtual-addressing entitlement. Ordinary builds and TrollStore or jailbreak installs are unchanged. It has not been built or tested on a device, and stock installs may still need a tool that enables JIT; see the [release notes](docs/ios/RELEASE_NOTES.md).
+**Source update:** [M2.6.70](port/ios/UPDATE_M2670.md) keeps Mod Test as a build option on `main` and removes the separate `ios/modtest` branch. The profile-guided build option and the Linux, Windows and Android Actions workflow are gone. Windows, Linux and Android stay on [Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of Halo CE Universal on PC" width="760"><br>
@@ -52,9 +52,8 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 | | **Halo CE** (regular) | **Halo CE Mod Test** |
 | --- | --- | --- |
 | Purpose | The regular app | A separate experiment that loads very large converted campaign maps |
-| Branch | [`main`](https://github.com/SnailBBQ/Halo-CE-IOS/tree/main) | [`ios/modtest`](https://github.com/SnailBBQ/Halo-CE-IOS/tree/ios/modtest) |
-| Workflow | Halo CE iOS — Build IPA | Halo CE iOS — Mod Loading Test |
-| Output | `HaloCE.ipa` (artifact `HaloCE-iOS`) | `HaloCE-ModTest.ipa` (artifact `HaloCE-iOS-ModTest`) |
+| How to build | Actions → Build IPA, options off | Same workflow, tick **Mod Test** |
+| Output | `HaloCE.ipa` (artifact `HaloCE-iOS`) | `HaloCE.ipa` (artifact `HaloCE-iOS-ModTest`) |
 | Bundle ID | `com.haloceuniversal.ios.m0` | `com.haloceuniversal.ios.modtest` |
 | Invite scheme | `halo://` | `halomodtest://` |
 

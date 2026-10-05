@@ -94,6 +94,9 @@ static void boot_non_jailbreak_diagnostics(void (^line)(const char *))
 void halo_ios_start_game_boot(void (^line)(const char *text))
 {
     line("Halo CE iOS — starting engine");
+#if defined(HALO_MOD_TEST)
+    line("Mod Test: separate app for large campaign maps. Not a PC or Master Chief Collection loader.");
+#endif
     line("");
 #if defined(HALO_ALIGNED_ARENA_TEST) && HALO_ALIGNED_ARENA_TEST
     line("Allocator mode: compatibility test, direct aligned 4 GiB Mach reservation");

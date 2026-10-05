@@ -5,7 +5,7 @@ This is an unofficial community iOS port, not a Microsoft, Bungie or Halo CE Uni
 ## Current publication state
 
 - `main` contains M2.6.67 / OpenCE build 101. The maintainer reports playable campaign and PC multiplayer, but the newest display and touch options still need device validation.
-- M2.6.67 / OpenCE build 101 is integrated into `main` and `ios/modtest`; Apple builds and device testing remain required.
+- M2.6.70 builds the regular app, Mod Test and the Non-Jailbreak diagnostic from `main`. Apple builds and device testing remain required.
 - No GitHub release or release IPA attachment exists yet. Successful Actions artifacts are temporary downloads, not permanent release assets.
 - The Mod Test app is experimental. Converted Cursed Halo attempts have failed; general PC/MCC mod compatibility is not established.
 
@@ -29,7 +29,7 @@ Corrections include unpublished download links, current versus pending build sta
 
 Rulesets are optional. They are available for public repositories on GitHub Free; private repositories need an eligible plan. See [GitHub rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets).
 
-For `main` and `ios/modtest`:
+For `main`:
 
 - Block force pushes and branch deletion.
 - Require changes through pull requests, with an administrator bypass for recovery.

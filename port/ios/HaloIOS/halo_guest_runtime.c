@@ -129,7 +129,7 @@ int halo_guest_runtime_init(void)
         VM_PROT_NONE, VM_PROT_ALL, VM_INHERIT_NONE);
     if (result != KERN_SUCCESS) {
         snprintf(g_init_error,sizeof(g_init_error),
-            "direct aligned 4 GiB reservation failed: Mach error=%d (%s)",result,mach_error_string(result));
+            "arena reservation: size=0x100000000 alignment=0x100000000 initial=NONE max=ALL ANYWHERE; Mach error=%d (%s)",result,mach_error_string(result));
         return 0;
     }
     if (!aligned || (aligned & (HALO_GUEST_SPAN-1)) || aligned > UINTPTR_MAX-HALO_GUEST_SPAN) {

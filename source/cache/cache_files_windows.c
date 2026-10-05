@@ -183,6 +183,7 @@ symbols in this file:
 #include "cseries/cseries.h"
 #include "cseries/errors.h"
 #include "cache/cache_files.h"
+#include "cache/cache_mod_test_policy.h"
 #include "cache/cache_files_decompress_windows.h"
 #include "cache/texture_cache.h"
 #include "interface/ui_widget.h"
@@ -203,7 +204,14 @@ enum
 	MAXIMUM_CACHE_FILES = 20,
 	CACHE_FILE_THREAD_STACK_SIZE = 0x4000,
 
-	SOLO_CACHE_FILE_MAXIMUM_SIZE = 0x11600000,
+	/* Disk-backed slots, not resident allocations. One extra sector keeps
+	 * the original strict comparison valid at the Mod Test ceiling. */
+	SOLO_CACHE_FILE_MAXIMUM_SIZE = HALO_ENGINE_CACHE_FILE_LIMIT +
+#if defined(HALO_MOD_TEST)
+		CACHE_FILE_SECTOR_SIZE,
+#else
+		0,
+#endif
 	MAIN_MENU_CACHE_FILE_MAXIMUM_SIZE = 0x02300000,
 	MULTIPLAYER_CACHE_FILE_MAXIMUM_SIZE = 0x02F00000,
 };
