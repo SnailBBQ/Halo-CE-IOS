@@ -787,16 +787,22 @@ def _lobby() -> list:
                                                      ("font", "ui\\small_ui"), ("color", "#FF2896FF"), ("text_y", 5),
                                                      ("text_flags", "no_focus_test")], [])
     # a game under way's lobby, before joining it (the browser's rows of
-    # games in progress): what its advertisement tells, JOIN GAME
+    # games in progress): what its advertisement tells, JOIN GAME. Split
+    # screen players join here, as in the lobby, before JOIN GAME: the game
+    # starts at once for the machine, with the players it brings
     lines += _widget(f"{base}/preview_screen", [("width", 640), ("height", 480),
                                                 ("flags", "pass_unhandled_to_focused_child"),
                                                 ("bitmap", "bitmaps/gradient")],
-                     ['<on event="b" back="true"/>', '<on event="back" back="true"/>',
+                     ['<on event="created" run="port lobby open"/>',
+                      '<on event="b" run="port lobby preview leave" back="true"/>',
+                      '<on event="back" run="port lobby preview leave" back="true"/>',
+                      f'<on event="start" run="port lobby preview add" open="{base}/player_profile_screen" branch="true"/>',
                       '<child widget="main_menu/new_select/sel_list_desc_bkd"/>',
                       f'<child widget="{base}/preview_list"/>',
-                      f'<child widget="{base}/header_lobby"/>'])
+                      f'<child widget="{base}/header_lobby"/>',
+                      f'<child widget="{base}/lobby_join_help"/>'])
     lines += _widget(f"{base}/preview_list", [("type", "column_list"), ("width", 640), ("height", 480),
-                                              ("flags", "pass_unhandled_to_focused_child left_right_tabs_items"),
+                                              ("flags", "pass_unhandled_to_focused_child up_down_tabs_children"),
                                               ("description", f"{base}/lobby_desc")],
                      ['<data input="port lobby preview update"/>',
                       f'<child widget="{base}/preview_status" x="30" y="75"/>',
@@ -805,9 +811,12 @@ def _lobby() -> list:
                                                 ("font", "ui\\large_ui"), ("color", "#FF2896FF")], [])
     lines += _widget(f"{base}/preview_button_bar", [("type", "column_list"), ("width", 640), ("height", 28),
                                                     ("flags", "pass_unhandled_to_focused_child left_right_tabs_items")],
-                     [f'<child widget="{base}/preview_button_join" x="380" y="1"/>',
+                     [f'<child widget="{base}/preview_button_join" x="250" y="1"/>',
+                      f'<child widget="{base}/preview_button_add" x="380" y="1"/>',
                       f'<child widget="{base}/preview_button_back" x="510" y="1"/>'])
-    for key, caption, run in (("join", "JOIN GAME", "port lobby preview join"), ("back", "BACK", "mouse emit back event")):
+    for key, caption, run in (("join", "JOIN GAME", "port lobby preview join"),
+                              ("add", "ADD PLAYER", "port lobby add player"),
+                              ("back", "BACK", "mouse emit back event")):
         lines += _widget(f"{base}/preview_button_{key}", [("type", "text"), ("width", 128), ("height", 24),
                                                          ("bitmap", "bitmaps/text_button_background"),
                                                          ("text", caption), ("font", "ui\\small_ui"),
@@ -822,7 +831,9 @@ def _coop() -> list:
     (the Xbox's Cooperative Play): Multiplayer's CO-OP CAMPAIGN, then player
     2's profile, chosen with player 2's controller (its rows take any
     controller's presses, as the shared rows do only controller 1's), then
-    New Game's levels and difficulty (menu_functions.c's coop_begin)"""
+    New Game's levels and difficulty, which either player's controller uses
+    (ui_widget.c's widget_takes_events_of_controller; menu_functions.c's
+    coop_begin)"""
     base = f"{MT}/coop"
     lines = _widget(f"{MT}/multiplayer_type_coop_item",
                     [("type", "text"), ("left", 51), ("width", 232), ("height", 32), ("bitmap", "bitmaps/list_item_bkd"),

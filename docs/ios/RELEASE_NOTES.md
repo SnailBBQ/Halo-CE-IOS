@@ -1,13 +1,13 @@
 # Release notes
 
-The current update is **M2.6.66**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.67**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.66](../../port/ios/UPDATE_M2666.md) fixes a looping-sound lifetime bug and improves reference-mismatch diagnostics. Multiplayer device retesting is required.
+**Latest:** [M2.6.67](../../port/ios/UPDATE_M2667.md) integrates OpenCE build 101 and gives the white Spartan icon a new SpringBoard asset identity. Device retesting is required.
 
 **Previous:** [M2.6.64](../../port/ios/UPDATE_M2664.md) adds per-call OpenGL wall-time reporting and campaign map names to the performance log. It measures only and has not been built or tested on a device.
 
@@ -29,6 +29,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.67 | OpenCE build 101, co-op/lobby controller improvements and SpringBoard icon identity refresh. |
 | M2.6.66 | Looping-sound preemption lifetime fix and reference diagnostics; device retesting pending. |
 | M2.6.65 | Universal build 98, broker-file support, split-player lobby routing and in-game Quit. Device validation pending. |
 | M2.6.64 | Per-call OpenGL wall-time reporting and campaign map names in the performance log; measurement only. Device validation pending. |

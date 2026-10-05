@@ -1,16 +1,16 @@
 # Halo: Combat Evolved for iOS
 
 A native iPhone and iPad port of *Halo: Combat Evolved*. It runs the recovered Xbox engine from
-[Halo CE Universal](https://github.com/cybersecurity/halo-ce-universal) inside a native iOS app, with touch and
+[Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE) inside a native iOS app, with touch and
 controller support, cross-play multiplayer with Halo CE Universal players, and a full in-app Settings menu.
 
 > **You are on the regular app branch.** A separate **Mod Test** app lives on the [`ios/modtest`](https://github.com/SnailBBQ/Halo-CE-IOS/tree/ios/modtest) branch.
 
-> **Status: playable.** The current update is **M2.6.66**. The campaign and cross-play multiplayer work on a physical iPhone:
+> **Status: playable.** The current update is **M2.6.67**. The campaign and cross-play multiplayer work on a physical iPhone:
 > The maintainer reports playable `a10` and PC cross-play in earlier builds; results vary by device and scene. Some of the newest features are still being
 > validated on a device; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
-**Source update:** [M2.6.66](port/ios/UPDATE_M2666.md) fixes a looping-sound lifetime bug during channel preemption and adds sound-reference diagnostics. Universal build 98 and M2.6.64 performance diagnostics are preserved. The reported multiplayer assertion still requires device retesting.
+**Source update:** [M2.6.67](port/ios/UPDATE_M2667.md) integrates OpenCE build 101 and refreshes the SpringBoard icon identity. The sound-lifecycle fix, performance diagnostics and iOS settings are preserved. Device validation remains required.
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of Halo CE Universal on PC" width="760"><br>
@@ -83,8 +83,8 @@ Both apps share the same features and are kept up to date together. They install
 This repository is an iOS-focused fork. The official project, its updates, and the Windows, Linux and Android versions
 are maintained by **Halo CE Universal**:
 
-- Repository: <https://github.com/cybersecurity/halo-ce-universal>
-- Releases and downloads: <https://github.com/cybersecurity/halo-ce-universal/releases>
+- Repository: <https://github.com/OpenCommunityEdition/OpenCE>
+- Releases and downloads: <https://github.com/OpenCommunityEdition/OpenCE/releases>
 
 [Official project and other platforms](docs/UPSTREAM.md) lists the downloads, where each platform is documented, and the credits.
 The original README of the upstream project is kept in [docs/UPSTREAM_README.md](docs/UPSTREAM_README.md).
@@ -93,7 +93,7 @@ The original README of the upstream project is kept in [docs/UPSTREAM_README.md]
 
 This port exists because of the work of others:
 
-- **[Halo CE Universal](https://github.com/cybersecurity/halo-ce-universal)** and its contributors: the cross-platform port of the decompiled
+- **[Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE)** and its contributors: the cross-platform port of the decompiled
   engine, its netcode and invite-link multiplayer, the Custom Edition style menus, and the project this app is built on.
 - **[bnunu/halo-1](https://github.com/bnunu/halo-1)**, the decompilation of the Xbox build 2342 (`cachebeta.exe`) that Halo CE Universal starts from,
   and **[punpckhdq/halo](https://github.com/punpckhdq/halo)**, the project it was forked from.
