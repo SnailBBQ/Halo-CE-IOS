@@ -103,6 +103,15 @@ This port exists because of the work of others:
 
 See [Official project and other platforms](docs/UPSTREAM.md#credits) for details.
 
+### App Icon
+
+<p align="center">
+  <img src="docs/ios/images/prometheus_gearbox-shaded.png" width="256" alt="Halo CE iOS app icon">
+  <br><br>
+  <strong>App icon artwork by ORION</strong><br>
+  <a href="https://discord.com/users/758542539241685003">Discord Profile</a>
+</p>
+
 ## Legal
 
 This is an unofficial, non-commercial fan project. It is not affiliated with or endorsed by Microsoft, Xbox Game Studios, 343 Industries or
