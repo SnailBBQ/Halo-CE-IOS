@@ -1,12 +1,12 @@
-"""M2.6.80 build identity, automatic engine-change backup and acceptance wiring."""
+"""M2.6.81 build identity, build-138 promotion, save protection and acceptance wiring."""
 from pathlib import Path
 import json, plistlib, re
 ROOT=Path(__file__).resolve().parents[2]
 HOST=ROOT/'port/ios/HaloIOS'
 with (HOST/'Info.plist').open('rb') as f: info=plistlib.load(f)
 up=json.loads((ROOT/'port/ios/upstream.json').read_text())
-assert info['CFBundleShortVersionString']=='0.2.80' and info['CFBundleVersion']=='2680'
-assert info['HaloSourceMilestone']=='M2.6.80'
+assert info['CFBundleShortVersionString']=='0.2.81' and info['CFBundleVersion']=='2681'
+assert info['HaloSourceMilestone']=='M2.6.81'
 assert info['HaloOpenCERelease']==up['tag'] and info['HaloOpenCECommit']==up['commit']
 limits=(ROOT/'port/linux/include/halo_port_limits.h').read_text()
 network=int(re.search(r'#define\s+HALO_PORT_NETWORK_VERSION\s+(\d+)',limits).group(1))
@@ -31,10 +31,10 @@ assert 'Export last engine-change backup' in library
 assert 'HaloBuildIdentityText()' in settings and 'Guest SHA-256' in settings
 assert 'static void boot_build_identity' in boot and 'HaloBuildIdentityText() componentsSeparatedByString' in boot and 'boot_build_identity(line);' in boot
 baseline=json.loads((ROOT/'port/ios/upstream_baseline_deltas.json').read_text())
-assert baseline['upstream']['tag']=='build-125' and baseline['upstream']['commit'].startswith(up['commit']) and len(baseline['approved_flags_off_deltas'])==27
+assert baseline['upstream']['tag']=='build-125' and baseline['upstream']['commit']=='13c14df95c63156429e96a9694bb9cecd0379228' and len(baseline['approved_flags_off_deltas'])==27
 acceptance=(ROOT/'tools/ios_upstream_acceptance.py').read_text()
 assert '--require-clean-flags-off' in acceptance and 'status="warn"' in acceptance and 'IOS_OWNED_EXTRA_FILES' in acceptance
 workflow=(ROOT/'.github/workflows/ios.yml').read_text()
 for token in ('Set :HaloBuildFlavor $FLAVOR','Set :HaloGuestSHA256 $GUEST_SHA','Set :HaloSourceCommit ${GITHUB_SHA:-local}','DIAGNOSTICS=flex-base-probe-v1','python3 tools/ios_upstream_acceptance.py --json'):
     assert token in workflow, token
-print('PASS: M2.6.80 metadata matches OpenCE/source constants; logs/About expose it; engine changes use .halobackup; build-125 legacy deltas are fingerprinted; workflow stamps identity and runs acceptance gates')
+print('PASS: M2.6.81 metadata matches OpenCE build-138/source constants; logs/About expose it; engine changes use .halobackup; the historical build-125 delta baseline remains isolated; workflow stamps identity and runs acceptance gates')

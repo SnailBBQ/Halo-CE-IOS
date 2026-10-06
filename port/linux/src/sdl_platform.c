@@ -1149,12 +1149,14 @@ void platform_request_quit(void)
 	 * host exit import; the native host closes the app after guest unwinding. */
 	extern void host_exit(int code) __attribute__((noreturn));
 	host_exit(0);
-#elif !defined(HALO_ANDROID)
+#else
+#ifndef HALO_ANDROID
 	SDL_Event event;
 
 	memset(&event, 0, sizeof(event));
 	event.type = SDL_EVENT_QUIT;
 	SDL_PushEvent(&event);
+#endif
 #endif
 }
 

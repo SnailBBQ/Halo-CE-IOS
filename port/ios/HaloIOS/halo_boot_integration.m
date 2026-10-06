@@ -128,7 +128,7 @@ void halo_ios_start_game_boot(void (^line)(const char *text))
         say(line,"Runtime initialization detail: %s",halo_guest_runtime_last_error());
 #if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
         say_block(line, halo_guest_runtime_nonjb_report());
-        line("Non-Jailbreak Version: the current guest still requires a 4-GiB-aligned arena, so startup remains blocked when no aligned window exists. M2.6.80 also tests one exact 4 GiB reservation at ANY address. If 'Flexible 4 GiB ANYWHERE' succeeds above, this install has enough contiguous virtual space for the planned flexible-base guest even though that architecture is not enabled yet.");
+        line("Non-Jailbreak Version: the current guest still requires a 4-GiB-aligned arena, so startup remains blocked when no aligned window exists. This build also tests one exact 4 GiB reservation at ANY address. If 'Flexible 4 GiB ANYWHERE' succeeds above, this install has enough contiguous virtual space for the planned flexible-base guest even though that architecture is not enabled yet.");
 #endif
         line("Check the installed app's signing capabilities. This failure occurs before map loading; it is not a Jetsam termination report.");
         line("STARTUP BLOCKED: ADDRESS SPACE");

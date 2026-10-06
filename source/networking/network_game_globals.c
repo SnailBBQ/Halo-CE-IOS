@@ -438,14 +438,12 @@ static void ios_report_network_details(void) {
     host_network_details(game?game->map.name:NULL,game?(unsigned int)game->variant.game_engine_index:0);
 }
 #endif
-
 boolean network_game_server_start_frame(
 	void)
 {
 #ifdef HALO_IOS_GUEST
     ios_report_network_details();
 #endif
-
 	boolean result;
 
 	if (bss_004566dc.server)
@@ -500,7 +498,6 @@ boolean network_game_client_start_frame(
 #ifdef HALO_IOS_GUEST
     ios_report_network_details();
 #endif
-
 	short state;
 	short state_data;
 	boolean result;

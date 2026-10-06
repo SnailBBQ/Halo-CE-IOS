@@ -6,12 +6,12 @@
 <key>CFBundleName</key><string>Halo CE</string>
 <key>CFBundleExecutable</key><string>HaloIOS</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.2.80</string>
-<key>CFBundleVersion</key><string>2680</string>
-<key>HaloSourceMilestone</key><string>M2.6.80</string>
-<key>HaloOpenCERelease</key><string>build-125</string>
-<key>HaloOpenCECommit</key><string>13c14df95c63156429e96a9694bb9cecd0379228</string>
-<key>HaloNetworkVersion</key><integer>16</integer>
+<key>CFBundleShortVersionString</key><string>0.2.81</string>
+<key>CFBundleVersion</key><string>2681</string>
+<key>HaloSourceMilestone</key><string>M2.6.81</string>
+<key>HaloOpenCERelease</key><string>build-138</string>
+<key>HaloOpenCECommit</key><string>76addf661f02e2fd090d7b00f9dd12c29e562a9b</string>
+<key>HaloNetworkVersion</key><integer>20</integer>
 <key>HaloGameStateBytes</key><integer>20971520</integer>
 <key>HaloGuestABI</key><string>OpenCE arm64_32</string>
 <key>HaloGuestArchitecture</key><string>aligned-arena-v1</string>

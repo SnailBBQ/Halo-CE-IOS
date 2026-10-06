@@ -46,7 +46,6 @@ static struct crc_globals crc_globals;
 #ifndef HALO_ANDROID
 #pragma bss_seg()
 #endif
-
 #ifdef HALO_IOS_GUEST
 extern void host_crc_checksum(unsigned int, unsigned int, int);
 #endif

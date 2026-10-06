@@ -538,9 +538,9 @@ real_matrix4x3 *render_interpolation_object_node_matrices(long object_index)
 		boolean snap = !(distance_squared(&previous[0].position, &latest[0].position) <=
 			OBJECT_SNAP_DISTANCE * OBJECT_SNAP_DISTANCE);
 
-		/* a node moved further in the root's frame than a tick allows: the two
-		snapshots are different poses, not one moving (so written that a
-		position not a number snaps) */
+		/* a node moved further in the root's frame than a tick allows: the
+		two snapshots are different poses, not one moving (so written that
+		a position not a number snaps) */
 		for (node_index = 1; !snap && node_index < record->node_count; node_index++)
 		{
 			real_point3d previous_local, latest_local;

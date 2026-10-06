@@ -1,0 +1,35 @@
+# M2.6.81 — OpenCE build 138 integration
+
+Regular app **0.2.81 / 2681**. The Mod Test app derives **0.2.81.1 / 268101**. This update moves the engine from OpenCE build 125 (`13c14df…`, network 16) to **OpenCE build 138** (`76addf661f02e2fd090d7b00f9dd12c29e562a9b`), **network version 20**. The source game-state capacity remains 20 MiB. M2.6.80 is the green GitHub Actions baseline; this M2.6.81 candidate still needs its own Apple build and device validation.
+
+## What changed
+
+- **Complete OpenCE build-138 source update.** The integration applies the build-125→138 upstream change set while intentionally retaining this repository's iOS workflows instead of importing OpenCE's `.github/workflows/build.yml`. The upstream comparison spans 58 commits. Among the upstream changes are audio decoding/resampling/limiting and I3DL2 reverb work, extensive co-op and network hardening, network versions 17→20, performance work for large enemy counts, synchronized breakable scenery/glass, anti-aliasing and per-pixel model lighting, shadow-resolution and menu settings, password-protected public lobbies/server-browser lock state, multiplayer maps playable alone, co-op player-collision settings, Windows crash reporting and a second hardening pass.
+- **The iOS adaptations were rebased onto the new APIs instead of restoring old source.** Build 138 changes the renderer, texture cache/decode paths, first-person matrix remap signature, audio code and multiplayer code that iOS also adapts. The iOS branches were updated around the build-138 behavior; the renderer remains **Apple OpenGL ES**. ANGLE/Metal was not added.
+- **Strict upstream promotion passed.** `tools/ios_upstream_acceptance.py --require-upstream --require-clean-flags-off` reports **43/43** upstream-owned adapted files exact against the supplied build-138 tree with `HALO_IOS_GUEST` disabled. The 27 build-125 flags-off deltas recorded by M2.6.80 remain only as historical baseline evidence; none is grandfathered into build 138.
+- **Build identity now identifies build 138.** About/log metadata records M2.6.81, the full build-138 commit, network 20, the 20 MiB game-state ABI, aligned-arena-v1, ios-guarded-v1 and Apple OpenGL ES. The exact built guest SHA-256 continues to be stamped by Actions.
+- **Existing save protection is intentionally used for this engine change.** M2.6.80 introduced automatic engine-change protection with the normal verified `.halobackup` format. Because the stable OpenCE identity changes in M2.6.81, an install with existing persistent saves/profiles should create that protective archive before the build-138 guest is allowed to open them. If protection fails, startup remains fail-closed.
+- **Non-Jailbreak work is unchanged in scope.** The diagnostic flavor still tests whether stock/free-signed iOS can reserve one exact 4 GiB span anywhere when the aligned arena is unavailable. M2.6.81 does not yet execute Halo from an arbitrary guest base and does not claim free-signing support.
+
+## Integration checks completed locally
+
+- The supplied OpenCE build-138 archive was checked against release commit `76addf661f02e2fd090d7b00f9dd12c29e562a9b`; the source network constant is 20.
+- Of the 165 build-138 changed upstream paths accepted into this project (OpenCE's own GitHub workflow is deliberately excluded), **143 are byte-identical** to the supplied target, **21 changed paths contain iOS guards whose flags-off view is byte-for-byte build 138**, and one upstream XML asset has only its trailing whitespace cleaned. Across all adapted upstream files, strict acceptance is **43/43 exact**.
+- All real merge-conflict markers are gone; host-import coverage remains complete at 51 imports; iOS guard structure, workflow transformation, header declarations, checkpoint metadata and the acceptance parser pass.
+- **32/33** `test_ios_*.py` tests run successfully in this workspace. The remaining pointer-fastpath test cannot start here because `keystone` is not installed; the GitHub workflow installs its dedicated `keystone-engine`/Unicorn environment.
+- The portable memory/VM, image loading, log report, settings, map order, controls, color, scancode, checkpoint, timing, GL wait, VA planning/map analysis, render/scene scan, networking, audio ring, launch-state and fault-histogram C regressions pass. XISO passes **9/9**. The first-person remap regression was updated for build 138's new `void` API and passes.
+- OpenCE's `tools/test_linux_port.py` reports 9 passes, 1 skip and one local-toolchain failure because this workspace lacks the 32-bit glibc headers needed by its `i686-linux-gnu` syntax check. OpenCE's new `tools/test_light_storage.py` compiles its 32-bit static probe here but this container cannot execute i386 binaries (`Exec format error`). Those are local environment limitations, not iOS source failures; the upstream Linux workflow remains authoritative for those two checks.
+- Mach/Foundation/UIKit compilation, the Objective-C backup tests, the actual arm64_32 guest link, Xcode app link/sign/package and device behavior require the GitHub Actions/macOS run.
+
+## Device / release checklist
+
+1. Build the **Regular** artifact in GitHub Actions. Confirm About/logs show **M2.6.81 / 0.2.81 (2681)**, OpenCE **build-138 / 76addf6…**, **network 20**, 20 MiB game state, Regular, aligned-arena-v1, ios-guarded-v1 and Apple OpenGL ES.
+2. Install over an M2.6.80 data container with a real profile/save. Confirm an automatic engine-change `.halobackup` is created before Halo starts, can be exported from Manage Backups, and the existing profile/save remains usable.
+3. Import/verify the user's Xbox data if needed, reach the main menu, start `a10`, save/quit/reload a checkpoint, and test at least one additional campaign map.
+4. Exercise renderer changes on device: menus/HUD, first-person weapon, water/transparent geometry, dynamic lighting, shadows and the new upstream anti-aliasing/per-pixel-lighting paths where exposed. Watch for shader/link errors, missing textures and one-frame pose corruption.
+5. Exercise native audio through campaign/gameplay, including music/dialogue/effects and volume settings; check for underruns, distortion or regressions around the new upstream decode/resample/reverb paths.
+6. Cross-play with a PC on a **network-version-20-compatible OpenCE build**. Check LAN/direct invite, public browser, hosting/joining, password-protected lobby behavior, a normal multiplayer match and co-op if available. Do not use build 125/network 16 as the peer for this test.
+7. Build **Mod Test** manually and confirm **0.2.81.1 / 268101**, its separate bundle/data behavior and large-map experiment remain isolated.
+8. Build **Non-Jailbreak** manually through the free-signing test path. Confirm the existing `Flexible 4 GiB ANYWHERE:` diagnostic still reports its actual result; do not interpret a successful flexible reservation as a working arbitrary-base guest.
+
+Until the Apple build and these device checks are complete, M2.6.81 is a **source-integrated candidate**, not a confirmed playable build-138 release.

@@ -65,15 +65,12 @@ symbols in this file:
 #include "input/input.h"
 #include "interface/terminal.h"
 #include "items/weapon_definitions.h"
-#include "items/equipment_definitions.h"
 #include "main/console.h"
 #include "math/real_math.h"
 #include "objects/objects.h"
-#include "objects/damage.h"
 #include "rasterizer/rasterizer_console_vars.h"
 #include "scenario/scenario.h"
 #include "tag_files/tag_groups.h"
-#include "tag_files/tag_files.h"
 #include "units/units.h"
 
 /* ---------- constants */
@@ -103,7 +100,6 @@ static char cheat_strings[MAXIMUM_CHEATS][MAXIMUM_CHEAT_LENGTH] = {0};
 static boolean cheats_unused_flag = FALSE;
 
 /* ---------- code */
-
 #ifdef HALO_IOS_GUEST
 static void ios_cheats_reset(void);
 #endif
@@ -209,7 +205,6 @@ void cheats_network_client_enforce(
 
 	return;
 }
-
 #ifdef HALO_IOS_GUEST
 /* iOS Settings > Cheats. The host passes a bit mask: 1 god mode, 2 infinite ammo, 4 infinite grenades,
 8 no reloading. They drive the game's own cheat flags (cheats.h), and only in the campaign: never in a
@@ -572,6 +567,22 @@ static void cheat_objects(
 	return;
 }
 
+/* port: a block's references (the map's count and address): none from a
+block with no count or no address, and no more than a short counts (the
+count was cast to one, and wrapped) */
+static void cheat_objects_from_block(
+	struct tag_block const *block)
+{
+	if (block->count > 0 && block->address)
+	{
+		cheat_objects(
+			(struct tag_reference *)block->address,
+			(short)MIN(block->count, SHORT_MAX));
+	}
+
+	return;
+}
+
 void cheat_all_weapons(
 	void)
 {
@@ -579,9 +590,7 @@ void cheat_all_weapons(
 
 	if (TAG_BLOCK_TRY_AND_GET_ELEMENT(&globals->weapon_list, 0, struct tag_reference))
 	{
-		cheat_objects(
-			TAG_BLOCK_TRY_AND_GET_ELEMENT(&globals->weapon_list, 0, struct tag_reference),
-			(short)globals->weapon_list.count);
+		cheat_objects_from_block(&globals->weapon_list);
 	}
 	else
 	{
@@ -610,9 +619,7 @@ void cheat_all_powerups(
 {
 	struct game_globals *globals = scenario_get_game_globals();
 
-	cheat_objects(
-		TAG_BLOCK_TRY_AND_GET_ELEMENT(&globals->cheat_powerups, 0, struct tag_reference),
-		(short)globals->cheat_powerups.count);
+	cheat_objects_from_block(&globals->cheat_powerups);
 
 	return;
 }
@@ -622,13 +629,12 @@ void cheat_all_vehicles(
 {
 	struct game_globals *globals = scenario_get_game_globals();
 
-	if (globals->multiplayer_information.count)
+	/* port: a block with an address, too */
+	if (globals->multiplayer_information.count > 0 && globals->multiplayer_information.address)
 	{
-		cheat_objects(
-			TAG_BLOCK_GET_ELEMENT(&globals->multiplayer_information, 0,
-				struct game_globals_multiplayer_information)->vehicles.address,
-			(short)TAG_BLOCK_GET_ELEMENT(&globals->multiplayer_information, 0,
-				struct game_globals_multiplayer_information)->vehicles.count);
+		cheat_objects_from_block(
+			&TAG_BLOCK_GET_ELEMENT(&globals->multiplayer_information, 0,
+				struct game_globals_multiplayer_information)->vehicles);
 	}
 
 	return;

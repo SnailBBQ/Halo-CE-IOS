@@ -1,13 +1,15 @@
 # Release notes
 
-The current update is **M2.6.80**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.81**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.80](../../port/ios/UPDATE_M2680.md) adds exact build identity in About/logs, automatic engine-change save protection using `.halobackup`, reusable upstream acceptance gates with explicit build-125 legacy-delta tracking/strict promotion mode, and a diagnostic exact-4-GiB-anywhere probe for the Non-Jailbreak flavor. OpenCE stays on build 125 / network 16 and the real guest still requires its aligned arena. M2.6.79 passed GitHub Actions; M2.6.80 still needs Apple/device validation.
+**Latest:** [M2.6.81](../../port/ios/UPDATE_M2681.md) integrates OpenCE build 138 (`76addf6…`), network 20, from the M2.6.80 green baseline. It takes the complete upstream build-125→138 source update (except OpenCE's repository workflow), reapplies the iOS-only adaptations, and passes the strict 43/43 flags-off equivalence gate. M2.6.80's build identity, automatic engine-change `.halobackup` and Non-Jailbreak flexible-arena probe remain. M2.6.81 still needs Apple/device validation.
+
+**Previous:** [M2.6.80](../../port/ios/UPDATE_M2680.md) added exact build identity, automatic engine-change `.halobackup` protection, reusable upstream acceptance gates and the Non-Jailbreak flexible 4 GiB-anywhere feasibility probe. Its GitHub Actions build passed.
 
 **Previous:** [M2.6.79](../../port/ios/UPDATE_M2679.md) is the green baseline-cleanup build: stale version/upstream metadata was corrected, notes-only iOS Markdown no longer starts an automatic IPA build, the mod-cache diagnostics test runs once, and the XISO test driver is warning-clean under GCC and Clang.
 
@@ -53,7 +55,8 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
-| M2.6.80 | Build identity, automatic engine-change `.halobackup`, reusable upstream acceptance gates, and Non-JB flexible 4 GiB-anywhere feasibility probe. Apple/device validation pending. |
+| M2.6.81 | OpenCE build 138 / network 20 integration; strict 43/43 flags-off upstream equivalence; iOS adaptations retained. Apple/device validation pending. |
+| M2.6.80 | Build identity, automatic engine-change `.halobackup`, reusable upstream acceptance gates, and Non-JB flexible 4 GiB-anywhere feasibility probe. GitHub Actions passed; device validation remains feature-dependent. |
 | M2.6.79 | Baseline cleanup: current version/upstream metadata corrected, notes-only build trigger removed, diagnostics loop fixed, XISO test warning cleaned. Device validation pending. |
 | M2.6.78 | Share logs sends one text file, Copy logs is new, and a start history keeps where a stopped run ended. Device validation pending. |
 | M2.6.77 | The Non-Jailbreak address-space report is corrected; free and paid accounts are documented. Device validation pending. |

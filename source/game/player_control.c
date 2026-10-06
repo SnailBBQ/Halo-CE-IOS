@@ -181,7 +181,6 @@ symbols in this file:
 /* ---------- headers */
 
 #include "cseries.h"
-#include "game/cheats.h"
 #define limit2d limit2d_inline
 #include "game/game.h"
 #undef limit2d

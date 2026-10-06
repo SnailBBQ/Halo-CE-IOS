@@ -573,11 +573,11 @@ boolean game_state_read_header_from_persistent_storage(
 				remaining_size -= read_size;
 			}
 
-			if (checksum == stored_checksum
 #ifdef HALO_IOS_GUEST
-				&& complete
+			if (checksum == stored_checksum && complete)
+#else
+			if (checksum == stored_checksum)
 #endif
-			)
 			{
 				result = TRUE;
 			}

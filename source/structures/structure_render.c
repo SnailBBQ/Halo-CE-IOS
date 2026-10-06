@@ -280,7 +280,6 @@ static void structure_render_dynamic_triangles_from_bitvector(
     p.a[3]=(unsigned int)surface_count;p.a[4]=(unsigned int)triangles;p.a[5]=(unsigned int)surface_indices;p.a[6]=(unsigned int)surface_flags;
     host_scene_scan((unsigned int)&p);return;
 #endif
-
 	struct structure_bsp *structure_bsp = global_structure_bsp_get();
 	short surface_index_index = 0;
 	long surface_index = 0;
@@ -351,7 +350,6 @@ static void structure_render_dynamic_triangles_from_indices(
     p.a[2]=(unsigned int)surface_indices;p.a[3]=(unsigned int)surface_count;p.a[4]=(unsigned int)triangles;
     host_scene_scan((unsigned int)&p);return;
 #endif
-
 	struct structure_bsp *structure_bsp = global_structure_bsp_get();
 	short surface_index_index;
 

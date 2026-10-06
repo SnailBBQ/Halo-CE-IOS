@@ -73,7 +73,6 @@ long local_player_aim_assist(
 #ifdef HALO_IOS_GUEST
 boolean ios_crosshair_has_enemy(long player_index);
 #endif
-
 /* ---------- globals */
 
 /* ---------- public code */

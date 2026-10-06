@@ -62,12 +62,10 @@ symbols in this file:
 #include "cseries.h"
 #include "cseries/errors.h"
 #include "render.h"
-/* Separate engine scene work from the overlapping D3D/GL measurements. */
 #ifdef HALO_IOS_GUEST
+/* Separate engine scene work from the overlapping D3D/GL measurements. */
 extern void host_frame_phase(int,int);
 #define IOS_SCENE_PHASE(phase,call) do { host_frame_phase(phase,0);call;host_frame_phase(phase,1); } while (0)
-#else
-#define IOS_SCENE_PHASE(phase,call) do { call; } while (0)
 #endif
 #include "render_cameras_internal.h"
 #include "render_particles.h"
@@ -332,7 +330,11 @@ static void render_window(
 	parameters.window_index = render.window_index;
 	parameters.fog = render.fog;
 
+#ifdef HALO_IOS_GUEST
 	IOS_SCENE_PHASE(12,structure_visibility_compute());
+#else
+	structure_visibility_compute();
+#endif
 	player_effect_get_screen_flash(local_player_index, &parameters.screen_flash);
 	rasterizer_window_begin(&parameters);
 
@@ -341,13 +343,37 @@ static void render_window(
 		build_sprite_prepare_for_window();
 		render_sky();
 		first_person_weapon_render_update();
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(16,lights_preprocess_scene());
+#else
+		lights_preprocess_scene();
+#endif
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(13,render_objects());
+#else
+		render_objects();
+#endif
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(14,structure_render_preprocess());
+#else
+		structure_render_preprocess();
+#endif
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(14,structure_render_lightmaps());
+#else
+		structure_render_lightmaps();
+#endif
 		rasterizer_lens_flares_submit_occlusion_tests();
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(13,render_object_shadows());
+#else
+		render_object_shadows();
+#endif
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(16,lights_render_diffuse());
+#else
+		lights_render_diffuse();
+#endif
 
 		rasterizer_decals_begin(_decal_layer_light);
 		for (rendered_cluster_index = 0;
@@ -367,7 +393,11 @@ static void render_window(
 		}
 		rasterizer_decals_end();
 
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(14,structure_render_diffuse_texture());
+#else
+		structure_render_diffuse_texture();
+#endif
 
 		rasterizer_decals_begin(_decal_layer_primary);
 		for (rendered_cluster_index = 0;
@@ -387,19 +417,67 @@ static void render_window(
 		}
 		rasterizer_decals_end();
 
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(16,lights_render_specular());
+#else
+		lights_render_specular();
+#endif
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(14,structure_render_specular_lightmaps());
+#else
+		structure_render_specular_lightmaps();
+#endif
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(14,structure_render_reflection_lightmap_masks());
+#else
+		structure_render_reflection_lightmap_masks();
+#endif
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(14,structure_render_reflection_mirrors());
+#else
+		structure_render_reflection_mirrors();
+#endif
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(14,structure_render_reflections());
+#else
+		structure_render_reflections();
+#endif
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(14,structure_render_transparent_geometry());
+#else
+		structure_render_transparent_geometry();
+#endif
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(14,structure_render_fog());
+#else
+		structure_render_fog();
+#endif
 		game_engine_post_rasterize_objects();
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(15,weather_particle_systems_render());
+#else
+		weather_particle_systems_render();
+#endif
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(15,render_particles());
+#else
+		render_particles();
+#endif
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(15,particle_systems_render());
+#else
+		particle_systems_render();
+#endif
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(15,render_contrails_normal());
+#else
+		render_contrails_normal();
+#endif
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(15,rasterizer_transparent_geometry_draw(TRUE));
+#else
+		rasterizer_transparent_geometry_draw(TRUE);
+#endif
 
 		rasterizer_decals_begin(_decal_layer_water);
 		for (rendered_cluster_index = 0;
@@ -410,15 +488,45 @@ static void render_window(
 		}
 		rasterizer_decals_end();
 
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(14,structure_render_detail_objects());
+#else
+		structure_render_detail_objects();
+#endif
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(15,rasterizer_transparent_geometry_draw(FALSE));
+#else
+		rasterizer_transparent_geometry_draw(FALSE);
+#endif
 		rasterizer_transparent_geometry_stop();
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(14,structure_render_fog_screen());
+#else
+		structure_render_fog_screen();
+#endif
 		rasterizer_lens_flares_draw();
+		/* port: the 3D view antialiased (display.anti_aliasing), before the
+		HUD and menus are drawn over it */
+		if (rasterizer_target == _render_target_primary)
+		{
+			halo_screen_anti_alias(
+				rasterizer_camera->viewport_bounds.x0,
+				rasterizer_camera->viewport_bounds.y0,
+				rasterizer_camera->viewport_bounds.x1,
+				rasterizer_camera->viewport_bounds.y1);
+		}
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(17,interface_draw_screen());
+#else
+		interface_draw_screen();
+#endif
 		rasterizer_screen_flash();
 		halo_screen_ui_offset(TRUE);
+#ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(17,render_ui_widgets(local_player_index, &rasterizer_camera->viewport_bounds));
+#else
+		render_ui_widgets(local_player_index, &rasterizer_camera->viewport_bounds);
+#endif
 		halo_screen_ui_offset(FALSE);
 	}
 

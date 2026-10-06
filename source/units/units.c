@@ -692,6 +692,7 @@ symbols in this file:
 #include "sound/game_sound.h"
 #include "vehicles.h"
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
+#include "coop_scripts.h" /* port: port/linux/game/coop_scripts.c */
 #include "coop_enemies.h" /* port: port/linux/game/coop_enemies.c */
 
 /* port: the control and animation impulses the host's actors give their
@@ -704,15 +705,10 @@ void network_actors_note_leap(long unit_index, real_vector2d const *alignment_ve
 short network_objects_damage_animation(long unit_index, short type, short animation_index);
 void network_actors_note_user_animation(long unit_index, long animation_graph_index, short animation_index,
 	boolean interpolate);
-
 #ifdef HALO_IOS_GUEST
 /* iOS Settings > Cheats > Infinite grenades (source/game/cheats.c); campaign only */
 extern boolean ios_cheat_infinite_grenades;
-#define IOS_INFINITE_GRENADES() (ios_cheat_infinite_grenades)
-#else
-#define IOS_INFINITE_GRENADES() (0)
 #endif
-
 
 /* ---------- constants */
 
@@ -2283,6 +2279,8 @@ void unit_scripting_suspended(
 	long unit_index,
 	boolean suspended)
 {
+	/* port: co-op players the scripts can't name go with player0 */
+	coop_scripts_suspend_followers(unit_index, suspended);
 	if (unit_index!=NONE)
 	{
 		struct unit_datum *unit = unit_get(unit_index);
@@ -4722,6 +4720,10 @@ void unit_scripting_enter_vehicle(
 					}
 				}
 			}
+
+			/* port: co-op players the scripts can't name board with player0 */
+			if (unit->object.parent_object_index == vehicle_index)
+				coop_scripts_board_followers(unit_index, vehicle_index, seat_name);
 		}
 	}
 
@@ -4834,10 +4836,13 @@ void unit_scripting_exit_vehicle(
 	if (unit_index!=NONE)
 	{
 		struct unit_datum *unit = unit_get(unit_index);
+		long vehicle_index = unit->object.parent_object_index;
 
 		if (unit->object.parent_object_index!=NONE && unit->unit.parent_seat_index!=NONE)
 		{
 			unit_try_and_exit_seat(unit_index);
+			/* port: co-op players the scripts can't name get out with player0 */
+			coop_scripts_exit_followers(unit_index, vehicle_index);
 		}
 	}
 
@@ -5291,6 +5296,16 @@ short vehicle_scripting_load_magic(
 		}
 		for (unseated_number = 0; unseated_number < unseated_count; unseated_number++)
 			actor_erase(unseated_actor_indices[unseated_number], FALSE);
+
+		/* port: co-op players the scripts can't name board with player0,
+		once this load's seats are taken */
+		for (unit_index = object_list_get_first(object_list_index, &reference_index);
+			unit_index != NONE;
+			unit_index = object_list_get_next(object_list_index, &reference_index))
+		{
+			if (object_get(unit_index)->object.parent_object_index == vehicle_index)
+				coop_scripts_board_followers(unit_index, vehicle_index, seat_name);
+		}
 	}
 
 	return (short)loaded_count;
@@ -6080,11 +6095,12 @@ boolean unit_update(
 #endif
 	if (TEST_FLAG(unit->unit.flags, _unit_integrated_light_on_bit))
 	{
-		if (!TEST_FLAG(unit_definition->unit.flags, _unit_integrated_light_fucking_lasts_forever_bit)
 #ifdef HALO_IOS_GUEST
-			&& !ios_cheat_enabled(unit_index, IOS_CHEAT_FLASHLIGHT)
+		if (!TEST_FLAG(unit_definition->unit.flags, _unit_integrated_light_fucking_lasts_forever_bit) &&
+			!ios_cheat_enabled(unit_index, IOS_CHEAT_FLASHLIGHT))
+#else
+		if (!TEST_FLAG(unit_definition->unit.flags, _unit_integrated_light_fucking_lasts_forever_bit))
 #endif
-		)
 		{
 			unit->unit.integrated_light_battery = unit->unit.integrated_light_battery - 1.f/(2.f*TICKS_PER_MINUTE);
 		}
@@ -7752,7 +7768,11 @@ static void unit_throw_grenade_move_to_hand(
 
 	if ((
 		unit->unit.player_index==NONE ||
-		!cheat.infinite_ammo && !IOS_INFINITE_GRENADES() && !game_engine_infinite_grenades(unit->unit.player_index)) &&
+#ifdef HALO_IOS_GUEST
+		!cheat.infinite_ammo && !ios_cheat_infinite_grenades && !game_engine_infinite_grenades(unit->unit.player_index)) &&
+#else
+		!cheat.infinite_ammo && !game_engine_infinite_grenades(unit->unit.player_index)) &&
+#endif
 		(unit->unit.actor_index==NONE ||
 		!actor_has_unlimited_grenades(unit->unit.actor_index)))
 	{

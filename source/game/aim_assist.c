@@ -670,7 +670,6 @@ boolean ios_crosshair_has_enemy(long player_index)
     return enemy;
 }
 #endif
-
 long local_player_aim_assist(
 	short local_player_index,
 	real *autoaim_level,

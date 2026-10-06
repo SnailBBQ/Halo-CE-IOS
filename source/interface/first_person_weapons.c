@@ -109,7 +109,6 @@ symbols in this file:
 #include "effects/particles.h"
 #include "game/game_globals.h"
 #include "game/players.h"
-#include "game/cheats.h"
 #include "items/weapon_datum_flags.h"
 #include "items/weapon_definitions.h"
 #include "items/weapons.h"
@@ -363,7 +362,7 @@ static long first_person_weapon_state_from_weapon_message(
 	short message_type);
 static long first_person_animation_type_from_weapon_state(
 	short state);
-static boolean model_remap_node_matrices_to_match_animation_graph(
+static void model_remap_node_matrices_to_match_animation_graph(
 	long model_index,
 	struct real_matrix4x3 *model_node_matrices,
 	long animation_graph_index,
@@ -468,7 +467,7 @@ long first_person_weapon_get_local_index(
 extern unsigned int host_viewmodel_flags(void);
 #endif
 void first_person_weapon_draw(
-    void)
+	void)
 {
 #ifdef HALO_IOS_GUEST
     unsigned int viewmodel_flags = host_viewmodel_flags();
@@ -522,19 +521,20 @@ void first_person_weapon_draw(
 						model_effect.type= _render_model_effect_type_none;
 					}
 
-					if (
 #ifdef HALO_IOS_GUEST
-                        (viewmodel_flags & 1u) &&
+					if ((viewmodel_flags & 1u) &&
+						first_person_weapon->weapon_node_remapping_table_valid &&
+#else
+					if (first_person_weapon->weapon_node_remapping_table_valid &&
 #endif
-                        first_person_weapon->weapon_node_remapping_table_valid &&
 						weapon_definition->weapon.interface_definition.first_person_model.index!=NONE)
 					{
-						if (model_remap_node_matrices_to_match_animation_graph(
+						model_remap_node_matrices_to_match_animation_graph(
 							weapon_definition->weapon.interface_definition.first_person_model.index,
 							model_node_matrices,
 							weapon_definition->weapon.interface_definition.first_person_animations.index,
 							first_person_weapon->node_matrices,
-							first_person_weapon->weapon_node_remapping_table)) {
+							first_person_weapon->weapon_node_remapping_table);
 						render_model(
 							weapon_definition->weapon.interface_definition.first_person_model.index,
 							0.0f,
@@ -549,22 +549,22 @@ void first_person_weapon_draw(
 							first_person_weapon->weapon_index,
 							0,
 							FLAG(_render_model_first_person_bit));
-                        }
 					}
 
-					if (
 #ifdef HALO_IOS_GUEST
-                        (viewmodel_flags & 2u) &&
+					if ((viewmodel_flags & 2u) &&
+						first_person_weapon->hands_node_remapping_table_valid &&
+#else
+					if (first_person_weapon->hands_node_remapping_table_valid &&
 #endif
-                        first_person_weapon->hands_node_remapping_table_valid &&
 						first_person_interface->hands.index!=NONE)
 					{
-						if (model_remap_node_matrices_to_match_animation_graph(
+						model_remap_node_matrices_to_match_animation_graph(
 							first_person_interface->hands.index,
 							model_node_matrices,
 							weapon_definition->weapon.interface_definition.first_person_animations.index,
 							first_person_weapon->node_matrices,
-							first_person_weapon->hands_node_remapping_table)) {
+							first_person_weapon->hands_node_remapping_table);
 						render_model(
 							first_person_interface->hands.index,
 							0.0f,
@@ -579,7 +579,6 @@ void first_person_weapon_draw(
 							first_person_weapon->weapon_index,
 							0,
 							FLAG(_render_model_first_person_bit));
-                        }
 					}
 				}
 			}
@@ -911,10 +910,11 @@ static void first_person_weapon_start_interpolation(
 	struct animation_graph *animation_graph= animation_graph_definition_get(
 		weapon_definition->weapon.interface_definition.first_person_animations.index);
 
+	/* port: no more nodes than the weapon's orientations hold (a map's count) */
 	csmemcpy(
 		first_person_weapon->original_node_orientations,
 		first_person_weapon->node_orientations,
-		animation_graph->nodes.count*sizeof(real_orientation));
+		PIN(animation_graph->nodes.count, 0, MAXIMUM_NODES_PER_ANIMATION)*sizeof(real_orientation));
 	if (frame_count>=first_person_weapon->interpolation_frame_count-
 		first_person_weapon->interpolation_frame_index)
 	{
@@ -1183,7 +1183,9 @@ static void first_person_weapon_build_node_matrices(
 								state_animation,
 								(short)(first_person_weapon->state_animation.frame_index+1),
 								next_node_orientations);
-							for (node_index= 0; node_index<state_animation->node_count; node_index++)
+							/* port: no more nodes than the orientations hold (a
+							map's count) */
+							for (node_index= 0; node_index<MIN(state_animation->node_count, MAXIMUM_NODES_PER_ANIMATION); node_index++)
 							{
 								orientations_interpolate(
 									&first_person_weapon->node_orientations[node_index],
@@ -1407,10 +1409,11 @@ static void first_person_weapon_build_node_matrices(
 		(void)local_player_index;
 #else
 		/* the pose between the last two ticks (render_interpolation.c) */
+		/* port: no more nodes than the weapon's matrices hold (a map's count) */
 		render_interpolation_first_person(
 			local_player_index,
 			first_person_weapon->node_matrices,
-			(short)animation_graph->nodes.count,
+			(short)MIN(animation_graph->nodes.count, MAXIMUM_NODES_PER_ANIMATION),
 			&render.camera);
 #endif
 	}
@@ -2071,7 +2074,9 @@ static boolean model_build_remapping_table_for_animation_graph(
 	boolean valid= TRUE;
 	short model_node_index;
 
-	for (model_node_index=0; model_node_index<model->nodes.count; model_node_index++)
+	/* port: no more model nodes than the table holds, and only graph nodes
+	the weapon's matrices hold (a map's counts) */
+	for (model_node_index=0; model_node_index<MIN(model->nodes.count, MAXIMUM_NODES_PER_ANIMATION); model_node_index++)
 	{
 		struct model_node *model_node= TAG_BLOCK_GET_ELEMENT(
 			&model->nodes,
@@ -2080,7 +2085,7 @@ static boolean model_build_remapping_table_for_animation_graph(
 		short animation_graph_node_index= NONE;
 		short node_index;
 
-		for (node_index=0; node_index<animation_graph->nodes.count; node_index++)
+		for (node_index=0; node_index<MIN(animation_graph->nodes.count, MAXIMUM_NODES_PER_ANIMATION); node_index++)
 		{
 			struct animation_graph_node *animation_graph_node= TAG_BLOCK_GET_ELEMENT(
 				&animation_graph->nodes,
@@ -2135,7 +2140,10 @@ static void weapon_play_first_person_weapon_sound(
 								&animation_graph->first_person_weapon_animations,
 								0,
 								struct animation_graph_first_person_weapon_animations);
-					short animation_index= (animation_type>=0 &&
+					/* port: and the graph has first-person animations (a map's
+					graph without them was a NULL read) */
+					short animation_index= (first_person_weapon_animations &&
+						animation_type>=0 &&
 						animation_type<first_person_weapon_animations->animations.count) ?
 							animation_graph_animation_index_get(
 								&first_person_weapon_animations->animations)
@@ -2149,7 +2157,8 @@ static void weapon_play_first_person_weapon_sound(
 							animation_index,
 							struct animation)->sound_index;
 
-						if (sound_index!=NONE)
+						/* port: a sound the graph has (a map's index) */
+						if (VALID_INDEX(sound_index, animation_graph->sound_references.count))
 						{
 							long definition_index= TAG_BLOCK_GET_ELEMENT(
 								&animation_graph->sound_references,
@@ -2274,7 +2283,7 @@ static long first_person_animation_type_from_weapon_state(
 	return NONE;
 }
 
-static boolean model_remap_node_matrices_to_match_animation_graph(
+static void model_remap_node_matrices_to_match_animation_graph(
 	long model_index,
 	struct real_matrix4x3 *model_node_matrices,
 	long animation_graph_index,
@@ -2287,10 +2296,12 @@ static boolean model_remap_node_matrices_to_match_animation_graph(
 #ifdef HALO_IOS_GUEST
     if (model->nodes.count <= 0 || model->nodes.count > MAXIMUM_NODES_PER_ANIMATION ||
         animation_graph->nodes.count <= 0 || animation_graph->nodes.count > MAXIMUM_NODES_PER_ANIMATION)
-        return FALSE;
+        return;
 #endif
 
-	for (node_index=0; node_index<model->nodes.count; node_index++)
+	/* port: no more nodes than the table and model_node_matrices hold (a
+	map's count) */
+	for (node_index=0; node_index<MIN(model->nodes.count, MAXIMUM_NODES_PER_ANIMATION); node_index++)
 	{
 		short animation_graph_node_index= node_remapping_table[node_index];
 
@@ -2298,7 +2309,7 @@ static boolean model_remap_node_matrices_to_match_animation_graph(
         if (animation_graph_node_index < 0 || animation_graph_node_index >= animation_graph->nodes.count) {
             static unsigned reports;
             if (reports++ < 8) error(_error_log, "first-person remap rejected: model=%08lx node=%d bone=%d count=%ld", model_index, node_index, animation_graph_node_index, animation_graph->nodes.count);
-            return FALSE;
+            return;
         }
 #endif
 		match_assert(
@@ -2318,7 +2329,7 @@ static boolean model_remap_node_matrices_to_match_animation_graph(
                 if (!(values[component] >= -FLT_MAX && values[component] <= FLT_MAX)) {
                     static unsigned reports;
                     if (reports++ < 8) error(_error_log, "first-person nonfinite bone rejected: model=%08lx node=%d component=%d", model_index, node_index, component);
-                    return FALSE;
+                    return;
                 }
             }
         }
@@ -2350,11 +2361,11 @@ static boolean model_remap_node_matrices_to_match_animation_graph(
             }
             error(_error_log, "first-person pose: model=%08lx graph=%08lx nodes=%ld max-scale=%.4f camera-distance-L1=%.4f nonfinite=%d", model_index, animation_graph_index, model->nodes.count, max_scale, max_distance, bad);
             model_ids[slot] = model_index; ticks[slot] = tick;
-            if (bad) return FALSE;
+            if (bad) return;
         }
     }
 #endif
-	return TRUE;
+	return;
 }
 
 static struct first_person_weapon *first_person_weapon_get(

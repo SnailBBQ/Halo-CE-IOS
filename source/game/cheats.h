@@ -70,7 +70,6 @@ real ios_cheat_jump_multiplier(long unit_index);
 real ios_cheat_speed_multiplier(long unit_index);
 real ios_cheat_field_of_view(long unit_index);
 #endif
-
 /* ---------- globals */
 
 extern struct cheat_globals cheat;

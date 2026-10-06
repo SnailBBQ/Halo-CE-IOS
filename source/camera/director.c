@@ -131,7 +131,6 @@ symbols in this file:
 
 #include "editor/editor_stubs.h"
 #include "game/players.h"
-#include "game/cheats.h"
 #include "input/input.h"
 #include "main/console.h"
 #include "saved games/game_state.h"

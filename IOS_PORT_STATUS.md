@@ -1,9 +1,8 @@
 # Halo CE iOS — Project status
 
-**Status: playable.** **Current update: M2.6.80** (regular app 0.2.80, Mod Test 0.2.80.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
-are still waiting for device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
+**Status: playable.** **Current source update: M2.6.81** (regular app 0.2.81, Mod Test 0.2.81.1), integrating OpenCE build 138 / network 20 from the green M2.6.80 baseline. The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. The build-138 integration has passed local strict source acceptance and portable regressions; its Apple build and physical-device behavior are still pending. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
 
-**Source update:** [M2.6.80](port/ios/UPDATE_M2680.md) adds build identity/provenance, automatic `.halobackup` protection before a changed engine opens saves, reusable upstream acceptance gates (including explicit tracking of 27 pre-existing build-125 flags-off deltas and a zero-delta strict promotion mode), and the Non-Jailbreak flavor's first explicit flexible-base feasibility probe: reserve exactly 4 GiB anywhere and report its real base/alignment. The actual Halo guest remains on the existing aligned-arena architecture and OpenCE build 125 / network 16. M2.6.79 passed GitHub Actions; M2.6.80 still needs its Apple build and device checks.
+**Source update:** [M2.6.81](port/ios/UPDATE_M2681.md) integrates the complete OpenCE build-125→138 source change set (except OpenCE's own repository workflow), rebases the iOS-only adaptations onto the new renderer/audio/network APIs, and promotes network version 20. The strict promotion gate reports 43/43 adapted upstream files exact when `HALO_IOS_GUEST` is disabled, so the 27 historical build-125 flags-off deltas are not carried into build 138. M2.6.80's build identity, automatic engine-change `.halobackup` protection and Non-Jailbreak flexible 4 GiB-anywhere probe remain. M2.6.80 passed GitHub Actions; M2.6.81 still needs its Apple build and device checks.
 
 ## Two apps, plus a stock-iOS build
 
@@ -13,7 +12,7 @@ are still waiting for device validation. See the [release notes](docs/ios/RELEAS
 | Halo CE Mod Test | `main`, tick **Mod Test app** | artifact `HaloCE-iOS-ModTest` |
 | Non-Jailbreak Version | `main`, tick **Non-Jailbreak Version** | artifact `HaloCE-iOS-NonJailbreak` |
 
-The regular app and Mod Test share the same features and are updated together. The Mod Test app adds an experimental loader for very large converted campaign maps; see [Mod Test](docs/ios/MOD_TEST.md). The Non-Jailbreak Version is the regular app plus stock-iOS address-space/JIT diagnostics. M2.6.80 also measures whether one exact 4 GiB span can be reserved **anywhere** even when no aligned guest window exists; it does not yet run Halo from that unaligned span. Free-account sideloading is therefore still experimental rather than supported; see [M2.6.80](port/ios/UPDATE_M2680.md) and [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
+The regular app and Mod Test share the same features and are updated together. The Mod Test app adds an experimental loader for very large converted campaign maps; see [Mod Test](docs/ios/MOD_TEST.md). The Non-Jailbreak Version is the regular app plus stock-iOS address-space/JIT diagnostics. It still measures whether one exact 4 GiB span can be reserved **anywhere** even when no aligned guest window exists; it does not yet run Halo from that unaligned span. Free-account sideloading is therefore still experimental rather than supported; see [M2.6.81](port/ios/UPDATE_M2681.md) and [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 
 ## What works (reported from device testing)
 
@@ -23,7 +22,7 @@ The regular app and Mod Test share the same features and are updated together. T
 
 ## Implemented, waiting for build/device validation
 
-- OpenCE build 125 baseline (device-tested up to OpenCE build 94), including multiplayer pause Settings/End Game, HUD name filtering and vehicle-seat fixes. Earlier build 84 integration added: signed public lobby discovery, public/private hosting and multiplayer join/leave fixes (M2.6.51).
+- OpenCE build 138 / network 20 source integration, including the accumulated multiplayer/co-op, audio, renderer/menu, lighting and hardening changes through build 138. This exact engine still needs Apple/device validation; earlier OpenCE integrations are the device-tested basis.
 - The Settings additions of M2.6.48 (cheat sections and new cheats, left-handed layout, gyro, controller remap, heat-aware frame cap, performance overlay, Ambient volume, recent games and QR, Profiles, problem report, custom accent colours).
 - Picture options, touch aiming and AirPlay mirroring (M2.6.50).
 - The Mod Test loader has offline structural checks. Device attempts with converted Cursed Halo maps have failed; playable mod compatibility is not established.

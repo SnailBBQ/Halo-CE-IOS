@@ -573,10 +573,7 @@ boolean game_is_cooperative(
 #ifdef HALO_IOS_GUEST
 extern void host_loading_stage(const char *, int);
 #define IOS_STAGE(name, done) host_loading_stage(name, done)
-#else
-#define IOS_STAGE(name, done) ((void)0)
 #endif
-
 boolean game_load(
 	struct game_options *options)
 {
@@ -593,15 +590,19 @@ boolean game_load(
 		0x194,
 		game_options_verify(options));
 
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Scenario and assets", 0);
+#endif
 	random_seed_debug_log(TRUE);
 	csmemcpy(&game_globals->options, options, sizeof(*options));
 	if (scenario_load(options->map_name))
 	{
 		game_globals->map_loaded = TRUE;
 	}
-
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Scenario and assets", 1);
+#endif
+
 	return game_globals->map_loaded;
 }
 
@@ -621,37 +622,75 @@ void game_initialize_for_new_map(
 		!game_globals->active);
 
 	set_random_seed(game_globals->options.random_seed);
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Game engine dispose", 0);
+#endif
 	game_engine_dispose();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Game engine dispose", 1);
 	IOS_STAGE("Game engine initialize", 0);
+#endif
 	game_engine_initialize(&game_variant_global);
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Game engine initialize", 1);
+#endif
 	real_math_reset_precision();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Graphics initialization", 0);
+#endif
 	rasterizer_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Graphics initialization", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Game state", 0);
+#endif
 	game_state_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Game state", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Game time", 0);
+#endif
 	game_time_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Game time", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Interface", 0);
+#endif
 	interface_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Interface", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Allegiance", 0);
+#endif
 	game_allegiance_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Allegiance", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Players", 0);
+#endif
 	players_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Players", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Scenario", 0);
+#endif
 	scenario_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Scenario", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Objects", 0);
+#endif
 	objects_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Objects", 1);
+#endif
 	/* nothing of the distributed netcode's carried into the new game
 	(port/linux/game/network_distributed.c), before anything of the map
 	makes an object: a client makes the map's objects, and the game type's
@@ -659,103 +698,215 @@ void game_initialize_for_new_map(
 	the host's indices, not its own objects' of the last game's */
 	network_distributed_new_game();
 	render_interpolation_reset();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Renderer", 0);
+#endif
 	render_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Renderer", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Structures", 0);
+#endif
 	structures_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Structures", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Breakable surfaces", 0);
+#endif
 	breakable_surfaces_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Breakable surfaces", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Decals", 0);
+#endif
 	decals_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Decals", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Director", 0);
+#endif
 	director_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Director", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Observer", 0);
+#endif
 	observer_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Observer", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Contrails", 0);
+#endif
 	contrails_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Contrails", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Particles", 0);
+#endif
 	particles_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Particles", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Effects", 0);
+#endif
 	effects_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Effects", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Particle systems", 0);
+#endif
 	particle_systems_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Particle systems", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Sound state", 0);
+#endif
 	sound_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Sound state", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Sound classes", 0);
+#endif
 	sound_classes_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Sound classes", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Game sound", 0);
+#endif
 	game_sound_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Game sound", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Weather particle systems", 0);
+#endif
 	weather_particle_systems_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Weather particle systems", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Point physics", 0);
+#endif
 	point_physics_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Point physics", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Game engine", 0);
+#endif
 	game_engine_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Game engine", 1);
+#endif
 	game_statistics_start();
 	update_server_new();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Player control", 0);
+#endif
 	player_control_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Player control", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Rumble", 0);
+#endif
 	rumble_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Rumble", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Player effect", 0);
+#endif
 	player_effect_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Player effect", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("AI initialization", 0);
+#endif
 	ai_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("AI initialization", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Console", 0);
+#endif
 	console_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Console", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Editor", 0);
+#endif
 	editor_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Editor", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Cinematic", 0);
+#endif
 	cinematic_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Cinematic", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Scripts", 0);
+#endif
 	hs_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Scripts", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Recorded animations", 0);
+#endif
 	recorded_animations_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Recorded animations", 1);
+#endif
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Cheats", 0);
+#endif
 	cheats_initialize_for_new_map();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Cheats", 1);
+#endif
 
 	game_globals->active = TRUE;
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Object placement", 0);
+#endif
 	objects_place();
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Object placement", 1);
+#endif
 	if (!game_in_editor())
-	{
-		IOS_STAGE("AI placement", 0);
+#ifdef HALO_IOS_GUEST
+	IOS_STAGE("AI placement", 0);
+#endif
 		ai_place();
-		IOS_STAGE("AI placement", 1);
-	}
+#ifdef HALO_IOS_GUEST
+	IOS_STAGE("AI placement", 1);
+#endif
 	/* (the map's objects, placed as on the host: a distributed client's own
 	from now on go elsewhere, port/linux/game/network_objects.c) */
 	network_objects_placed();
 	ui_widgets_safe_to_load(TRUE);
+#ifdef HALO_IOS_GUEST
 	IOS_STAGE("Map initialized", 0);
 	IOS_STAGE("Map initialized", 1);
+#endif
 
 	return;
 }
@@ -785,8 +936,9 @@ void game_unload(
 	if (cache_files_precache_in_progress())
 	{
 		long map_status;
-
-		IOS_STAGE("Map cache preparation", 0);
+#ifdef HALO_IOS_GUEST
+	IOS_STAGE("Map cache preparation", 0);
+#endif
 
 		game_globals->map_load_in_progress = TRUE;
 		ui_widget_load_progress_widget();
@@ -803,7 +955,9 @@ void game_unload(
 		if (map_status == 2)
 			display_error_damaged_media();
 		cache_files_precache_map_end();
-		IOS_STAGE("Map cache preparation", 1);
+#ifdef HALO_IOS_GUEST
+	IOS_STAGE("Map cache preparation", 1);
+#endif
 	}
 
 	if (game_globals->map_loaded)

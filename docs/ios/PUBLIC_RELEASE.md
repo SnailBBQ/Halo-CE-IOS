@@ -4,7 +4,7 @@ This is an unofficial community iOS port, not a Microsoft, Bungie or OpenCE team
 
 ## Current publication state
 
-- `main` contains M2.6.80 / OpenCE build 125. Every IPA now carries build/engine identity metadata; the release pipeline also has reusable upstream acceptance gates. M2.6.79 passed GitHub Actions, while M2.6.80 still needs its Apple/device validation. The maintainer reports playable campaign and PC multiplayer, but the newest display and touch options still need device validation.
+- `main` contains M2.6.81 / OpenCE build 138 (network 20) after this update is applied. Every IPA carries build/engine identity metadata and automatic engine-change save protection; the release pipeline has strict upstream acceptance gates. M2.6.80 passed GitHub Actions. M2.6.81 passes local strict source acceptance but still needs its Apple build/device validation. The maintainer reports playable campaign and PC multiplayer on earlier builds, but that is not yet a build-138 device result.
 - M2.6.70 builds the regular app, Mod Test and the Non-Jailbreak diagnostic from `main`. Apple builds and device testing remain required.
 - No GitHub release or release IPA attachment exists yet. Successful Actions artifacts are temporary downloads, not permanent release assets.
 - The Mod Test app is experimental. Converted Cursed Halo attempts have failed; general PC/MCC mod compatibility is not established.

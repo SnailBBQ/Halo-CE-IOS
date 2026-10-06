@@ -126,7 +126,6 @@ void *datum_try_and_get(
     unsigned int native_result;
     if(host_scene_datum(4,(unsigned int)data,(unsigned int)index,(unsigned int)&native_result,(unsigned int)ios_datum_layout)) { return (void *)native_result; }
 #endif
-
 	struct datum_header *header = NULL;
 	short identifier;
 	short absolute_index;
@@ -163,7 +162,6 @@ void *datum_get(
     unsigned int native_result;
     if(host_scene_datum(3,(unsigned int)data,(unsigned int)index,(unsigned int)&native_result,(unsigned int)ios_datum_layout)) { return (void *)native_result; }
 #endif
-
 	struct datum_header *header;
 	short identifier;
 	short absolute_index;
@@ -342,6 +340,12 @@ long datum_new(
 		absolute_index++;
 		header = (struct datum_header *)((byte *)header+size);
 	}
+	/* port: none free from first_free_absolute_index on (and none before it
+	is, as ever): the next search starts at the end, until a datum is deleted
+	(datum_delete lowers it), rather than walking a full array again. A full
+	array (the AI's props, with many actors) was walked on every new datum. */
+	if (result == NONE)
+		data->first_free_absolute_index = data->maximum_count;
 
 	return result;
 }
@@ -426,7 +430,6 @@ void *data_iterator_next(
     unsigned int native_result;
     if(host_scene_datum(2,(unsigned int)iterator,0,(unsigned int)&native_result,(unsigned int)ios_datum_layout)) { return (void *)native_result; }
 #endif
-
 	struct datum_header *header;
 	short absolute_index;
 	long datum_index;
@@ -470,7 +473,6 @@ long data_next_index(
     unsigned int native_result;
     if(host_scene_datum(1,(unsigned int)data,(unsigned int)index,(unsigned int)&native_result,(unsigned int)ios_datum_layout)) { return (long)native_result; }
 #endif
-
 	struct datum_header *header;
 	long result = NONE;
 	short absolute_index = index+1;

@@ -280,7 +280,6 @@ void player_ui_initialize(
 	player_ui_globals.initialized = TRUE;
 	return;
 }
-
 #ifdef HALO_IOS_GUEST
 boolean player_ui_ios_initialized(void)
 {

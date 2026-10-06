@@ -24,7 +24,6 @@ AI_DEBUG.C
 #include "camera/observer.h"
 #include "editor/editor_stubs.h"
 #include "game/game.h"
-#include "game/game_allegiance.h"
 #include "game/players.h"
 #include "main/console.h"
 #include "memory/data.h"
