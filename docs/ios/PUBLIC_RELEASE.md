@@ -1,6 +1,6 @@
 # Public release preparation
 
-This is an unofficial community iOS port, not a Microsoft, Bungie or Halo CE Universal team release.
+This is an unofficial community iOS port, not a Microsoft, Bungie or OpenCE team release.
 
 ## Current publication state
 
@@ -37,23 +37,6 @@ For `main`:
 - Add required guest and Apple build checks once those jobs can run successfully. Do not require unavailable checks or an external reviewer when there is no second maintainer.
 
 Protect published release tags against deletion and replacement. These protections control this repository's branches and tags, not somebody else's fork. No ruleset or visibility change was applied by this audit.
-
-## Required release notice
-
-Start every public IPA release description with a clear compatibility notice. For the current project state, use:
-
-> **Compatibility notice**
->
-> - **TrollStore:** confirmed working on compatible devices.
-> - **Jailbroken iOS:** confirmed working on supported jailbreak setups.
-> - **Standard non-jailbreak sideloading:** Sideloadly, AltStore, and SideStore support is still a work in progress and is not ready for general use.
-> - **Game data is not included:** users must provide compatible Xbox `.map` files from their own copy of *Halo: Combat Evolved*.
-
-Also include the Microsoft Game Content notice and link:
-
-> *Halo: Combat Evolved* © Microsoft Corporation. Halo CE iOS was created under Microsoft's "Game Content Usage Rules" using assets from *Halo: Combat Evolved*, and it is not endorsed by or affiliated with Microsoft.
-
-<https://www.xbox.com/developers/rules>
 
 ## Before publishing an IPA
 

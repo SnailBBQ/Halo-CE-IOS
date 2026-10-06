@@ -56,7 +56,7 @@ The app may ask for:
 2. Install the new IPA over the old app with the same signing identity. An in-place update normally preserves maps, saves and settings; do not delete the app first.
 3. Check the version in **Settings → Advanced → About**.
 
-Use matching tested Halo CE Universal builds and compatible content for multiplayer, so update the app and your PC game together.
+Use matching tested OpenCE builds and compatible content for multiplayer, so update the app and your PC game together.
 See [Multiplayer](MULTIPLAYER.md#compatibility).
 
 ## Running both apps

@@ -59,7 +59,7 @@ These controls are in **Advanced → Heat and battery**, immediately below Start
 
 ## Menus
 
-- **PC menus (new)** are the Halo Custom Edition menus from Halo CE Universal: Join Game (LAN and Direct Link), Create Game for the Internet or your LAN, and redrawn screens. The public Server Browser lists compatible public Internet games using upstream’s signed lobby discovery.
+- **PC menus (new)** are the Halo Custom Edition menus from OpenCE: Join Game (LAN and Direct Link), Create Game for the Internet or your LAN, and redrawn screens. The public Server Browser lists compatible public Internet games using upstream’s signed lobby discovery.
 - **Xbox menus** are the original menus, including System Link.
 
 The choice applies the next time you open the app, and Safe Start always uses the Xbox menus. Navigate with the on-screen D-pad, A and B, or a controller.

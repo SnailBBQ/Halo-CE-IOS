@@ -45,7 +45,7 @@ This port would not exist without the people below.
 
 - **OpenCE (formerly Halo CE Universal)** ([OpenCommunityEdition/OpenCE](https://github.com/OpenCommunityEdition/OpenCE)) and its contributors. They built the cross-platform port of the decompiled engine, its netcode and invite-link multiplayer,
   the Custom Edition style menus and the updater, and they publish the project this app is built on. Thank you.
-- **bnunu/halo-1** ([bnunu/halo-1](https://github.com/bnunu/halo-1)), the decompilation of the Xbox build 2342 (`cachebeta.exe`, SHA-256 `4cc87b45f721270392a96f1674ed2b5cd4a7bb4355faeab4531d1cf1884d9520`) that Halo CE Universal starts from.
+- **bnunu/halo-1** ([bnunu/halo-1](https://github.com/bnunu/halo-1)), the decompilation of the Xbox build 2342 (`cachebeta.exe`, SHA-256 `4cc87b45f721270392a96f1674ed2b5cd4a7bb4355faeab4531d1cf1884d9520`) that OpenCE starts from.
 - **punpckhdq/halo** ([punpckhdq/halo](https://github.com/punpckhdq/halo)), the project that bnunu's decompilation is a fork of.
 - **Bungie**, who created *Halo: Combat Evolved*, and **Microsoft / Xbox Game Studios** and **343 Industries**, for their work on the series. This is an unofficial fan project and is not affiliated with or endorsed by them. *Halo* and related names are trademarks of Microsoft.
 - **Open-source libraries** bundled in [`port/third_party`](../port/third_party), each under its own license:
@@ -63,6 +63,6 @@ This port would not exist without the people below.
 
 - **The iOS port** in this repository is maintained by [SnailBBQ](https://github.com/SnailBBQ).
 
-Project code is released under [CC0 1.0](../LICENSE.md); third-party components retain their own licenses. Fonts include Overpass and OpenCE under the SIL Open Font License and Newtown under its documented public-domain terms; see [font credits and notices](../port/assets/fonts/README.md). Menu artwork is described in the [menu asset guide](../port/assets/menus/README.md).
+Code written by this project and its upstream contributors is offered under [CC0 1.0](../LICENSE.md), to the extent they own it. That gives you no rights in *Halo*. Third-party libraries and fonts, the app icon by ORION and the screenshots in the docs keep their own terms. Fonts include Overpass and OpenCE under the SIL Open Font License and Newtown under its documented public-domain terms; see [font credits and notices](../port/assets/fonts/README.md). Menu artwork is described in the [menu asset guide](../port/assets/menus/README.md).
 
 **No game maps or original engine executable are included.** Documentation includes gameplay screenshots. Supply maps from your own copy of the game.

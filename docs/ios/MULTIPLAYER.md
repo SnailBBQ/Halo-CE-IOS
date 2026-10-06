@@ -3,14 +3,14 @@
 The game can play system link games on a local network and over the internet, and this app can host and join them.
 
 - Upstream supports up to 128 players on 128 machines. That ceiling has not been load-tested on iOS; it is not a recommended phone-host capacity.
-- **Cross-play.** The protocol is shared with Halo CE Universal on Windows, Linux and Android. Device testing reported here covers iPhone-to-PC play; the other combinations still need testing.
+- **Cross-play.** The protocol is shared with OpenCE on Windows, Linux and Android. Device testing reported here covers iPhone-to-PC play; the other combinations still need testing.
 - **No dedicated game server is needed** for an invite game. Connection setup uses public signalling brokers and STUN infrastructure, then attempts a direct connection between players. Network restrictions can prevent that connection.
 - The netcode is new: each machine moves its own player immediately, and the host decides the game. The
   [upstream netcode notes](https://github.com/OpenCommunityEdition/OpenCE/blob/main/port/linux/NETCODE.md) describe it.
 
 ## Compatibility
 
-For reliable cross-play, use matching tested Halo CE Universal builds and compatible map content. The network protocol and content must be compatible; the app version alone does not prove compatibility. Keep every player’s Halo CE Universal installation updated together. If you use mods or custom maps,
+For reliable cross-play, use matching tested OpenCE builds and compatible map content. The network protocol and content must be compatible; the app version alone does not prove compatibility. Keep every player’s OpenCE installation updated together. If you use mods or custom maps,
 keep every player on matching content. Settings → Advanced → About shows the version of the app and the game build it was made from.
 
 The two apps use separate invite schemes: the regular app opens `halo://` links and the [Mod Test app](MOD_TEST.md) opens `halomodtest://` links.
@@ -70,7 +70,7 @@ A peer count is not a player count. It refreshes every two seconds while Setting
 ## Good to know
 
 - All cheats are switched off when you host or join a game.
-- **Crossplay with other platforms** works best when all players use compatible Halo CE Universal builds and matching maps.
+- **Crossplay with other platforms** works best when all players use compatible OpenCE builds and matching maps.
 - Smooth, stable play depends on the phone: see [Display → Heat and battery](SETTINGS.md#display) and the [troubleshooting](TROUBLESHOOTING.md) page if a game drops.
 
 ## Public Internet games

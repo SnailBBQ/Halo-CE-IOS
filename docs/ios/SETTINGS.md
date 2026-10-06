@@ -55,7 +55,7 @@ Each option is explained, with a screenshot, in [Display / AirPlay](DISPLAY_AIRP
 | Game HUD | Choose the default HUD or a saved recipe for the current scheme. **Edit game HUD** opens a live editor over the game for the FPS counter, weapon HUD, health/shields/radar, navigation and damage indicators. Position, scale, opacity and visibility can be changed per group or all together. Three named recipes can be saved. |
 | First-person view | **Both**, **Weapon**, **Hands** or **Hidden**: which first-person models are drawn. Applies at once and does not affect the HUD, attacks or other players. |
 | HUD and text | **High-res HUD** and **High-res text**, the upstream options for crisper HUD and menu text. *Next launch*. |
-| Menus | **PC menus (new)**: the Halo Custom Edition menus from Halo CE Universal, with Join Game (LAN and Direct Link), Create Game (Internet or LAN) and redrawn screens. **Xbox menus**: the original menus, including System Link. *Next launch*; Safe Start uses the Xbox menus. |
+| Menus | **PC menus (new)**: the Halo Custom Edition menus from OpenCE, with Join Game (LAN and Direct Link), Create Game (Internet or LAN) and redrawn screens. **Xbox menus**: the original menus, including System Link. *Next launch*; Safe Start uses the Xbox menus. |
 | AirPlay and external screens | How to show the game on a TV. See [Display / AirPlay](DISPLAY_AIRPLAY.md#airplay-and-external-displays). |
 
 The public **Server Browser** in the in-game PC-style menus lists compatible public Internet games through upstream’s signalling brokers. Refresh and select a lobby to join using the existing invite connection path. iOS device validation is pending.
@@ -149,7 +149,7 @@ Three kinds of data are kept separate:
 | Share log files / Report a problem… | Share the logs, or make one text file with your device, settings (never running cheats) and the end of the logs. See [Troubleshooting](TROUBLESHOOTING.md). |
 | Safe Start | Appears when the last start did not finish. Sound, internet play, smooth 60 FPS, hi-res HUD and text, the profiler, the PC menus and the picture options are disabled for that launch. Running for 15 seconds after the first frame marks the launch as successful; normal options return on the next launch. **Leave safe mode** makes the next start normal. |
 | Backups | **Manage backups**. See [Backups](BACKUPS.md). |
-| About | App version and the Halo CE Universal build the game is based on. |
+| About | App version and the OpenCE build the game is based on. |
 | Credits | A link to this project on GitHub. Full credits are in the [README](../../README.md#credits). |
 
 ## Logs

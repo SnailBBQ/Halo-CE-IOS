@@ -3,7 +3,7 @@
 **Status: playable.** **Current update: M2.6.72** (regular app still 0.2.70, Mod Test 0.2.70.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
 are still waiting for device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
 
-**Source update:** [M2.6.77](port/ios/UPDATE_M2677.md) corrects the Non-Jailbreak Version's address-space report, which counted memory beyond the process's own limit, records what the first such report from a free-account Sideloadly install shows, and documents free and paid accounts. The engine is otherwise as in M2.6.76 (OpenCE build 125). Nothing in it has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE/releases).
+**Source update:** [M2.6.77](port/ios/UPDATE_M2677.md) corrects the Non-Jailbreak Version's address-space report, which counted memory beyond the process's own limit, records what the first such report from a free-account Sideloadly install shows, and documents free and paid accounts. The engine is otherwise as in M2.6.76 (OpenCE build 125). Nothing in it has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 ## Two apps, plus a stock-iOS build
 
@@ -18,12 +18,12 @@ The regular app and Mod Test share the same features and are updated together. T
 ## What works (reported from device testing)
 
 - The Halo main menu, `a10` campaign progression, and the other campaign maps tried so far, which load fine; reported 60 FPS menus and gameplay in tested scenes, without a guarantee across devices or maps; native audio.
-- Cross-play multiplayer with a Halo CE Universal PC client, including joining by invite link.
+- Cross-play multiplayer with an OpenCE PC client, including joining by invite link.
 - On-screen Xbox-style controls with five schemes, touch look, and physical controllers.
 
 ## Implemented, waiting for build/device validation
 
-- OpenCE build 125 baseline (device-tested up to Halo CE Universal build 94), including multiplayer pause Settings/End Game, HUD name filtering and vehicle-seat fixes. Earlier build 84 integration added: signed public lobby discovery, public/private hosting and multiplayer join/leave fixes (M2.6.51).
+- OpenCE build 125 baseline (device-tested up to OpenCE build 94), including multiplayer pause Settings/End Game, HUD name filtering and vehicle-seat fixes. Earlier build 84 integration added: signed public lobby discovery, public/private hosting and multiplayer join/leave fixes (M2.6.51).
 - The Settings additions of M2.6.48 (cheat sections and new cheats, left-handed layout, gyro, controller remap, heat-aware frame cap, performance overlay, Ambient volume, recent games and QR, Profiles, problem report, custom accent colours).
 - Picture options, touch aiming and AirPlay mirroring (M2.6.50).
 - The Mod Test loader has offline structural checks. Device attempts with converted Cursed Halo maps have failed; playable mod compatibility is not established.
@@ -48,4 +48,4 @@ The regular app and Mod Test share the same features and are updated together. T
 | Using the app | [Settings](docs/ios/SETTINGS.md) · [Controls](docs/ios/CONTROLS.md) · [Multiplayer](docs/ios/MULTIPLAYER.md) · [Backups](docs/ios/BACKUPS.md) |
 | Problems | [Troubleshooting](docs/ios/TROUBLESHOOTING.md) |
 | Development | [Developer guide](port/ios/README.md) · [Engineering history](docs/ios/HISTORY.md) |
-| The official project | [Halo CE Universal and credits](docs/UPSTREAM.md) |
+| The official project | [OpenCE and credits](docs/UPSTREAM.md) |

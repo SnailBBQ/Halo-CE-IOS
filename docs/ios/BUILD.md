@@ -27,7 +27,7 @@ Re-running an old run builds its original commit. To test newer changes, start a
 sources or the workflow on `main` also start a build automatically. Other branches do not build. A newer run cancels unfinished older runs. Documentation-only updates do not trigger an IPA build.
 
 This repository does not build the Windows, Linux or Android ports. Those apps, and their updates, are the official project:
-[Halo CE Universal releases](https://github.com/OpenCommunityEdition/OpenCE/releases).
+[OpenCE releases](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 Standard GitHub-hosted runners are free for public repositories. Private repositories use the account's included allowance and any paid usage. Account payment or spending restrictions can prevent a run from starting. See [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
 
@@ -109,23 +109,8 @@ The workflow does not publish releases by itself. No iOS release is currently pu
 2. Download the **HaloCE-iOS** artifact and extract `HaloCE.ipa`.
 3. Verify the IPA version matches that commit. On GitHub, open **Releases → Draft a new release**, create a tag at the tested commit, such as `ios-M2.6.51`, attach `HaloCE.ipa`, and describe the changes
    (the [release notes](RELEASE_NOTES.md) are a good start).
-4. Put this compatibility notice at the top of the release description:
-
-   > **Compatibility notice**
-   >
-   > - **TrollStore:** confirmed working on compatible devices.
-   > - **Jailbroken iOS:** confirmed working on supported jailbreak setups.
-   > - **Standard non-jailbreak sideloading:** Sideloadly, AltStore, and SideStore support is still a work in progress and is not ready for general use.
-   > - **Game data is not included:** users must provide compatible Xbox `.map` files from their own copy of *Halo: Combat Evolved*.
-
-5. Include the Microsoft Game Content notice and link in the release description:
-
-   > *Halo: Combat Evolved* © Microsoft Corporation. Halo CE iOS was created under Microsoft's "Game Content Usage Rules" using assets from *Halo: Combat Evolved*, and it is not endorsed by or affiliated with Microsoft.
-
-   <https://www.xbox.com/developers/rules>
-
-6. If publishing `HaloCE-ModTest.ipa`, use its own tested commit and tag and mark it as a **prerelease**. Do not describe converted mods as playable without device evidence.
-7. Update the download instructions only after the corresponding release and IPA attachment exist. Follow the [public release checklist](PUBLIC_RELEASE.md).
+4. If publishing `HaloCE-ModTest.ipa`, use its own tested commit and tag and mark it as a **prerelease**. Do not describe converted mods as playable without device evidence.
+5. Update the download instructions only after the corresponding release and IPA attachment exist. Follow the [public release checklist](PUBLIC_RELEASE.md).
 
 ## Where things are
 

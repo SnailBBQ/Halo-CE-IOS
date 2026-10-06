@@ -1,8 +1,8 @@
 # Halo: Combat Evolved for iOS
 
 A native iPhone and iPad port of *Halo: Combat Evolved*. It runs the recovered Xbox engine from
-[Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE) inside a native iOS app, with touch and
-controller support, cross-play multiplayer with Halo CE Universal players, and a full in-app Settings menu.
+[OpenCE](https://github.com/OpenCommunityEdition/OpenCE) (formerly Halo CE Universal) inside a native iOS app, with touch and
+controller support, cross-play multiplayer with OpenCE players, and a full in-app Settings menu.
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak diagnostic build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
@@ -12,17 +12,19 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 
 ## Current Status
 
-> **Confirmed working:** Halo CE iOS works through **TrollStore** on compatible devices and on supported **jailbroken iOS** setups.
+> **Jailbreak required:** Halo CE iOS is currently confirmed working on jailbroken iOS devices.
 >
-> **Standard non-jailbreak sideloading:** support through tools such as **Sideloadly, AltStore, and SideStore** is still a work in progress and is not ready for general use. On the free-account device tested so far, an iPhone 14 Plus on iOS 16.2, the app stops at startup because iOS does not provide the address-space layout the game currently requires. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
+> **Non-jailbreak support:** A non-jailbreak version is currently a work in progress and is not yet considered ready for general use.
+>
+> **Free-account sideloading (Sideloadly, AltStore, SideStore):** not supported. On the one device tested, an iPhone 14 Plus on iOS 16.2, the app stops at startup because iOS gives a free-account install too little address space for the game. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 >
 > **Paid Apple Developer accounts:** people who have one may be able to sign the regular app with the `extended-virtual-addressing` and `increased-memory-limit` capabilities and get it to start on a non-jailbroken device. We have not tested this, and the project does not require or build around paid accounts. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 
-**Source update:** [M2.6.77](port/ios/UPDATE_M2677.md) corrects the Non-Jailbreak Version's address-space report, which counted memory beyond the process's own limit, records what the first such report from a free-account Sideloadly install shows, and documents free and paid accounts. The engine is otherwise as in M2.6.76 (OpenCE build 125). Nothing in it has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE/releases).
+**Source update:** [M2.6.77](port/ios/UPDATE_M2677.md) corrects the Non-Jailbreak Version's address-space report, which counted memory beyond the process's own limit, records what the first such report from a free-account Sideloadly install shows, and documents free and paid accounts. The engine is otherwise as in M2.6.76 (OpenCE build 125). Nothing in it has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 <p align="center">
-  <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of Halo CE Universal on PC" width="760"><br>
-  <em>Main menu on PC (Halo CE Universal)</em>
+  <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of OpenCE on PC" width="760"><br>
+  <em>Main menu on PC (OpenCE)</em>
 </p>
 
 <p align="center">
@@ -36,7 +38,7 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 - **Touch controls.** Five named control schemes (Xbox and PlayStation styles), a drag-to-edit layout, touch look, floating sticks, left-handed
   layout, toggle crouch and zoom, gyro aiming and optional touch-aiming helpers. [Controls guide](docs/ios/CONTROLS.md)
 - **Controller support.** Xbox, PlayStation and other controllers supported by Apple's GameController framework, with stick tuning and button remapping.
-- **Multiplayer.** Crossplay with compatible Halo CE Universal clients on other platforms: invite links, an invite file in iCloud Drive or the app's folder, a QR code,
+- **Multiplayer.** Crossplay with compatible OpenCE clients on other platforms: invite links, an invite file in iCloud Drive or the app's folder, a QR code,
   recent games, LAN games, and the public Server Browser, Direct Link and Create Game screens. [Multiplayer guide](docs/ios/MULTIPLAYER.md)
 - **Display.** 30 FPS original, a 60 FPS target or uncapped; 4:3, widescreen or fullscreen; four render-resolution choices; a live HUD editor;
   first-person view options; AirPlay mirroring. [Display / AirPlay](docs/ios/DISPLAY_AIRPLAY.md), [Settings reference](docs/ios/SETTINGS.md)
@@ -83,12 +85,12 @@ Both apps share the same features and are kept up to date together. They install
 | [Troubleshooting](docs/ios/TROUBLESHOOTING.md) | Safe Start, logs, problem reports, common problems |
 | [Mod Test](docs/ios/MOD_TEST.md) | The separate Mod Test app |
 | [Release notes](docs/ios/RELEASE_NOTES.md) | Every update, with its device checklist |
-| [Official project and other platforms](docs/UPSTREAM.md) | Halo CE Universal, its downloads and credits |
+| [Official project and other platforms](docs/UPSTREAM.md) | OpenCE, its downloads and credits |
 
 ## Looking for the official project or other platforms?
 
 This repository is an iOS-focused fork. The official project, its updates, and the Windows, Linux and Android versions
-are maintained by **Halo CE Universal**:
+are maintained by **OpenCE**:
 
 - Repository: <https://github.com/OpenCommunityEdition/OpenCE>
 - Releases and downloads: <https://github.com/OpenCommunityEdition/OpenCE/releases>
@@ -100,9 +102,9 @@ The original README of the upstream project is kept in [docs/UPSTREAM_README.md]
 
 This port exists because of the work of others:
 
-- **[Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE)** and its contributors: the cross-platform port of the decompiled
+- **[OpenCE](https://github.com/OpenCommunityEdition/OpenCE)** (formerly Halo CE Universal) and its contributors: the cross-platform port of the decompiled
   engine, its netcode and invite-link multiplayer, the Custom Edition style menus, and the project this app is built on.
-- **[bnunu/halo-1](https://github.com/bnunu/halo-1)**, the decompilation of the Xbox build 2342 (`cachebeta.exe`) that Halo CE Universal starts from,
+- **[bnunu/halo-1](https://github.com/bnunu/halo-1)**, the decompilation of the Xbox build 2342 (`cachebeta.exe`) that OpenCE starts from,
   and **[punpckhdq/halo](https://github.com/punpckhdq/halo)**, the project it was forked from.
 - **Bungie**, who created *Halo: Combat Evolved*, and **Microsoft / Xbox Game Studios** and **343 Industries**, its later owners and stewards.
 - The open-source libraries bundled in [`port/third_party`](port/third_party): expat, extract-xiso, kcp, mbedtls, miniupnpc, Monocypher, musl math, stb and
@@ -117,24 +119,27 @@ See [Official project and other platforms](docs/UPSTREAM.md#credits) for details
   <img src="docs/ios/images/prometheus_gearbox-shaded.png" width="256" alt="Halo CE iOS app icon">
   <br><br>
   <strong>App icon artwork by ORION</strong><br>
-  <em>Used with ORION's permission. The artwork belongs to ORION and is not covered by this repository's CC0 dedication.</em><br>
+  <em>Used with ORION's permission. All credit goes to them.</em><br>
   <a href="https://github.com/OrionMelaeno">GitHub</a> ·
   <a href="https://discord.com/users/758542539241685003">Discord</a>
 </p>
 
 ## Legal
 
-This is an unofficial, non-commercial fan project. It is not affiliated with or endorsed by Microsoft, Xbox Game Studios, 343 Industries or
-Bungie. *Halo* and related names are trademarks of Microsoft. **No game maps or original engine executable are included.** Documentation contains gameplay screenshots, and the port includes replacement UI artwork and fonts. You need your own copy of the game, and you
-are responsible for using it in line with its license. The source code in this repository is released under [CC0 1.0](LICENSE.md); bundled third-party
-code and fonts keep their own licenses. See the [asset and library credits](docs/UPSTREAM.md#credits).
+This is an unofficial, non-commercial fan project. It is not affiliated with or endorsed by Microsoft,
+Xbox Game Studios, 343 Industries or Bungie. *Halo* and its name, characters and artwork are owned by Microsoft.
 
-### Microsoft Game Content notice
+**No game files are included** (no maps, assets or original executable). You need your own copy of the game,
+and you are responsible for using it in line with its license. We can't provide game files or help you find
+them, so please don't share them, or links to them, here.
 
-*Halo: Combat Evolved* © Microsoft Corporation. Halo CE iOS was created under Microsoft's "Game Content Usage Rules" using assets from *Halo: Combat Evolved*, and it is not endorsed by or affiliated with Microsoft.
+The engine is recovered from the original game by the upstream OpenCE project. This project claims no rights
+held by Microsoft or anyone else.
 
-[Microsoft Game Content Usage Rules](https://www.xbox.com/developers/rules)
+Code written by this project and its upstream contributors is offered under [CC0 1.0](LICENSE.md), to the
+extent they own it. That gives you no rights in *Halo*. Third-party libraries and fonts, the app icon by ORION,
+and the screenshots in the docs keep their own terms (see the [credits](docs/UPSTREAM.md#credits)).
 
-This notice does not change the licenses that apply to OpenCE, bundled third-party components, ORION's app-icon artwork, or user-supplied game data.
+Builds are free and come with no warranty. If you share one, keep it free: no selling and no ads.
 
 For maintainers, the [public release checklist](docs/ios/PUBLIC_RELEASE.md) records the remaining publication and verification steps.
