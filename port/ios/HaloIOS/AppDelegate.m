@@ -323,26 +323,49 @@ static NSString *HaloPerfLine(void)
         });
     }];
 }
-- (void)shareLogs:(UIView *)sender {
-    NSMutableArray<NSURL *> *files = [NSMutableArray array];
-    for (NSString *name in @[@"ios-boot.log", @"debug.txt", @"gamestate.txt", @"crash.txt", @"last-crash.txt", @"launch-phase.txt"]) {
-        NSString *path = [[self haloFolder] stringByAppendingPathComponent:name];
-        if ([[NSFileManager defaultManager] fileExistsAtPath:path]) [files addObject:[NSURL fileURLWithPath:path]];
+/* True when any log file exists, so Share logs and Copy logs can say so instead of sending an empty report. */
+- (BOOL)hasLogFiles {
+    for (NSString *name in @[@"start-history.txt", @"ios-boot.log", @"debug.txt", @"crash.txt", @"last-crash.txt", @"launch-phase.txt"]) {
+        if ([[NSFileManager defaultManager] fileExistsAtPath:[[self haloFolder] stringByAppendingPathComponent:name]]) return YES;
     }
+    return NO;
+}
+
+- (void)showLogAlert:(NSString *)title message:(NSString *)message {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
     /* Present from whatever is on top. The log and settings screens cover the root view controller,
        and UIKit silently ignores a presentation from a controller that is not on top. */
+    [[self topPresenter] presentViewController:alert animated:YES completion:nil];
+}
+
+/* Share logs sends ONE text file, the same report as Settings > Report a problem. Several raw files in one share sheet were hard to
+   send from some phones. The files themselves are still in Files > Halo CE > Halo. */
+- (void)shareLogs:(UIView *)sender {
+    if (![self hasLogFiles]) { [self showLogAlert:@"No logs yet" message:@"Logs will be available after Halo starts."]; return; }
     UIViewController *presenter = [self topPresenter];
-    if (!files.count) {
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"No logs yet" message:@"Logs will be available after Halo starts." preferredStyle:UIAlertControllerStyleAlert];
-        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-        [presenter presentViewController:alert animated:YES completion:nil];
+    NSDateFormatter *format = [NSDateFormatter new];
+    format.dateFormat = @"yyyy-MM-dd HH.mm";
+    NSURL *url = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"Halo logs %@.txt", [format stringFromDate:NSDate.date]]]];
+    NSError *error = nil;
+    if (![HaloProblemReportText(NO) writeToURL:url atomically:YES encoding:NSUTF8StringEncoding error:&error]) {
+        [self showLogAlert:@"Could not prepare the logs" message:@"Try Copy logs instead."];
         return;
     }
-    UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:files applicationActivities:nil];
+    UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:@[url] applicationActivities:nil];
     UIView *anchor = sender ?: presenter.view;
     share.popoverPresentationController.sourceView = anchor;
     share.popoverPresentationController.sourceRect = sender ? sender.bounds : CGRectMake(CGRectGetMidX(anchor.bounds), 40, 1, 1);
     [presenter presentViewController:share animated:YES completion:nil];
+}
+
+/* Copy logs puts the same report, shortened to something that pastes into a message, on the clipboard. */
+- (void)copyLogs:(UIView *)sender {
+    (void)sender;
+    if (![self hasLogFiles]) { [self showLogAlert:@"No logs yet" message:@"Logs will be available after Halo starts."]; return; }
+    NSString *text = HaloProblemReportText(YES);
+    UIPasteboard.generalPasteboard.string = text;
+    [self showLogAlert:@"Logs copied" message:[NSString stringWithFormat:@"%lu KB of logs are on the clipboard. Paste them into your message to send them.", (unsigned long)((text.length + 1023) / 1024)]];
 }
 - (void)applicationDidBecomeActive:(UIApplication *)application {
     (void)application;
@@ -457,6 +480,7 @@ static NSString *HaloPerfLine(void)
     log.bootLogProvider = ^NSString *{ return weakSelf.bootText ?: @""; };
     log.gameLogProvider = ^NSString *{ return [weakSelf gameLogTail]; };
     log.onShare = ^(UIView *source) { [weakSelf shareLogs:source]; };
+    log.onCopy = ^(UIView *source) { [weakSelf copyLogs:source]; };
     log.modalPresentationStyle = UIModalPresentationFullScreen;
     [(HaloControlsView *)self.menuControls releaseAll];
     [top presentViewController:log animated:YES completion:nil];
@@ -481,6 +505,7 @@ static NSString *HaloPerfLine(void)
     };
     settings.onShowLog = ^{ [weakSelf showLog:nil]; };
     settings.onShareLogs = ^(UIView *source) { [weakSelf shareLogs:source]; };
+    settings.onCopyLogs = ^(UIView *source) { [weakSelf copyLogs:source]; };
     settings.modalPresentationStyle = UIModalPresentationFullScreen;
     [(HaloControlsView *)self.menuControls releaseAll];
     [top presentViewController:settings animated:YES completion:nil];
@@ -549,6 +574,19 @@ static NSString *HaloPerfLine(void)
     int level = halo_launch_next_level(phase, hadCrash, (int)[defaults integerForKey:@"HaloSafeLevel"]);
     [defaults setInteger:level forKey:@"HaloSafeLevel"];
     halo_launch_describe(phase, hadCrash, note, sizeof(note));
+    {   /* This launch overwrites the phase file, so note now where the last run ended; a relaunch must not erase it. */
+        NSDateFormatter *stamp = [NSDateFormatter new];
+        stamp.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+        stamp.dateFormat = @"yyyy-MM-dd HH:mm:ss";
+        char line[400];
+        if (halo_launch_history_line([stamp stringFromDate:NSDate.date].UTF8String, phase, hadCrash, line, sizeof(line))) {
+            NSString *path = [folder stringByAppendingPathComponent:@"start-history.txt"];
+            NSString *earlier = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil] ?: @"";
+            char merged[4096];
+            halo_launch_history_append(earlier.UTF8String, line, 20, merged, sizeof(merged));
+            [[NSString stringWithUTF8String:merged] writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        }
+    }
     if (hadCrash) {
         /* keep the report where Share logs can find it (crash.txt is cleared by a good run) */
         NSString *kept = [NSString stringWithFormat:@"last step: %s\n%s", phase, crash];
@@ -716,14 +754,17 @@ static NSString *HaloPerfLine(void)
     UIButton *share = [UIButton buttonWithType:UIButtonTypeSystem];
     [share setTitle:@"Share logs" forState:UIControlStateNormal];
     [share addTarget:self action:@selector(shareLogs:) forControlEvents:UIControlEventTouchUpInside];
+    UIButton *copyButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [copyButton setTitle:@"Copy logs" forState:UIControlStateNormal];
+    [copyButton addTarget:self action:@selector(copyLogs:) forControlEvents:UIControlEventTouchUpInside];
     UIButton *help=[UIButton buttonWithType:UIButtonTypeSystem];[help setTitle:@"Startup help" forState:UIControlStateNormal];
     [help addTarget:self action:@selector(startupHelp:) forControlEvents:UIControlEventTouchUpInside];help.hidden=YES;self.startupHelpButton=help;
-    UIStackView *actions = [[UIStackView alloc] initWithArrangedSubviews:@[import, disc, start, share, help]];
+    UIStackView *actions = [[UIStackView alloc] initWithArrangedSubviews:@[import, disc, start, share, copyButton, help]];
     actions.translatesAutoresizingMaskIntoConstraints = NO;
     actions.axis = UILayoutConstraintAxisHorizontal;
     actions.spacing = 24;
     actions.distribution=UIStackViewDistributionFillEqually;actions.spacing=12;
-    for(UIButton *button in @[import,disc,start,share,help]){button.backgroundColor=button==start?HaloUIAccent():HaloUICard();button.layer.cornerRadius=12;[button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];button.titleLabel.font=[UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];button.titleLabel.adjustsFontSizeToFitWidth=YES;button.titleLabel.minimumScaleFactor=0.75;}
+    for(UIButton *button in @[import,disc,start,share,copyButton,help]){button.backgroundColor=button==start?HaloUIAccent():HaloUICard();button.layer.cornerRadius=12;[button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];button.titleLabel.font=[UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];button.titleLabel.adjustsFontSizeToFitWidth=YES;button.titleLabel.minimumScaleFactor=0.75;}
     [bootOverlay addSubview:actions];
     UISegmentedControl *source = [[UISegmentedControl alloc] initWithItems:@[@"Boot log", @"Game log"]];
     source.translatesAutoresizingMaskIntoConstraints = NO;

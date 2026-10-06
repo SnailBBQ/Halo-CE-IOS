@@ -6,4 +6,5 @@
 @property(nonatomic, copy) NSString *(^bootLogProvider)(void);
 @property(nonatomic, copy) NSString *(^gameLogProvider)(void);
 @property(nonatomic, copy) void (^onShare)(UIView *source);
+@property(nonatomic, copy) void (^onCopy)(UIView *source);
 @end

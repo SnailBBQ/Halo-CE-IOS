@@ -9,9 +9,14 @@ use **Leave safe mode** in Advanced. If Safe Start keeps appearing, share your l
 ## Logs and problem reports
 
 - **Settings → Logs** shows Diagnostics: a **Summary** (including memory) and a **Problems** tab that picks out what went wrong.
-- **Settings → Advanced → Share log files** exports the log files from the app's `Documents/Halo` folder, including the boot log, the game log and any crash report.
-- **Settings → Advanced → Report a problem…** makes one text file with your device and iOS version, thermal state, Low Power Mode, memory, your settings (never running cheats) and the end of the logs, then opens
-  the share sheet. Look through it before you post it publicly.
+- **Share logs** (on the start screen and in Diagnostics) and **Settings → Advanced → Share log files** make one text file and open the share sheet. It holds your device and iOS version, thermal state, Low Power Mode, memory, your settings (never running cheats) and the end of the logs, the same as **Report a problem…**. Look through it before you post it publicly.
+- **Copy logs** (on the start screen and in Diagnostics, and **Copy logs as text** in Settings → Advanced) puts the same text on the clipboard, shortened so that it pastes into a message. Use it when the share sheet will not send the file.
+- **Settings → Advanced → Report a problem…** makes the same text file.
+- The log files themselves stay in the app's `Documents/Halo` folder (Files → On My iPhone → Halo CE → Halo, not the `maps` folder inside it).
+
+### Where did the last run stop?
+
+When a run ends without a report, for example because the system closed the app, the app only has a short step name in `launch-phase.txt`, and opening the app again overwrites it. So each launch adds a line to `start-history.txt` in `Documents/Halo` when the previous run crashed, stopped during startup without a report, or was running normally and then stopped without one. The line names the last step that run reached. The newest 20 lines are kept and come first in the shared and copied logs. Going to the background and a normal exit are not recorded.
 
 When you report a problem, include the app version (Settings → Advanced → About), which app you use (regular or Mod Test), the map and what you were doing, the logs or the report file, and a screenshot or recording if you can.
 

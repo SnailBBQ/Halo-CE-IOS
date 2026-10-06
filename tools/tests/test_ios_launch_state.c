@@ -166,6 +166,40 @@ int main(void)
         CHECK(count_text(crash2, "signal=") == 1, "looping handler wrote one report: %s", crash2);
     }
 
-    if (!failures) printf("PASS: launch-state decisions, report formatting and the real crash handler (SIGSEGV and abort, reported then still fatal)\n");
+    /* ---- the history of runs that ended badly (M2.6.78) */
+    {
+        char line[300], merged[1200], tiny[8];
+        CHECK(!halo_launch_history_line("t", NULL, 0, line, sizeof(line)), "a first launch records nothing");
+        CHECK(!halo_launch_history_line("t", "", 0, line, sizeof(line)), "an empty phase records nothing");
+        CHECK(!halo_launch_history_line("t", "backgrounded", 0, line, sizeof(line)), "going to the background is not recorded");
+        CHECK(!halo_launch_history_line("t", "exited", 0, line, sizeof(line)), "a normal exit is not recorded");
+        CHECK(!halo_launch_history_line("t", "waiting for maps", 0, line, sizeof(line)), "waiting on the setup screen is not recorded");
+        CHECK(!halo_launch_history_line("t", "backgrounded", 0, NULL, 0), "no room, nothing written");
+        CHECK(halo_launch_history_line("2026-10-06 02:31:07", "guest thread started", 0, line, sizeof(line)) == 1, "a start that stopped is recorded");
+        CHECK(strstr(line, "2026-10-06 02:31:07") && strstr(line, "'guest thread started'") && strstr(line, "stopped without a report") && line[strlen(line) - 1] == '\n',
+              "the line names the time, the step and what happened: %s", line);
+        CHECK(halo_launch_history_line("t", "running ok", 0, line, sizeof(line)) == 1 && strstr(line, "was running normally"), "a run that was going well is recorded: %s", line);
+        CHECK(halo_launch_history_line("t", "guest image: protected", 1, line, sizeof(line)) == 1 && strstr(line, "crashed") && strstr(line, "'guest image: protected'"), "a crash is recorded with its step: %s", line);
+        CHECK(halo_launch_history_line(NULL, "guest start", 0, line, sizeof(line)) == 1 && !strncmp(line, "?  launch", 9), "a missing time is shown as ?: %s", line);
+        CHECK(halo_launch_history_line("t", NULL, 1, line, sizeof(line)) == 1 && strstr(line, "'unknown'"), "a crash with no step still gets a line: %s", line);
+
+        merged[0] = 0;
+        for (int i = 1; i <= 25; i++)
+        {
+            char one[40], next[1200];
+            snprintf(one, sizeof(one), "line %d\n", i);
+            halo_launch_history_append(merged, one, 20, next, sizeof(next));
+            memcpy(merged, next, strlen(next) + 1);
+        }
+        CHECK(count_text(merged, "\n") == 20, "the history keeps 20 lines, has %d", count_text(merged, "\n"));
+        CHECK(strstr(merged, "line 25\n") && strstr(merged, "line 6\n") && !strstr(merged, "line 5\n"), "the newest lines are kept, the oldest dropped");
+        CHECK(halo_launch_history_append("one", "two\n", 20, merged, sizeof(merged)) == 8 && !strcmp(merged, "one\ntwo\n"), "a missing newline is repaired: %s", merged);
+        CHECK(halo_launch_history_append(NULL, "only\n", 20, merged, sizeof(merged)) == 5 && !strcmp(merged, "only\n"), "no earlier history");
+        CHECK(halo_launch_history_append("a\nb\n", "c\n", 1, merged, sizeof(merged)) == 2 && !strcmp(merged, "c\n"), "a limit of one keeps only the new line");
+        CHECK(halo_launch_history_append("abcdefghij\n", "klmnop\n", 20, tiny, sizeof(tiny)) < sizeof(tiny) && strlen(tiny) < sizeof(tiny), "a small buffer is never overflowed");
+        CHECK(halo_launch_history_append("x\n", "y\n", 20, NULL, 0) == 0, "no room, nothing written");
+    }
+
+    if (!failures) printf("PASS: launch-state decisions, report formatting, the start history and the real crash handler (SIGSEGV and abort, reported then still fatal)\n");
     return failures ? 1 : 0;
 }

@@ -25,6 +25,8 @@
     close.translatesAutoresizingMaskIntoConstraints = NO;
     UIButton *share = HaloUIButton(@"Share logs", 0, ^(UIButton *b) { if (self.onShare) self.onShare(b); });
     share.translatesAutoresizingMaskIntoConstraints = NO;
+    UIButton *copyButton = HaloUIButton(@"Copy logs", 0, ^(UIButton *b) { if (self.onCopy) self.onCopy(b); });
+    copyButton.translatesAutoresizingMaskIntoConstraints = NO;
 
     self.tabs = [[UISegmentedControl alloc] initWithItems:@[@"Summary", @"Problems"]];
     self.tabs.selectedSegmentIndex = 0;
@@ -38,6 +40,7 @@
     self.body.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:title];
     [self.view addSubview:share];
+    [self.view addSubview:copyButton];
     [self.view addSubview:close];
     [self.view addSubview:self.tabs];
     [self.view addSubview:self.body];
@@ -51,6 +54,9 @@
         [share.trailingAnchor constraintEqualToAnchor:close.leadingAnchor constant:-10],
         [share.centerYAnchor constraintEqualToAnchor:title.centerYAnchor],
         [share.widthAnchor constraintEqualToConstant:110],
+        [copyButton.trailingAnchor constraintEqualToAnchor:share.leadingAnchor constant:-10],
+        [copyButton.centerYAnchor constraintEqualToAnchor:title.centerYAnchor],
+        [copyButton.widthAnchor constraintEqualToConstant:110],
         [self.tabs.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:14],
         [self.tabs.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
         [self.tabs.widthAnchor constraintEqualToConstant:300],

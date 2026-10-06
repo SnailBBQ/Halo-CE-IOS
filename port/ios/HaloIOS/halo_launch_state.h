@@ -11,6 +11,7 @@
  * sound, internet play, smooth 60 FPS, hi-res HUD and text, and the profiler.
  */
 
+#include <stdio.h>
 #include <string.h>
 
 enum { HALO_SAFE_NORMAL = 0, HALO_SAFE_ON = 1 };
@@ -63,6 +64,71 @@ static inline int halo_launch_describe(const char *phase, int crash_file, char *
     if (halo_phase_is_startup(phase))
         return snprintf(out, size, "previous start: stopped without a report during '%s' (the system may have ended it)", phase) > 0;
     return 0;
+}
+
+/* A short history of runs that ended badly, kept in Documents/Halo/start-history.txt. Each launch reads what the run before it left
+ * behind, and the launch itself then overwrites that, so without a history the step where a run stopped is lost as soon as the app
+ * is opened again. Only endings worth knowing about are recorded: a crash, a start that stopped without a report, and a run that was
+ * going normally when it stopped without a report. Going to the background and a normal exit are not.
+ * `stamp` is the launch time as text. Returns 1 if a line was written, 0 if there is nothing to record. */
+static inline int halo_launch_history_line(const char *stamp, const char *phase, int crash_file, char *out, size_t size)
+{
+    const char *what;
+    int n;
+
+    if (!size)
+        return 0;
+    out[0] = 0;
+    if (crash_file)
+        what = "the app crashed and wrote a crash report";
+    else if (halo_phase_is_startup(phase))
+        what = "stopped without a report (the system may have ended it)";
+    else if (phase && !strncmp(phase, HALO_PHASE_RUNNING_OK, strlen(HALO_PHASE_RUNNING_OK)))
+        what = "was running normally, then stopped without a report (the system may have ended it)";
+    else
+        return 0;
+    n = snprintf(out, size, "%s  launch: the previous run's last step was '%s' - %s\n",
+                 stamp && *stamp ? stamp : "?", phase && *phase ? phase : "unknown", what);
+    return n > 0;
+}
+
+/* `existing` followed by `line`, keeping only the newest `max_lines` lines. Never overflows `out`; returns the length written. */
+static inline size_t halo_launch_history_append(const char *existing, const char *line, int max_lines, char *out, size_t size)
+{
+    const char *start = existing ? existing : "";
+    size_t used, n;
+    int lines = 0;
+
+    if (!size)
+        return 0;
+    for (const char *p = start; *p; p++)
+        if (*p == '\n')
+            lines++;
+    if (*start && start[strlen(start) - 1] != '\n')
+        lines++;
+    while (lines > max_lines - 1 && *start)
+    {
+        const char *newline = strchr(start, '\n');
+        start = newline ? newline + 1 : start + strlen(start);
+        lines--;
+    }
+    n = strlen(start);
+    if (n > size - 1)
+    {
+        start += n - (size - 1);
+        n = size - 1;
+    }
+    memcpy(out, start, n);
+    used = n;
+    if (used && out[used - 1] != '\n' && used + 1 < size)
+        out[used++] = '\n';
+    n = line ? strlen(line) : 0;
+    if (n > size - 1 - used)
+        n = size - 1 - used;
+    memcpy(out + used, line, n);
+    used += n;
+    out[used] = 0;
+    return used;
 }
 
 #endif

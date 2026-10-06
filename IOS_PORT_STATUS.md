@@ -3,7 +3,7 @@
 **Status: playable.** **Current update: M2.6.72** (regular app still 0.2.70, Mod Test 0.2.70.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
 are still waiting for device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
 
-**Source update:** [M2.6.77](port/ios/UPDATE_M2677.md) corrects the Non-Jailbreak Version's address-space report, which counted memory beyond the process's own limit, records what the first such report from a free-account Sideloadly install shows, and documents free and paid accounts. The engine is otherwise as in M2.6.76 (OpenCE build 125). Nothing in it has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
+**Source update:** [M2.6.78](port/ios/UPDATE_M2678.md) makes logs easy to send. **Share logs** now sends one text file, a new **Copy logs** button puts the same text on the clipboard, and a short start history records where a run that stopped without a report ended, so opening the app again no longer erases it. The engine is as in M2.6.77 (OpenCE build 125). Nothing in it has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 ## Two apps, plus a stock-iOS build
 

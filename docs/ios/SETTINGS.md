@@ -146,7 +146,7 @@ Three kinds of data are kept separate:
 | Startup | **Start Halo CE iOS Title Screen** or **Boot Halo to Main Menu**, saved with the current control scheme. |
 | Heat and battery | **Lower the frame rate when the phone is hot**: Smooth 60 and Uncapped drop to 45 under serious heat or Low Power Mode and to 30 when critical, and return when the phone cools (30 · Original is never changed). **Performance overlay** adds frame time, memory in use, estimated memory headroom, and heat under the FPS counter. |
 | Diagnostics | **Performance profiler** adds timing diagnostics. |
-| Share log files / Report a problem… | Share the logs, or make one text file with your device, settings (never running cheats) and the end of the logs. See [Troubleshooting](TROUBLESHOOTING.md). |
+| Share log files / Copy logs as text / Report a problem… | Share the logs as one text file with your device, settings (never running cheats) and the end of the logs, or copy the same text to paste into a message. See [Troubleshooting](TROUBLESHOOTING.md). |
 | Safe Start | Appears when the last start did not finish. Sound, internet play, smooth 60 FPS, hi-res HUD and text, the profiler, the PC menus and the picture options are disabled for that launch. Running for 15 seconds after the first frame marks the launch as successful; normal options return on the next launch. **Leave safe mode** makes the next start normal. |
 | Backups | **Manage backups**. See [Backups](BACKUPS.md). |
 | About | App version and the OpenCE build the game is based on. |
@@ -154,7 +154,7 @@ Three kinds of data are kept separate:
 
 ## Logs
 
-**Logs** opens Diagnostics with a **Summary** (including memory) and a **Problems** tab. Logs can be shared from here and from Advanced.
+**Logs** opens Diagnostics with a **Summary** (including memory) and a **Problems** tab. Logs can be shared or copied from here and from Advanced.
 
 ## Release preparation: settings organization
 

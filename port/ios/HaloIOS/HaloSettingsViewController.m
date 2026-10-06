@@ -1147,7 +1147,7 @@ static NSString *HaloLogTail(NSString *name, NSUInteger limit)
     return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] ?: [[NSString alloc] initWithData:data encoding:NSISOLatin1StringEncoding];
 }
 
-- (void)reportProblem:(UIView *)source
+NSString *HaloProblemReportText(BOOL compact)
 {
     struct utsname system;
     uname(&system);
@@ -1160,10 +1160,19 @@ static NSString *HaloLogTail(NSString *name, NSUInteger limit)
     char *text = malloc(32768);
     if (text && hs_serialize(&snapshot, text, 32768) > 0) [report appendFormat:@"\n--- settings (running cheats are not included) ---\n%s\n", text];
     free(text);
-    for (NSArray *item in @[@[@"ios-boot.log", @200000], @[@"debug.txt", @100000], @[@"crash.txt", @4000], @[@"last-crash.txt", @4000], @[@"launch-phase.txt", @1000]]) {
+    NSArray *items = compact
+        ? @[@[@"start-history.txt", @4000], @[@"ios-boot.log", @60000], @[@"debug.txt", @20000], @[@"crash.txt", @4000], @[@"last-crash.txt", @4000], @[@"launch-phase.txt", @1000]]
+        : @[@[@"start-history.txt", @4000], @[@"ios-boot.log", @200000], @[@"debug.txt", @100000], @[@"crash.txt", @4000], @[@"last-crash.txt", @4000], @[@"launch-phase.txt", @1000]];
+    for (NSArray *item in items) {
         NSString *body = HaloLogTail(item[0], [item[1] unsignedIntegerValue]);
         if (body.length) [report appendFormat:@"\n--- %@ (the end of it) ---\n%@\n", item[0], body];
     }
+    return report;
+}
+
+- (void)reportProblem:(UIView *)source
+{
+    NSString *report = HaloProblemReportText(NO);
     NSDateFormatter *format = [NSDateFormatter new];
     format.dateFormat = @"yyyy-MM-dd HH.mm";
     NSURL *url = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"Halo problem report %@.txt", [format stringFromDate:NSDate.date]]]];
@@ -1252,6 +1261,7 @@ static UIColor *HaloColorFromRGB(unsigned rgb) {
     NSMutableArray<UIView *> *diag = [NSMutableArray array];
     [diag addObject:HaloUISwitchRow(@"Performance profiler", @"Samples the game thread so Diagnostics can show where the time goes. About 1% of one CPU core.", settings->profiler, ^(BOOL on) { [self update:^(HsSettings *s) { s->profiler = on; }]; })];
     [diag addObject:HaloUIButton(@"Share log files", 0, ^(UIButton *b) { if (self.onShareLogs) self.onShareLogs(b); })];
+    [diag addObject:HaloUIButton(@"Copy logs as text", 0, ^(UIButton *b) { if (self.onCopyLogs) self.onCopyLogs(b); })];
     [diag addObject:HaloUIButton(@"Report a problem…", 0, ^(UIButton *b) { [self reportProblem:b]; })];
     [diag addObject:HaloUINote(@"Makes one text file with your device, your settings (never active cheats) and the end of the logs, and opens the share sheet. Look it over before posting it publicly.")];
     [self add:HaloUICardView(@"Diagnostics", diag)];
