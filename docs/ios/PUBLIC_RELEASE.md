@@ -4,7 +4,7 @@ This is an unofficial community iOS port, not a Microsoft, Bungie or Halo CE Uni
 
 ## Current publication state
 
-- `main` contains M2.6.74 / OpenCE build 115. The maintainer reports playable campaign and PC multiplayer, but the newest display and touch options still need device validation.
+- `main` contains M2.6.76 / OpenCE build 125. The maintainer reports playable campaign and PC multiplayer, but the newest display and touch options still need device validation.
 - M2.6.70 builds the regular app, Mod Test and the Non-Jailbreak diagnostic from `main`. Apple builds and device testing remain required.
 - No GitHub release or release IPA attachment exists yet. Successful Actions artifacts are temporary downloads, not permanent release assets.
 - The Mod Test app is experimental. Converted Cursed Halo attempts have failed; general PC/MCC mod compatibility is not established.
@@ -15,7 +15,7 @@ This is an unofficial community iOS port, not a Microsoft, Bungie or Halo CE Uni
 2. Review author identities in Git history. The migrated branch history was cleaned of the maintainer's personal email and verified from a fresh clone. Keep original backups and the original repository private; check future commits before publication. Contributor names were preserved.
 3. Review Actions history, logs, artifacts, pull-request discussions and other repository attachments before exposure. Public visibility also exposes Actions logs; scanning Git blobs does not cover those resources.
 4. Keep proprietary maps, extracted tags, disc images, original engine executables, signing identities and private keys out of Git and release attachments. Do not remove required font or third-party license notices.
-5. Review artwork provenance and gameplay screenshots separately. This audit is not a legal clearance of every inherited asset.
+5. Review artwork provenance and gameplay screenshots separately. This audit is not a legal clearance of every inherited asset. The app icon artwork is by ORION, used with permission, and is outside this repository's CC0 dedication.
 
 ## Audit performed on October 3, 2026
 

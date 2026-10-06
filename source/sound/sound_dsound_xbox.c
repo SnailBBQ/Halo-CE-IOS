@@ -1297,6 +1297,7 @@ static long dsound_volume_from_gain(
 {
 	long volume= maximum_volume;
 
+#ifdef HALO_IOS_GUEST
 	/* A sound tag can store a gain outside 0..1. Playing it at the nearest
 	 * legal volume must not halt a checked build. */
 	if (!(gain>=0.f))
@@ -1304,6 +1305,7 @@ static long dsound_volume_from_gain(
 	else if (gain>1.f)
 		gain= 1.f;
 
+#endif
 	match_assert(
 		"c:\\halo\\source\\sound\\sound_dsound.h",
 		35,
@@ -2390,9 +2392,12 @@ static void dsound_channel_set_properties(
 	boolean gain_only)
 {
 	struct sound_channel *channel= channel_get(channel_index);
+#ifdef HALO_IOS_GUEST
 	real requested= properties->gain;
 	real pause= dsound_globals.pause_gain;
+	real gain;
 
+	/* the same out-of-range gains, here and in the pause gain */
 	if (!(requested>=0.f))
 		requested= 0.f;
 	else if (requested>1.f)
@@ -2401,17 +2406,27 @@ static void dsound_channel_set_properties(
 		pause= 0.f;
 	else if (pause>1.f)
 		pause= 1.f;
-
-	real gain= pause*requested;
+	gain= pause*requested;
+#else
+	real gain= dsound_globals.pause_gain*properties->gain;
+#endif
 
 	match_assert(
 		"c:\\halo\\SOURCE\\sound\\sound_dsound_xbox.c",
 		980,
+#ifdef HALO_IOS_GUEST
 		requested>=0.f && requested<=1.f);
+#else
+		properties->gain>=0.f && properties->gain<=1.f);
+#endif
 	match_assert(
 		"c:\\halo\\SOURCE\\sound\\sound_dsound_xbox.c",
 		981,
+#ifdef HALO_IOS_GUEST
 		pause>=0 && pause<=1.f);
+#else
+		dsound_globals.pause_gain>=0 && dsound_globals.pause_gain<=1.f);
+#endif
 	match_assert(
 		"c:\\halo\\SOURCE\\sound\\sound_dsound_xbox.c",
 		982,

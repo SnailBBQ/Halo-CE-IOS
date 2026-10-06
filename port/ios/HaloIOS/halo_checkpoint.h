@@ -7,8 +7,12 @@
 #include <stddef.h>
 #include <string.h>
 #include <math.h>
-#define HC_SIZE (16u * 1024u * 1024u)
-#define HC_BASE 0x81a00000u
+#include "../../linux/include/halo_port_capacity.h"
+/* A checkpoint is the engine's whole game state, so its size and base address are the engine's own (halo_port_capacity.h) and follow upstream:
+ * 16 MiB in build 115, 20 MiB since the pools grew. A save from a build with other pool sizes cannot be loaded by the game either
+ * (the allocation size checksum differs), so only this build's size is read. Do not write the number here. */
+#define HC_SIZE ((size_t)HALO_PORT_GAME_STATE_SIZE)
+#define HC_BASE ((uint32_t)HALO_PORT_GAME_STATE_BASE_ADDRESS)
 #define HC_MAX_VITALITY 9.99f /* UI percentage: 999%. */
 #define HC_MAX_GRENADES 127u /* Guest grenade_counts is a signed char. */
 typedef struct { size_t unit, weapon[4]; unsigned weapons; } HcView;

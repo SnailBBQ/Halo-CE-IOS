@@ -1,0 +1,19 @@
+# Binary files must never have their line endings changed. A converted PNG fails to load,
+# and the build rejects it. (Deliberately no "* text=auto": this repository mixes line endings.)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.icns binary
+*.ogg binary
+*.wav binary
+*.ttf binary
+*.otf binary
+*.zip binary
+*.gz binary
+*.map binary
+*.bin binary
+*.dds binary
+*.tga binary

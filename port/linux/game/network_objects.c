@@ -1795,6 +1795,10 @@ void network_objects_apply_vehicle_predictions(
 		{
 			continue;
 		}
+		/* (not from a co-op client still loading the host's BSP: the
+		vehicle falls there with no ground under it) */
+		if (!network_coop_player_has_structure_bsp(driver->unit.player_index))
+			continue;
 		dx = state->position.x - vehicle->object.position.x;
 		dy = state->position.y - vehicle->object.position.y;
 		dz = state->position.z - vehicle->object.position.z;
@@ -2405,6 +2409,20 @@ static void distributed_client_dead_biped(
 	}
 }
 
+/* client: a vehicle the host says is dead is destroyed here too, with its
+explosion. No killing blow comes for vehicles, only for bipeds. */
+static void distributed_client_dead_vehicle(
+	long object_index)
+{
+	struct unit_datum *vehicle = (struct unit_datum *)object_try_and_get_and_verify_type(object_index,
+		_object_mask_vehicle);
+
+	if (!vehicle || TEST_FLAG(vehicle->object.damage_flags, _object_dead_bit))
+		return;
+	unit_kill_no_statistics(object_index);
+	object_damage_update(object_index);
+}
+
 void network_objects_handle_states(
 	void const *entries,
 	short count)
@@ -2428,6 +2446,7 @@ void network_objects_handle_states(
 		if (TEST_FLAG(state->flags, _distributed_object_dead_bit))
 		{
 			distributed_client_dead_biped(state->object_index);
+			distributed_client_dead_vehicle(state->object_index);
 			/* (a body its tag destroys at once is gone) */
 			if (!object_try_and_get_and_verify_type(state->object_index, _object_mask_all))
 				continue;

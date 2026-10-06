@@ -692,6 +692,7 @@ symbols in this file:
 #include "sound/game_sound.h"
 #include "vehicles.h"
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
+#include "coop_enemies.h" /* port: port/linux/game/coop_enemies.c */
 
 /* port: the control and animation impulses the host's actors give their
 units go to the clients' copies (port/linux/game/network_actors.c) */
@@ -4122,6 +4123,27 @@ void unit_stop_custom_animation(
 	return;
 }
 
+/* port: a unit that feigned death gets back up (a Flood combat form). The
+host's does when its timer runs out (unit_update); a client's copy when the
+host's word on it says it is alive again (network_actors.c). */
+void unit_port_resurrect(
+	long unit_index)
+{
+	struct unit_datum *unit = unit_get(unit_index);
+	short new_state = TEST_FLAG(unit->unit.animation.flags, _unit_animation_fallen_on_front_bit) ?
+		_unit_state_resurrect_front : _unit_state_resurrect_back;
+
+	SET_FLAG(unit->object.damage_flags, _object_dead_bit, FALSE);
+	unit_set_actively_controlled(unit_index, TRUE);
+	unit_set_or_test_seat_and_weapon_label(unit_index, base_seat_label_get(_unit_animation_state_suspicious), NULL,
+		TRUE);
+	unit_animation_set_state(unit_index, new_state);
+	SET_FLAG(unit->unit.animation.flags, _unit_animation_ignore_translation_bit, FALSE);
+	if (unit->object.type == _object_type_biped)
+		biped_stop_limp_body_physics(unit_index);
+	unit_scream(unit_index, _unit_scream_resurrection);
+}
+
 /* how far into its own flinch or death animation a client's unit still
 switches to the host's pick */
 #define DAMAGE_ANIMATION_SWITCH_TICKS 10
@@ -5192,6 +5214,11 @@ short vehicle_scripting_load_magic(
 		short available_seat_count;
 		long reference_index;
 		long unit_index;
+		/* port: the riders left without a seat that network co-op keeps
+		(coop_enemies.c), erased once the list is gone through */
+		long unseated_actor_indices[64];
+		short unseated_count = 0;
+		short unseated_number;
 
 		available_seat_count = vehicle_scripting_find_available_seats(
 			vehicle_index,
@@ -5210,6 +5237,7 @@ short vehicle_scripting_load_magic(
 			{
 				struct unit_datum *unit = (struct unit_datum *)object;
 				short available_seat_index;
+				long loaded_before = loaded_count;
 
 				for (available_seat_index = 0;
 					available_seat_index<available_seat_count;
@@ -5245,10 +5273,24 @@ short vehicle_scripting_load_magic(
 						}
 					}
 				}
+
+				/* port: network co-op's extra enemies (coop_enemies.c): a
+				rider seated, or one left without a seat, kept until the
+				seated get out */
+				if (loaded_count > loaded_before)
+					coop_enemies_rider_seated(vehicle_index, unit_index);
+				else if (unit->object.parent_object_index == NONE && unit->unit.actor_index != NONE &&
+					unseated_count < (short)NUMBEROF(unseated_actor_indices) &&
+					coop_enemies_rider_unseated(vehicle_index, unit_index))
+				{
+					unseated_actor_indices[unseated_count++] = unit->unit.actor_index;
+				}
 			}
 
 			unit_index = object_list_get_next(object_list_index, &reference_index);
 		}
+		for (unseated_number = 0; unseated_number < unseated_count; unseated_number++)
+			actor_erase(unseated_actor_indices[unseated_number], FALSE);
 	}
 
 	return (short)loaded_count;
@@ -5259,6 +5301,7 @@ void unit_open(
 {
 	if (unit_index!=NONE)
 	{
+		network_coop_note_unit_open(unit_index, TRUE);
 		unit_animation_set_state(unit_index, _unit_state_opening);
 	}
 
@@ -5270,6 +5313,7 @@ void unit_close(
 {
 	if (unit_index!=NONE)
 	{
+		network_coop_note_unit_open(unit_index, FALSE);
 		unit_animation_set_state(unit_index, _unit_state_closing);
 	}
 
@@ -5535,32 +5579,7 @@ boolean unit_update(
 			{
 				if (unit->object.body_vitality>0.f)
 				{
-					short new_state = TEST_FLAG(
-							unit->unit.animation.flags,
-							_unit_animation_fallen_on_front_bit) ? _unit_state_resurrect_front : _unit_state_resurrect_back;
-
-					SET_FLAG(unit->object.damage_flags, _object_dead_bit, FALSE);
-
-					unit_set_actively_controlled(unit_index, TRUE);
-					unit_set_or_test_seat_and_weapon_label(
-						unit_index,
-						base_seat_label_get(_unit_animation_state_suspicious),
-						NULL,
-						TRUE
-					);
-					unit_animation_set_state(unit_index, new_state);
-
-					SET_FLAG(
-						unit->unit.animation.flags,
-						_unit_animation_ignore_translation_bit,
-						FALSE);
-
-					if (unit->object.type==_object_type_biped)
-					{
-						biped_stop_limp_body_physics(unit_index);
-					}
-
-					unit_scream(unit_index, _unit_scream_resurrection);
+					unit_port_resurrect(unit_index);
 				}
 				else
 				{

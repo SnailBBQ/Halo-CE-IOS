@@ -3,7 +3,7 @@
 **Status: playable.** **Current update: M2.6.72** (regular app still 0.2.70, Mod Test 0.2.70.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
 are still waiting for device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
 
-**Source update:** [M2.6.74](port/ios/UPDATE_M2674.md) integrates OpenCE build 115 (network co-op and co-op spectating, new display options, interface and gamepad changes) and adds the system's own aligned-window request to the Non-Jailbreak Version. Nothing in it has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE/releases).
+**Source update:** [M2.6.76](port/ios/UPDATE_M2676.md) goes back to OpenCE build 125 (network version 16) so that cross-play matches current PC builds, and repairs the checkpoint editor, which could not open any checkpoint of the larger game state (20 MB instead of 16 MB). Saves from builds before that size change cannot be loaded by the game. Nothing in it has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 ## Two apps, plus a stock-iOS build
 
@@ -23,7 +23,7 @@ The regular app and Mod Test share the same features and are updated together. T
 
 ## Implemented, waiting for build/device validation
 
-- OpenCE build 115 baseline (device-tested up to Halo CE Universal build 94), including multiplayer pause Settings/End Game, HUD name filtering and vehicle-seat fixes. Earlier build 84 integration added: signed public lobby discovery, public/private hosting and multiplayer join/leave fixes (M2.6.51).
+- OpenCE build 125 baseline (device-tested up to Halo CE Universal build 94), including multiplayer pause Settings/End Game, HUD name filtering and vehicle-seat fixes. Earlier build 84 integration added: signed public lobby discovery, public/private hosting and multiplayer join/leave fixes (M2.6.51).
 - The Settings additions of M2.6.48 (cheat sections and new cheats, left-handed layout, gyro, controller remap, heat-aware frame cap, performance overlay, Ambient volume, recent games and QR, Profiles, problem report, custom accent colours).
 - Picture options, touch aiming and AirPlay mirroring (M2.6.50).
 - The Mod Test loader has offline structural checks. Device attempts with converted Cursed Halo maps have failed; playable mod compatibility is not established.
@@ -38,7 +38,7 @@ The regular app and Mod Test share the same features and are updated together. T
 - Bink videos are skipped.
 - Touch behaviour in the PC menus has not been validated; the Xbox menus remain available in Settings.
 - Mod conversion is paused.
-- Checkpoint editing supports finite health/shields, grenades and existing weapon ammo in validated 16 MB Xbox 2342 campaign saves. It does not fabricate skulls, vehicle boost, new weapon objects, or runtime cheat fields.
+- Checkpoint editing supports finite health/shields, grenades and existing weapon ammo in validated Xbox 2342 campaign saves of this build's own game-state size (20 MB since upstream's pools grew; the game cannot load a save from a build with a different size, so earlier saves and checkpoints are not usable). It does not fabricate skulls, vehicle boost, new weapon objects, or runtime cheat fields.
 
 ## Where to read more
 

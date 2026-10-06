@@ -6,8 +6,8 @@
 <key>CFBundleName</key><string>Halo CE</string>
 <key>CFBundleExecutable</key><string>HaloIOS</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.2.74</string>
-<key>CFBundleVersion</key><string>2674</string>
+<key>CFBundleShortVersionString</key><string>0.2.76</string>
+<key>CFBundleVersion</key><string>2676</string>
 <key>UIFileSharingEnabled</key><true/>
 <key>LSSupportsOpeningDocumentsInPlace</key><true/>
 <key>UILaunchScreen</key><dict/>

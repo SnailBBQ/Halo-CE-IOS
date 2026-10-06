@@ -73,6 +73,7 @@ index and tag, since the map placed them at the same index everywhere.
 #include "effects/effect_definitions.h"
 #include "effects/player_effects.h"
 #include "game/game.h"
+#include "game/game_allegiance.h"
 #include "game/game_engine.h"
 #include "game/players.h"
 #include "game/player_queues_new.h"
@@ -101,6 +102,7 @@ index and tag, since the map placed them at the same index everywhere.
 #include "sound/sound_manager.h"
 #include "sound/sound_definitions.h"
 #include "units/units.h"
+#include "coop_enemies.h"
 #include "coop_spectate.h"
 #include "network_coop.h"
 #include "network_distributed.h"
@@ -183,6 +185,8 @@ enum
 	_coop_event_attach,
 	/* the host skipped the cutscene: a client stops its dialogue */
 	_coop_event_cutscene_skipped,
+	/* a unit opened (value TRUE) or closed: a dropship's doors */
+	_coop_event_unit_open,
 };
 
 /* distributed_coop_event.type of an effect: at a cutscene flag (value), or on
@@ -269,6 +273,10 @@ struct distributed_coop_presentation
 	byte pad[2];
 	real players_maximum_body_vitality;
 	real players_maximum_shield_vitality;
+	/* which teams are allies and friends (game_allegiance.c): the scripts
+	make them, so a client's would leave the marines its enemies */
+	unsigned long ally_teams[GAME_ALLEGIANCE_BITVECTOR_LONGS];
+	unsigned long friendly_teams[GAME_ALLEGIANCE_BITVECTOR_LONGS];
 };
 
 struct distributed_coop_presentation_message
@@ -900,6 +908,100 @@ static void host_send_device_groups(
 	}
 }
 
+/* Where one of the host's devices is: its position (open, closed, how far
+up an elevator has gone) and power, which the device groups' values only
+aim it at. Found as the scenery animations' are (object_find). */
+struct distributed_coop_device_state
+{
+	short name_index;
+	byte moving;
+	byte pad;
+	long object_index;
+	long definition_index;
+	real position;
+	real power;
+};
+
+#define MAXIMUM_DEVICE_STATES_PER_MESSAGE 64
+
+struct distributed_coop_device_states_message
+{
+	struct distributed_message_header header;
+	struct distributed_coop_device_state states[MAXIMUM_DEVICE_STATES_PER_MESSAGE];
+};
+
+/* a client puts its device where the host's is when the host's is at rest
+there, or when the two are this far apart while it moves (of the device's
+travel, 0 to 1) */
+#define DEVICE_POSITION_TOLERANCE 0.03f
+
+/* host: each device's position and power as last sent, by its absolute
+index, and whether they have changed since the map placed it */
+static struct
+{
+	long object_index;
+	boolean moved;
+	real position;
+	real power;
+} host_sent_devices[MAXIMUM_OBJECTS_PER_MAP];
+
+/* host: the structure BSP each client player's machine last said it has,
+NONE before its first input */
+static short host_player_structure_bsps[MAXIMUM_TRACKED_PLAYERS];
+
+/* host, each tick: the devices that moved or changed power (and, with the
+resent state, all that ever have) */
+static void host_send_device_states(
+	void)
+{
+	struct distributed_coop_device_states_message message;
+	struct object_iterator iterator;
+	struct device_datum *device;
+	short count = 0;
+
+	object_iterator_new(&iterator, _object_mask_device, 0);
+	while ((device = object_iterator_next(&iterator)) != NULL)
+	{
+		short absolute_index = DATUM_INDEX_TO_ABSOLUTE_INDEX(iterator.index);
+		struct distributed_coop_device_state *state;
+		boolean changed;
+
+		if (absolute_index < 0 || absolute_index >= MAXIMUM_OBJECTS_PER_MAP)
+			continue;
+		if (host_sent_devices[absolute_index].object_index != iterator.index)
+		{
+			/* (as the map placed it, on every machine) */
+			host_sent_devices[absolute_index].object_index = iterator.index;
+			host_sent_devices[absolute_index].moved = FALSE;
+			host_sent_devices[absolute_index].position = device->device.position;
+			host_sent_devices[absolute_index].power = device->device.power;
+			continue;
+		}
+		changed = host_sent_devices[absolute_index].position != device->device.position ||
+			host_sent_devices[absolute_index].power != device->device.power;
+		if (!changed && !(host_resend.refresh && host_sent_devices[absolute_index].moved))
+			continue;
+		host_sent_devices[absolute_index].moved = TRUE;
+		host_sent_devices[absolute_index].position = device->device.position;
+		host_sent_devices[absolute_index].power = device->device.power;
+		state = &message.states[count++];
+		state->name_index = device->object.name_index;
+		state->moving = (byte)(device->device.position_velocity != 0.0f);
+		state->pad = 0;
+		state->object_index = iterator.index;
+		state->definition_index = device->definition_index;
+		state->position = device->device.position;
+		state->power = device->device.power;
+		if (count == MAXIMUM_DEVICE_STATES_PER_MESSAGE)
+		{
+			send_to_clients(&message, _distributed_message_coop_device_states, count, sizeof(message.states[0]));
+			count = 0;
+		}
+	}
+	if (count > 0)
+		send_to_clients(&message, _distributed_message_coop_device_states, count, sizeof(message.states[0]));
+}
+
 /* host: where each scenery or machine was last sent, by its absolute
 index, and whether it has moved since the map placed it */
 static struct
@@ -1329,6 +1431,7 @@ static void host_presentation(
 	presentation->players_vitality_set = (byte)players_vitality.set;
 	presentation->players_maximum_body_vitality = players_vitality.maximum_body;
 	presentation->players_maximum_shield_vitality = players_vitality.maximum_shield;
+	game_allegiance_get_teams(presentation->ally_teams, presentation->friendly_teams);
 	SET_FLAG(presentation->flags, _presentation_skippable_bit, skip_vote.offered);
 	presentation->skip_votes = (byte)MIN(skip_vote.votes, 255);
 	presentation->skip_voters = (byte)MIN(skip_vote.voters, 255);
@@ -1702,6 +1805,16 @@ static void client_apply_event(
 	case _coop_event_cutscene_skipped:
 		client_stop_script_sounds();
 		break;
+	case _coop_event_unit_open:
+		if (distributed_object_index_valid(event->object_index) && network_objects_client_has(event->object_index) &&
+			object_try_and_get_and_verify_type(event->object_index, _object_mask_unit))
+		{
+			if (event->value)
+				unit_open(event->object_index);
+			else
+				unit_close(event->object_index);
+		}
+		break;
 	default:
 		break;
 	}
@@ -1793,6 +1906,8 @@ void network_coop_new_game(
 	csmemset(client_script_sounds.definition_indices, NONE, sizeof(client_script_sounds.definition_indices));
 	csmemset(host_sent_transforms, 0, sizeof(host_sent_transforms));
 	csmemset(host_sent_looks, 0, sizeof(host_sent_looks));
+	csmemset(host_sent_devices, 0, sizeof(host_sent_devices));
+	csmemset(host_player_structure_bsps, NONE, sizeof(host_player_structure_bsps));
 	csmemset(&host_sent_screen_effect, 0, sizeof(host_sent_screen_effect));
 	csmemset(&host_resend, 0, sizeof(host_resend));
 	csmemset(&players_vitality, 0, sizeof(players_vitality));
@@ -1805,6 +1920,7 @@ void network_coop_new_game(
 	skip_vote.voters = 0;
 	skip_vote.cooldown_until = 0;
 	skip_vote.skip_save_written = FALSE;
+	coop_enemies_new_game();
 }
 
 /* A network game on a campaign scenario with no game engine. Checking the
@@ -2142,6 +2258,18 @@ void network_coop_note_unit_animation(
 	event->interpolate = (byte)interpolate;
 }
 
+void network_coop_note_unit_open(
+	long unit_index,
+	boolean open)
+{
+	struct distributed_coop_event *event = event_new(_coop_event_unit_open);
+
+	if (!event)
+		return;
+	event->object_index = unit_index;
+	event->value = (short)open;
+}
+
 /* unit_custom_animation_at_frame starts the animation and then sets the
 frame in the same call, so the start is still queued and unsent: the frame
 goes into it */
@@ -2361,6 +2489,8 @@ void network_coop_skip_reverted(
 		game_state_port_restamp_revert_time();
 		hs_runtime_port_shift_sleep_times(ticks);
 	}
+	/* (the dropships' riders kept are of the game state reverted from) */
+	coop_enemies_reset();
 	error(_error_silent, "co-op: cutscene skipped; reverted %ld ticks, clock kept at %ld", ticks, now);
 	event_new(_coop_event_cutscene_skipped);
 	skip_vote_clear();
@@ -2393,6 +2523,7 @@ void network_coop_host_tick(
 		return;
 	host_resend_update();
 	players_vitality_keep();
+	coop_enemies_update();
 	host_count_skip_votes();
 	host_presentation(&message.presentation);
 	send_to_clients(&message, _distributed_message_coop_presentation, 1, sizeof(message.presentation));
@@ -2400,6 +2531,7 @@ void network_coop_host_tick(
 	if (host_resend.joined || game_time_get() % OBJECT_NAMES_INTERVAL_TICKS == 0)
 		host_send_object_names();
 	host_send_object_transforms();
+	host_send_device_states();
 	host_send_object_looks();
 	host_send_screen_effect();
 	host_send_attachments();
@@ -2453,6 +2585,56 @@ word network_coop_device_group_entry_size(
 	void)
 {
 	return sizeof(struct distributed_coop_device_group);
+}
+
+void network_coop_note_player_structure_bsp(
+	short player_index,
+	short structure_bsp_index)
+{
+	if (player_index >= 0 && player_index < MAXIMUM_TRACKED_PLAYERS)
+		host_player_structure_bsps[player_index] = structure_bsp_index;
+}
+
+boolean network_coop_player_has_structure_bsp(
+	long player_index)
+{
+	return !network_coop_active() || player_get(player_index)->local_player_index != NONE ||
+		host_player_structure_bsps[DATUM_INDEX_TO_ABSOLUTE_INDEX(player_index)] == global_structure_bsp_index_get();
+}
+
+word network_coop_device_state_entry_size(
+	void)
+{
+	return sizeof(struct distributed_coop_device_state);
+}
+
+/* client: its devices where the host's are (DEVICE_POSITION_TOLERANCE) */
+void network_coop_handle_device_states(
+	void const *entries,
+	short count)
+{
+	struct distributed_coop_device_state const *states = entries;
+	short index;
+
+	if (!coop_client())
+		return;
+	for (index = 0; index < count; index++)
+	{
+		struct distributed_coop_device_state const *state = &states[index];
+		long device_index = object_find(state->name_index, state->object_index, state->definition_index,
+			_object_mask_device);
+		struct device_datum *device;
+		real difference;
+
+		if (device_index == NONE || !distributed_real_valid(state->position) || !distributed_real_valid(state->power))
+			continue;
+		device = object_get_and_verify_type(device_index, _object_mask_device);
+		difference = device->device.position - state->position;
+		if (difference < 0.0f)
+			difference = -difference;
+		device_port_set_state(device_index, state->power,
+			(!state->moving && difference > 0.001f) || difference > DEVICE_POSITION_TOLERANCE, state->position);
+	}
 }
 
 word network_coop_object_transform_entry_size(
@@ -2697,6 +2879,7 @@ static void client_presentation_apply(
 		players_vitality.maximum_body = presentation->players_maximum_body_vitality;
 		players_vitality.maximum_shield = presentation->players_maximum_shield_vitality;
 	}
+	game_allegiance_set_teams(presentation->ally_teams, presentation->friendly_teams);
 	if (!presentation->scripted_shake && player_effect_port_scripted_active())
 		player_effect_port_scripted_end();
 

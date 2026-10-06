@@ -44,6 +44,9 @@ int main(int argc,char **argv) {
         for(unsigned j=0;j<view.weapons;j++)for(unsigned m=0;m<2;m++)if(i>=view.weapon[j]+0x25e + m*12&&i<view.weapon[j]+0x262+m*12)allowed=1;
         CHECK(allowed);
     }
+    /* the size and base are the engine's own, not a copy of them; a snapshot of another build's size is not read */
+    CHECK(HC_SIZE==(size_t)HALO_PORT_GAME_STATE_SIZE&&HC_BASE==(uint32_t)HALO_PORT_GAME_STATE_BASE_ADDRESS);
+    {size_t other=HC_SIZE==(size_t)0x1000000?(size_t)0x1400000:(size_t)0x1000000;unsigned char *wrong=calloc(1,other);CHECK(wrong&&!hc_read(wrong,other,&after));free(wrong);}
     CHECK(!hc_read(b,HC_SIZE-1,&after));b[500]^=1;CHECK(!hc_read(b,HC_SIZE,&after));b[500]^=1;
     size_t headers;CHECK(hc_array(b,"object",8192,12,&headers));for(unsigned i=0;i<8192;i++)if(hc_u32(b,headers+i*12+8)==HC_BASE+view.unit){hc_put32(b,headers+i*12+8,UINT32_MAX);break;}hc_put32(b,0x148,hc_crc(b));CHECK(!hc_read(b,HC_SIZE,&after));
     free(original);free(b);puts("checkpoint validation, bounded edits, checksum and corruption rejection: PASS");return 0;

@@ -69,7 +69,7 @@ assert '-DHALO_MOD_TEST=1' in wf and '-DHALO_ALIGNED_ARENA_TEST=1 -DHALO_MOD_TES
 assert wf.index('Reject conflicting build flavors') < wf.index('- name: Install Ninja') and 'not both' in wf
 assert "inputs.non_jailbreak && 'HaloCE-iOS-NonJailbreak' || inputs.compatibility_test && 'HaloCE-iOS-ModTest' || 'HaloCE-iOS'" in wf
 assert "Address-space probe (nothing stays reserved)" in wf and "elif grep -q -e 'Non-Jailbreak Version (' -e 'Address-space probe (nothing stays reserved)' <<<" in wf
-assert 'va_plan' in memory and 'va_map' in memory and 'test_ios_non_jailbreak_flag.py' in memory and 'test_ios_mod_test_flag.py' in memory and 'test_ios_mod_cache_policy.c' in memory
+assert 'va_plan' in memory and 'va_map' in memory and 'test_ios_non_jailbreak_flag.py' in memory and 'test_ios_mod_test_flag.py' in memory and 'test_ios_asset_integrity.py' in memory and 'test_ios_checkpoint_size.py' in memory and 'test_ios_mod_cache_policy.c' in memory
 # Mod Test: its version follows the official one, and its code is proved absent from every other build.
 assert "Set :CFBundleShortVersionString ${OFFICIAL_SHORT}.1" in wf and "Set :CFBundleVersion ${OFFICIAL_BUILD}01" in wf and '0.2.70.1' not in wf and '267001' not in wf
 assert "elif grep -q -e 'MOD TEST:'" in wf and "'Mod Test build:'" in wf

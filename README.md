@@ -6,7 +6,7 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak diagnostic build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The current update is **M2.6.74**. The campaign and cross-play multiplayer work on a physical iPhone:
+> **Status: playable.** The current update is **M2.6.76**. The campaign and cross-play multiplayer work on a physical iPhone:
 > The maintainer reports playable `a10` and PC cross-play in earlier builds; results vary by device and scene. Some of the newest features are still being
 > validated on a device; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
@@ -16,7 +16,7 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 >
 > **Non-jailbreak support:** A non-jailbreak version is currently a work in progress and is not yet considered ready for general use.
 
-**Source update:** [M2.6.74](port/ios/UPDATE_M2674.md) integrates OpenCE build 115 (network co-op and co-op spectating, new display options, interface and gamepad changes) and adds the system's own aligned-window request to the Non-Jailbreak Version. Nothing in it has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE/releases).
+**Source update:** [M2.6.76](port/ios/UPDATE_M2676.md) goes back to OpenCE build 125 (network version 16) so that cross-play matches current PC builds, and repairs the checkpoint editor, which could not open any checkpoint of the larger game state (20 MB instead of 16 MB). Saves from builds before that size change cannot be loaded by the game. Nothing in it has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of Halo CE Universal on PC" width="760"><br>
@@ -115,6 +115,7 @@ See [Official project and other platforms](docs/UPSTREAM.md#credits) for details
   <img src="docs/ios/images/prometheus_gearbox-shaded.png" width="256" alt="Halo CE iOS app icon">
   <br><br>
   <strong>App icon artwork by ORION</strong><br>
+  <em>Used with ORION's permission. The artwork belongs to ORION and is not covered by this repository's CC0 dedication.</em><br>
   <a href="https://github.com/OrionMelaeno">GitHub</a> ·
   <a href="https://discord.com/users/758542539241685003">Discord</a>
 </p>

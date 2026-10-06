@@ -50,7 +50,7 @@
         BOOL valid=data&&hc_read(data.bytes,data.length,&view);
         dispatch_async(dispatch_get_main_queue(),^{
             weakSelf.busy=NO;weakSelf.rows.userInteractionEnabled=YES;weakSelf.navigationItem.prompt=nil;
-            if(!valid){[weakSelf message:@"This checkpoint is unsupported, damaged, or has no living local player. Nothing was changed. Supported saves use the current 16 MB Xbox 2342 layout."];return;}
+            if(!valid){[weakSelf message:[NSString stringWithFormat:@"This checkpoint is unsupported, damaged, or has no living local player. Nothing was changed. Supported saves are this build's own %u MB game state; the game cannot load a save from a build with a different size either.",(unsigned)(HC_SIZE>>20)]];return;}
             weakSelf.checkpoint=data;weakSelf.relativePath=relative;[weakSelf editor:view];
         });
     });

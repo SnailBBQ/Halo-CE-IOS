@@ -76,7 +76,18 @@ unsigned int host_geometry_pages(unsigned int first,unsigned int count,uintptr_t
     # ILP32 guest passes a 32-bit pointer. The LP64 desktop fixture needs its
     # own pointer width; the production implementation and tests stay identical.
     mirror=text[start:end].replace('(unsigned int)dirty','(uintptr_t)dirty').replace('unsigned int dirty);','uintptr_t dirty);')
-    return PREFIX+native+adapter+mirror+TAIL
+    # Builds after 125 have a buffer_upload helper in d3d8_gl.c, defined just before this section. The iOS guest (the Android path)
+    # compiles it as one glBufferSubData call for the whole range, so the harness stands in for it that way; the guard keeps the
+    # stand-in faithful. Earlier builds call glBufferSubData directly and need no stand-in.
+    uploader=''
+    if 'static void buffer_upload(' in text:
+        assert 'glBufferSubData(target, (GLintptr)offset, (GLsizeiptr)size, data);' in text[text.index('static void buffer_upload('):start]
+        uploader=r'''
+static void buffer_upload(int target,unsigned long offset,unsigned long size,const void *data) {
+ glBufferSubData(target,(GLintptr)offset,(GLsizeiptr)size,data);
+}
+'''
+    return PREFIX+native+adapter+uploader+mirror+TAIL
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('--emit');args=parser.parse_args()
     if args.emit: Path(args.emit).write_text(source(),encoding='utf-8')
