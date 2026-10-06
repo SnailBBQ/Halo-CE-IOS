@@ -20,6 +20,7 @@ on:
     branches: [main]
     paths:
       - 'port/ios/**'
+      - '!port/ios/*.md'
       - '.github/workflows/ios.yml'
       - 'source/**'
       - 'port/linux/**'
@@ -428,7 +429,7 @@ jobs:
             /usr/libexec/PlistBuddy -c 'Set :CFBundleName Halo CE Mod Test' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLName com.haloceuniversal.ios.modtest.invite' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Halo CE Mod Test' "$APP/Info.plist"
-            # the Mod Test app's version is the official one with a trailing .1 (0.2.78 / 2678 becomes 0.2.78.1 / 267801)
+            # the Mod Test app's version is the official one with a trailing .1 (0.2.79 / 2679 becomes 0.2.79.1 / 267901)
             OFFICIAL_SHORT=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")
             OFFICIAL_BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
             /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${OFFICIAL_SHORT}.1" "$APP/Info.plist"

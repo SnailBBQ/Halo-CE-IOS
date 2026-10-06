@@ -1,13 +1,15 @@
 # Release notes
 
-The current update is **M2.6.78**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.79**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.78](../../port/ios/UPDATE_M2678.md) makes logs easy to send: Share logs sends one text file, Copy logs is new, and a start history records where a run that stopped without a report ended. The engine is as in M2.6.77. Nothing is built on Apple hardware or device-tested yet.
+**Latest:** [M2.6.79](../../port/ios/UPDATE_M2679.md) is a baseline-cleanup release: stale version/upstream metadata is corrected, notes-only iOS Markdown no longer starts an automatic IPA build, the mod-cache diagnostics test runs once, and the XISO test driver is warning-clean under GCC and Clang. The engine and runtime are otherwise unchanged from M2.6.78. Nothing is built on Apple hardware or device-tested yet.
+
+**Previous:** [M2.6.78](../../port/ios/UPDATE_M2678.md) makes logs easy to send: Share logs sends one text file, Copy logs is new, and a start history records where a run that stopped without a report ended.
 
 **Previous:** [M2.6.77](../../port/ios/UPDATE_M2677.md) corrected the Non-Jailbreak Version's address-space report and documented free and paid accounts.
 
@@ -49,6 +51,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.79 | Baseline cleanup: current version/upstream metadata corrected, notes-only build trigger removed, diagnostics loop fixed, XISO test warning cleaned. Device validation pending. |
 | M2.6.78 | Share logs sends one text file, Copy logs is new, and a start history keeps where a stopped run ended. Device validation pending. |
 | M2.6.77 | The Non-Jailbreak address-space report is corrected; free and paid accounts are documented. Device validation pending. |
 | M2.6.76 | Back to OpenCE build 125 (network version 16, matching current PC builds); the checkpoint editor reads the larger game state. Device validation pending. |

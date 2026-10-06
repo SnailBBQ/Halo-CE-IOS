@@ -1,9 +1,9 @@
 # Halo CE iOS — Project status
 
-**Status: playable.** **Current update: M2.6.72** (regular app still 0.2.70, Mod Test 0.2.70.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
+**Status: playable.** **Current update: M2.6.79** (regular app 0.2.79, Mod Test 0.2.79.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
 are still waiting for device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
 
-**Source update:** [M2.6.78](port/ios/UPDATE_M2678.md) makes logs easy to send. **Share logs** now sends one text file, a new **Copy logs** button puts the same text on the clipboard, and a short start history records where a run that stopped without a report ended, so opening the app again no longer erases it. The engine is as in M2.6.77 (OpenCE build 125). Nothing in it has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
+**Source update:** [M2.6.79](port/ios/UPDATE_M2679.md) is a baseline-cleanup release. It corrects stale version and upstream-integration metadata, stops notes-only `port/ios/*.md` pushes from starting an automatic IPA build, runs the mod-cache diagnostics test once instead of once per loop item, and makes the XISO test driver warning-clean under GCC as well as Clang. The engine and app runtime are otherwise unchanged from M2.6.78 (OpenCE build 125). Nothing in M2.6.79 has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 ## Two apps, plus a stock-iOS build
 

@@ -45,6 +45,7 @@ print('PASS: real android_guest_cc command emitted by repository Ninja writer, L
 # Only regular-app main pushes may spend hosted build time. Keep expensive
 # jobs behind diagnostics and cancel obsolete builds on replacement pushes.
 assert "  push:\n    branches: [main]\n    paths:" in wf
+assert "      - 'port/ios/**'\n      - '!port/ios/*.md'" in wf, 'notes-only port/ios markdown must not trigger the automatic IPA build'
 assert "  group: halo-ios-${{ inputs.non_jailbreak && 'non-jailbreak' || inputs.compatibility_test && 'modtest' || 'main' }}\n  cancel-in-progress: true" in wf, 'official pushes must keep the halo-ios-main group; manual flavors get their own'
 assert "    needs: diagnostics" in wf
 assert "    uses: ./.github/workflows/ios-memory-tests.yml" in wf
@@ -70,6 +71,7 @@ assert wf.index('Reject conflicting build flavors') < wf.index('- name: Install 
 assert "inputs.non_jailbreak && 'HaloCE-iOS-NonJailbreak' || inputs.compatibility_test && 'HaloCE-iOS-ModTest' || 'HaloCE-iOS'" in wf
 assert "Address-space probe (nothing stays reserved)" in wf and "elif grep -q -e 'Non-Jailbreak Version (' -e 'Address-space probe (nothing stays reserved)' <<<" in wf
 assert 'va_plan' in memory and 'va_map' in memory and 'test_ios_non_jailbreak_flag.py' in memory and 'test_ios_mod_test_flag.py' in memory and 'test_ios_asset_integrity.py' in memory and 'test_ios_checkpoint_size.py' in memory and 'test_ios_mod_cache_policy.c' in memory
+assert memory.index('          done\n          cc -std=c11 -Wall -Wextra -Werror tools/tests/test_ios_mod_cache_policy.c') > memory.index('for t in settings_core'), 'mod-cache policy test must run once, after the generated-test loop'
 # Mod Test: its version follows the official one, and its code is proved absent from every other build.
 assert "Set :CFBundleShortVersionString ${OFFICIAL_SHORT}.1" in wf and "Set :CFBundleVersion ${OFFICIAL_BUILD}01" in wf and '0.2.70.1' not in wf and '267001' not in wf
 assert "elif grep -q -e 'MOD TEST:'" in wf and "'Mod Test build:'" in wf
