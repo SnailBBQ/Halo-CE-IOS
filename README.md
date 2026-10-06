@@ -12,11 +12,9 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 
 ## Current Status
 
-> **Jailbreak required:** Halo CE iOS is currently confirmed working on jailbroken iOS devices.
+> **Confirmed working:** Halo CE iOS works through **TrollStore** on compatible devices and on supported **jailbroken iOS** setups.
 >
-> **Non-jailbreak support:** A non-jailbreak version is currently a work in progress and is not yet considered ready for general use.
->
-> **Free-account sideloading (Sideloadly, AltStore, SideStore):** not supported. On the one device tested, an iPhone 14 Plus on iOS 16.2, the app stops at startup because iOS gives a free-account install too little address space for the game. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
+> **Standard non-jailbreak sideloading:** support through tools such as **Sideloadly, AltStore, and SideStore** is still a work in progress and is not ready for general use. On the free-account device tested so far, an iPhone 14 Plus on iOS 16.2, the app stops at startup because iOS does not provide the address-space layout the game currently requires. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 >
 > **Paid Apple Developer accounts:** people who have one may be able to sign the regular app with the `extended-virtual-addressing` and `increased-memory-limit` capabilities and get it to start on a non-jailbroken device. We have not tested this, and the project does not require or build around paid accounts. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 
@@ -130,5 +128,13 @@ This is an unofficial, non-commercial fan project. It is not affiliated with or 
 Bungie. *Halo* and related names are trademarks of Microsoft. **No game maps or original engine executable are included.** Documentation contains gameplay screenshots, and the port includes replacement UI artwork and fonts. You need your own copy of the game, and you
 are responsible for using it in line with its license. The source code in this repository is released under [CC0 1.0](LICENSE.md); bundled third-party
 code and fonts keep their own licenses. See the [asset and library credits](docs/UPSTREAM.md#credits).
+
+### Microsoft Game Content notice
+
+*Halo: Combat Evolved* © Microsoft Corporation. Halo CE iOS was created under Microsoft's "Game Content Usage Rules" using assets from *Halo: Combat Evolved*, and it is not endorsed by or affiliated with Microsoft.
+
+[Microsoft Game Content Usage Rules](https://www.xbox.com/developers/rules)
+
+This notice does not change the licenses that apply to OpenCE, bundled third-party components, ORION's app-icon artwork, or user-supplied game data.
 
 For maintainers, the [public release checklist](docs/ios/PUBLIC_RELEASE.md) records the remaining publication and verification steps.

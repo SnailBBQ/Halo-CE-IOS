@@ -38,6 +38,23 @@ For `main`:
 
 Protect published release tags against deletion and replacement. These protections control this repository's branches and tags, not somebody else's fork. No ruleset or visibility change was applied by this audit.
 
+## Required release notice
+
+Start every public IPA release description with a clear compatibility notice. For the current project state, use:
+
+> **Compatibility notice**
+>
+> - **TrollStore:** confirmed working on compatible devices.
+> - **Jailbroken iOS:** confirmed working on supported jailbreak setups.
+> - **Standard non-jailbreak sideloading:** Sideloadly, AltStore, and SideStore support is still a work in progress and is not ready for general use.
+> - **Game data is not included:** users must provide compatible Xbox `.map` files from their own copy of *Halo: Combat Evolved*.
+
+Also include the Microsoft Game Content notice and link:
+
+> *Halo: Combat Evolved* © Microsoft Corporation. Halo CE iOS was created under Microsoft's "Game Content Usage Rules" using assets from *Halo: Combat Evolved*, and it is not endorsed by or affiliated with Microsoft.
+
+<https://www.xbox.com/developers/rules>
+
 ## Before publishing an IPA
 
 1. Choose the release commit, integrate the reviewed documentation, and run both build jobs successfully. Billing-blocked runs that never started are not source compilation results.
