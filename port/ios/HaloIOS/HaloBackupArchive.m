@@ -32,6 +32,38 @@ BOOL HaloBackupAllowed(NSString *path) {
  * 32 select each independently. Cache maps and volatile checkpoints under z:
  * are rebuildable session data, never user progress. Older archives remain
  * readable, but their temporary files are deliberately not restored. */
+static NSString *HaloInfoString(NSString *key, NSString *fallback) {
+    id value=NSBundle.mainBundle.infoDictionary[key];
+    if([value isKindOfClass:NSString.class]&&[value length])return value;
+    if([value respondsToSelector:@selector(stringValue)])return [value stringValue];
+    return fallback;
+}
+NSString *HaloEngineIdentity(void) {
+#ifdef HALO_BACKUP_TEST
+    const char *override=getenv("HALO_BACKUP_TEST_ENGINE_IDENTITY");
+    if(override&&*override)return [NSString stringWithUTF8String:override];
+#endif
+    NSString *release=HaloInfoString(@"HaloOpenCERelease",@"unknown-release");
+    NSString *commit=HaloInfoString(@"HaloOpenCECommit",@"unknown-commit");
+    NSString *network=HaloInfoString(@"HaloNetworkVersion",@"?");
+    NSString *state=HaloInfoString(@"HaloGameStateBytes",@"?");
+    NSString *abi=HaloInfoString(@"HaloGuestABI",@"unknown-abi");
+    NSString *architecture=HaloInfoString(@"HaloGuestArchitecture",@"unknown-architecture");
+    NSString *adaptation=HaloInfoString(@"HaloGuestAdaptation",@"unknown-adaptation");
+    return [NSString stringWithFormat:@"%@|%@|net=%@|state=%@|%@|%@|adapt=%@",release,commit,network,state,abi,architecture,adaptation];
+}
+NSString *HaloBuildIdentityText(void) {
+    NSDictionary *info=NSBundle.mainBundle.infoDictionary;
+    NSString *version=info[@"CFBundleShortVersionString"]?:@"?",*build=info[@"CFBundleVersion"]?:@"?";
+    NSString *guest=HaloInfoString(@"HaloGuestSHA256",@"unknown");
+    return [NSString stringWithFormat:@"Source: %@ · app %@ (%@)\nOpenCE: %@ · commit %@ · network %@ · game state %@ bytes\nGuest: %@ · architecture %@ · adaptation %@ · SHA-256 %@\nRenderer: %@ · flavor %@ · diagnostics %@\nSource commit: %@ · build run %@",
+        HaloInfoString(@"HaloSourceMilestone",@"unknown"),version,build,
+        HaloInfoString(@"HaloOpenCERelease",@"unknown"),HaloInfoString(@"HaloOpenCECommit",@"unknown"),HaloInfoString(@"HaloNetworkVersion",@"?"),HaloInfoString(@"HaloGameStateBytes",@"?"),
+        HaloInfoString(@"HaloGuestABI",@"unknown"),HaloInfoString(@"HaloGuestArchitecture",@"unknown"),HaloInfoString(@"HaloGuestAdaptation",@"unknown"),guest,
+        HaloInfoString(@"HaloRenderer",@"unknown"),HaloInfoString(@"HaloBuildFlavor",@"unknown"),HaloInfoString(@"HaloDiagnosticMode",@"none"),
+        HaloInfoString(@"HaloSourceCommit",@"local"),HaloInfoString(@"HaloBuildRun",@"local")];
+}
+
 static unsigned Section(NSString *path) {
     NSString *p=path.lowercaseString;
     if([p hasPrefix:@"save/u/udata/"]) {
@@ -71,7 +103,7 @@ static void SafeParents(NSURL *root,NSString *path) {
     }
     NSURL *leaf=[root URLByAppendingPathComponent:path];link=nil;[leaf getResourceValue:&link forKey:NSURLIsSymbolicLinkKey error:nil];HaloBackupRequire(!link.boolValue,@"Destination is a symbolic link.");
 }
-NSURL *HaloBackupExport(unsigned mask) {
+static NSURL *HaloBackupExportIdentity(unsigned mask,NSString *engineIdentity) {
     NSFileManager *fm=NSFileManager.defaultManager;NSURL *work=HaloBackupWork();HaloBackupRequire([fm createDirectoryAtURL:work withIntermediateDirectories:YES attributes:nil error:nil],@"Cannot create backup workspace.");
     NSURL *snapshot=[work URLByAppendingPathComponent:NSUUID.UUID.UUIDString isDirectory:YES];HaloBackupRequire([fm createDirectoryAtURL:snapshot withIntermediateDirectories:YES attributes:nil error:nil],@"Cannot create snapshot.");
     @try {
@@ -91,7 +123,7 @@ NSURL *HaloBackupExport(unsigned mask) {
             [records addObject:@{@"path":path,@"size":a[NSFileSize],@"sha256":HaloBackupHashFile(url)}];
         }
         [records sortUsingComparator:^NSComparisonResult(NSDictionary *a,NSDictionary *b){return [a[@"path"] compare:b[@"path"]];}];
-        NSData *manifest=[NSJSONSerialization dataWithJSONObject:@{@"format":@1,@"sections":@(mask),@"files":records} options:0 error:nil];HaloBackupRequire(manifest.length<=1024*1024,@"Backup has too many files.");
+        NSData *manifest=[NSJSONSerialization dataWithJSONObject:@{@"format":@1,@"sections":@(mask),@"files":records,@"engine_identity":engineIdentity?:HaloEngineIdentity(),@"source_milestone":HaloInfoString(@"HaloSourceMilestone",@"unknown"),@"created":@((long long)NSDate.date.timeIntervalSince1970)} options:0 error:nil];HaloBackupRequire(manifest.length<=1024*1024,@"Backup has too many files.");
         NSString *name=[NSString stringWithFormat:@"Halo-%@.halobackup",NSUUID.UUID.UUIDString];NSURL *output=[work URLByAppendingPathComponent:name];HaloBackupRequire([fm createFileAtPath:output.path contents:nil attributes:nil],@"Cannot create backup archive.");
         NSFileHandle *out=[NSFileHandle fileHandleForWritingToURL:output error:nil];HaloBackupRequire(out!=nil,@"Cannot open backup archive.");
         @try {
@@ -104,6 +136,51 @@ NSURL *HaloBackupExport(unsigned mask) {
         return output;
     } @finally { [fm removeItemAtURL:snapshot error:nil]; }
 }
+NSURL *HaloBackupExport(unsigned mask) { return HaloBackupExportIdentity(mask,HaloEngineIdentity()); }
+static BOOL HaloHasPersistentSaveData(void) {
+    NSFileManager *fm=NSFileManager.defaultManager;
+    NSURL *root=[NSURL fileURLWithPath:[HaloBackupRoot() stringByAppendingPathComponent:@"save"] isDirectory:YES];
+    NSDirectoryEnumerator *walk=[fm enumeratorAtURL:root includingPropertiesForKeys:@[NSURLIsRegularFileKey,NSURLIsSymbolicLinkKey] options:0 errorHandler:nil];
+    for(NSURL *url in walk) {
+        NSNumber *link=nil;[url getResourceValue:&link forKey:NSURLIsSymbolicLinkKey error:nil];if(link.boolValue){[walk skipDescendants];continue;}
+        if(!HaloBackupRegular(url))continue;
+        NSString *base=[NSURL fileURLWithPath:HaloBackupRoot() isDirectory:YES].URLByResolvingSymlinksInPath.path.stringByStandardizingPath;
+        NSString *path=url.URLByResolvingSymlinksInPath.path.stringByStandardizingPath;
+        NSString *prefix=[base stringByAppendingString:@"/"];
+        if([path hasPrefix:prefix]&&(Section([path substringFromIndex:prefix.length])&1))return YES;
+    }
+    return NO;
+}
+BOOL HaloProtectEngineChange(NSError **error) {
+    NSUserDefaults *defaults=NSUserDefaults.standardUserDefaults;
+    NSString *current=HaloEngineIdentity();
+    NSString *previous=[defaults stringForKey:@"HaloLastEngineIdentityV1"];
+    if(!current.length){if(error)*error=HaloBackupFailure(@"This build has no engine identity; save protection cannot verify the engine.");return NO;}
+    if(!previous.length){[defaults setObject:current forKey:@"HaloLastEngineIdentityV1"];return YES;}
+    if([previous isEqualToString:current])return YES;
+    if(!HaloHasPersistentSaveData()){[defaults setObject:current forKey:@"HaloLastEngineIdentityV1"];return YES;}
+    NSURL *archive=nil;
+    @try {
+        archive=HaloBackupExportIdentity(1,previous);
+        NSFileManager *fm=NSFileManager.defaultManager;
+        NSURL *folder=[HaloBackupWork() URLByAppendingPathComponent:@"EngineChanges" isDirectory:YES];
+        HaloBackupRequire([fm createDirectoryAtURL:folder withIntermediateDirectories:YES attributes:nil error:nil],@"Cannot create the engine-change backup folder.");
+        NSDateFormatter *format=[NSDateFormatter new];format.locale=[NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];format.dateFormat=@"yyyyMMdd-HHmmss";
+        NSString *name=[NSString stringWithFormat:@"HaloCE-EngineChange-%@-%@.halobackup",[format stringFromDate:NSDate.date],NSUUID.UUID.UUIDString];
+        NSURL *saved=[folder URLByAppendingPathComponent:name];
+        HaloBackupRequire([fm moveItemAtURL:archive toURL:saved error:nil],@"Cannot preserve the automatic engine-change backup.");
+        archive=nil;
+        [defaults setObject:saved.path forKey:@"HaloLastEngineChangeBackup"];
+        [defaults setObject:previous forKey:@"HaloLastProtectedEngineIdentity"];
+        [defaults setObject:current forKey:@"HaloLastEngineIdentityV1"];
+        return YES;
+    } @catch(NSException *exception) {
+        if(archive)[NSFileManager.defaultManager removeItemAtURL:archive error:nil];
+        if(error)*error=HaloBackupFailure([@"Engine changed, but Halo could not create a .halobackup before opening your saves: " stringByAppendingString:exception.reason?:@"unknown backup error"]);
+        return NO;
+    }
+}
+
 NSDictionary *HaloBackupStage(NSURL *archive,NSURL *stage) {
     NSFileManager *fm=NSFileManager.defaultManager;HaloBackupRequire([fm createDirectoryAtURL:stage withIntermediateDirectories:YES attributes:nil error:nil],@"Cannot stage restore.");
     NSFileHandle *in=[NSFileHandle fileHandleForReadingFromURL:archive error:nil];HaloBackupRequire(in!=nil,@"Cannot open backup.");

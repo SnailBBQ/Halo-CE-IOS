@@ -54,7 +54,7 @@ cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_settin
 
 ## Following the upstream project
 
-New Halo CE Universal builds are merged with a three-way merge of the previous upstream build, this repository and the new build, then checked locally where possible and by the Apple workflow before release. The current OpenCE build 101 integration is documented in [M2.6.67](UPDATE_M2667.md), including its validation limits and device checklist. Files that are only upstream's are taken as they are. See
+New Halo CE Universal builds are merged with a three-way merge of the previous upstream build, this repository and the new build, then checked locally where possible and by the Apple workflow before release. The current OpenCE build 125 integration is documented in [M2.6.76](UPDATE_M2676.md). M2.6.80 adds `tools/ios_upstream_acceptance.py`: the PC updater can run it against the exact candidate OpenCE tree with `--upstream-root <tree> --require-upstream`. The build-125 known-good baseline has 27 pre-existing flags-off divergences fingerprinted in `upstream_baseline_deltas.json`; they are transition debt, not new permissions. Promotion of a newer OpenCE build should add `--require-clean-flags-off`, which requires zero flags-off differences. Files that are only upstream's are taken as they are. See
 [the official project and credits](../../docs/UPSTREAM.md).
 
 ## Release notes

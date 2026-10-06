@@ -6,7 +6,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak diagnostic build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The current update is **M2.6.79**. The campaign and cross-play multiplayer work on a physical iPhone:
+> **Status: playable.** The current update is **M2.6.80**. The campaign and cross-play multiplayer work on a physical iPhone:
 > The maintainer reports playable `a10` and PC cross-play in earlier builds; results vary by device and scene. Some of the newest features are still being
 > validated on a device; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
@@ -20,7 +20,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 >
 > **Paid Apple Developer accounts:** people who have one may be able to sign the regular app with the `extended-virtual-addressing` and `increased-memory-limit` capabilities and get it to start on a non-jailbroken device. We have not tested this, and the project does not require or build around paid accounts. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 
-**Source update:** [M2.6.79](port/ios/UPDATE_M2679.md) is a baseline-cleanup release. It corrects stale version and upstream-integration metadata, stops notes-only `port/ios/*.md` pushes from starting an automatic IPA build, runs the mod-cache diagnostics test once instead of once per loop item, and makes the XISO test driver warning-clean under GCC as well as Clang. The engine and app runtime are otherwise unchanged from M2.6.78 (OpenCE build 125). Nothing in M2.6.79 has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
+**Source update:** [M2.6.80](port/ios/UPDATE_M2680.md) adds exact build/engine identity to the app and logs, protects existing saves with the same verified `.halobackup` format before a changed engine can open them, adds reusable upstream-update acceptance gates for the PC updater/release pipeline, and gives the Non-Jailbreak flavor an explicit diagnostic 4 GiB-anywhere reservation probe. The real guest still uses the proven aligned-arena architecture; OpenCE remains build 125 / network version 16 and rendering remains Apple OpenGL ES. M2.6.79 passed GitHub Actions; M2.6.80 still needs its Apple build and device checks. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of OpenCE on PC" width="760"><br>

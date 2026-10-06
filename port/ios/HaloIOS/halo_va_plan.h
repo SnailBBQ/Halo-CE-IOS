@@ -40,6 +40,9 @@ typedef struct HaloVaProbe {
     int ladder_ok[HALO_VA_LADDER], ladder_error[HALO_VA_LADDER];
     unsigned chain_gib;            /* 1 GiB reservations held at once, up to HALO_VA_CHAIN_MAX */
     int chain_error;               /* what stopped the chain (0: it reached the maximum) */
+    unsigned flexible_tried, flexible_ok; /* one exact 4 GiB reservation at any address; diagnostic only */
+    uint64_t flexible_base;
+    int flexible_error;
     unsigned aligned_tried, aligned_ok;
     uint64_t first_aligned;        /* the first 4 GiB-aligned window that could be reserved (0: none) */
     int aligned_error;             /* the error of the first window that failed */
@@ -109,6 +112,16 @@ static inline void halo_va_probe_run(const HaloVaReserver *r, HaloVaProbe *p) {
     }
     p->chain_gib = n;
     for (unsigned i = 0; i < n; i++) r->release(r->context, held[i], HALO_VA_GIB);
+    {
+        uint64_t base = 0;
+        int code = 0;
+        p->flexible_tried = 1;
+        if (halo_va_reserve_at(r, 0, HALO_VA_ARENA, &base, &code)) {
+            p->flexible_ok = 1;
+            p->flexible_base = base;
+            r->release(r->context, base, HALO_VA_ARENA);
+        } else p->flexible_error = code;
+    }
     for (unsigned i = 0; i < HALO_VA_CANDIDATES; i++) {
         int code = 0;
         uint64_t candidate = halo_va_candidate(i);
@@ -168,6 +181,11 @@ static inline void halo_va_probe_format(const HaloVaProbe *p, char *out, size_t 
     halo_va_text(out, size, &used, "\n  held at once in 1 GiB steps: %u GiB", p->chain_gib);
     if (p->chain_error) halo_va_text(out, size, &used, " (stopped by error %d)", p->chain_error);
     else halo_va_text(out, size, &used, " (reached the %u GiB test limit)", (unsigned)HALO_VA_CHAIN_MAX);
+    halo_va_text(out, size, &used, "\n  Flexible 4 GiB ANYWHERE: ");
+    if (p->flexible_ok) halo_va_text(out, size, &used, "SUCCESS at 0x%llx (4 GiB-aligned: %s; offset in 4 GiB block: 0x%llx)",
+        (unsigned long long)p->flexible_base, (p->flexible_base & (HALO_VA_ARENA - 1)) ? "NO" : "YES",
+        (unsigned long long)(p->flexible_base & (HALO_VA_ARENA - 1)));
+    else halo_va_text(out, size, &used, "FAILED (error %d)", p->flexible_error);
     halo_va_text(out, size, &used, "\n  fixed 4 GiB-aligned windows: %u of %u usable", p->aligned_ok, p->aligned_tried);
     if (p->aligned_ok) halo_va_text(out, size, &used, " (first at 0x%llx)", (unsigned long long)p->first_aligned);
     else {

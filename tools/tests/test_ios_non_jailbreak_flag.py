@@ -85,6 +85,7 @@ class NonJailbreakFlagTests(unittest.TestCase):
                 self.assertEqual(built.returncode, 0, built.stderr[-1500:])
                 text = subprocess.run([nm, "-a", str(Path(folder) / f"{flag}.o")], capture_output=True, text=True).stdout
                 self.assertEqual("Address-space probe (nothing stays reserved)" in text, expected, f"flag={flag}")
+                self.assertEqual("Flexible 4 GiB ANYWHERE:" in text, expected, f"flag={flag} flexible probe")
 
 
 class AlignedAttemptOrderTests(unittest.TestCase):

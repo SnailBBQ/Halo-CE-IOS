@@ -1,13 +1,15 @@
 # Release notes
 
-The current update is **M2.6.79**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.80**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.79](../../port/ios/UPDATE_M2679.md) is a baseline-cleanup release: stale version/upstream metadata is corrected, notes-only iOS Markdown no longer starts an automatic IPA build, the mod-cache diagnostics test runs once, and the XISO test driver is warning-clean under GCC and Clang. The engine and runtime are otherwise unchanged from M2.6.78. Nothing is built on Apple hardware or device-tested yet.
+**Latest:** [M2.6.80](../../port/ios/UPDATE_M2680.md) adds exact build identity in About/logs, automatic engine-change save protection using `.halobackup`, reusable upstream acceptance gates with explicit build-125 legacy-delta tracking/strict promotion mode, and a diagnostic exact-4-GiB-anywhere probe for the Non-Jailbreak flavor. OpenCE stays on build 125 / network 16 and the real guest still requires its aligned arena. M2.6.79 passed GitHub Actions; M2.6.80 still needs Apple/device validation.
+
+**Previous:** [M2.6.79](../../port/ios/UPDATE_M2679.md) is the green baseline-cleanup build: stale version/upstream metadata was corrected, notes-only iOS Markdown no longer starts an automatic IPA build, the mod-cache diagnostics test runs once, and the XISO test driver is warning-clean under GCC and Clang.
 
 **Previous:** [M2.6.78](../../port/ios/UPDATE_M2678.md) makes logs easy to send: Share logs sends one text file, Copy logs is new, and a start history records where a run that stopped without a report ended.
 
@@ -51,6 +53,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.80 | Build identity, automatic engine-change `.halobackup`, reusable upstream acceptance gates, and Non-JB flexible 4 GiB-anywhere feasibility probe. Apple/device validation pending. |
 | M2.6.79 | Baseline cleanup: current version/upstream metadata corrected, notes-only build trigger removed, diagnostics loop fixed, XISO test warning cleaned. Device validation pending. |
 | M2.6.78 | Share logs sends one text file, Copy logs is new, and a start history keeps where a stopped run ended. Device validation pending. |
 | M2.6.77 | The Non-Jailbreak address-space report is corrected; free and paid accounts are documented. Device validation pending. |

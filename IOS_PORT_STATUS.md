@@ -1,9 +1,9 @@
 # Halo CE iOS — Project status
 
-**Status: playable.** **Current update: M2.6.79** (regular app 0.2.79, Mod Test 0.2.79.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
+**Status: playable.** **Current update: M2.6.80** (regular app 0.2.80, Mod Test 0.2.80.1). The maintainer reports playable `a10` and PC cross-play on a physical iPhone in earlier builds, with other tested campaign maps loading successfully. Some of the newest features are built and checked by automated tests and
 are still waiting for device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
 
-**Source update:** [M2.6.79](port/ios/UPDATE_M2679.md) is a baseline-cleanup release. It corrects stale version and upstream-integration metadata, stops notes-only `port/ios/*.md` pushes from starting an automatic IPA build, runs the mod-cache diagnostics test once instead of once per loop item, and makes the XISO test driver warning-clean under GCC as well as Clang. The engine and app runtime are otherwise unchanged from M2.6.78 (OpenCE build 125). Nothing in M2.6.79 has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
+**Source update:** [M2.6.80](port/ios/UPDATE_M2680.md) adds build identity/provenance, automatic `.halobackup` protection before a changed engine opens saves, reusable upstream acceptance gates (including explicit tracking of 27 pre-existing build-125 flags-off deltas and a zero-delta strict promotion mode), and the Non-Jailbreak flavor's first explicit flexible-base feasibility probe: reserve exactly 4 GiB anywhere and report its real base/alignment. The actual Halo guest remains on the existing aligned-arena architecture and OpenCE build 125 / network 16. M2.6.79 passed GitHub Actions; M2.6.80 still needs its Apple build and device checks.
 
 ## Two apps, plus a stock-iOS build
 
@@ -13,7 +13,7 @@ are still waiting for device validation. See the [release notes](docs/ios/RELEAS
 | Halo CE Mod Test | `main`, tick **Mod Test app** | artifact `HaloCE-iOS-ModTest` |
 | Non-Jailbreak Version | `main`, tick **Non-Jailbreak Version** | artifact `HaloCE-iOS-NonJailbreak` |
 
-The regular app and Mod Test share the same features and are updated together. The Mod Test app adds an experimental loader for very large converted campaign maps; see [Mod Test](docs/ios/MOD_TEST.md). The Non-Jailbreak Version is the regular app with address-space and JIT diagnostics and a fallback memory window, for installs not signed by TrollStore or a jailbreak; see [M2.6.73](port/ios/UPDATE_M2673.md). Free-account sideloading is not supported, and a paid account may work but is untested; see [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
+The regular app and Mod Test share the same features and are updated together. The Mod Test app adds an experimental loader for very large converted campaign maps; see [Mod Test](docs/ios/MOD_TEST.md). The Non-Jailbreak Version is the regular app plus stock-iOS address-space/JIT diagnostics. M2.6.80 also measures whether one exact 4 GiB span can be reserved **anywhere** even when no aligned guest window exists; it does not yet run Halo from that unaligned span. Free-account sideloading is therefore still experimental rather than supported; see [M2.6.80](port/ios/UPDATE_M2680.md) and [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 
 ## What works (reported from device testing)
 

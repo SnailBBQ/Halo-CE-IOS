@@ -69,7 +69,10 @@ assert 'NON_JAILBREAK' not in identity and 'com.haloceuniversal.ios.modtest' in 
 assert '-DHALO_MOD_TEST=1' in wf and '-DHALO_ALIGNED_ARENA_TEST=1 -DHALO_MOD_TEST=1' in wf
 assert wf.index('Reject conflicting build flavors') < wf.index('- name: Install Ninja') and 'not both' in wf
 assert "inputs.non_jailbreak && 'HaloCE-iOS-NonJailbreak' || inputs.compatibility_test && 'HaloCE-iOS-ModTest' || 'HaloCE-iOS'" in wf
-assert "Address-space probe (nothing stays reserved)" in wf and "elif grep -q -e 'Non-Jailbreak Version (' -e 'Address-space probe (nothing stays reserved)' <<<" in wf
+assert "python3 tools/ios_upstream_acceptance.py --json" in wf, 'every candidate runs the reusable upstream acceptance gates'
+assert "Set :HaloBuildFlavor $FLAVOR" in wf and "Set :HaloGuestSHA256 $GUEST_SHA" in wf and "Set :HaloSourceCommit ${GITHUB_SHA:-local}" in wf
+assert "DIAGNOSTICS=flex-base-probe-v1" in wf and "DIAGNOSTICS=direct-aligned-arena-test" in wf
+assert "Address-space probe (nothing stays reserved)" in wf and "Flexible 4 GiB ANYWHERE:" in wf and "-e 'Flexible 4 GiB ANYWHERE:'" in wf
 assert 'va_plan' in memory and 'va_map' in memory and 'test_ios_non_jailbreak_flag.py' in memory and 'test_ios_mod_test_flag.py' in memory and 'test_ios_asset_integrity.py' in memory and 'test_ios_checkpoint_size.py' in memory and 'test_ios_mod_cache_policy.c' in memory
 assert memory.index('          done\n          cc -std=c11 -Wall -Wextra -Werror tools/tests/test_ios_mod_cache_policy.c') > memory.index('for t in settings_core'), 'mod-cache policy test must run once, after the generated-test loop'
 # Mod Test: its version follows the official one, and its code is proved absent from every other build.

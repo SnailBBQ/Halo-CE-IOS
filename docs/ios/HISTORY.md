@@ -5,9 +5,9 @@ statements about "current" behaviour in it describe the milestone they were writ
 
 ## Part 1 — Status log (the former project status page)
 
-Current iOS update: **M2.6.79** — OpenCE build 125. The earlier milestones below are kept as history; see the [release notes](RELEASE_NOTES.md) for the current state.
+Current iOS update: **M2.6.80** — OpenCE build 125. Build identity, automatic engine-change save protection, upstream acceptance gates and the first Non-JB flexible-base feasibility probe are current; the earlier milestones below are kept as history. See the [release notes](RELEASE_NOTES.md) for the current state.
 
-Updated October 3, 2026. Current development milestone: **M2.6.51** (device testing pending).
+Updated October 6, 2026. Current development milestone: **M2.6.80** (GitHub build/device testing pending).
 
 ### Collected status notes (historical)
 

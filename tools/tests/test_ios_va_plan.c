@@ -109,7 +109,7 @@ static void test_fixed_arena(void) {
 }
 
 static void test_aligned_arena(void) {
-    uint64_t base = 0; int error = 0, fixed_error = 0; unsigned tried = 0; HaloVaProbe p; char text[1536];
+    uint64_t base = 0; int error = 0, fixed_error = 0; unsigned tried = 0; HaloVaProbe p; char text[2048];
     Space s = make_space(6); HaloVaReserver r = reserver_with_search(&s);
     CHECK(halo_va_try_aligned_arena(&r, &base, &error) && error == 0 && base % HALO_VA_ARENA == 0 && base != 0, "6 GiB: the system finds an aligned window (0x%llx)", (unsigned long long)base);
     CHECK(s.count == 1 && s.held[0].base == base && s.held[0].size == HALO_VA_ARENA && s.aligned_calls == 1, "exactly that 4 GiB window stays reserved for the caller");
@@ -150,7 +150,10 @@ static void test_format(void) {
     Space s = make_space(6); HaloVaReserver r = reserver(&s);
     halo_va_probe_run(&r, &p);
     halo_va_probe_format(&p, text, sizeof(text));
+    CHECK(p.flexible_ok && strstr(text, "Flexible 4 GiB ANYWHERE: SUCCESS"), "the exact 4 GiB anywhere probe is explicit:\n%s", text);
     CHECK(strstr(text, "6 GiB ok") && strstr(text, "8 GiB FAILED (error 12)") && strstr(text, "held at once in 1 GiB steps: 6 GiB (stopped by error 12)") && strstr(text, "24 of 24 usable (first at 0x100000000)"), "report text:\n%s", text);
+    s = make_space(100);s.cursor += 0x4000;r = reserver(&s);halo_va_probe_run(&r,&p);halo_va_probe_format(&p,text,sizeof(text));
+    CHECK(p.flexible_ok && (p.flexible_base & (HALO_VA_ARENA-1)) && strstr(text,"4 GiB-aligned: NO") && strstr(text,"offset in 4 GiB block: 0x"), "an unaligned but usable 4 GiB span is reported precisely:\n%s",text);
     s = make_space(3); r = reserver(&s); halo_va_probe_run(&r, &p); halo_va_probe_format(&p, text, sizeof(text));
     CHECK(strstr(text, "0 of 24 usable (first refusal: error 12)") && strstr(text, "4 GiB FAILED"), "report text for 3 GiB:\n%s", text);
     s = make_space(100); r = reserver(&s); halo_va_probe_run(&r, &p); halo_va_probe_format(&p, text, sizeof(text));
@@ -184,6 +187,6 @@ static void test_jit(void) {
 
 int main(void) {
     test_candidates(); test_ceilings(); test_fixed_arena(); test_aligned_arena(); test_format(); test_jit();
-    if (!failures) printf("PASS: the address-space planner reports exact ceilings, takes the first free fixed 4 GiB-aligned window, never leaks or accepts a misplaced answer, formats safely, and classifies JIT availability\n");
+    if (!failures) printf("PASS: the address-space planner reports exact ceilings, the flexible 4 GiB-anywhere probe, aligned fallbacks, safe releases/formatting, and JIT availability\n");
     return failures ? 1 : 0;
 }

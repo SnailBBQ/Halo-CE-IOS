@@ -87,6 +87,8 @@ static NSString *HaloPerfLine(void)
 @property(nonatomic) BOOL importing;
 @property(nonatomic) BOOL foldersReady;
 @property(nonatomic) BOOL restoringBackup;
+@property(nonatomic) BOOL engineProtectionRunning;
+@property(nonatomic) BOOL engineProtectionChecked;
 @property(nonatomic,strong) NSURL *deferredInvite;
 @property(nonatomic) BOOL physicalPadConnected;
 @property(nonatomic, strong) UIButton *settingsButton;
@@ -141,7 +143,7 @@ static NSString *HaloPerfLine(void)
     return NO;
 }
 - (void)refreshSetup {
-    if (self.engineStarted || self.importing || !self.foldersReady) return;
+    if (self.engineStarted || self.importing || self.engineProtectionRunning || !self.foldersReady) return;
     BOOL ready = [self hasStartupMap];
     HsSettings settings=[HaloSettingsStore.shared snapshot];
     if(ready && settings.presets[settings.active].startup_auto && !halo_ios_safe_level() && self.startBoot) {
@@ -154,7 +156,20 @@ static NSString *HaloPerfLine(void)
 }
 - (void)startHalo:(UIButton *)sender {
     (void)sender;
-    if (self.engineStarted || self.importing || !self.foldersReady || ![self hasStartupMap]) return;
+    if (self.engineStarted || self.importing || self.engineProtectionRunning || !self.foldersReady || ![self hasStartupMap]) return;
+    if(!self.engineProtectionChecked) {
+        self.engineProtectionRunning=YES;self.startButton.enabled=NO;self.launchHeading.text=@"Protecting saves";self.launchDescription.text=@"Checking the engine identity before Halo opens your progress…";[self.launchSpinner startAnimating];
+        __weak AppDelegate *weakSelf=self;
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
+            NSError *protectionError=nil;BOOL protected=HaloProtectEngineChange(&protectionError);
+            dispatch_async(dispatch_get_main_queue(),^{
+                AppDelegate *owner=weakSelf;if(!owner)return;owner.engineProtectionRunning=NO;
+                if(!protected){[owner.launchSpinner stopAnimating];owner.startButton.enabled=YES;owner.launchHeading.text=@"Save protection required";owner.launchDescription.text=@"Halo did not start because the automatic .halobackup could not be created.";UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Could not protect your saves" message:protectionError.localizedDescription?:@"The engine changed and Halo could not create its safety backup." preferredStyle:UIAlertControllerStyleAlert];[alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];[[owner topPresenter] presentViewController:alert animated:YES completion:nil];return;}
+                owner.engineProtectionChecked=YES;[owner startHalo:nil];
+            });
+        });
+        return;
+    }
     self.engineStarted = YES;
     self.launchHeading.text=@"Loading Halo CE";self.launchDescription.text=@"Preparing your game…";[self.launchSpinner startAnimating];
     halo_crash_phase("engine boot");
@@ -179,9 +194,12 @@ static NSString *HaloPerfLine(void)
 }
 - (void)startupHelp:(UIButton *)sender {
     (void)sender;
-    UIAlertController *help=[UIAlertController alertControllerWithTitle:@"Startup requirements"
-        message:@"Address space: your signing profile must authorize Extended Virtual Addressing. Increased Memory Limit controls RAM allowance separately.\n\nExecution: a compatible debugger/JIT method may be needed on stock iOS. Support depends on the device and iOS version; Halo compatibility has not been established.\n\nShare logs for the actual failure. Never share Apple credentials or pairing files."
-        preferredStyle:UIAlertControllerStyleAlert];
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+    NSString *startupMessage=@"This experimental build measures whether stock/free-signed iOS can reserve one exact 4 GiB guest span anywhere, even when no 4-GiB-aligned window exists. M2.6.80 still requires the aligned arena to actually run Halo; a successful Flexible 4 GiB line is evidence for the next flexible-base stage, not a successful game start.\n\nExecution: a compatible debugger/JIT method may still be needed on stock iOS.\n\nShare logs for the actual result. Never share Apple credentials or pairing files.";
+#else
+    NSString *startupMessage=@"Address space: the regular build uses Extended Virtual Addressing for its 4-GiB-aligned guest arena. Increased Memory Limit controls RAM allowance separately.\n\nExecution: a compatible debugger/JIT method may be needed on stock iOS. Support depends on the device and iOS version.\n\nShare logs for the actual failure. Never share Apple credentials or pairing files.";
+#endif
+    UIAlertController *help=[UIAlertController alertControllerWithTitle:@"Startup requirements" message:startupMessage preferredStyle:UIAlertControllerStyleAlert];
     [help addAction:[UIAlertAction actionWithTitle:@"SideStore JIT guide" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){(void)a;[UIApplication.sharedApplication openURL:[NSURL URLWithString:@"https://docs.sidestore.io/docs/advanced/jit"] options:@{} completionHandler:nil];}]];
     [help addAction:[UIAlertAction actionWithTitle:@"Done" style:UIAlertActionStyleCancel handler:nil]];
     [[self topPresenter] presentViewController:help animated:YES completion:nil];

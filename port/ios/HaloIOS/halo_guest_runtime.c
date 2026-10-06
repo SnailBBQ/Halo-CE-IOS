@@ -53,7 +53,7 @@ static int guest_page_range(halo_guest_va_t va, size_t size,
 
 #if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
 /* Non-Jailbreak Version only. See halo_va_plan.h. */
-static char g_nonjb_report[1536];
+static char g_nonjb_report[2048];
 const char *halo_guest_runtime_nonjb_report(void) { return g_nonjb_report; }
 
 static int nonjb_reserve(void *context, uint64_t hint, uint64_t size, uint64_t *base, int *error)

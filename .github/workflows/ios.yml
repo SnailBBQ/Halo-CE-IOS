@@ -140,6 +140,8 @@ jobs:
       - name: Verify iOS pointer conversion
         run: |
           set -euxo pipefail
+          python3 tools/ios_upstream_acceptance.py --json "$RUNNER_TEMP/ios-upstream-acceptance.json"
+          python3 tools/tests/test_ios_build_identity.py
           python3 tools/tests/test_ios_workflow_configuration.py
           python3 tools/tests/test_ios_source_structure.py
           python3 tools/tests/test_ios_log_export.py
@@ -411,7 +413,8 @@ jobs:
           if [ "$NON_JAILBREAK" = true ]; then
             grep -q -- 'Non-Jailbreak Version (' <<< "$EXECUTABLE_STRINGS"
             grep -q -- 'Address-space probe (nothing stays reserved)' <<< "$EXECUTABLE_STRINGS"
-          elif grep -q -e 'Non-Jailbreak Version (' -e 'Address-space probe (nothing stays reserved)' <<< "$EXECUTABLE_STRINGS"; then
+            grep -q -- 'Flexible 4 GiB ANYWHERE:' <<< "$EXECUTABLE_STRINGS"
+          elif grep -q -e 'Non-Jailbreak Version (' -e 'Address-space probe (nothing stays reserved)' -e 'Flexible 4 GiB ANYWHERE:' <<< "$EXECUTABLE_STRINGS"; then
             echo "::error::Non-Jailbreak code is present in a build that did not ask for it."
             exit 1
           fi
@@ -429,13 +432,29 @@ jobs:
             /usr/libexec/PlistBuddy -c 'Set :CFBundleName Halo CE Mod Test' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLName com.haloceuniversal.ios.modtest.invite' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Halo CE Mod Test' "$APP/Info.plist"
-            # the Mod Test app's version is the official one with a trailing .1 (0.2.79 / 2679 becomes 0.2.79.1 / 267901)
+            # the Mod Test app's version is the official one with a trailing .1 (0.2.80 / 2680 becomes 0.2.80.1 / 268001)
             OFFICIAL_SHORT=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")
             OFFICIAL_BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
             /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${OFFICIAL_SHORT}.1" "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${OFFICIAL_BUILD}01" "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 halomodtest' "$APP/Info.plist"
           fi
+
+          GUEST_SHA=$(/usr/bin/shasum -a 256 "$APP/halo_guest.elf" | awk '{print $1}')
+          FLAVOR=Regular
+          DIAGNOSTICS=none
+          if [ "$COMPATIBILITY_TEST" = true ]; then
+            FLAVOR=ModTest
+            DIAGNOSTICS=direct-aligned-arena-test
+          elif [ "$NON_JAILBREAK" = true ]; then
+            FLAVOR=NonJailbreak
+            DIAGNOSTICS=flex-base-probe-v1
+          fi
+          /usr/libexec/PlistBuddy -c "Set :HaloBuildFlavor $FLAVOR" "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :HaloDiagnosticMode $DIAGNOSTICS" "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :HaloGuestSHA256 $GUEST_SHA" "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :HaloSourceCommit ${GITHUB_SHA:-local}" "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :HaloBuildRun ${GITHUB_RUN_ID:-local}" "$APP/Info.plist"
 
           if [ "$NON_JAILBREAK" = true ]; then
             ENTITLEMENTS=port/ios/HaloIOS/HaloIOS-NonJailbreak.entitlements

@@ -3,6 +3,7 @@
 #import "HaloSettingsStore.h"
 #import "HaloUI.h"
 #import "HaloLibrary.h"
+#import "HaloBackupArchive.h"
 #import "HaloHudEditor.h"
 #import "halo_ios_platform.h"
 #import "halo_color.h"
@@ -1154,8 +1155,8 @@ NSString *HaloProblemReportText(BOOL compact)
     NSProcessInfo *info = NSProcessInfo.processInfo;
     NSString *version = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?";
     NSString *build = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"] ?: @"?";
-    NSMutableString *report = [NSMutableString stringWithFormat:@"HALO CE iOS - problem report\nCreated: %@\nApp version: %@ (%@)\nDevice: %s, iOS %@\nThermal state: %ld (0 cool .. 3 critical), Low Power Mode: %@, memory: %llu MB\n",
-        [NSDate date], version, build, system.machine, UIDevice.currentDevice.systemVersion, (long)info.thermalState, info.isLowPowerModeEnabled ? @"on" : @"off", info.physicalMemory >> 20];
+    NSMutableString *report = [NSMutableString stringWithFormat:@"HALO CE iOS - problem report\nCreated: %@\nApp version: %@ (%@)\n%@\nDevice: %s, iOS %@\nThermal state: %ld (0 cool .. 3 critical), Low Power Mode: %@, memory: %llu MB\n",
+        [NSDate date], version, build, HaloBuildIdentityText(), system.machine, UIDevice.currentDevice.systemVersion, (long)info.thermalState, info.isLowPowerModeEnabled ? @"on" : @"off", info.physicalMemory >> 20];
     HsSettings snapshot = [[HaloSettingsStore shared] snapshot];
     char *text = malloc(32768);
     if (text && hs_serialize(&snapshot, text, 32768) > 0) [report appendFormat:@"\n--- settings (running cheats are not included) ---\n%s\n", text];
@@ -1279,11 +1280,23 @@ static UIColor *HaloColorFromRGB(unsigned rgb) {
     [self add:HaloUICardView(@"Backups",@[
         HaloUINote(@"Save profiles, progress, preferences and layouts. Maps are optional. Export through Files; restore safely on the next launch."),
         HaloUIButton(@"Manage backups",1,^(UIButton *b){(void)b;UIViewController *c=HaloBackupsController();c.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:c animated:YES completion:nil];})])];
-    NSString *version = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?";
+    NSDictionary *buildInfo=NSBundle.mainBundle.infoDictionary;
+    NSString *version = buildInfo[@"CFBundleShortVersionString"] ?: @"?";
+    NSString *engineCommit=buildInfo[@"HaloOpenCECommit"]?:@"?";if(engineCommit.length>12)engineCommit=[engineCommit substringToIndex:12];
+    NSString *engine=[NSString stringWithFormat:@"%@ (%@)",buildInfo[@"HaloOpenCERelease"]?:@"OpenCE",engineCommit];
+    NSString *network=[buildInfo[@"HaloNetworkVersion"] respondsToSelector:@selector(stringValue)]?[buildInfo[@"HaloNetworkVersion"] stringValue]:@"?";
+    NSString *guest=buildInfo[@"HaloGuestSHA256"]?:@"unknown";if(guest.length>16)guest=[guest substringToIndex:16];
     [self add:HaloUICardView(@"About", @[
         HaloUIValueRow(@"App version", version, nil),
-        HaloUIValueRow(@"Game", @"OpenCE build 125 (Halo CE Universal)", nil),
-        HaloUINote(@"Everyone in a multiplayer game must be on the same game build.")])];
+        HaloUIValueRow(@"Source milestone", buildInfo[@"HaloSourceMilestone"]?:@"?", nil),
+        HaloUIValueRow(@"Engine", engine, nil),
+        HaloUIValueRow(@"Network version", network, nil),
+        HaloUIValueRow(@"Build flavor", buildInfo[@"HaloBuildFlavor"]?:@"Development", nil),
+        HaloUIValueRow(@"Guest architecture", buildInfo[@"HaloGuestArchitecture"]?:@"?", nil),
+        HaloUIValueRow(@"Guest adaptation", buildInfo[@"HaloGuestAdaptation"]?:@"?", nil),
+        HaloUIValueRow(@"Guest SHA-256", guest, nil),
+        HaloUIValueRow(@"Renderer", buildInfo[@"HaloRenderer"]?:@"?", nil),
+        HaloUINote(@"Everyone in a multiplayer game must use a compatible OpenCE network version. Share logs includes this exact build identity.")])];
     [self add:HaloUICardView(@"Credits",@[
         HaloUINote(@"Halo CE Universal and the iOS port contributors."),
         HaloUIButton(@"Halo-CE-IOS on GitHub",0,^(UIButton *b) { [UIApplication.sharedApplication openURL:[NSURL URLWithString:@"https://github.com/SnailBBQ/Halo-CE-IOS"] options:@{} completionHandler:nil]; })])];

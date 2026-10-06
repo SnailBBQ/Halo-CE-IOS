@@ -36,6 +36,8 @@ A restore merges the chosen parts into the app: files with matching names are re
 
 ## Safety
 
+- Since M2.6.80, Halo records a stable OpenCE/save-compatibility identity (OpenCE revision, network/game-state ABI, guest architecture and iOS adaptation). The first start establishes the baseline. If a later installed build changes that identity and persistent saves/profiles exist, Halo creates a normal verified saves/profiles `.halobackup` **before the guest is allowed to open them**. If the automatic backup fails, the game does not start. The exact guest ELF SHA stays in build diagnostics but is not the backup trigger, because otherwise identical CI builds can contain different compile timestamps. Manage backups can export the last engine-change archive.
+- `.halobackup` manifests also record the engine identity and source milestone that created them; format 1 remains backward compatible.
 - Before anything is overwritten, the old files are copied to recovery storage, and a recovery archive can be exported.
 - If a restore fails, the app blocks the game from starting and tries to roll back, rather than starting with half-restored data.
 - Backups are checked for unsafe paths, links, duplicates, the wrong format and oversized manifests before anything is written.

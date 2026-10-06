@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "upstream": {
+    "tag": "build-125",
+    "commit": "13c14df95c63156429e96a9694bb9cecd0379228"
+  },
+  "established_in": "M2.6.79",
+  "purpose": "Known-good flags-off divergences that predate M2.6.80. These are transition debt, not permission for new divergence; strict candidate acceptance rejects all of them.",
+  "approved_flags_off_deltas": {
+    "source/ai/ai_debug.c": "17c4d4669774340fc5d141ac5bf7c883a84f3655263d0f95b1dbd00934799639",
+    "source/camera/director.c": "f2fa0e560cef667cbcbe9a0da25081a12969bfb3aafd96b9d99ac644b2d206c5",
+    "source/game/aim_assist.c": "23d3a5f0b30148f953dcbcd3dc37f0d246e9b0ac3c672585c94460be7025a473",
+    "source/game/aim_assist.h": "9a45ac886c7f68ea773f8ba4ee65fca8e4f64cedafd5d6448b107a740d6f5387",
+    "source/game/cheats.c": "89110bd1c051b44d83fd21b752ec02dc0144bc4ec6e5261fa18ba4bc4bd430a4",
+    "source/game/cheats.h": "60df513e885bde74daac9653c4474b8d36beb5bbaa5533c9a3d4c1bf481f74b2",
+    "source/game/game.c": "f260310c22838f2850084616a804d35f0a8d66738a15f861d3b337bae9a61f19",
+    "source/game/player_control.c": "fbd0e1f7212937d5dddc8da79d3249fe458ab752eb6e3c472632ae4b9512caab",
+    "source/interface/first_person_weapons.c": "5277f04d6be1c192bc537b89f8e9be268b2551a75404ede534d7533a224bb3bc",
+    "source/interface/player_ui.c": "e65e6f9390b7707b0012aa074c26098262e0daf77e6da77d8df9b82d49bc3593",
+    "source/items/weapons.c": "49c8e463fef83bd0f476502a6a3516d8c6d923705517bff06d91079c4b58969c",
+    "source/main/main.c": "4198fdc7e6e04b8be2b9d5d7077b87f10eac8fa4c3b528b2207f96a06209a0f5",
+    "source/memory/crc.c": "fa3a805dc5fc3256629978220d36c59f82b49bbf6da50d310d79e252b3e1fffb",
+    "source/memory/data.c": "633f8bed74e133ab952981c17b7a2623333edae758d5136ce39dc39580ef823a",
+    "source/networking/network_game_globals.c": "37394a8b822c9bd81ec6e03a482b20d11a4025c309c5240f15f044fdf95bb570",
+    "source/render/render.c": "2488a68dd7df839e844e319d88bfadd35afd487df07426040a9b019cb4406601",
+    "source/saved games/game_state.c": "25231ca47a478d685fc9e088a082b19468c7f6fa8b0a30aa6fb5fc1251d21871",
+    "source/saved games/game_state_xbox.c": "435e22346627d3fbfa6d1b4f98bd8684350398ca5fbef22f075e744ef5b5ee7e",
+    "source/structures/structure_render.c": "c96827123dea90967fcd1c39faefd076e2c2dcf8b6baeb322272fd38bd71fe22",
+    "source/units/bipeds.c": "ca1af9a31c335366bd8c62e73bd139bbc502399321017ef2e6fe7dcfc579389e",
+    "source/units/units.c": "c6549ec86af3677575cee3911a432ff53ee75df22705abea03f9d0c38cc150ad",
+    "port/linux/game/menu_functions.c": "051bb547ba98265a1b7bec1497140401896fdbbbe8a9d319381ebe8e1dbcd208",
+    "port/linux/src/d3d8_gl.c": "0817e51431c596164dbbd823743a7bb6ab57bab74afdf16b275a88b74275ab69",
+    "port/linux/src/dsound_sdl.c": "77b872d09c2238d247c1d17ac4efce6df09d03917107ef6b6dae0ca5e493ea08",
+    "port/linux/src/sdl_platform.c": "ce5ac20afd9e2c9fdcf656abed6d4ee51693ab02ea8337876a8954b1ea705fca",
+    "port/linux/src/xbox_textures.c": "c3f6512405213949b8d13871434a51aa0d02f159eef478cd45763b31fb1297e4",
+    "port/android/guest/runtime/guest_misc.c": "8d0c9be1fcd3186c8c8ab2ae71d1ac504a4a4dcebc7bc0395261431e40f10319"
+  }
+}

@@ -100,6 +100,8 @@ static NSURL *HaloExportExternalSaves(void) {
         HaloUINote(@"After reinstalling, select your folder again and restore a .halobackup file. Files return to Halo/save with a recovery backup before replacement. If no backup exists, Halo starts normally. Updates installed over the same app retain local saves.")])];
     NSString *recovery=[NSUserDefaults.standardUserDefaults stringForKey:@"HaloLastRecoveryBackup"];
     if(recovery&&[NSFileManager.defaultManager fileExistsAtPath:recovery])[self.rows addArrangedSubview:HaloUIButton(@"Export last recovery backup",0,^(UIButton *b){(void)b;UIDocumentPickerViewController *p=[[UIDocumentPickerViewController alloc] initForExportingURLs:@[[NSURL fileURLWithPath:recovery]] asCopy:YES];weakSelf.pickerKind=4;p.delegate=weakSelf;[weakSelf presentViewController:p animated:YES completion:nil];})];
+    NSString *engineChange=[NSUserDefaults.standardUserDefaults stringForKey:@"HaloLastEngineChangeBackup"];
+    if(engineChange&&[NSFileManager.defaultManager fileExistsAtPath:engineChange])[self.rows addArrangedSubview:HaloUIButton(@"Export last engine-change backup",0,^(UIButton *b){(void)b;UIDocumentPickerViewController *p=[[UIDocumentPickerViewController alloc] initForExportingURLs:@[[NSURL fileURLWithPath:engineChange]] asCopy:YES];weakSelf.pickerKind=4;p.delegate=weakSelf;[weakSelf presentViewController:p animated:YES completion:nil];})];
 }
 - (void)loadMapPictures {
     if(self.readingPictures)return;

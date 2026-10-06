@@ -4,6 +4,7 @@
 #import "halo_engine_boot.h"
 #import "halo_guest_runner.h"
 #import "halo_guest_runtime.h"
+#import "HaloBackupArchive.h"
 
 #import <Foundation/Foundation.h>
 #include <dlfcn.h>
@@ -25,6 +26,12 @@ static void say(void (^line)(const char *), const char *fmt, ...)
     vsnprintf(buffer, sizeof(buffer), fmt, ap);
     va_end(ap);
     line(buffer);
+}
+
+static void boot_build_identity(void (^line)(const char *))
+{
+    for (NSString *part in [HaloBuildIdentityText() componentsSeparatedByString:@"\n"])
+        line(part.UTF8String ?: "");
 }
 
 /* Optional introspection, never a dependency or permission bypass. Some
@@ -99,6 +106,7 @@ static void boot_non_jailbreak_diagnostics(void (^line)(const char *))
 void halo_ios_start_game_boot(void (^line)(const char *text))
 {
     line("Halo CE iOS — starting engine");
+    boot_build_identity(line);
 #if defined(HALO_MOD_TEST)
     line("Mod Test build: separate app for large campaign maps. Not a PC or Master Chief Collection loader.");
 #endif
@@ -120,7 +128,7 @@ void halo_ios_start_game_boot(void (^line)(const char *text))
         say(line,"Runtime initialization detail: %s",halo_guest_runtime_last_error());
 #if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
         say_block(line, halo_guest_runtime_nonjb_report());
-        line("Non-Jailbreak Version: iOS refused the address space the game needs, and no fixed 4 GiB window was available either. This usually means the installer did not keep the extended-virtual-addressing entitlement; the report above shows how much address space this install can reserve.");
+        line("Non-Jailbreak Version: the current guest still requires a 4-GiB-aligned arena, so startup remains blocked when no aligned window exists. M2.6.80 also tests one exact 4 GiB reservation at ANY address. If 'Flexible 4 GiB ANYWHERE' succeeds above, this install has enough contiguous virtual space for the planned flexible-base guest even though that architecture is not enabled yet.");
 #endif
         line("Check the installed app's signing capabilities. This failure occurs before map loading; it is not a Jetsam termination report.");
         line("STARTUP BLOCKED: ADDRESS SPACE");

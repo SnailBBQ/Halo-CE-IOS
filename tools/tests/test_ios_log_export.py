@@ -44,6 +44,7 @@ check(settings_m.count("NSString *HaloProblemReportText(BOOL compact)\n{") == 1,
 check("NSString *HaloProblemReportText(BOOL compact);" in settings_h, "HaloProblemReportText must be declared in HaloSettingsViewController.h")
 check('#import "HaloSettingsViewController.h"' in app, "AppDelegate.m must import HaloSettingsViewController.h to use the report builder")
 check("HaloProblemReportText(NO)" in method(settings_m, "- (void)reportProblem:(UIView *)source\n{"), "Report a problem must use the shared report builder")
+check('#import "HaloBackupArchive.h"' in settings_m and "HaloBuildIdentityText()" in settings_m, "the shared problem report must include the exact build identity")
 limits = re.findall(r'@\[@"start-history.txt", @4000\], @\[@"ios-boot.log", @(\d+)\]', settings_m)
 check(len(limits) == 2, "the report must list start-history.txt first in both the compact and the full version (found %d)" % len(limits))
 if len(limits) == 2:
