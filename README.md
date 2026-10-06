@@ -6,7 +6,7 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak diagnostic build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The current update is **M2.6.76**. The campaign and cross-play multiplayer work on a physical iPhone:
+> **Status: playable.** The current update is **M2.6.77**. The campaign and cross-play multiplayer work on a physical iPhone:
 > The maintainer reports playable `a10` and PC cross-play in earlier builds; results vary by device and scene. Some of the newest features are still being
 > validated on a device; see the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
@@ -15,8 +15,12 @@ controller support, cross-play multiplayer with Halo CE Universal players, and a
 > **Jailbreak required:** Halo CE iOS is currently confirmed working on jailbroken iOS devices.
 >
 > **Non-jailbreak support:** A non-jailbreak version is currently a work in progress and is not yet considered ready for general use.
+>
+> **Free-account sideloading (Sideloadly, AltStore, SideStore):** not supported. On the one device tested, an iPhone 14 Plus on iOS 16.2, the app stops at startup because iOS gives a free-account install too little address space for the game. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
+>
+> **Paid Apple Developer accounts:** people who have one may be able to sign the regular app with the `extended-virtual-addressing` and `increased-memory-limit` capabilities and get it to start on a non-jailbroken device. We have not tested this, and the project does not require or build around paid accounts. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 
-**Source update:** [M2.6.76](port/ios/UPDATE_M2676.md) goes back to OpenCE build 125 (network version 16) so that cross-play matches current PC builds, and repairs the checkpoint editor, which could not open any checkpoint of the larger game state (20 MB instead of 16 MB). Saves from builds before that size change cannot be loaded by the game. Nothing in it has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE/releases).
+**Source update:** [M2.6.77](port/ios/UPDATE_M2677.md) corrects the Non-Jailbreak Version's address-space report, which counted memory beyond the process's own limit, records what the first such report from a free-account Sideloadly install shows, and documents free and paid accounts. The engine is otherwise as in M2.6.76 (OpenCE build 125). Nothing in it has been built on Apple hardware or tested on a device yet. Windows, Linux and Android stay on [Halo CE Universal](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of Halo CE Universal on PC" width="760"><br>

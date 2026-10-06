@@ -1,13 +1,15 @@
 # Release notes
 
-The current update is **M2.6.76**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.77**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.76](../../port/ios/UPDATE_M2676.md) goes back to OpenCE build 125 (network version 16) and repairs the checkpoint editor for the larger game state. Earlier saves and checkpoints cannot be loaded by the game. Nothing is built on Apple hardware or device-tested yet.
+**Latest:** [M2.6.77](../../port/ios/UPDATE_M2677.md) corrects the Non-Jailbreak Version's address-space report and documents free and paid accounts. The engine is as in M2.6.76. Nothing is built on Apple hardware or device-tested yet.
+
+**Previous:** [M2.6.76](../../port/ios/UPDATE_M2676.md) went back to OpenCE build 125 (network version 16) and repaired the checkpoint editor for the larger game state.
 
 **Previous:** [M2.6.75](../../port/ios/UPDATE_M2675.md) integrated OpenCE build 128 (network version 17) and repaired two damaged HUD sheets. The build 128 part was replaced by build 125 in M2.6.76; the repairs stand.
 
@@ -45,6 +47,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.77 | The Non-Jailbreak address-space report is corrected; free and paid accounts are documented. Device validation pending. |
 | M2.6.76 | Back to OpenCE build 125 (network version 16, matching current PC builds); the checkpoint editor reads the larger game state. Device validation pending. |
 | M2.6.75 | OpenCE build 128 (online co-op improvements, network version 17); two damaged HUD sheets restored, binary files protected, sound clamp limited to iOS. Device validation pending. |
 | M2.6.74 | OpenCE build 115 (network co-op, co-op spectating, display options); the Non-Jailbreak Version asks the system for an aligned 4 GiB window. Device validation pending. |

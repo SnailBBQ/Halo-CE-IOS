@@ -21,7 +21,9 @@ typedef struct HaloVaRegion { uint64_t start, size; } HaloVaRegion;
 typedef struct HaloVaGap { uint64_t start, size; } HaloVaGap;
 
 typedef struct HaloVaMapStats {
-    unsigned regions;              /* mapped ranges after neighbours are merged */
+    unsigned regions;              /* mapped ranges inside the process range, after neighbours are merged */
+    unsigned beyond;               /* ranges that reach above the process range (the system maps things there; they are ignored) */
+    unsigned big_gaps;             /* free blocks of at least 4 GiB with any alignment */
     int truncated;                 /* the list given was cut short */
     int range_known;               /* the system reported a usable address range */
     uint64_t low, high;
@@ -39,6 +41,7 @@ static inline void halo_va_map_add_gap(HaloVaMapStats *s, uint64_t start, uint64
     unsigned guard = 0;
     if (end <= start) return;
     gap.start = start; gap.size = end - start;
+    if (gap.size >= HALO_VA_MAP_WINDOW) s->big_gaps++;
     if (start <= UINT64_MAX - HALO_VA_MAP_WINDOW) {
         for (base = (start + HALO_VA_MAP_WINDOW - 1) & ~(HALO_VA_MAP_WINDOW - 1); base + HALO_VA_MAP_WINDOW > base && base + HALO_VA_MAP_WINDOW <= end && guard < 4096; base += HALO_VA_MAP_WINDOW, guard++) {
             if (!s->free_windows) s->first_free_window = base;
@@ -76,6 +79,20 @@ static inline void halo_va_map_analyze(const HaloVaRegion *regions, unsigned cou
             if (end > previous_end) merged[m - 1].size = end - merged[m - 1].start;
         } else { merged[m].start = sorted[i].start; merged[m].size = sorted[i].size; m++; }
     }
+    /* Only the process's own range is address space it can use. The system also maps things far above it, and a gap there is not free
+       to this process: counting it once made a device that cannot hold the window report twelve of them. */
+    if (out->range_known) {
+        unsigned kept = 0;
+        for (unsigned i = 0; i < m; i++) {
+            uint64_t start = merged[i].start, end = merged[i].start + merged[i].size;
+            if (end > high) out->beyond++;
+            if (start < low) start = low;
+            if (end > high) end = high;
+            if (end <= start) continue;
+            merged[kept].start = start; merged[kept].size = end - start; kept++;
+        }
+        m = kept;
+    }
     out->regions = m;
     if (m) { out->first_start = merged[0].start; out->last_end = merged[m - 1].start + merged[m - 1].size; }
     cursor = out->range_known ? low : (m ? merged[0].start : 0);
@@ -106,6 +123,7 @@ static inline void halo_va_map_format(const HaloVaMapStats *s, char *out, size_t
     if (s->range_known) halo_va_map_text(out, size, &used, "  process address range: 0x%llx to 0x%llx (%.2f GiB)\n", (unsigned long long)s->low, (unsigned long long)s->high, (double)(s->high - s->low) / HALO_VA_MAP_GIB);
     else halo_va_map_text(out, size, &used, "  process address range: not reported by the system\n");
     halo_va_map_text(out, size, &used, "  %u mapped ranges%s, %.1f MiB mapped", s->regions, s->truncated ? " (the list was cut short)" : "", (double)s->mapped_bytes / (1024.0 * 1024.0));
+    if (s->beyond) halo_va_map_text(out, size, &used, " (%u more reach above the process range and are ignored)", s->beyond);
     if (s->regions) halo_va_map_text(out, size, &used, "; first at 0x%llx, last ends at 0x%llx", (unsigned long long)s->first_start, (unsigned long long)s->last_end);
     halo_va_map_text(out, size, &used, "\n");
     if (s->range_known) halo_va_map_text(out, size, &used, "  free above the highest mapped address: %.2f GiB\n", (double)s->free_above / HALO_VA_MAP_GIB);
@@ -115,6 +133,6 @@ static inline void halo_va_map_format(const HaloVaMapStats *s, char *out, size_t
         halo_va_map_text(out, size, &used, "%s 0x%llx (%.2f GiB)", i ? ";" : "", (unsigned long long)s->gaps[i].start, (double)s->gaps[i].size / HALO_VA_MAP_GIB);
     halo_va_map_text(out, size, &used, "\n  completely free 4 GiB-aligned 4 GiB windows: %u", s->free_windows);
     if (s->free_windows) halo_va_map_text(out, size, &used, " (first at 0x%llx)", (unsigned long long)s->first_free_window);
-    halo_va_map_text(out, size, &used, "\n");
+    halo_va_map_text(out, size, &used, "\n  free blocks of at least 4 GiB, any alignment: %u\n", s->big_gaps);
 }
 #endif

@@ -22,7 +22,7 @@ static void test_typical_stock_install(void) {
     HaloVaRegion list[] = { R(0, 4 * G), R(4 * G, 0x400000), R(6 * G, 4 * G) };
     HaloVaMapStats s;
     halo_va_map_analyze(list, 3, 0, 0x4000, 12 * G, &s);
-    CHECK(s.regions == 2 && s.mapped_bytes == 4 * G + 0x400000 + 4 * G, "page zero and the app image are adjacent, so they merge: %u ranges, mapped %llu", s.regions, (unsigned long long)s.mapped_bytes);
+    CHECK(s.regions == 2 && s.mapped_bytes == (4 * G - 0x4000) + 0x400000 + 4 * G, "page zero and the app image are adjacent, so they merge, and only the part inside the range counts: %u ranges, mapped %llu", s.regions, (unsigned long long)s.mapped_bytes);
     CHECK(s.free_above == 2 * G && s.free_windows == 0, "nothing aligned and free: above=%llu windows=%u", (unsigned long long)s.free_above, s.free_windows);
     CHECK(s.gap_count == 2 && s.gaps[0].size == 2 * G && s.gaps[0].start == 10 * G && s.gaps[1].start == 4 * G + 0x400000 && s.gaps[1].size == 2 * G - 0x400000, "gaps largest first (%u)", s.gap_count);
 }
@@ -46,7 +46,7 @@ static void test_merging_and_hostile_input(void) {
     halo_va_map_analyze(messy, 7, 0, 0x4000, 16 * G, &messy_stats);
     CHECK(sorted_stats.regions == 2 && messy_stats.regions == sorted_stats.regions, "overlapping and adjacent ranges merge (%u vs %u)", messy_stats.regions, sorted_stats.regions);
     CHECK(messy_stats.mapped_bytes == sorted_stats.mapped_bytes && messy_stats.free_above == sorted_stats.free_above && messy_stats.free_windows == sorted_stats.free_windows, "unsorted, overlapping, empty and wrapping ranges give the same answer");
-    CHECK(messy_stats.first_start == 0 && messy_stats.last_end == 10 * G, "extents 0x%llx..0x%llx", (unsigned long long)messy_stats.first_start, (unsigned long long)messy_stats.last_end);
+    CHECK(messy_stats.first_start == 0x4000 && messy_stats.last_end == 10 * G, "extents 0x%llx..0x%llx", (unsigned long long)messy_stats.first_start, (unsigned long long)messy_stats.last_end);
     {   /* far more ranges than the limit are cut without overrunning anything */
         HaloVaRegion* many = malloc(sizeof(HaloVaRegion) * (HALO_VA_REGION_MAX + 50)); HaloVaMapStats s;
         for (unsigned i = 0; i < HALO_VA_REGION_MAX + 50; i++) many[i] = R((uint64_t)i * 0x10000, 0x8000);
@@ -73,6 +73,28 @@ static void test_gap_ranking(void) {
     for (unsigned i = 1; i < s.gap_count; i++) CHECK(s.gaps[i - 1].size >= s.gaps[i].size, "gaps are ordered largest first");
 }
 
+static void test_the_process_range_limits_what_is_free(void) {
+    /* the shape of a real log: iPhone 14 Plus, iOS 16.2, signed with a free account. The process may use 4.007 to 15.375 GiB; the system also
+       maps things far above that, and the gap between those is not free address space for the process. */
+    uint64_t low = 4 * G + 0x76c000, high = 15 * G + 3 * G / 8;
+    HaloVaRegion list[] = { R(low, 4 * G + G / 4 - low), R(5 * G + 3 * G / 4, 4 * G + 3 * G / 4), R(16 * G + G / 2, G / 4), R(96 * G, 16 * G) };
+    HaloVaMapStats s; char text[1536];
+    halo_va_map_analyze(list, 4, 0, low, high, &s);
+    CHECK(s.regions == 2 && s.beyond == 2, "only the two ranges inside the process range count (%u, %u beyond)", s.regions, s.beyond);
+    CHECK(s.mapped_bytes == (4 * G + G / 4 - low) + 4 * G + 3 * G / 4, "mapped bytes leave out what lies above the range (%llu)", (unsigned long long)s.mapped_bytes);
+    CHECK(s.free_windows == 0, "no aligned window fits: [12, 16) GiB runs past the limit at 15.375 GiB (%u windows)", s.free_windows);
+    CHECK(s.big_gaps == 1 && s.gaps[0].start == 10 * G + G / 2 && s.gaps[0].size == high - (10 * G + G / 2), "one free block of at least 4 GiB, from 10.5 GiB to the limit (%u blocks, first 0x%llx, %.3f GiB)", s.big_gaps, (unsigned long long)s.gaps[0].start, (double)s.gaps[0].size / G);
+    CHECK(s.free_above == high - (10 * G + G / 2), "the free space above the highest mapped range stops at the limit (%llu)", (unsigned long long)s.free_above);
+    halo_va_map_format(&s, text, sizeof(text));
+    CHECK(strstr(text, "completely free 4 GiB-aligned 4 GiB windows: 0") && strstr(text, "free blocks of at least 4 GiB, any alignment: 1") && strstr(text, "2 more reach above the process range and are ignored") && !strstr(text, "windows: 0 (first at"), "report:\n%s", text);
+    /* the same device with a process range that reached 16 GiB would have its window */
+    halo_va_map_analyze(list, 4, 0, low, 16 * G, &s);
+    CHECK(s.free_windows == 1 && s.first_free_window == 12 * G, "with the limit at 16 GiB the window at 12 GiB is whole (%u windows, first 0x%llx)", s.free_windows, (unsigned long long)s.first_free_window);
+    /* a free block of 4.5 GiB is a block of at least 4 GiB, but it holds an aligned window only if one fits inside it */
+    halo_va_map_analyze(list, 4, 0, low, 15 * G, &s);
+    CHECK(s.free_windows == 0 && s.big_gaps == 1 && s.gaps[0].size == 15 * G - (10 * G + G / 2), "a limit of 15 GiB leaves a 4.5 GiB block with no aligned window in it (%u blocks, %u windows)", s.big_gaps, s.free_windows);
+}
+
 static void test_format(void) {
     HaloVaRegion list[] = { R(0, 4 * G), R(4 * G, 0x400000), R(6 * G, 4 * G) };
     HaloVaMapStats s; char text[1024];
@@ -93,7 +115,7 @@ static void test_format(void) {
 }
 
 int main(void) {
-    test_empty_and_open(); test_typical_stock_install(); test_free_window(); test_merging_and_hostile_input(); test_unknown_range(); test_gap_ranking(); test_format();
+    test_empty_and_open(); test_typical_stock_install(); test_free_window(); test_merging_and_hostile_input(); test_unknown_range(); test_gap_ranking(); test_the_process_range_limits_what_is_free(); test_format();
     if (!failures) printf("PASS: the address-space map analysis merges ranges, finds the largest free gaps and whole free 4 GiB-aligned windows, copes with an unknown range and hostile input, and formats safely\n");
     return failures ? 1 : 0;
 }

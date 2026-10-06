@@ -80,7 +80,7 @@ static void boot_non_jailbreak_diagnostics(void (^line)(const char *))
     struct kinfo_proc process;
     size_t process_size = sizeof(process);
     memset(&process, 0, sizeof(process));
-    line("Non-Jailbreak Version (M2.6.73): the official app plus address-space and JIT diagnostics. Nothing changes when the normal reservation works.");
+    line("Non-Jailbreak Version (diagnostics): the official app plus address-space and JIT diagnostics. Nothing changes when the normal reservation works.");
     say(line, "Host compiled: %s %s; bundle=%s", __DATE__, __TIME__, NSBundle.mainBundle.bundleIdentifier.UTF8String ?: "unknown");
     if (sysctl(mib, 4, &process, &process_size, NULL, 0) == 0 && process_size == sizeof(process))
         say(line, "Debugger attached at boot: %s (does not prove JIT authorization)", (process.kp_proc.p_flag & P_TRACED) ? "yes" : "no");

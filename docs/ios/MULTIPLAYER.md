@@ -44,7 +44,7 @@ Ending hosting clears this app's owned invite export. A stopped lobby cannot be 
 
 ## Public discovery update
 
-**Source update:** M2.6.76 uses OpenCE build 125, whose network version is 16 (build 115 used 12, build 128 uses 17). Lobby listings and joins are filtered by that number, and OpenCE changes it often, so an iPhone and a PC can only see or join each other's games when both run builds with the same network version. Use OpenCE build 125 on PC, or any build with network version 16. Build 125 includes the online co-op improvements (friendly-fire modes, extra enemies, public or private listing and new Server Setup items). M2.6.67 added the build 101 lobby, split-screen and broker changes described next.
+**Source update:** Since M2.6.76 the app uses OpenCE build 125, whose network version is 16 (build 115 used 12, build 128 uses 17). Lobby listings and joins are filtered by that number, and OpenCE changes it often, so an iPhone and a PC can only see or join each other's games when both run builds with the same network version. Use OpenCE build 125 on PC, or any build with network version 16. Build 125 includes the online co-op improvements (friendly-fire modes, extra enemies, public or private listing and new Server Setup items). M2.6.67 added the build 101 lobby, split-screen and broker changes described next.
 
 M2.6.67 integrated OpenCE build 101. It includes upstream multiplayer split-screen lobby join/leave handling and adding local players before joining an in-progress match and loads signalling brokers from a packaged `brokers.txt` beside config.toml. The default list is refreshed at launch; choose another filename with `network.brokers_file` for a custom list. The retired `network.signalling_brokers` string is no longer used.
 

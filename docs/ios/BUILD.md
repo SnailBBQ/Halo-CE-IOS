@@ -129,4 +129,4 @@ The workflow does not publish releases by itself. No iOS release is currently pu
 The Non-Jailbreak Version is the regular app with address-space and JIT diagnostics and a fallback memory window, for installs not signed by TrollStore or a jailbreak;
 see [UPDATE_M2673.md](../../port/ios/UPDATE_M2673.md). To build it, open **Actions → Halo CE iOS — Build IPA → Run workflow**, choose `main`, tick **Non-Jailbreak Version** and leave
 **Mod Test app** unticked. The artifact is `HaloCE-iOS-NonJailbreak` and contains `HaloCE-NonJailbreak.ipa`. It keeps the regular app's bundle ID and multiplayer, requests no kernel
-memory entitlements, and its log opens with an address-space map. Automatic builds never include it. It is experimental and has not been tested on a device.
+memory entitlements, and its log opens with an address-space map. Automatic builds never include it. Its one device test so far (Sideloadly, free account, iOS 16.2) stopped at startup, as expected; the log it writes is what it is for.

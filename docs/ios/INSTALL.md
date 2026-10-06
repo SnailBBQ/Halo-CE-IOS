@@ -23,7 +23,7 @@ The **Mod Test** app is a separate download, `HaloCE-ModTest.ipa` from the Mod L
 ## 2. Sideload it
 
 The IPA is ad-hoc signed, which is not enough for iOS to run it on a device. You re-sign it with your own Apple ID or developer account
-as you install it. Tools such as Sideloadly, AltStore or SideStore may install the app, but engine compatibility is not yet established for every signer, account or OS version. Follow your tool's setup instructions. The general process is:
+as you install it. Tools such as Sideloadly, AltStore or SideStore install the app, but with a free Apple ID the engine stops at startup on the one device we have a log from (see [Sideloading with free and paid accounts](#sideloading-with-free-and-paid-accounts)). Follow your tool's setup instructions. The general process is:
 
 1. Connect your iPhone or iPad, or follow your tool's wireless setup.
 2. Choose `HaloCE.ipa` in the tool and sign in with your Apple ID.
@@ -67,6 +67,20 @@ Invite links use different schemes (`halo://` and `halomodtest://`), so each app
 ## Removing the app
 
 Deleting the app also deletes its maps, saves and settings. Export a [backup](BACKUPS.md) first if you want to keep your progress.
+
+## Sideloading with free and paid accounts
+
+**Confirmed to work:** jailbroken devices. TrollStore installs keep the entitlements the app asks for, so they are expected to work too.
+
+**A free Apple ID (Sideloadly, AltStore, SideStore): not supported.** The app installs, but it stops at startup with `STARTUP BLOCKED: ADDRESS SPACE`. A log from an iPhone 14 Plus on iOS 16.2, signed with Sideloadly, shows why:
+
+- The install is signed without `extended-virtual-addressing` and `increased-memory-limit`. iOS lets the process use about 11.4 GiB of address space.
+- The game needs one 4 GiB window aligned to 4 GiB. None exists. The largest free block (4.9 GiB) runs from 10.5 GiB to the limit, and the nearest aligned window, 12 to 16 GiB, would end 640 MiB past it.
+- iOS refused the window every way we asked for it, including asking the system to find one itself.
+
+This is an address-space limit, not a memory limit, and signing differently with a free account does not remove it. The **Non-Jailbreak Version** is a diagnostic build for collecting this kind of log. On a free account it is expected to stop at startup.
+
+**A paid Apple Developer account (untested):** documentation for other apps says extended virtual addressing is available only to paid accounts, and that you enable it for your own App ID in the developer portal. If you have such an account and one of these tools, you may be able to sign the regular `HaloCE.ipa` with the `extended-virtual-addressing` and `increased-memory-limit` capabilities, so that the app starts the way it does on a jailbroken device. Use the regular app, not the Non-Jailbreak Version, which requests no entitlements by design. We have not tried this. This project does not require a paid account, does not build around one, and cannot support signing problems. If you try it, please share `ios-boot.log` and what you did.
 
 ## Diagnosing signing-dependent startup failures
 
