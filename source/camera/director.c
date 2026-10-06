@@ -131,6 +131,9 @@ symbols in this file:
 
 #include "editor/editor_stubs.h"
 #include "game/players.h"
+#ifdef HALO_IOS_GUEST
+#include "game/cheats.h"
+#endif
 #include "input/input.h"
 #include "main/console.h"
 #include "saved games/game_state.h"

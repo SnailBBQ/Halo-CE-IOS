@@ -1,15 +1,15 @@
 # Release notes
 
-The current update is **M2.6.81**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.82**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.81](../../port/ios/UPDATE_M2681.md) integrates OpenCE build 138 (`76addf6…`), network 20, from the M2.6.80 green baseline. It takes the complete upstream build-125→138 source update (except OpenCE's repository workflow), reapplies the iOS-only adaptations, and passes the strict 43/43 flags-off equivalence gate. M2.6.80's build identity, automatic engine-change `.halobackup` and Non-Jailbreak flexible-arena probe remain. M2.6.81 still needs Apple/device validation.
+**Latest:** [M2.6.82](../../port/ios/UPDATE_M2682.md) is the guest-compile hotfix for M2.6.81. It keeps OpenCE build 138 (`76addf6…`), network 20, restores the iOS-only dependency headers lost during the upstream rebase, adds a pre-build dependency regression test, and still passes strict 43/43 flags-off equivalence. M2.6.81 did not produce an IPA because its arm64_32 guest compile stopped in `source/camera/director.c`.
 
-**Previous:** [M2.6.80](../../port/ios/UPDATE_M2680.md) added exact build identity, automatic engine-change `.halobackup` protection, reusable upstream acceptance gates and the Non-Jailbreak flexible 4 GiB-anywhere feasibility probe. Its GitHub Actions build passed.
+**Previous engine update:** [M2.6.81](../../port/ios/UPDATE_M2681.md) integrated OpenCE build 138/network 20 with strict upstream equivalence, but its first Actions run failed the guest compile because iOS-only dependency includes were dropped during the rebase. [M2.6.80](../../port/ios/UPDATE_M2680.md) is the last fully green Actions baseline.
 
 **Previous:** [M2.6.79](../../port/ios/UPDATE_M2679.md) is the green baseline-cleanup build: stale version/upstream metadata was corrected, notes-only iOS Markdown no longer starts an automatic IPA build, the mod-cache diagnostics test runs once, and the XISO test driver is warning-clean under GCC and Clang.
 
@@ -55,7 +55,8 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
-| M2.6.81 | OpenCE build 138 / network 20 integration; strict 43/43 flags-off upstream equivalence; iOS adaptations retained. Apple/device validation pending. |
+| M2.6.82 | Guest-compile hotfix for M2.6.81: restores iOS-only dependency headers under `HALO_IOS_GUEST`, adds a regression test, keeps OpenCE build 138/network 20 and strict 43/43 flags-off equivalence. Actions/device validation pending. |
+| M2.6.81 | OpenCE build 138 / network 20 integration; strict 43/43 flags-off upstream equivalence; first Actions run failed the arm64_32 guest compile before IPA packaging. |
 | M2.6.80 | Build identity, automatic engine-change `.halobackup`, reusable upstream acceptance gates, and Non-JB flexible 4 GiB-anywhere feasibility probe. GitHub Actions passed; device validation remains feature-dependent. |
 | M2.6.79 | Baseline cleanup: current version/upstream metadata corrected, notes-only build trigger removed, diagnostics loop fixed, XISO test warning cleaned. Device validation pending. |
 | M2.6.78 | Share logs sends one text file, Copy logs is new, and a start history keeps where a stopped run ended. Device validation pending. |

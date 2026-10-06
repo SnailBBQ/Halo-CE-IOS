@@ -183,6 +183,9 @@ symbols in this file:
 #include "cseries.h"
 #define limit2d limit2d_inline
 #include "game/game.h"
+#ifdef HALO_IOS_GUEST
+#include "game/cheats.h"
+#endif
 #undef limit2d
 #include "game/player_control_runtime.h"
 #include "players.h"

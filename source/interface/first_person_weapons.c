@@ -109,6 +109,9 @@ symbols in this file:
 #include "effects/particles.h"
 #include "game/game_globals.h"
 #include "game/players.h"
+#ifdef HALO_IOS_GUEST
+#include "game/cheats.h"
+#endif
 #include "items/weapon_datum_flags.h"
 #include "items/weapon_definitions.h"
 #include "items/weapons.h"

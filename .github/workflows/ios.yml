@@ -35,6 +35,7 @@ on:
       - 'tools/tests/test_ios_pointer_fastpath.py'
       - 'tools/tests/test_ios_arena_fastpath.py'
       - 'tools/tests/test_ios_source_structure.py'
+      - 'tools/tests/test_ios_guest_compile_dependencies.py'
       - 'tools/tests/test_ios_campaign_policy.py'
       - 'tools/tests/test_ios_launch_state.c'
       - 'tools/tests/test_ios_log_export.py'
@@ -144,6 +145,7 @@ jobs:
           python3 tools/tests/test_ios_build_identity.py
           python3 tools/tests/test_ios_workflow_configuration.py
           python3 tools/tests/test_ios_source_structure.py
+          python3 tools/tests/test_ios_guest_compile_dependencies.py
           python3 tools/tests/test_ios_log_export.py
           cc -std=c11 -Wall -Wextra -Werror tools/tests/test_ios_vertex_constants.c -o "$RUNNER_TEMP/halo-constants-test"
           "$RUNNER_TEMP/halo-constants-test"
@@ -432,7 +434,7 @@ jobs:
             /usr/libexec/PlistBuddy -c 'Set :CFBundleName Halo CE Mod Test' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLName com.haloceuniversal.ios.modtest.invite' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Halo CE Mod Test' "$APP/Info.plist"
-            # the Mod Test app's version is the official one with a trailing .1 (0.2.81 / 2681 becomes 0.2.81.1 / 268101)
+            # the Mod Test app's version is the official one with a trailing .1 (0.2.82 / 2682 becomes 0.2.82.1 / 268201)
             OFFICIAL_SHORT=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")
             OFFICIAL_BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
             /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${OFFICIAL_SHORT}.1" "$APP/Info.plist"

@@ -6,8 +6,8 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak diagnostic build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The current source update is **M2.6.81**, integrating OpenCE build 138 (network version 20) from the green M2.6.80 baseline.
-> The maintainer reports playable `a10` and PC cross-play on earlier builds; the new build-138 engine has passed local source/portable tests but still needs its own Apple build and device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
+> **Status: playable.** The current source update is **M2.6.82**, running OpenCE build 138 (network version 20). M2.6.82 is the guest-compile hotfix for the M2.6.81 build-138 integration.
+> The maintainer reports playable `a10` and PC cross-play on earlier builds; the build-138 engine has passed local source/portable tests; M2.6.81 exposed a guest compile dependency regression in Actions, fixed in M2.6.82, which still needs its own successful Actions build and device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
@@ -19,7 +19,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 >
 > **Paid Apple Developer accounts:** people who have one may be able to sign the regular app with the `extended-virtual-addressing` and `increased-memory-limit` capabilities and get it to start on a non-jailbroken device. We have not tested this, and the project does not require or build around paid accounts. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 
-**Source update:** [M2.6.81](port/ios/UPDATE_M2681.md) moves the iOS engine from OpenCE build 125/network 16 to **build 138/network 20** while preserving the M2.6.80 build identity, automatic engine-change `.halobackup` protection, upstream acceptance gates and Non-Jailbreak flexible-arena diagnostic. All 43 upstream-owned files containing iOS adaptations reduce exactly to build-138 source with `HALO_IOS_GUEST` disabled. Rendering remains Apple OpenGL ES; ANGLE/Metal is not used. M2.6.80 passed GitHub Actions; M2.6.81 still needs its own Apple build and device checks. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
+**Source update:** [M2.6.82](port/ios/UPDATE_M2682.md) keeps the M2.6.81 OpenCE **build 138/network 20** integration and fixes iOS-only guest compile dependencies that the first build-138 Actions run exposed. The restored headers are inside `HALO_IOS_GUEST` guards, so all 43 adapted upstream files still reduce exactly to build-138 source with iOS disabled. M2.6.80's build identity, automatic engine-change `.halobackup` protection, upstream acceptance gates and Non-Jailbreak flexible-arena diagnostic remain. Rendering stays Apple OpenGL ES; ANGLE/Metal is not used. M2.6.82 still needs a green Actions build and device checks. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of OpenCE on PC" width="760"><br>

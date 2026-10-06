@@ -65,12 +65,21 @@ symbols in this file:
 #include "input/input.h"
 #include "interface/terminal.h"
 #include "items/weapon_definitions.h"
+#ifdef HALO_IOS_GUEST
+#include "items/equipment_definitions.h"
+#endif
 #include "main/console.h"
 #include "math/real_math.h"
 #include "objects/objects.h"
+#ifdef HALO_IOS_GUEST
+#include "objects/damage.h"
+#endif
 #include "rasterizer/rasterizer_console_vars.h"
 #include "scenario/scenario.h"
 #include "tag_files/tag_groups.h"
+#ifdef HALO_IOS_GUEST
+#include "tag_files/tag_files.h"
+#endif
 #include "units/units.h"
 
 /* ---------- constants */

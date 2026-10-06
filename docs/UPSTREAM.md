@@ -32,7 +32,7 @@ The Linux page also describes the controls, settings and multiplayer functions, 
 
 ## Staying compatible
 
-Multiplayer needs compatible protocol versions and map content. M2.6.81 integrates OpenCE build 138, upstream commit `76addf661f02e2fd090d7b00f9dd12c29e562a9b`, network version 20, while preserving the iOS host. Matching OpenCE network versions are required for cross-play. Update other clients alongside the app; Apple compilation and cross-platform device testing are still required for this update. See [Multiplayer](ios/MULTIPLAYER.md#compatibility).
+Multiplayer needs compatible protocol versions and map content. M2.6.82 runs the OpenCE build 138 engine integrated in M2.6.81, upstream commit `76addf661f02e2fd090d7b00f9dd12c29e562a9b`, network version 20, while preserving the iOS host. Matching OpenCE network versions are required for cross-play. Update other clients alongside the app; M2.6.81 exposed an iOS guest compile-dependency regression; M2.6.82 fixes it without changing upstream identity. Apple compilation and cross-platform device testing are still required for M2.6.82. See [Multiplayer](ios/MULTIPLAYER.md#compatibility).
 
 ## What this fork adds
 

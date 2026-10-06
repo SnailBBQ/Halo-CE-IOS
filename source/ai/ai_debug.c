@@ -24,6 +24,9 @@ AI_DEBUG.C
 #include "camera/observer.h"
 #include "editor/editor_stubs.h"
 #include "game/game.h"
+#ifdef HALO_IOS_GUEST
+#include "game/game_allegiance.h"
+#endif
 #include "game/players.h"
 #include "main/console.h"
 #include "memory/data.h"

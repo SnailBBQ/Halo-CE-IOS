@@ -33,3 +33,8 @@ Regular app **0.2.81 / 2681**. The Mod Test app derives **0.2.81.1 / 268101**. T
 8. Build **Non-Jailbreak** manually through the free-signing test path. Confirm the existing `Flexible 4 GiB ANYWHERE:` diagnostic still reports its actual result; do not interpret a successful flexible reservation as a working arbitrary-base guest.
 
 Until the Apple build and these device checks are complete, M2.6.81 is a **source-integrated candidate**, not a confirmed playable build-138 release.
+
+
+## Superseded by M2.6.82
+
+The first GitHub Actions run for M2.6.81 stopped while compiling the arm64_32 guest: `source/camera/director.c` still used the iOS third-person cheat API, but the build-138 rebase had dropped the iOS-only `game/cheats.h` dependency. The same audit found related dependencies in first-person weapons, player control, AI debug helpers and the campaign-cheat implementation. M2.6.82 restores those headers **inside `HALO_IOS_GUEST` guards**, adds a regression test for them, and leaves the build-138 flags-off source unchanged. No M2.6.81 IPA was produced by that run.
