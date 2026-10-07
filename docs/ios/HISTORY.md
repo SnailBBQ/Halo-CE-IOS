@@ -5,9 +5,9 @@ statements about "current" behaviour in it describe the milestone they were writ
 
 ## Part 1 — Status log (the former project status page)
 
-Current iOS update: **M2.6.84** — OpenCE build 138, network 20. M2.6.81 performed the upstream promotion; M2.6.82 and M2.6.83 repaired the two guest-compile regressions it exposed, and M2.6.83 subsequently passed GitHub Actions. M2.6.84 leaves that engine baseline unchanged and expands only the Non-Jailbreak diagnostics with a real guest-arena execution canary and numbered persistent guest-handoff phases. The M2.6.80 build identity, automatic engine-change save protection, upstream acceptance gates and flexible-base feasibility probe remain. See the [release notes](RELEASE_NOTES.md) for the current state.
+Current iOS update: **M2.6.85** — OpenCE build 144, network 21. M2.6.84 is the green pre-update baseline and its Non-Jailbreak flexible-base/execution diagnostics remain intact. M2.6.85 promotes the engine by 28 upstream commits, including renderer call reduction, co-op/netcode fixes, map-tag validation, a third hardening round and additional lighting/water/visibility performance work. The M2.6.80 build identity, automatic engine-change save protection and upstream acceptance gates remain. See the [release notes](RELEASE_NOTES.md) for the current state.
 
-Updated October 6, 2026. Current development milestone: **M2.6.84** (M2.6.83 GitHub Actions passed; M2.6.84 Non-Jailbreak device testing pending).
+Updated October 7, 2026. Current development milestone: **M2.6.85** (M2.6.84 is green; M2.6.85 Actions/device validation pending).
 
 ### Collected status notes (historical)
 

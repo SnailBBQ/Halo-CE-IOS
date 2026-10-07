@@ -6,8 +6,8 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak diagnostic build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The current source update is **M2.6.84**, running OpenCE build 138 (network version 20). M2.6.83 passed GitHub Actions and is the current green build-138 compile baseline.
-> M2.6.84 leaves Regular and Mod Test runtime behavior unchanged and expands only the Non-Jailbreak diagnostic build with a real guest-arena execution canary plus persistent numbered breadcrumbs around `__guest_start`. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
+> **Status: playable.** The current source update is **M2.6.85**, integrating OpenCE build 144 (network version 21). M2.6.84 is the green pre-update baseline; M2.6.85 still needs its own GitHub Actions build and device smoke test.
+> The build-144 promotion keeps the M2.6.84 iOS host, backup protection and Non-Jailbreak execution diagnostics while rebasing the engine onto the new upstream renderer, co-op/netcode, map-validation, hardening and performance work. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
@@ -19,7 +19,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 >
 > **Paid Apple Developer accounts:** people who have one may be able to sign the regular app with the `extended-virtual-addressing` and `increased-memory-limit` capabilities and get it to start on a non-jailbroken device. We have not tested this, and the project does not require or build around paid accounts. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 
-**Source update:** [M2.6.84](port/ios/UPDATE_M2684.md) keeps the green M2.6.83 OpenCE **build 138/network 20** engine unchanged. The Non-Jailbreak flavor now pairs the existing exact-4-GiB-anywhere feasibility probe with a guest-arena RW→RX execution canary and persistent numbered breadcrumbs around the real `__guest_start` handoff. A first-host-import marker records when guest startup reaches `host_set_tp`, which distinguishes instruction-fetch termination from a later guest-runtime failure. Regular and Mod Test do not compile this diagnostic path. Rendering stays Apple OpenGL ES; ANGLE/Metal is not used. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
+**Source update:** [M2.6.85](port/ios/UPDATE_M2685.md) promotes the engine from OpenCE **build 138/network 20** to **build 144/network 21** while preserving the M2.6.84 iOS host and Apple OpenGL ES renderer. The 28 upstream commits add renderer call-reduction work, co-op respawn/scoreboard/gate fixes, additional netcode corrections, map-tag validation, a third hardening round, lighting-failure resilience and further GPU/visibility/water performance work. The Non-Jailbreak flexible-base and execution-boundary diagnostics remain unchanged from M2.6.84. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of OpenCE on PC" width="760"><br>

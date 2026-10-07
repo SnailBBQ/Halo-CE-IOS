@@ -1,15 +1,15 @@
 # Release notes
 
-The current update is **M2.6.84**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.85**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.84](../../port/ios/UPDATE_M2684.md) keeps the green M2.6.83 OpenCE build-138/network-20 baseline and changes only the Non-Jailbreak diagnostics. It adds a guest-arena RW→RX execution canary and numbered persistent phases around `__guest_start`, including a first `host_set_tp` marker that proves real guest instructions progressed into the guest thread runtime. The existing exact-4-GiB-anywhere flexible-base probe remains. Regular and Mod Test runtime behavior are unchanged.
+**Latest:** [M2.6.85](../../port/ios/UPDATE_M2685.md) integrates OpenCE build 144/network 21 on top of the green M2.6.84 baseline. The 28 upstream commits include renderer call-reduction work, co-op respawn/scoreboard/gate fixes, netcode corrections, map-tag validation, a third hardening round, lighting-failure resilience and further water/visibility/GPU performance work. The M2.6.84 Non-Jailbreak flexible-base and execution-boundary diagnostics remain unchanged. M2.6.85 still needs its own Actions build and device validation.
 
-**Previous engine update:** [M2.6.81](../../port/ios/UPDATE_M2681.md) integrated OpenCE build 138/network 20 with strict upstream equivalence, but its first Actions run failed the guest compile because iOS-only dependency includes were dropped during the rebase. [M2.6.83](../../port/ios/UPDATE_M2683.md) passed GitHub Actions and is the current green build-138 compile baseline.
+**Previous engine update:** [M2.6.81](../../port/ios/UPDATE_M2681.md) integrated OpenCE build 138/network 20; M2.6.82 and M2.6.83 repaired the two guest-compile regressions that integration exposed, and M2.6.83 passed GitHub Actions. [M2.6.84](../../port/ios/UPDATE_M2684.md) then added only deeper Non-Jailbreak diagnostics without changing that engine.
 
 **Previous:** [M2.6.79](../../port/ios/UPDATE_M2679.md) is the green baseline-cleanup build: stale version/upstream metadata was corrected, notes-only iOS Markdown no longer starts an automatic IPA build, the mod-cache diagnostics test runs once, and the XISO test driver is warning-clean under GCC and Clang.
 
@@ -55,6 +55,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.85 | OpenCE build 144 / network 21 integration; 28 upstream commits, 148 changed/added upstream paths, strict 43/43 flags-off equivalence, renderer/co-op/netcode/map-validation/hardening/performance updates; M2.6.84 Non-JB diagnostics retained. Actions/device validation pending. |
 | M2.6.84 | Non-Jailbreak execution-boundary diagnostics: guest-arena RW→RX canary, persistent phases 401–418 around `__guest_start`, first-host-import proof, and the existing flexible 4 GiB probe. M2.6.83 is the green build-138 baseline. |
 | M2.6.83 | Second build-138 guest-compile hotfix: returns `TRUE` from the host-decoded `BOOL decode_level()` path, adds a return-contract regression check, and keeps OpenCE build 138/network 20 plus strict 43/43 flags-off equivalence. GitHub Actions passed; physical build-138 device validation remains. |
 | M2.6.82 | Guest-compile hotfix for M2.6.81: restores iOS-only dependency headers under `HALO_IOS_GUEST`, adds a regression test, keeps OpenCE build 138/network 20 and strict 43/43 flags-off equivalence. Actions/device validation pending. |
