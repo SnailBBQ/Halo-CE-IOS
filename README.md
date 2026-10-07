@@ -6,8 +6,8 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak diagnostic build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The current source update is **M2.6.86**, still on OpenCE build 144 (network version 21). M2.6.85 is the engine-integration base; M2.6.86 changes only the Non-Jailbreak diagnostic path and version/docs/workflow guards.
-> M2.6.86 adds Stage 2 of the flexible-base investigation: when the normal aligned arena is unavailable but iOS can reserve one exact 4 GiB span at a non-aligned address, the diagnostic build runs an isolated synthetic 32-bit guest using `host = base + guest_va`. It does **not** launch the real Halo guest from that arena yet. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
+> **Status: playable.** The current source update is **M2.6.87**, integrating OpenCE build 146 (network version 22) on top of the M2.6.86 Non-Jailbreak Stage-2 baseline.
+> Build 146 adds upstream Halo Custom Edition cache/map loading and validation, menu listing, missing-map reporting and further hostile-map hardening. The M2.6.86 flexible-base synthetic guest remains unchanged and still does **not** launch the real Halo guest from an arbitrary base. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
@@ -15,11 +15,11 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 >
 > **Non-jailbreak support:** A non-jailbreak version is currently a work in progress and is not yet considered ready for general use.
 >
-> **Free-account sideloading (Sideloadly, AltStore, SideStore):** not supported yet. Device logs now show more than one stock-iOS boundary. An iPhone 14 Plus on iOS 16.2 can reserve a contiguous 4 GiB span but only at a non-4-GiB-aligned address, while an older iPad cannot reserve 4 GiB contiguously at all. M2.6.86 tests the arbitrary-base memory model only; it does not yet run Halo from it. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
+> **Free-account sideloading (Sideloadly, AltStore, SideStore):** not supported yet. Device logs now show more than one stock-iOS boundary. An iPhone 14 Plus on iOS 16.2 can reserve a contiguous 4 GiB span but only at a non-4-GiB-aligned address, while an older iPad cannot reserve 4 GiB contiguously at all. M2.6.87 preserves the M2.6.86 arbitrary-base memory-model test; it does not yet run Halo from it. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 >
 > **Paid Apple Developer accounts:** people who have one may be able to sign the regular app with the `extended-virtual-addressing` and `increased-memory-limit` capabilities and get it to start on a non-jailbroken device. We have not tested this, and the project does not require or build around paid accounts. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 
-**Source update:** [M2.6.86](port/ios/UPDATE_M2686.md) keeps the OpenCE **build 144/network 21** engine from M2.6.85 and adds only Non-Jailbreak Stage-2 flexible-base diagnostics. The new path reserves one deliberately non-4-GiB-aligned 4 GiB arena, exercises base-relative guest pointers, globals/stack/heap, pointer-bearing structs, remap/recommit, atomics, callbacks/import dispatch, a second thread and a tiny RX canary, then releases the arena. The real OpenCE guest still uses the existing aligned-arena architecture. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
+**Source update:** [M2.6.87](port/ios/UPDATE_M2687.md) integrates OpenCE **build 146/network 22** while preserving the M2.6.86 Non-Jailbreak Stage-2 flexible-base diagnostics. Build 146 adds upstream Halo Custom Edition cache/map loading and validation, Custom Edition menu listing, missing-map reporting and additional hostile-map hardening. OpenSauce maps are explicitly refused upstream. The real iOS guest still uses the existing aligned-arena architecture; the Stage-2 arbitrary-base path remains synthetic only. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of OpenCE on PC" width="760"><br>

@@ -5,9 +5,9 @@ statements about "current" behaviour in it describe the milestone they were writ
 
 ## Part 1 — Status log (the former project status page)
 
-Current iOS update: **M2.6.86** — still OpenCE build 144, network 21. M2.6.85 performed the build-144 engine promotion; M2.6.86 leaves that engine and the Regular/Mod-Test runtime unchanged and adds a Non-Jailbreak-only Stage-2 flexible-base synthetic guest. The M2.6.80 build identity, automatic engine-change save protection and upstream acceptance gates remain. See the [release notes](RELEASE_NOTES.md) for the current state.
+Current iOS update: **M2.6.87** — OpenCE build 146, network 22. M2.6.87 promotes the engine from build 144 while preserving M2.6.86's Non-Jailbreak Stage-2 flexible-base synthetic guest. The M2.6.80 build identity, automatic engine-change save protection and upstream acceptance gates remain. See the [release notes](RELEASE_NOTES.md) for the current state.
 
-Updated October 7, 2026. Current development milestone: **M2.6.86** (Stage-2 Non-Jailbreak diagnostic candidate; Actions/device validation pending).
+Updated October 7, 2026. Current development milestone: **M2.6.87** (OpenCE build-146 integration candidate; Actions/device validation pending).
 
 ### Collected status notes (historical)
 
