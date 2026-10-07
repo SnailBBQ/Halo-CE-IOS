@@ -28,3 +28,8 @@ M2.6.81 completed the build-125→138 source integration and passed the strict s
 5. Build Mod Test and Non-Jailbreak only after the Regular build is green.
 
 Until Actions and the physical-device smoke test pass, M2.6.82 remains a **build-138 release candidate**, not a confirmed public release.
+
+
+## Superseded by M2.6.83
+
+M2.6.82 fixed the missing iOS-only dependency headers and the next Actions run advanced to object **1416/1473**. It then stopped in `port/linux/src/xbox_textures.c`: OpenCE build 138 changed `decode_level()` from `void` to `BOOL` so allocation failure can propagate, while the preserved iOS native-decoder shortcut still used the old bare `return;`. M2.6.83 changes that successful host-decoder path to `return TRUE;` and adds a regression test for the build-138 contract. No M2.6.82 IPA was produced by that run.

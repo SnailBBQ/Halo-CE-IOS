@@ -1,13 +1,13 @@
 # Release notes
 
-The current update is **M2.6.82**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.83**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.82](../../port/ios/UPDATE_M2682.md) is the guest-compile hotfix for M2.6.81. It keeps OpenCE build 138 (`76addf6…`), network 20, restores the iOS-only dependency headers lost during the upstream rebase, adds a pre-build dependency regression test, and still passes strict 43/43 flags-off equivalence. M2.6.81 did not produce an IPA because its arm64_32 guest compile stopped in `source/camera/director.c`.
+**Latest:** [M2.6.83](../../port/ios/UPDATE_M2683.md) is the second guest-compile hotfix for the build-138 integration. It keeps OpenCE build 138 (`76addf6…`), network 20 and M2.6.82's dependency repairs, and changes the iOS native texel shortcut in `decode_level()` from a bare return to `return TRUE` to match build 138's new boolean contract. A regression test now checks that contract. M2.6.82 reached object 1416/1473 before this mismatch stopped the arm64_32 guest compile.
 
 **Previous engine update:** [M2.6.81](../../port/ios/UPDATE_M2681.md) integrated OpenCE build 138/network 20 with strict upstream equivalence, but its first Actions run failed the guest compile because iOS-only dependency includes were dropped during the rebase. [M2.6.80](../../port/ios/UPDATE_M2680.md) is the last fully green Actions baseline.
 
@@ -55,6 +55,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.83 | Second build-138 guest-compile hotfix: returns `TRUE` from the host-decoded `BOOL decode_level()` path, adds a return-contract regression check, and keeps OpenCE build 138/network 20 plus strict 43/43 flags-off equivalence. Actions/device validation pending. |
 | M2.6.82 | Guest-compile hotfix for M2.6.81: restores iOS-only dependency headers under `HALO_IOS_GUEST`, adds a regression test, keeps OpenCE build 138/network 20 and strict 43/43 flags-off equivalence. Actions/device validation pending. |
 | M2.6.81 | OpenCE build 138 / network 20 integration; strict 43/43 flags-off upstream equivalence; first Actions run failed the arm64_32 guest compile before IPA packaging. |
 | M2.6.80 | Build identity, automatic engine-change `.halobackup`, reusable upstream acceptance gates, and Non-JB flexible 4 GiB-anywhere feasibility probe. GitHub Actions passed; device validation remains feature-dependent. |

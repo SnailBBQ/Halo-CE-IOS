@@ -383,7 +383,7 @@ static BOOL decode_level(const struct xgpu_texture_description *description, uns
     unsigned int packet[10] = { information.kind, information.bytes, description->linear,
         width, height, depth, description->pitch, (unsigned int)source,
         (unsigned int)destination, (unsigned int)palette };
-    if (host_texture_decode_texels((unsigned int)packet)) return;
+    if (host_texture_decode_texels((unsigned int)packet)) return TRUE;
 #endif
 
 	if (description->linear)

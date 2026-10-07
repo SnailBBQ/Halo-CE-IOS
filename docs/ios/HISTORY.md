@@ -5,9 +5,9 @@ statements about "current" behaviour in it describe the milestone they were writ
 
 ## Part 1 — Status log (the former project status page)
 
-Current iOS update: **M2.6.82** — OpenCE build 138, network 20. M2.6.81 performed the upstream promotion; its first Actions run exposed missing iOS-only compile dependencies. M2.6.82 restores those dependencies under `HALO_IOS_GUEST` while preserving strict build-138 flags-off equality. The M2.6.80 build identity, automatic engine-change save protection, upstream acceptance gates and Non-JB flexible-base feasibility probe remain. See the [release notes](RELEASE_NOTES.md) for the current state.
+Current iOS update: **M2.6.83** — OpenCE build 138, network 20. M2.6.81 performed the upstream promotion; its first Actions run exposed missing iOS-only compile dependencies. M2.6.82 restored those dependencies and reached object 1416/1473 before the next run exposed a stale bare return in build 138's now-boolean texture decoder. M2.6.83 returns `TRUE` when the native iOS decoder handles the level while preserving strict build-138 flags-off equality. The M2.6.80 build identity, automatic engine-change save protection, upstream acceptance gates and Non-JB flexible-base feasibility probe remain. See the [release notes](RELEASE_NOTES.md) for the current state.
 
-Updated October 6, 2026. Current development milestone: **M2.6.82** (M2.6.81 guest compile failed; M2.6.82 GitHub build/device testing pending; M2.6.80 GitHub Actions passed).
+Updated October 6, 2026. Current development milestone: **M2.6.83** (M2.6.81 and M2.6.82 guest compiles failed before packaging; M2.6.83 GitHub build/device testing pending; M2.6.80 GitHub Actions passed).
 
 ### Collected status notes (historical)
 
