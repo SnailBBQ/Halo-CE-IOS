@@ -6,8 +6,8 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak diagnostic build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The current source update is **M2.6.85**, integrating OpenCE build 144 (network version 21). M2.6.84 is the green pre-update baseline; M2.6.85 still needs its own GitHub Actions build and device smoke test.
-> The build-144 promotion keeps the M2.6.84 iOS host, backup protection and Non-Jailbreak execution diagnostics while rebasing the engine onto the new upstream renderer, co-op/netcode, map-validation, hardening and performance work. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
+> **Status: playable.** The current source update is **M2.6.86**, still on OpenCE build 144 (network version 21). M2.6.85 is the engine-integration base; M2.6.86 changes only the Non-Jailbreak diagnostic path and version/docs/workflow guards.
+> M2.6.86 adds Stage 2 of the flexible-base investigation: when the normal aligned arena is unavailable but iOS can reserve one exact 4 GiB span at a non-aligned address, the diagnostic build runs an isolated synthetic 32-bit guest using `host = base + guest_va`. It does **not** launch the real Halo guest from that arena yet. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
@@ -15,11 +15,11 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 >
 > **Non-jailbreak support:** A non-jailbreak version is currently a work in progress and is not yet considered ready for general use.
 >
-> **Free-account sideloading (Sideloadly, AltStore, SideStore):** not supported. On the one device tested, an iPhone 14 Plus on iOS 16.2, the app stops at startup because iOS gives a free-account install too little address space for the game. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
+> **Free-account sideloading (Sideloadly, AltStore, SideStore):** not supported yet. Device logs now show more than one stock-iOS boundary. An iPhone 14 Plus on iOS 16.2 can reserve a contiguous 4 GiB span but only at a non-4-GiB-aligned address, while an older iPad cannot reserve 4 GiB contiguously at all. M2.6.86 tests the arbitrary-base memory model only; it does not yet run Halo from it. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 >
 > **Paid Apple Developer accounts:** people who have one may be able to sign the regular app with the `extended-virtual-addressing` and `increased-memory-limit` capabilities and get it to start on a non-jailbroken device. We have not tested this, and the project does not require or build around paid accounts. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 
-**Source update:** [M2.6.85](port/ios/UPDATE_M2685.md) promotes the engine from OpenCE **build 138/network 20** to **build 144/network 21** while preserving the M2.6.84 iOS host and Apple OpenGL ES renderer. The 28 upstream commits add renderer call-reduction work, co-op respawn/scoreboard/gate fixes, additional netcode corrections, map-tag validation, a third hardening round, lighting-failure resilience and further GPU/visibility/water performance work. The Non-Jailbreak flexible-base and execution-boundary diagnostics remain unchanged from M2.6.84. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
+**Source update:** [M2.6.86](port/ios/UPDATE_M2686.md) keeps the OpenCE **build 144/network 21** engine from M2.6.85 and adds only Non-Jailbreak Stage-2 flexible-base diagnostics. The new path reserves one deliberately non-4-GiB-aligned 4 GiB arena, exercises base-relative guest pointers, globals/stack/heap, pointer-bearing structs, remap/recommit, atomics, callbacks/import dispatch, a second thread and a tiny RX canary, then releases the arena. The real OpenCE guest still uses the existing aligned-arena architecture. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of OpenCE on PC" width="760"><br>

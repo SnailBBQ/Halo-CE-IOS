@@ -4,6 +4,7 @@
 #import "halo_engine_boot.h"
 #import "halo_guest_runner.h"
 #import "halo_guest_runtime.h"
+#import "halo_crash_report.h"
 #import "HaloBackupArchive.h"
 
 #import <Foundation/Foundation.h>
@@ -127,8 +128,21 @@ void halo_ios_start_game_boot(void (^line)(const char *text))
         line("FATAL: 4-GiB-aligned original-address guest runtime failed.");
         say(line,"Runtime initialization detail: %s",halo_guest_runtime_last_error());
 #if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
-        say_block(line, halo_guest_runtime_nonjb_report());
-        line("Non-Jailbreak Version: the current guest still requires a 4-GiB-aligned arena, so startup remains blocked when no aligned window exists. This build also tests one exact 4 GiB reservation at ANY address. If 'Flexible 4 GiB ANYWHERE' succeeds above, this install has enough contiguous virtual space for the planned flexible-base guest even though that architecture is not enabled yet.");
+        {
+            char flex[4096];
+            int flex_pass;
+            say_block(line, halo_guest_runtime_nonjb_report());
+            line("Non-Jailbreak Version: the real OpenCE guest still requires the aligned arena. Stage 2 now runs an isolated base+uint32 synthetic guest when one exact 4 GiB span can be reserved at a hostile address; it never launches Halo from that arena.");
+            halo_crash_phase("nonjb 519 flex stage2 requested");
+            flex_pass = halo_guest_runtime_nonjb_flex_stage2(flex, sizeof(flex), halo_crash_phase);
+            say_block(line, flex);
+            line("Check the installed app's signing capabilities. This failure occurs before map loading; it is not a Jetsam termination report.");
+            if (flex_pass)
+                line("STARTUP BLOCKED: REAL GUEST FLEX-BASE CONVERSION NOT ENABLED");
+            else
+                line("STARTUP BLOCKED: ADDRESS SPACE / FLEX STAGE 2 DID NOT PASS");
+            return;
+        }
 #endif
         line("Check the installed app's signing capabilities. This failure occurs before map loading; it is not a Jetsam termination report.");
         line("STARTUP BLOCKED: ADDRESS SPACE");

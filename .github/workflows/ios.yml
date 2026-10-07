@@ -38,6 +38,8 @@ on:
       - 'tools/tests/test_ios_guest_compile_dependencies.py'
       - 'tools/tests/test_ios_guest_return_contracts.py'
       - 'tools/tests/test_ios_nonjb_exec_trace.py'
+      - 'tools/tests/test_ios_flex_stage2.py'
+      - 'tools/tests/test_ios_flex_base_model.c'
       - 'tools/tests/test_ios_campaign_policy.py'
       - 'tools/tests/test_ios_launch_state.c'
       - 'tools/tests/test_ios_log_export.py'
@@ -150,6 +152,10 @@ jobs:
           python3 tools/tests/test_ios_guest_compile_dependencies.py
           python3 tools/tests/test_ios_guest_return_contracts.py
           python3 tools/tests/test_ios_nonjb_exec_trace.py
+          python3 tools/tests/test_ios_flex_stage2.py
+          cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_flex_base_model.c -o "$RUNNER_TEMP/halo-flex-model-test"
+          "$RUNNER_TEMP/halo-flex-model-test"
+          cc -std=gnu11 -Wall -Wextra -Werror -DHALO_NON_JAILBREAK=1 -Iport/ios/HaloIOS -pthread -c port/ios/HaloIOS/halo_guest_runtime.c -o "$RUNNER_TEMP/halo-flex-runtime.o"
           python3 tools/tests/test_ios_log_export.py
           cc -std=c11 -Wall -Wextra -Werror tools/tests/test_ios_vertex_constants.c -o "$RUNNER_TEMP/halo-constants-test"
           "$RUNNER_TEMP/halo-constants-test"
@@ -421,7 +427,8 @@ jobs:
             grep -q -- 'Address-space probe (nothing stays reserved)' <<< "$EXECUTABLE_STRINGS"
             grep -q -- 'Flexible 4 GiB ANYWHERE:' <<< "$EXECUTABLE_STRINGS"
             grep -q -- 'NON-JB EXECUTION TRACE:' <<< "$EXECUTABLE_STRINGS"
-          elif grep -q -e 'Non-Jailbreak Version (' -e 'Address-space probe (nothing stays reserved)' -e 'Flexible 4 GiB ANYWHERE:' -e 'NON-JB EXECUTION TRACE:' <<< "$EXECUTABLE_STRINGS"; then
+            grep -q -- 'FLEXIBLE-BASE STAGE 2:' <<< "$EXECUTABLE_STRINGS"
+          elif grep -q -e 'Non-Jailbreak Version (' -e 'Address-space probe (nothing stays reserved)' -e 'Flexible 4 GiB ANYWHERE:' -e 'NON-JB EXECUTION TRACE:' -e 'FLEXIBLE-BASE STAGE 2:' <<< "$EXECUTABLE_STRINGS"; then
             echo "::error::Non-Jailbreak code is present in a build that did not ask for it."
             exit 1
           fi
@@ -439,7 +446,7 @@ jobs:
             /usr/libexec/PlistBuddy -c 'Set :CFBundleName Halo CE Mod Test' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLName com.haloceuniversal.ios.modtest.invite' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Halo CE Mod Test' "$APP/Info.plist"
-            # the Mod Test app's version is the official one with a trailing .1 (0.2.85 / 2685 becomes 0.2.85.1 / 268501)
+            # the Mod Test app's version is the official one with a trailing .1 (0.2.86 / 2686 becomes 0.2.86.1 / 268601)
             OFFICIAL_SHORT=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")
             OFFICIAL_BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
             /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${OFFICIAL_SHORT}.1" "$APP/Info.plist"
@@ -455,7 +462,7 @@ jobs:
             DIAGNOSTICS=direct-aligned-arena-test
           elif [ "$NON_JAILBREAK" = true ]; then
             FLAVOR=NonJailbreak
-            DIAGNOSTICS=flex-base+exec-trace-v1
+            DIAGNOSTICS=flex-base-stage2+exec-trace-v2
           fi
           /usr/libexec/PlistBuddy -c "Set :HaloBuildFlavor $FLAVOR" "$APP/Info.plist"
           /usr/libexec/PlistBuddy -c "Set :HaloDiagnosticMode $DIAGNOSTICS" "$APP/Info.plist"

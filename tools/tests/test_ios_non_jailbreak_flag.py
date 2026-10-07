@@ -71,7 +71,7 @@ class NonJailbreakFlagTests(unittest.TestCase):
             for label in ("off", "undefined"):
                 for new in ("nonjb", "exec_report", "vm_report", "halo_va_", "csops"):
                     self.assertNotIn(new, symbols[label], f"flag {label}: symbol '{new}' leaked into the ordinary build")
-            for new in ("halo_guest_runtime_nonjb_report", "halo_guest_runtime_exec_report", "halo_guest_runtime_vm_report"):
+            for new in ("halo_guest_runtime_nonjb_report", "halo_guest_runtime_exec_report", "halo_guest_runtime_vm_report", "halo_guest_runtime_nonjb_flex_stage2"):
                 self.assertIn(new, symbols["on"], f"flag on: {new} is missing")
             self.assertEqual(symbols["off"].replace("_off", ""), symbols["undefined"].replace("_undefined", ""), "flag=0 and no flag must build identically")
 
@@ -86,6 +86,7 @@ class NonJailbreakFlagTests(unittest.TestCase):
                 text = subprocess.run([nm, "-a", str(Path(folder) / f"{flag}.o")], capture_output=True, text=True).stdout
                 self.assertEqual("Address-space probe (nothing stays reserved)" in text, expected, f"flag={flag}")
                 self.assertEqual("Flexible 4 GiB ANYWHERE:" in text, expected, f"flag={flag} flexible probe")
+                self.assertEqual("FLEXIBLE-BASE STAGE 2:" in text, expected, f"flag={flag} Stage 2")
 
 
 class AlignedAttemptOrderTests(unittest.TestCase):

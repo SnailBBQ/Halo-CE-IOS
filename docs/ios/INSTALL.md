@@ -72,12 +72,13 @@ Deleting the app also deletes its maps, saves and settings. Export a [backup](BA
 
 **Confirmed to work:** jailbroken devices. TrollStore installs keep the entitlements the app asks for, so they are expected to work too.
 
-**A free Apple ID (Sideloadly, AltStore, SideStore): not supported.** Two device logs now show that stock/free-signed startup can fail at different boundaries:
+**A free Apple ID (Sideloadly, AltStore, SideStore): not supported.** Device logs now show three useful stock/free-signed memory/execution cases:
 
-- An iPhone 14 Plus on iOS 16.2, signed with Sideloadly, has neither memory entitlement. It can reserve 4 GiB generally but has no usable 4-GiB-aligned 4 GiB guest window, so the current aligned-arena runtime stops at `STARTUP BLOCKED: ADDRESS SPACE`.
+- An iPhone 14 Plus on iOS 16.2, signed with Sideloadly, has neither memory entitlement. It has no usable 4-GiB-aligned guest window, but the M2.6.84 probe successfully reserved one exact 4 GiB span at `0x2A0000000`, which is offset `0xA0000000` inside a 4 GiB block. That is the main Stage-2 flexible-base target.
 - An iPhone 16 Pro Max (`iPhone17,2`) on iOS 27.2, also without those memory entitlements, let the system place an aligned 4 GiB arena at `0x7000000000`. That older Non-Jailbreak build loaded the maps, scenario/BSP/global state and real guest ELF and resolved all host imports, then disappeared when control was handed to `__guest_start`. That result shows that address space is not the only stock-iOS blocker.
+- An older `iPad7,11` on iOS 18.3.2 had no 4 GiB hole at all: its largest free gap was about 2.03 GiB and `Flexible 4 GiB ANYWHERE` failed. Stage 2 cannot help that class of device; supporting it would require a future sparse/segmented guest-memory design rather than one contiguous 4 GiB arena.
 
-M2.6.85 retains M2.6.84's **Non-Jailbreak Version** diagnostics for both cases. It keeps the exact-4-GiB-anywhere flexible-base feasibility probe and, when an aligned arena exists, runs a tiny execution canary from the real guest arena and records persistent numbered phases around `__guest_start`. A successful diagnostic is evidence about the next engineering step, not proof that free-account Halo is supported.
+M2.6.86 keeps the M2.6.84 aligned-arena execution trace and adds **flexible-base Stage 2** for the first case. If aligned startup fails but one exact 4 GiB span can be reserved at a non-aligned address, the app creates an isolated synthetic guest in that span and tests base-relative pointer round-trips, globals/stack/heap, pointer-bearing structures, decommit/recommit, atomics, callbacks/import dispatch, a second thread and a tiny RX canary. It records phases 520–527. The synthetic arena is then released. The real OpenCE guest is never started from it in M2.6.86.
 
 **A paid Apple Developer account (untested):** documentation for other apps says extended virtual addressing is available only to paid accounts, and that you enable it for your own App ID in the developer portal. If you have such an account and one of these tools, you may be able to sign the regular `HaloCE.ipa` with the `extended-virtual-addressing` and `increased-memory-limit` capabilities, so that the app starts the way it does on a jailbroken device. Use the regular app, not the Non-Jailbreak Version, which requests no entitlements by design. We have not tried this. This project does not require a paid account, does not build around one, and cannot support signing problems. If you try it, please share `ios-boot.log` and what you did.
 
@@ -95,7 +96,7 @@ Compare the same diagnostic IPA installed through a known-working environment an
 
 ## Stock iOS compatibility test
 
-Use the dedicated **Non-Jailbreak Version** from **Halo CE iOS — Build IPA** on `main`. Leave **Mod Test app** off. This flavor uses the same game/data identity as the regular app but compiles in stock-iOS diagnostics and requests no memory entitlements. M2.6.85 retains M2.6.84's address-space feasibility and executable-code boundary tracing; it does not enable the arbitrary-base guest or bypass signing restrictions. Export a backup before changing installers or signing methods.
+Use the dedicated **Non-Jailbreak Version** from **Halo CE iOS — Build IPA** on `main`. Leave **Mod Test app** off. This flavor uses the same game/data identity as the regular app but compiles in stock-iOS diagnostics and requests no memory entitlements. M2.6.86 adds the isolated Stage-2 arbitrary-base model while retaining M2.6.84's real-guest execution-boundary tracing; it still does not launch the real OpenCE guest at an arbitrary base or bypass signing restrictions. Export a backup before changing installers or signing methods.
 
 1. In the developer/signing setup, enable **Extended Virtual Addressing** for the
    actual App ID if the account supports it, then regenerate the provisioning

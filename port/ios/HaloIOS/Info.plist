@@ -6,9 +6,9 @@
 <key>CFBundleName</key><string>Halo CE</string>
 <key>CFBundleExecutable</key><string>HaloIOS</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.2.85</string>
-<key>CFBundleVersion</key><string>2685</string>
-<key>HaloSourceMilestone</key><string>M2.6.85</string>
+<key>CFBundleShortVersionString</key><string>0.2.86</string>
+<key>CFBundleVersion</key><string>2686</string>
+<key>HaloSourceMilestone</key><string>M2.6.86</string>
 <key>HaloOpenCERelease</key><string>build-144</string>
 <key>HaloOpenCECommit</key><string>76b1898ee14e6fb58e0412acc183da509c10e001</string>
 <key>HaloNetworkVersion</key><integer>21</integer>

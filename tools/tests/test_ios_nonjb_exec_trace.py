@@ -74,5 +74,5 @@ assert "nonjb_guest_arena_exec_canary" not in ordinary
 assert "NON-JB EXECUTION TRACE" in nonjb and "nonjb_guest_arena_exec_canary" in nonjb
 
 assert '"nonjb "' in STATE, "launch-state classifier must preserve silent-stop breadcrumbs"
-assert "tiny execution canary" in APP and "persistent numbered breadcrumbs" in APP
+assert "keeps the M2.6.84 execution trace" in APP and "Stage 2 runs an isolated synthetic 32-bit guest model" in APP
 print("PASS: Non-JB uses the real guest-arena RW->RX path for an execution canary, persists numbered guest-handoff breadcrumbs, records the first host import, and leaves ordinary builds untouched")

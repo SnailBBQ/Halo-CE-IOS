@@ -1,8 +1,8 @@
 # Halo CE iOS — Project status
 
-**Status: playable.** **Current source update: M2.6.85** (regular app 0.2.85, Mod Test 0.2.85.1), integrating OpenCE build 144 / network 21. M2.6.84 is the green pre-update baseline; M2.6.85 is a source-integrated candidate until its own GitHub Actions build and physical-device smoke test pass. The maintainer reports playable `a10` and PC cross-play on earlier physical-device builds. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
+**Status: playable.** **Current source update: M2.6.86** (regular app 0.2.86, Mod Test 0.2.86.1), still using OpenCE build 144 / network 21 from M2.6.85. M2.6.86 changes the Non-Jailbreak diagnostic path only: it adds a Stage-2 synthetic flexible-base guest and leaves the real OpenCE guest on aligned-arena-v1. GitHub Actions and device validation are still required for this exact milestone. The maintainer reports playable `a10` and PC cross-play on earlier physical-device builds. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [README](README.md).
 
-**Source update:** [M2.6.85](port/ios/UPDATE_M2685.md) rebases the OpenCE engine from build 138/network 20 to build 144/network 21 while preserving the M2.6.84 iOS host, build identity, automatic engine-change `.halobackup` protection, strict upstream gates and Non-Jailbreak flexible-base/execution diagnostics. Build 144 brings 28 upstream commits covering renderer call reduction, co-op respawn/scoreboard/gate behavior, netcode corrections, map-tag validation, a third hardening round, lighting-failure resilience and additional water/visibility/GPU performance work.
+**Source update:** [M2.6.86](port/ios/UPDATE_M2686.md) keeps the M2.6.85 OpenCE build-144/network-21 engine and adds **Non-Jailbreak flexible-base Stage 2**. If the normal aligned arena fails but stock iOS can reserve one exact 4 GiB span at a hostile address, the diagnostic build exercises `host = guest_base + zero_extend(guest_va)` using representative Halo virtual addresses, guest-owned pointer structures, stack/heap/memory remap, atomics, a second thread, explicit import/callback dispatch and an RX canary. It never assigns that arena to the real guest or calls the real OpenCE entry point.
 
 ## Two apps, plus a stock-iOS build
 
@@ -12,7 +12,7 @@
 | Halo CE Mod Test | `main`, tick **Mod Test app** | artifact `HaloCE-iOS-ModTest` |
 | Non-Jailbreak Version | `main`, tick **Non-Jailbreak Version** | artifact `HaloCE-iOS-NonJailbreak` |
 
-The regular app and Mod Test share the same features and are updated together. The Mod Test app adds an experimental loader for very large converted campaign maps; see [Mod Test](docs/ios/MOD_TEST.md). The Non-Jailbreak Version is the regular app plus stock-iOS address-space/JIT diagnostics. It still measures whether one exact 4 GiB span can be reserved **anywhere** even when no aligned guest window exists; it does not yet run Halo from that unaligned span. Free-account sideloading is therefore still experimental rather than supported; see [M2.6.85](port/ios/UPDATE_M2685.md) and [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
+The regular app and Mod Test share the same features and are updated together. The Mod Test app adds an experimental loader for very large converted campaign maps; see [Mod Test](docs/ios/MOD_TEST.md). The Non-Jailbreak Version is the regular app plus stock-iOS address-space/JIT diagnostics. M2.6.86 goes one step beyond the feasibility probe: when a non-aligned contiguous 4 GiB reservation exists, it runs an isolated synthetic guest model in that span and records phases 520–527. The real Halo guest still requires its existing aligned arena. Free-account sideloading is therefore still experimental rather than supported; see [M2.6.86](port/ios/UPDATE_M2686.md) and [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 
 ## What works (reported from device testing)
 
@@ -22,7 +22,8 @@ The regular app and Mod Test share the same features and are updated together. T
 
 ## Implemented, waiting for device validation
 
-- OpenCE build 144 / network 21 source integration, including the accumulated build-138 work plus renderer call reduction, co-op/netcode fixes, map-tag validation, additional hardening and GPU/visibility/water performance changes through build 144. M2.6.85 still needs its own Apple build and physical-device validation; M2.6.84 is the green pre-update baseline.
+- M2.6.86 Non-Jailbreak Stage-2 flexible-base diagnostics. The host arithmetic model is locally validated at the iPhone-style hostile base `0x2A0000000`; Actions still needs to compile/package the exact Apple build and a physical device must prove the 4 GiB reservation, thread/remap tests and RX canary. The real OpenCE guest is intentionally not started on this path.
+- OpenCE build 144 / network 21 source integration from M2.6.85, including renderer call reduction, co-op/netcode fixes, map-tag validation, additional hardening and GPU/visibility/water performance changes through build 144.
 - The Settings additions of M2.6.48 (cheat sections and new cheats, left-handed layout, gyro, controller remap, heat-aware frame cap, performance overlay, Ambient volume, recent games and QR, Profiles, problem report, custom accent colours).
 - Picture options, touch aiming and AirPlay mirroring (M2.6.50).
 - The Mod Test loader has offline structural checks. Device attempts with converted Cursed Halo maps have failed; playable mod compatibility is not established.

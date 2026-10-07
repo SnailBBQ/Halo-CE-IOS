@@ -59,7 +59,8 @@ assert 'guest_pgo' not in wf and 'ios/modtest' not in wf and '--pgo=off' in wf
 assert 'gh release' not in wf and 'gh release' not in memory
 # The Non-Jailbreak build is a manual flag on the official app. It never changes an ordinary run.
 assert "      non_jailbreak:\n        description:" in wf and "        type: boolean\n        default: false\n      arena_fastpath:" in wf
-assert wf.count('-DHALO_NON_JAILBREAK=1') == 1 and "if [ \"$NON_JAILBREAK\" = true ]; then" in wf
+assert wf.count('-DHALO_NON_JAILBREAK=1') == 2 and "if [ \"$NON_JAILBREAK\" = true ]; then" in wf
+assert 'halo-flex-runtime.o' in wf, 'the second HALO_NON_JAILBREAK define is the compile-only Stage-2 preflight'
 assert "sidestore:" not in wf and "com.haloceuniversal.ios.sidestore" not in wf and "HaloCE-iOS-Sidestore" not in wf
 assert "ios_signed_guest" not in wf and "HALO_SIGNED_GUEST" not in wf and "SIGNED GUEST" not in wf and "HaloIOS-NonJailbreak.entitlements" in wf and "--require-absent-memory" in wf
 assert "elif [ \"$NON_JAILBREAK\" = true ]; then\n            HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_NON_JAILBREAK=1')" in wf, 'the Non-Jailbreak flag links nothing into the app'
@@ -71,8 +72,8 @@ assert wf.index('Reject conflicting build flavors') < wf.index('- name: Install 
 assert "inputs.non_jailbreak && 'HaloCE-iOS-NonJailbreak' || inputs.compatibility_test && 'HaloCE-iOS-ModTest' || 'HaloCE-iOS'" in wf
 assert "python3 tools/ios_upstream_acceptance.py --json" in wf, 'every candidate runs the reusable upstream acceptance gates'
 assert "Set :HaloBuildFlavor $FLAVOR" in wf and "Set :HaloGuestSHA256 $GUEST_SHA" in wf and "Set :HaloSourceCommit ${GITHUB_SHA:-local}" in wf
-assert "DIAGNOSTICS=flex-base+exec-trace-v1" in wf and "DIAGNOSTICS=direct-aligned-arena-test" in wf
-assert "Address-space probe (nothing stays reserved)" in wf and "Flexible 4 GiB ANYWHERE:" in wf and "NON-JB EXECUTION TRACE:" in wf and "-e 'Flexible 4 GiB ANYWHERE:'" in wf
+assert "DIAGNOSTICS=flex-base-stage2+exec-trace-v2" in wf and "DIAGNOSTICS=direct-aligned-arena-test" in wf
+assert "Address-space probe (nothing stays reserved)" in wf and "Flexible 4 GiB ANYWHERE:" in wf and "NON-JB EXECUTION TRACE:" in wf and "FLEXIBLE-BASE STAGE 2:" in wf and "-e 'Flexible 4 GiB ANYWHERE:'" in wf
 assert 'va_plan' in memory and 'va_map' in memory and 'test_ios_non_jailbreak_flag.py' in memory and 'test_ios_mod_test_flag.py' in memory and 'test_ios_asset_integrity.py' in memory and 'test_ios_checkpoint_size.py' in memory and 'test_ios_mod_cache_policy.c' in memory
 assert memory.index('          done\n          cc -std=c11 -Wall -Wextra -Werror tools/tests/test_ios_mod_cache_policy.c') > memory.index('for t in settings_core'), 'mod-cache policy test must run once, after the generated-test loop'
 # Mod Test: its version follows the official one, and its code is proved absent from every other build.

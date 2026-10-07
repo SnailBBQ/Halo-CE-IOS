@@ -25,11 +25,14 @@ int halo_guest_base_is_4gb_aligned(void);
 
 #if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
 /* Non-Jailbreak Version diagnostics. The first is the address-space survey written when the production reservation was refused
-   (empty otherwise); the second says whether this process may make memory executable. Neither executes anything. */
+   (empty otherwise); the second probes whether this process may make memory executable without executing code. */
 const char *halo_guest_runtime_nonjb_report(void);
 void halo_guest_runtime_exec_report(char *out, size_t size);
 /* The process's address-space map (range, mapped ranges, free gaps), read before anything is reserved. */
 void halo_guest_runtime_vm_report(char *out, size_t size);
+/* Stage 2 only: reserve one hostile 4 GiB arena, exercise base+uint32 guest addressing, threads/imports/remap, and an AArch64
+   execution canary, then release it. The real Halo guest is never started by this test. `phase` may persist progress to disk. */
+int halo_guest_runtime_nonjb_flex_stage2(char *out, size_t size, void (*phase)(const char *));
 #endif
 
 #endif
