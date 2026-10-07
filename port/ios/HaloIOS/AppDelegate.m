@@ -634,15 +634,15 @@ static NSString *HaloPerfLine(void)
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     NSString *pending=[[[NSFileManager.defaultManager URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask].firstObject.path stringByAppendingPathComponent:@"HaloBackups"] stringByAppendingPathComponent:@"pending.plist"];
-    if(![NSFileManager.defaultManager fileExistsAtPath:pending] && !HaloModsPending() && !HaloDiscImportPending())return [self finishLaunch:application options:launchOptions];
+    if(![NSFileManager.defaultManager fileExistsAtPath:pending] && !HaloModsLegacyExists() && !HaloDiscImportPending())return [self finishLaunch:application options:launchOptions];
     self.restoringBackup=YES;
     self.window=[[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];UIViewController *screen=[UIViewController new];screen.view.backgroundColor=UIColor.blackColor;self.window.rootViewController=screen;
     UILabel *message=[UILabel new];message.text=@"Preparing Halo…\nApplying library changes. Keep the app open.";message.textColor=UIColor.whiteColor;message.textAlignment=NSTextAlignmentCenter;message.numberOfLines=0;message.translatesAutoresizingMaskIntoConstraints=NO;[screen.view addSubview:message];[NSLayoutConstraint activateConstraints:@[[message.centerXAnchor constraintEqualToAnchor:screen.view.centerXAnchor],[message.centerYAnchor constraintEqualToAnchor:screen.view.centerYAnchor],[message.widthAnchor constraintLessThanOrEqualToAnchor:screen.view.widthAnchor constant:-40]]];[self.window makeKeyAndVisible];
     /* Large map hashing/copies must not block application launch or the UI thread. */
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{NSError *error=nil;BOOL restored=HaloDiscImportRecover(&error);if(restored)restored=HaloApplyPendingRestore(&error);if(restored)restored=HaloModsApply(&error);
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{NSError *error=nil;BOOL restored=HaloDiscImportRecover(&error);if(restored)restored=HaloModsRetireLegacy(&error);if(restored)restored=HaloApplyPendingRestore(&error);
         dispatch_async(dispatch_get_main_queue(),^{
             if(restored){self.restoringBackup=NO;[self finishLaunch:application options:launchOptions];if(self.deferredInvite){HaloSetPendingInvite(self.deferredInvite.absoluteString);self.deferredInvite=nil;}return;}
-            UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Restore stopped" message:error.localizedDescription preferredStyle:UIAlertControllerStyleAlert];[alert addAction:[UIAlertAction actionWithTitle:@"Close Halo" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){(void)a;halo_ios_quit_app();}]];if(HaloModsPending())[alert addAction:[UIAlertAction actionWithTitle:@"Manage Mods" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){(void)action;UIViewController *manager=HaloMapsController();manager.modalPresentationStyle=UIModalPresentationFullScreen;[screen presentViewController:manager animated:YES completion:nil];}]];[screen presentViewController:alert animated:YES completion:nil];
+            UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Library cleanup stopped" message:error.localizedDescription preferredStyle:UIAlertControllerStyleAlert];[alert addAction:[UIAlertAction actionWithTitle:@"Close Halo" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){(void)a;halo_ios_quit_app();}]];[screen presentViewController:alert animated:YES completion:nil];
         });
     });return YES;
 }

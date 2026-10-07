@@ -39,6 +39,7 @@ on:
       - 'tools/tests/test_ios_guest_return_contracts.py'
       - 'tools/tests/test_ios_nonjb_exec_trace.py'
       - 'tools/tests/test_ios_flex_stage2.py'
+      - 'tools/tests/test_ios_custom_content.py'
       - 'tools/tests/test_ios_flex_base_model.c'
       - 'tools/tests/test_ios_campaign_policy.py'
       - 'tools/tests/test_ios_launch_state.c'
@@ -153,6 +154,7 @@ jobs:
           python3 tools/tests/test_ios_guest_return_contracts.py
           python3 tools/tests/test_ios_nonjb_exec_trace.py
           python3 tools/tests/test_ios_flex_stage2.py
+          python3 tools/tests/test_ios_custom_content.py
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_flex_base_model.c -o "$RUNNER_TEMP/halo-flex-model-test"
           "$RUNNER_TEMP/halo-flex-model-test"
           cc -std=gnu11 -Wall -Wextra -Werror -DHALO_NON_JAILBREAK=1 -Iport/ios/HaloIOS -pthread -c port/ios/HaloIOS/halo_guest_runtime.c -o "$RUNNER_TEMP/halo-flex-runtime.o"
@@ -358,12 +360,12 @@ jobs:
           clang -fobjc-arc -DHALO_MAP_PICTURE_TEST -framework Foundation -Iport/ios/HaloIOS port/ios/HaloIOS/HaloMapPictures.m tools/tests/test_ios_map_pictures.m -lz -o "$RUNNER_TEMP/halo-pictures-test"
           "$RUNNER_TEMP/halo-pictures-test"
 
-      - name: Verify mod loading and recovery
+      - name: Verify Custom Edition library and legacy replacement migration
         run: |
           clang -fobjc-arc -DHALO_BACKUP_TEST -framework Foundation -Iport/ios/HaloIOS port/ios/HaloIOS/HaloMods.m port/ios/HaloIOS/HaloBackupArchive.m tools/tests/test_ios_mods.m -o "$RUNNER_TEMP/halo-mods-test"
           "$RUNNER_TEMP/halo-mods-test"
 
-      - name: Verify disc extraction, cancellation and mod originals
+      - name: Verify disc extraction and cancellation
         run: |
           python3 tools/tests/test_ios_signing.py
           clang -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_direct_arena.c -o "$RUNNER_TEMP/halo-direct-arena-test"
@@ -375,7 +377,7 @@ jobs:
           clang -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_coop_input.c -o "$RUNNER_TEMP/halo-coop-test"
           "$RUNNER_TEMP/halo-coop-test"
           python3 tools/tests/test_ios_xiso.py
-          clang -fobjc-arc -DHALO_BACKUP_TEST -framework Foundation -Iport/ios/HaloIOS port/ios/HaloIOS/HaloDiscImport.m port/ios/HaloIOS/HaloMods.m port/ios/HaloIOS/HaloBackupArchive.m tools/tests/test_ios_disc_install.m -o "$RUNNER_TEMP/halo-disc-test"
+          clang -fobjc-arc -DHALO_BACKUP_TEST -framework Foundation -Iport/ios/HaloIOS port/ios/HaloIOS/HaloDiscImport.m port/ios/HaloIOS/HaloBackupArchive.m tools/tests/test_ios_disc_install.m -o "$RUNNER_TEMP/halo-disc-test"
           "$RUNNER_TEMP/halo-disc-test"
 
       - name: Build device host app
@@ -446,7 +448,7 @@ jobs:
             /usr/libexec/PlistBuddy -c 'Set :CFBundleName Halo CE Mod Test' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLName com.haloceuniversal.ios.modtest.invite' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Halo CE Mod Test' "$APP/Info.plist"
-            # the Mod Test app's version is the official one with a trailing .1 (0.2.87 / 2687 becomes 0.2.87.1 / 268701)
+            # the Mod Test app's version is the official one with a trailing .1 (0.2.88 / 2688 becomes 0.2.88.1 / 268801)
             OFFICIAL_SHORT=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")
             OFFICIAL_BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
             /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${OFFICIAL_SHORT}.1" "$APP/Info.plist"

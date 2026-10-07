@@ -1,5 +1,12 @@
 #import "HaloMods.h"
 #import "HaloBackupArchive.h"
+#ifndef HALO_BACKUP_TEST
+#import "HaloSettingsStore.h"
+#import "halo_ios_audio.h"
+#import <UIKit/UIKit.h>
+#import <AVFoundation/AVFoundation.h>
+#include <stdatomic.h>
+#endif
 
 /* All mutations run on the library's serial UI/job path. File replacements run
    only before guest startup. The durable journal precedes the first replacement;
@@ -22,7 +29,7 @@ static void ValidateMap(NSURL *url) {
     memcpy(&magic,data.bytes,4);memcpy(&version,(char *)data.bytes+4,4);memcpy(&foot,(char *)data.bytes+2044,4);
     HaloBackupRequire(CFSwapInt32LittleToHost(magic)==0x68656164 && CFSwapInt32LittleToHost(version)==5 && CFSwapInt32LittleToHost(foot)==0x666f6f74,@"Mods must be compiled Xbox version 5 .map files. Compile loose weapon, character or other tags into a compatible map first.");
 }
-NSArray<NSDictionary *> *HaloModsList(void) {
+static NSArray<NSDictionary *> *HaloModsList(void) {
     NSArray *list=[NSArray arrayWithContentsOfURL:ModFile(@"list.plist")];
     if(!list)return @[];HaloBackupRequire(list.count<=256,@"Mod list is too large.");
     for(NSDictionary *m in list){
@@ -35,22 +42,7 @@ static void Save(NSArray *list) {
     HaloBackupRequire([@{@"pending":@YES} writeToURL:ModFile(@"pending.plist") atomically:YES],@"Cannot queue mod changes.");
     HaloBackupRequire([list writeToURL:ModFile(@"list.plist") atomically:YES],@"Cannot save mod list.");
 }
-void HaloModsImport(NSArray<NSURL *> *files) {
-    NSMutableArray *list=[HaloModsList() mutableCopy];HaloBackupRequire(files.count && list.count+files.count<=256,@"Choose up to 256 mods.");
-    NSMutableArray *copied=[NSMutableArray array];
-    @try {
-        for(NSURL *url in files){
-            NSString *name=url.lastPathComponent.lowercaseString;HaloBackupRequire(ValidName(name),@"Use a .map filename containing letters, numbers, dots, dashes or underscores.");ValidateMap(url);
-            NSString *identifier=NSUUID.UUID.UUIDString;NSURL *folder=ModFile(identifier);HaloBackupRequire([NSFileManager.defaultManager createDirectoryAtURL:folder withIntermediateDirectories:YES attributes:nil error:nil],@"Cannot create mod folder.");[copied addObject:folder];
-            NSURL *dest=[folder URLByAppendingPathComponent:name];HaloBackupRequire([NSFileManager.defaultManager copyItemAtURL:url toURL:dest error:nil],@"Cannot import mod; check available storage.");
-            [list addObject:@{@"id":identifier,@"file":name,@"enabled":@NO,@"hash":HaloBackupHashFile(dest)}];
-        }Save(list);
-    } @catch(NSException *e){for(NSURL *url in copied)[NSFileManager.defaultManager removeItemAtURL:url error:nil];@throw e;}
-}
-void HaloModsSetEnabled(NSUInteger index,BOOL enabled) { NSMutableArray *list=[HaloModsList() mutableCopy];HaloBackupRequire(index<list.count,@"Mod no longer exists.");NSMutableDictionary *m=[list[index] mutableCopy];m[@"enabled"]=@(enabled);list[index]=m;Save(list); }
-void HaloModsMove(NSUInteger index,NSInteger delta) { NSMutableArray *list=[HaloModsList() mutableCopy];NSInteger to=(NSInteger)index+delta;HaloBackupRequire(index<list.count && to>=0 && to<(NSInteger)list.count,@"Invalid mod order.");id item=list[index];[list removeObjectAtIndex:index];[list insertObject:item atIndex:(NSUInteger)to];Save(list); }
-NSURL *HaloModsExport(NSUInteger index) { NSArray *list=HaloModsList();HaloBackupRequire(index<list.count,@"Mod no longer exists.");NSDictionary *m=list[index];return [ModFile(m[@"id"]) URLByAppendingPathComponent:m[@"file"]]; }
-BOOL HaloModsPending(void) { return [NSFileManager.defaultManager fileExistsAtPath:ModFile(@"pending.plist").path] || [NSFileManager.defaultManager fileExistsAtPath:ModFile(@"journal.plist").path]; }
+static BOOL HaloModsPending(void) { return [NSFileManager.defaultManager fileExistsAtPath:ModFile(@"pending.plist").path] || [NSFileManager.defaultManager fileExistsAtPath:ModFile(@"journal.plist").path]; }
 /* Preserve existing filename casing and reject ambiguous duplicates. */
 static NSURL *MapTarget(NSURL *maps,NSString *name) {
     NSString *match=nil;for(NSString *entry in [NSFileManager.defaultManager contentsOfDirectoryAtPath:maps.path error:nil])if([entry.lowercaseString isEqual:name.lowercaseString]){HaloBackupRequire(!match,@"Remove duplicate map filenames differing only by case before applying mods.");match=entry;}
@@ -64,25 +56,7 @@ static void Replace(NSURL *source,NSURL *dest) {
     BOOL ok=[fm fileExistsAtPath:dest.path]?[fm replaceItemAtURL:dest withItemAtURL:tmp backupItemName:nil options:0 resultingItemURL:nil error:nil]:[fm moveItemAtURL:tmp toURL:dest error:nil];
     if(!ok)[fm removeItemAtURL:tmp error:nil];HaloBackupRequire(ok,@"Cannot replace map.");
 }
-NSArray<NSDictionary *> *HaloModsPlanBaseImport(NSArray<NSURL *> *files,NSURL *stage) {
-    HaloBackupRequire(![NSFileManager.defaultManager fileExistsAtPath:ModFile(@"journal.plist").path],@"Restart Halo to recover pending mod changes before importing a disc.");
-    NSMutableDictionary *base=[[NSDictionary dictionaryWithContentsOfURL:ModFile(@"base.plist")] mutableCopy]?:[NSMutableDictionary dictionary];
-    NSURL *maps=[NSURL fileURLWithPath:[HaloBackupRoot() stringByAppendingPathComponent:@"maps"] isDirectory:YES];
-    NSMutableArray *plan=[NSMutableArray array];BOOL changed=NO;
-    for(NSURL *file in files){NSString *name=file.lastPathComponent;HaloBackupRequire(ValidName(name),@"Invalid disc map name.");
-        NSURL *target=base[name]?[ModFile(@"base") URLByAppendingPathComponent:name]:MapTarget(maps,name);
-        [plan addObject:@{@"source":file,@"target":target}];
-        if(base[name]){base[name]=@YES;changed=YES;}
-    }
-    if(changed){
-        NSURL *catalog=[stage URLByAppendingPathComponent:@"base.plist"],*pending=[stage URLByAppendingPathComponent:@"pending.plist"];
-        HaloBackupRequire([base writeToURL:catalog atomically:YES] && [@{@"pending":@YES} writeToURL:pending atomically:YES],@"Cannot stage mod originals.");
-        [plan addObject:@{@"source":catalog,@"target":ModFile(@"base.plist")}];
-        [plan addObject:@{@"source":pending,@"target":ModFile(@"pending.plist")}];
-    }
-    return plan;
-}
-BOOL HaloModsApply(NSError **error) {
+static BOOL HaloModsApply(NSError **error) {
     NSFileManager *fm=NSFileManager.defaultManager;NSURL *maps=[NSURL fileURLWithPath:[HaloBackupRoot() stringByAppendingPathComponent:@"maps"] isDirectory:YES];
     @try {
         NSDictionary *journal=[NSDictionary dictionaryWithContentsOfURL:ModFile(@"journal.plist")];
@@ -113,3 +87,369 @@ BOOL HaloModsApply(NSError **error) {
         HaloBackupRequire([fm removeItemAtURL:ModFile(@"journal.plist") error:nil],@"Cannot commit mod recovery journal.");return YES;
     } @catch(NSException *exception){if(error)*error=HaloBackupFailure([exception.reason stringByAppendingString:@" Halo has not started. Recovery will be retried next launch."]);return NO;}
 }
+
+/* ---------- M2.6.88: retire replacement mods; Custom Edition + MP4 library ---------- */
+
+BOOL HaloModsLegacyExists(void)
+{
+    return [NSFileManager.defaultManager fileExistsAtPath:ModRoot().path];
+}
+
+BOOL HaloModsRetireLegacy(NSError **error)
+{
+    @try {
+        if (!HaloModsLegacyExists()) return YES;
+        NSArray *old = HaloModsList();
+        if (old.count) {
+            NSMutableArray *disabled = [NSMutableArray arrayWithCapacity:old.count];
+            for (NSDictionary *entry in old) {
+                NSMutableDictionary *copy = [entry mutableCopy];
+                copy[@"enabled"] = @NO;
+                [disabled addObject:copy];
+            }
+            Save(disabled);
+        } else if (![NSFileManager.defaultManager fileExistsAtPath:ModFile(@"pending.plist").path] &&
+                   ![NSFileManager.defaultManager fileExistsAtPath:ModFile(@"journal.plist").path]) {
+            /* An empty legacy folder has no live overlay to unwind. */
+            [NSFileManager.defaultManager removeItemAtURL:ModRoot() error:nil];
+            return YES;
+        }
+        if (!HaloModsApply(error)) return NO;
+        HaloBackupRequire(![NSFileManager.defaultManager fileExistsAtPath:ModRoot().path] ||
+                          [NSFileManager.defaultManager removeItemAtURL:ModRoot() error:nil],
+                          @"Original maps were restored, but the retired mod catalog could not be removed.");
+        return YES;
+    } @catch (NSException *exception) {
+        if (error) *error = HaloBackupFailure([exception.reason stringByAppendingString:@" Halo has not started. Legacy map-mod cleanup will retry next launch."]);
+        return NO;
+    }
+}
+
+static NSURL *CustomRoot(void) { return [NSURL fileURLWithPath:[HaloBackupRoot() stringByAppendingPathComponent:@"custom_maps"] isDirectory:YES]; }
+static NSURL *CustomDisabledRoot(void) { return [NSURL fileURLWithPath:[HaloBackupRoot() stringByAppendingPathComponent:@"custom_maps_disabled"] isDirectory:YES]; }
+static NSURL *VideoRoot(void) { return [NSURL fileURLWithPath:[HaloBackupRoot() stringByAppendingPathComponent:@"videos"] isDirectory:YES]; }
+
+static BOOL SafeLeaf(NSString *name, NSArray<NSString *> *extensions)
+{
+    if (![name isKindOfClass:NSString.class] || !name.length || name.length > 255 || [name hasPrefix:@"."]) return NO;
+    if (![extensions containsObject:name.pathExtension.lowercaseString]) return NO;
+    NSCharacterSet *allowed = [NSCharacterSet characterSetWithCharactersInString:@"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_- ."];
+    return [name rangeOfCharacterFromSet:allowed.invertedSet].location == NSNotFound;
+}
+
+static uint32_t Little32(const unsigned char *p)
+{
+    uint32_t value = 0;
+    memcpy(&value, p, sizeof(value));
+    return CFSwapInt32LittleToHost(value);
+}
+
+static NSDictionary *CustomMapInfo(NSURL *url, BOOL enabled)
+{
+    NSDictionary *attrs = [NSFileManager.defaultManager attributesOfItemAtPath:url.path error:nil] ?: @{};
+    NSFileHandle *handle = [NSFileHandle fileHandleForReadingFromURL:url error:nil];
+    NSData *header = nil;
+    @try { header = [handle readDataOfLength:2048]; } @finally { [handle closeFile]; }
+    uint32_t version = 0; BOOL valid = NO;
+    if (header.length == 2048) {
+        const unsigned char *bytes = header.bytes;
+        version = Little32(bytes + 4);
+        valid = Little32(bytes) == UINT32_C(0x68656164) && version == 609 && Little32(bytes + 2044) == UINT32_C(0x666f6f74);
+    }
+    NSString *stem = url.lastPathComponent.stringByDeletingPathExtension;
+    NSURL *folder = url.URLByDeletingLastPathComponent;
+    return @{ @"file": url.lastPathComponent,
+              @"enabled": @(enabled), @"valid": @(valid), @"version": @(version),
+              @"size": attrs[NSFileSize] ?: @0,
+              @"picture": @([NSFileManager.defaultManager fileExistsAtPath:[[folder URLByAppendingPathComponent:[stem stringByAppendingPathExtension:@"bmp"]] path]]),
+              @"description": @([NSFileManager.defaultManager fileExistsAtPath:[[folder URLByAppendingPathComponent:[stem stringByAppendingPathExtension:@"txt"]] path]]) };
+}
+
+static BOOL IsCEResource(NSString *name)
+{
+    NSString *lower = name.lowercaseString;
+    return [lower isEqual:@"bitmaps.map"] || [lower isEqual:@"sounds.map"] || [lower isEqual:@"loc.map"];
+}
+
+static void EnsureCustomFolders(void)
+{
+    NSFileManager *fm = NSFileManager.defaultManager;
+    HaloBackupRequire([fm createDirectoryAtURL:CustomRoot() withIntermediateDirectories:YES attributes:nil error:nil], @"Cannot create Custom Edition maps folder.");
+    HaloBackupRequire([fm createDirectoryAtURL:CustomDisabledRoot() withIntermediateDirectories:YES attributes:nil error:nil], @"Cannot create disabled Custom Edition maps folder.");
+}
+
+static void AtomicInstall(NSURL *source, NSURL *destination)
+{
+    NSFileManager *fm = NSFileManager.defaultManager;
+    HaloBackupRequire(HaloBackupRegular(source), @"Choose regular files, not folders or links.");
+    HaloBackupRequire([fm createDirectoryAtURL:destination.URLByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil], @"Cannot prepare destination folder.");
+    NSURL *temp = [destination.URLByDeletingLastPathComponent URLByAppendingPathComponent:[@".import-" stringByAppendingString:NSUUID.UUID.UUIDString]];
+    HaloBackupRequire([fm copyItemAtURL:source toURL:temp error:nil], @"Cannot copy content; check free storage.");
+    BOOL ok = [fm fileExistsAtPath:destination.path]
+        ? [fm replaceItemAtURL:destination withItemAtURL:temp backupItemName:nil options:0 resultingItemURL:nil error:nil]
+        : [fm moveItemAtURL:temp toURL:destination error:nil];
+    if (!ok) [fm removeItemAtURL:temp error:nil];
+    HaloBackupRequire(ok, @"Cannot finish importing content.");
+}
+
+NSArray<NSDictionary *> *HaloCustomMapsList(void)
+{
+    EnsureCustomFolders();
+    NSMutableArray *result = [NSMutableArray array];
+    for (NSArray *pair in @[@[CustomRoot(), @YES], @[CustomDisabledRoot(), @NO]]) {
+        NSURL *root = pair[0]; BOOL enabled = [pair[1] boolValue];
+        NSArray *names = [[NSFileManager.defaultManager contentsOfDirectoryAtPath:root.path error:nil] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+        for (NSString *name in names) {
+            if (!SafeLeaf(name, @[@"map"]) || IsCEResource(name)) continue;
+            NSURL *file = [root URLByAppendingPathComponent:name];
+            if (HaloBackupRegular(file)) [result addObject:CustomMapInfo(file, enabled)];
+        }
+    }
+    return result;
+}
+
+NSDictionary<NSString *, NSNumber *> *HaloCustomResourcesStatus(void)
+{
+    EnsureCustomFolders();
+    NSMutableDictionary *status = [NSMutableDictionary dictionary];
+    for (NSString *name in @[@"bitmaps.map", @"sounds.map", @"loc.map"])
+        status[name] = @(HaloBackupRegular([CustomRoot() URLByAppendingPathComponent:name]));
+    return status;
+}
+
+static void ValidateCEMap(NSURL *url)
+{
+    NSDictionary *info = CustomMapInfo(url, YES);
+    uint32_t version = [info[@"version"] unsignedIntValue];
+    if (version == 5) HaloBackupRequire(NO, @"That is an Xbox version 5 map. Use Import maps for original/Xbox maps; Custom Edition Maps requires version 609.");
+    HaloBackupRequire([info[@"valid"] boolValue], @"Custom Edition map header is invalid or unsupported. OpenCE build 146 supports standard version 609 CE maps; OpenSauce maps are not supported.");
+}
+
+void HaloCustomContentImport(NSArray<NSURL *> *files)
+{
+    HaloBackupRequire(files.count > 0 && files.count <= 256, @"Choose up to 256 Custom Edition files at once.");
+    EnsureCustomFolders();
+    NSMutableSet *seen = [NSMutableSet set];
+    for (NSURL *url in files) {
+        NSString *name = url.lastPathComponent;
+        HaloBackupRequire(SafeLeaf(name, @[@"map", @"bmp", @"txt"]), @"Custom Edition content may be .map, .bmp or .txt and must use a simple filename.");
+        HaloBackupRequire(![seen containsObject:name.lowercaseString], @"Choose distinct filenames.");
+        [seen addObject:name.lowercaseString];
+        NSDictionary *attrs = [NSFileManager.defaultManager attributesOfItemAtPath:url.path error:nil];
+        unsigned long long size = [attrs[NSFileSize] unsignedLongLongValue];
+        HaloBackupRequire(size > 0, @"Custom Edition file is empty.");
+        NSString *ext = name.pathExtension.lowercaseString;
+        if ([ext isEqual:@"map"]) {
+            HaloBackupRequire(size <= 2ull * 1024 * 1024 * 1024, @"Map is larger than 2 GB.");
+            if (!IsCEResource(name)) ValidateCEMap(url);
+        } else if ([ext isEqual:@"bmp"]) {
+            HaloBackupRequire(size <= 64ull * 1024 * 1024, @"Custom map picture must be 64 MB or smaller.");
+        } else {
+            HaloBackupRequire(size <= 1024, @"Custom map description must be 1 KB or smaller, matching OpenCE's limit.");
+        }
+        AtomicInstall(url, [CustomRoot() URLByAppendingPathComponent:name]);
+        /* Importing an active copy retires a disabled copy of the same item. */
+        [NSFileManager.defaultManager removeItemAtURL:[CustomDisabledRoot() URLByAppendingPathComponent:name] error:nil];
+    }
+}
+
+static NSURL *FindCustomMap(NSString *file, BOOL enabled)
+{
+    HaloBackupRequire(SafeLeaf(file, @[@"map"]) && !IsCEResource(file), @"Invalid Custom Edition map name.");
+    return [(enabled ? CustomRoot() : CustomDisabledRoot()) URLByAppendingPathComponent:file];
+}
+
+static void MoveSidecar(NSString *stem, NSString *ext, NSURL *from, NSURL *to)
+{
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSString *name = [stem stringByAppendingPathExtension:ext];
+    NSURL *source = [from URLByAppendingPathComponent:name], *dest = [to URLByAppendingPathComponent:name];
+    if (![fm fileExistsAtPath:source.path]) return;
+    [fm removeItemAtURL:dest error:nil];
+    HaloBackupRequire([fm moveItemAtURL:source toURL:dest error:nil], @"Cannot move Custom Edition sidecar file.");
+}
+
+void HaloCustomMapSetEnabled(NSString *file, BOOL enabled)
+{
+    EnsureCustomFolders();
+    NSURL *source = FindCustomMap(file, !enabled), *dest = FindCustomMap(file, enabled);
+    HaloBackupRequire(HaloBackupRegular(source), @"Custom Edition map no longer exists.");
+    [NSFileManager.defaultManager removeItemAtURL:dest error:nil];
+    HaloBackupRequire([NSFileManager.defaultManager moveItemAtURL:source toURL:dest error:nil], @"Cannot change Custom Edition map state.");
+    NSString *stem = file.stringByDeletingPathExtension;
+    MoveSidecar(stem, @"bmp", source.URLByDeletingLastPathComponent, dest.URLByDeletingLastPathComponent);
+    MoveSidecar(stem, @"txt", source.URLByDeletingLastPathComponent, dest.URLByDeletingLastPathComponent);
+}
+
+void HaloCustomMapRemove(NSString *file)
+{
+    EnsureCustomFolders();
+    NSString *stem = file.stringByDeletingPathExtension;
+    for (NSURL *root in @[CustomRoot(), CustomDisabledRoot()]) {
+        for (NSString *name in @[file, [stem stringByAppendingPathExtension:@"bmp"], [stem stringByAppendingPathExtension:@"txt"]]) {
+            NSURL *url = [root URLByAppendingPathComponent:name];
+            if ([NSFileManager.defaultManager fileExistsAtPath:url.path]) HaloBackupRequire([NSFileManager.defaultManager removeItemAtURL:url error:nil], @"Cannot remove Custom Edition map content.");
+        }
+    }
+}
+
+static BOOL SafeMovieName(NSString *name)
+{
+    return SafeLeaf(name, @[@"mp4"]);
+}
+
+static BOOL RecognizedMovieStem(NSString *stem)
+{
+    NSString *s = stem.lowercaseString;
+    for (NSString *suffix in @[@"_de", @"_fr", @"_es", @"_it"])
+        if ([s hasSuffix:suffix]) { s = [s substringToIndex:s.length - suffix.length]; break; }
+    return [@[@"intro", @"credits", @"attract1", @"attract2", @"attract3"] containsObject:s];
+}
+
+NSArray<NSDictionary *> *HaloMoviesList(void)
+{
+    NSFileManager *fm = NSFileManager.defaultManager;
+    [fm createDirectoryAtURL:VideoRoot() withIntermediateDirectories:YES attributes:nil error:nil];
+    NSMutableArray *result = [NSMutableArray array];
+    NSArray *names = [[fm contentsOfDirectoryAtPath:VideoRoot().path error:nil] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+    for (NSString *name in names) {
+        if (!SafeMovieName(name)) continue;
+        NSURL *url = [VideoRoot() URLByAppendingPathComponent:name]; if (!HaloBackupRegular(url)) continue;
+        NSDictionary *attrs = [fm attributesOfItemAtPath:url.path error:nil] ?: @{};
+        [result addObject:@{ @"file": name, @"recognized": @(RecognizedMovieStem(name.stringByDeletingPathExtension)), @"size": attrs[NSFileSize] ?: @0 }];
+    }
+    return result;
+}
+
+void HaloMoviesImport(NSArray<NSURL *> *files)
+{
+    HaloBackupRequire(files.count > 0 && files.count <= 32, @"Choose up to 32 MP4 movies at once.");
+    [NSFileManager.defaultManager createDirectoryAtURL:VideoRoot() withIntermediateDirectories:YES attributes:nil error:nil];
+    for (NSURL *url in files) {
+        NSString *name = url.lastPathComponent.lowercaseString;
+        HaloBackupRequire(SafeMovieName(name), @"Movies must be .mp4 files with simple filenames.");
+        HaloBackupRequire(RecognizedMovieStem(name.stringByDeletingPathExtension), @"Use Halo movie names: intro.mp4, credits.mp4, attract1.mp4, attract2.mp4 or attract3.mp4. Localized _de/_fr/_es/_it variants are also accepted.");
+        NSDictionary *attrs = [NSFileManager.defaultManager attributesOfItemAtPath:url.path error:nil];
+        HaloBackupRequire([attrs[NSFileSize] unsignedLongLongValue] > 0 && [attrs[NSFileSize] unsignedLongLongValue] <= 8ull * 1024 * 1024 * 1024, @"Movie is empty or larger than 8 GB.");
+        AtomicInstall(url, [VideoRoot() URLByAppendingPathComponent:name]);
+    }
+}
+
+void HaloMovieRemove(NSString *file)
+{
+    HaloBackupRequire(SafeMovieName(file), @"Invalid movie filename.");
+    NSURL *url = [VideoRoot() URLByAppendingPathComponent:file];
+    HaloBackupRequire(![NSFileManager.defaultManager fileExistsAtPath:url.path] || [NSFileManager.defaultManager removeItemAtURL:url error:nil], @"Cannot remove movie.");
+}
+
+static NSURL *MovieURLForBinkPath(const char *binkPath)
+{
+    if (!binkPath || !*binkPath) return nil;
+    NSString *raw = [[NSString stringWithUTF8String:binkPath] stringByReplacingOccurrencesOfString:@"\\" withString:@"/"];
+    NSString *stem = raw.lastPathComponent.stringByDeletingPathExtension.lowercaseString;
+    if (!stem.length) return nil;
+    NSMutableArray *stems = [NSMutableArray arrayWithObject:stem];
+    for (NSString *suffix in @[@"_de", @"_fr", @"_es", @"_it"])
+        if ([stem hasSuffix:suffix]) { [stems addObject:[stem substringToIndex:stem.length - suffix.length]]; break; }
+    for (NSString *candidate in stems) {
+        NSURL *url = [VideoRoot() URLByAppendingPathComponent:[candidate stringByAppendingPathExtension:@"mp4"]];
+        if (HaloBackupRegular(url)) return url;
+    }
+    return nil;
+}
+
+BOOL HaloMovieAvailablePath(const char *binkPath)
+{
+    return MovieURLForBinkPath(binkPath) != nil;
+}
+
+#ifndef HALO_BACKUP_TEST
+@interface HaloMovieSurface : UIView
+@property(nonatomic,strong) AVPlayerLayer *movieLayer;
+@end
+@implementation HaloMovieSurface
+- (void)layoutSubviews { [super layoutSubviews];self.movieLayer.frame=self.bounds; }
+@end
+
+static AVPlayer *gMoviePlayer;
+static HaloMovieSurface *gMovieSurface;
+static id gMovieEndObserver, gMovieFailObserver;
+static _Atomic int gMovieActive;
+static unsigned long gMovieFlags;
+static float gMovieRestoreVolume = 1.0f;
+@class HaloMovieTapTarget;
+static HaloMovieTapTarget *gMovieTapTarget;
+
+static UIWindow *MovieWindow(void)
+{
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+        if (![scene isKindOfClass:UIWindowScene.class] || scene.activationState == UISceneActivationStateUnattached) continue;
+        for (UIWindow *window in ((UIWindowScene *)scene).windows) if (window.isKeyWindow) return window;
+    }
+    return UIApplication.sharedApplication.windows.firstObject;
+}
+
+static void MovieFinishMain(void)
+{
+    BOOL hadMovie = gMoviePlayer != nil || gMovieSurface != nil || atomic_load_explicit(&gMovieActive, memory_order_acquire) != 0;
+    if (gMovieEndObserver) { [NSNotificationCenter.defaultCenter removeObserver:gMovieEndObserver]; gMovieEndObserver=nil; }
+    if (gMovieFailObserver) { [NSNotificationCenter.defaultCenter removeObserver:gMovieFailObserver]; gMovieFailObserver=nil; }
+    [gMoviePlayer pause]; gMoviePlayer=nil;
+    [gMovieSurface removeFromSuperview]; gMovieSurface=nil;gMovieTapTarget=nil;
+    atomic_store_explicit(&gMovieActive, 0, memory_order_release);
+    if (hadMovie) { halo_ios_audio_set_volume(gMovieRestoreVolume);halo_ios_audio_resume(); }
+}
+
+@interface HaloMovieTapTarget : NSObject
+@end
+@implementation HaloMovieTapTarget
+- (void)skip:(id)sender { (void)sender;MovieFinishMain(); }
+@end
+
+BOOL HaloMovieStartPath(const char *binkPath, unsigned long flags)
+{
+    NSURL *url = MovieURLForBinkPath(binkPath);
+    if (!url) return NO;
+    __block BOOL started = NO;
+    void (^start)(void) = ^{
+        MovieFinishMain();
+        UIWindow *window = MovieWindow(); if (!window) return;
+        gMovieFlags = flags;
+        HsSettings settings = [HaloSettingsStore.shared snapshot];
+        gMovieRestoreVolume = settings.volume;
+        halo_ios_audio_set_volume(0.0f);
+        gMoviePlayer = [AVPlayer playerWithURL:url];
+        gMovieSurface = [[HaloMovieSurface alloc] initWithFrame:window.bounds];
+        gMovieSurface.backgroundColor = UIColor.blackColor;
+        gMovieSurface.autoresizingMask = UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight;
+        gMovieSurface.movieLayer = [AVPlayerLayer playerLayerWithPlayer:gMoviePlayer];
+        gMovieSurface.movieLayer.videoGravity = AVLayerVideoGravityResizeAspect;
+        [gMovieSurface.layer addSublayer:gMovieSurface.movieLayer];
+        UIButton *skip = [UIButton buttonWithType:UIButtonTypeCustom];skip.frame=gMovieSurface.bounds;skip.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight;skip.userInteractionEnabled=(flags&(1ul<<1))!=0;
+        gMovieTapTarget=[HaloMovieTapTarget new];[skip addTarget:gMovieTapTarget action:@selector(skip:) forControlEvents:UIControlEventTouchUpInside];[gMovieSurface addSubview:skip];
+        [window addSubview:gMovieSurface];
+        atomic_store_explicit(&gMovieActive, 1, memory_order_release);
+        __weak AVPlayer *weakPlayer = gMoviePlayer;
+        gMovieEndObserver=[NSNotificationCenter.defaultCenter addObserverForName:AVPlayerItemDidPlayToEndTimeNotification object:gMoviePlayer.currentItem queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note){(void)note;if((gMovieFlags&1ul)&&weakPlayer){[weakPlayer seekToTime:kCMTimeZero];[weakPlayer play];}else MovieFinishMain();}];
+        gMovieFailObserver=[NSNotificationCenter.defaultCenter addObserverForName:AVPlayerItemFailedToPlayToEndTimeNotification object:gMoviePlayer.currentItem queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note){(void)note;MovieFinishMain();}];
+        [gMoviePlayer play];started=YES;
+    };
+    if (NSThread.isMainThread) start(); else dispatch_sync(dispatch_get_main_queue(), start);
+    return started;
+}
+
+BOOL HaloMovieIsActive(void)
+{
+    return atomic_load_explicit(&gMovieActive, memory_order_acquire) != 0;
+}
+
+void HaloMovieStop(void)
+{
+    if (NSThread.isMainThread) MovieFinishMain(); else dispatch_sync(dispatch_get_main_queue(), ^{MovieFinishMain();});
+}
+
+#else
+BOOL HaloMovieStartPath(const char *binkPath, unsigned long flags) { (void)binkPath; (void)flags; return NO; }
+BOOL HaloMovieIsActive(void) { return NO; }
+void HaloMovieStop(void) {}
+#endif

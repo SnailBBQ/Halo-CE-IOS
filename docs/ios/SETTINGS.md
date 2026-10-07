@@ -100,16 +100,13 @@ Recipes are saved with the scheme and applied when you enter a solo campaign or 
 
 ## Mods
 
-**Mods** is the map library.
+**Mods** now manages content that can coexist with the original Xbox library. M2.6.88 retires the old replacement-map switch/reorder UI.
 
-- **Installed game files.** *Show installed game files* is off by default because the list is long. When shown, campaign maps come first in mission order,
-  then the multiplayer maps in the game's own menu order (or alphabetically with *Sort multiplayer maps A–Z*), then other maps, then `ui.map`.
-  *Multiplayer only* hides the campaign maps. Each card shows a picture, name, type, size and a header check. Pictures can be taken from `ui.map`
-  or chosen by you.
-- **Mods.** Import compiled Xbox map files through Files. Imported mods start **switched off**. Switch them on, and reorder them: a later map replaces an earlier one with the same file name.
-  Changes apply on the next launch, before the engine starts, never to a running map. Original maps are kept and restored when their replacements are switched off.
-  Files are checked for an Xbox version-5 header, a sensible size and an import hash.
-- Only compiled maps work. Loose editor tags, PC-format maps and executable plugins do not. Keep everyone in a multiplayer game on the same content.
+- **Custom Edition Maps.** Import standard Halo Custom Edition **version 609** `.map` files. They are stored in `Documents/Halo/custom_maps`, which OpenCE build 146 scans separately from `Documents/Halo/maps`. `bitmaps.map`, `sounds.map` and `loc.map` can be imported as shared resource caches. Optional `<map>.bmp` and `<map>.txt` sidecars provide OpenCE's custom picture/description. A custom map can be disabled without deletion; its sidecars move with it. OpenSauce maps remain unsupported upstream.
+- **Movies (MP4 fallback).** Import your own `intro.mp4`, `credits.mp4`, `attract1.mp4`, `attract2.mp4` or `attract3.mp4` (localized `_de`, `_fr`, `_es`, `_it` variants are also accepted). When Halo asks for the corresponding Bink movie, iOS plays the MP4 natively with AVPlayer and returns to the normal Halo flow when it finishes or is skipped. The project does not ship movie assets or a Bink decoder.
+- **Installed Xbox game files.** The original version-5 Xbox maps remain separate. The list can show header status and pictures and still supports importing/replacing Xbox files through the safe staged map/disc workflow. Custom Edition maps never overwrite these files.
+- If an older installation still has replacement-map mods enabled, M2.6.88 restores the saved originals through the old recovery journal once before engine startup, then removes the retired private mod catalog.
+- Multiplayer players still need compatible OpenCE network versions and matching custom content.
 
 ## Profiles
 

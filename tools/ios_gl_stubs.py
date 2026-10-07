@@ -74,7 +74,7 @@ def main():
                     "host_texture_decode_dxt", "host_texture_hash",
                     "host_memory_copy", "host_memory_fill", "host_loading_stage",
                     "host_crc_checksum", "host_texture_decode_texels", "host_frame_phase", "host_frame_counts",
-                    "host_silent_advance", "host_audio_open", "host_audio_fill", "host_audio_push", "host_cheat_flags", "host_viewmodel_flags", "host_touch_auto_fire", "host_active_invite", "host_audio_class_gain", "host_hud_options", "host_network_status", "host_network_details", "host_campaign_options", "host_settings_value", "host_campaign_state", "host_debug_state", "host_vertex_color_swizzle", "host_vertex_attribute_pointer",
+                    "host_silent_advance", "host_audio_open", "host_audio_fill", "host_audio_push", "host_movie_available", "host_movie_start", "host_movie_active", "host_movie_stop", "host_cheat_flags", "host_viewmodel_flags", "host_touch_auto_fire", "host_active_invite", "host_audio_class_gain", "host_hud_options", "host_network_status", "host_network_details", "host_campaign_options", "host_settings_value", "host_campaign_state", "host_debug_state", "host_vertex_color_swizzle", "host_vertex_attribute_pointer",
                     "host_vertex_attribute_value", "host_vertex_state_invalidate", "host_render_scan", "host_uniform_apply", "host_scene_scan", "host_scene_datum", "host_scene_filter_objects"]
 
     for name in functions:

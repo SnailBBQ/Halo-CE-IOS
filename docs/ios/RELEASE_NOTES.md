@@ -1,15 +1,15 @@
 # Release notes
 
-The current update is **M2.6.87**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.88**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.87](../../port/ios/UPDATE_M2687.md) integrates OpenCE build 146/network 22 and preserves M2.6.86 Non-Jailbreak **flexible-base Stage 2**. Build 146 adds upstream Halo Custom Edition cache/map loading and validation, menu listing, missing-map reporting and hostile-map hardening; OpenSauce maps are refused. The iOS mobile memory layout is unchanged, so Custom Edition behavior still needs device validation. Actions and device validation are pending.
+**Latest:** [M2.6.88](../../port/ios/UPDATE_M2688.md) stays on OpenCE build 146/network 22, replaces the old replacement-map UI with a native iOS Custom Edition library under `custom_maps`, and adds user-supplied MP4 playback for Halo Bink requests through AVPlayer. M2.6.86 Non-Jailbreak **flexible-base Stage 2** is preserved. Actions and device validation are pending.
 
-**Previous:** [M2.6.86](../../port/ios/UPDATE_M2686.md) added Non-Jailbreak flexible-base Stage 2 on OpenCE build 144/network 21. [M2.6.85](../../port/ios/UPDATE_M2685.md) was the previous engine promotion.
+**Previous:** [M2.6.87](../../port/ios/UPDATE_M2687.md) integrated OpenCE build 146/network 22. [M2.6.86](../../port/ios/UPDATE_M2686.md) added Non-Jailbreak flexible-base Stage 2 on the previous build-144 engine.
 
 **Previous engine update:** [M2.6.81](../../port/ios/UPDATE_M2681.md) integrated OpenCE build 138/network 20; M2.6.82 and M2.6.83 repaired the two guest-compile regressions that integration exposed, and M2.6.83 passed GitHub Actions. [M2.6.84](../../port/ios/UPDATE_M2684.md) then added only deeper Non-Jailbreak diagnostics without changing that engine.
 
@@ -57,6 +57,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.88 | iOS Custom Edition map manager replaces replacement maps; user-supplied MP4 fallback for Bink intro/credits/attract movies; legacy overlay retirement; OpenCE build 146/network 22 and M2.6.86 Stage-2 Non-JB diagnostics retained. Actions/device validation pending. |
 | M2.6.87 | OpenCE build 146 / network 22 integration; 9 upstream commits, 69 changed/added upstream paths, Custom Edition cache/map loading and validation, menu listing, missing-map reporting and hostile-map hardening; M2.6.86 Stage-2 Non-JB diagnostics retained. Actions/device validation pending. |
 | M2.6.86 | Non-Jailbreak flexible-base Stage 2: hostile unaligned 4 GiB arena, base+uint32 pointer model, stack/heap/guest-pointer structures, remap, atomics, second thread, import/callback dispatch and RX canary; real Halo guest remains disabled on this path. |
 | M2.6.85 | OpenCE build 144 / network 21 integration; 28 upstream commits, 148 changed/added upstream paths, strict 43/43 flags-off equivalence, renderer/co-op/netcode/map-validation/hardening/performance updates; M2.6.84 Non-JB diagnostics retained. Actions/device validation pending. |

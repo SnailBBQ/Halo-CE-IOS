@@ -10,14 +10,13 @@ and restores it later.
 | Campaign saves (persistent checkpoints and save metadata) | Yes, separately selectable |
 | Halo player profiles and playlists | Yes, separately selectable |
 | Preferences, control schemes, touch layouts, HUD layouts and recipes | Yes |
-| Maps | Optional |
-| Map pictures | Optional |
+| Xbox maps, Custom Edition maps/resources and user-supplied MP4 movies | Optional |
+| Map pictures / CE sidecars | Optional |
 
 You can switch each part on or off before you export, and again before you restore, so you can bring back only your layouts, for example.
 
 **Never included:** temporary map caches (`save/z/cache*.map`), the volatile `save/z/savegame.bin` checkpoint, the active invite file, temporary networking state, log files and running cheat toggles. A backup captures progress that is
-saved on disk, not a live snapshot of a game in progress. The mod library's catalogue is not part of the optional map backup, so export
-important mods individually from Settings → Mods. Disable active map replacements before restoring base maps so the mod library can restore its originals first.
+saved on disk, not a live snapshot of a game in progress. The optional Maps section includes `maps/`, `custom_maps/`, `custom_maps_disabled/`, `videos/` and map thumbnails. M2.6.88 no longer has a user-facing replacement-map catalogue. Existing legacy replacement overlays are restored and retired before the engine starts.
 
 ## Exporting
 
@@ -45,7 +44,7 @@ A restore merges the chosen parts into the app: files with matching names are re
 ## Other ways to move your setup
 
 - **Settings → Profiles** exports and imports your settings (not saves) as a small `.haloprofile` file. See [Settings → Profiles](SETTINGS.md#profiles).
-- **Settings → Mods** exports an individual mod.
+- **Settings → Mods** manages Custom Edition content and user-supplied MP4 movies; include the Maps section when exporting a `.halobackup` if you want them preserved.
 - Removing the app deletes its data, so export a backup first.
 
 ## Keep saves when deleting Halo

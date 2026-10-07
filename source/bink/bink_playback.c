@@ -133,6 +133,11 @@ symbols in this file:
 #include "text/draw_string.h"
 #include "text/text_group.h"
 #include <xtl.h>
+#ifdef HALO_IOS_GUEST
+extern int host_movie_start(const char *path, unsigned long flags);
+extern int host_movie_active(void);
+extern void host_movie_stop(void);
+#endif
 
 /* ---------- constants */
 
@@ -415,7 +420,11 @@ static long bink_pointer_block_count = 0;
 boolean bink_playback_active(
 	void)
 {
+#ifdef HALO_IOS_GUEST
+	return bink_globals.bink && bink_globals.initialized && host_movie_active();
+#else
 	return bink_globals.bink && bink_globals.initialized;
+#endif
 }
 
 boolean bink_playback_ui_rendering_inhibited(
@@ -428,7 +437,11 @@ boolean bink_playback_ui_rendering_inhibited(
 boolean bink_playback_in_progress(
 	void)
 {
+#ifdef HALO_IOS_GUEST
+	return bink_globals.bink != NULL && host_movie_active();
+#else
 	return bink_globals.bink != NULL;
+#endif
 }
 
 void bink_playback_initialize(
@@ -454,11 +467,17 @@ void bink_playback_stop(
 
 	if (bink_globals.bink)
 	{
+#ifdef HALO_IOS_GUEST
+		host_movie_stop();
+#else
 		BinkClose(bink_globals.bink);
+#endif
 		bink_globals.bink = NULL;
 	}
 
+#ifndef HALO_IOS_GUEST
 	bink_free_texture_cache();
+#endif
 
 	if (TEST_FLAG(bink_globals.flags, _bink_playback_return_to_main_menu_when_finished_bit))
 		main_menu_load();
@@ -489,6 +508,10 @@ void bink_playback_render(
 	if (!bink_globals.initialized || !bink_globals.bink)
 		return;
 
+#ifdef HALO_IOS_GUEST
+	bink_playback_update__internal();
+	return;
+#else
 	if (global_frame_rate_throttle)
 		bink_globals.needs_decode = TRUE;
 	else if (!bink_globals.needs_decode)
@@ -503,6 +526,7 @@ skip_decode:
 
 	if (!global_frame_rate_throttle)
 		bink_playback_update__internal();
+#endif
 
 	return;
 }
@@ -524,6 +548,25 @@ void bink_playback_start(
 		bink_globals.bink==NULL,
 		"there is already a bink movie being played");
 
+#ifdef HALO_IOS_GUEST
+	if (host_movie_start(full_pathname, flags))
+	{
+		bink_globals.bink = (HBINK)1;
+		bink_globals.flags = flags;
+		if (TEST_FLAG(flags, _bink_playback_prevent_events_to_ui_bit))
+		{
+			event_manager_flush();
+			event_manager_suppress(TRUE);
+		}
+		bink_saved_frame_rate_throttle = global_frame_rate_throttle;
+		global_frame_rate_throttle = FALSE;
+	}
+	else
+	{
+		error(_error_silent, "### ERROR iOS MP4 fallback missing or failed for bink file '%s'", full_pathname);
+	}
+	return;
+#else
 	bink_globals.memory_pool_size= TEST_FLAG(flags, _bink_playback_eat_up_memory_like_a_goddamn_beaver_bit) ?
 		BINK_MEMORY_POOL_SIZE_GODDAMN_BEAVER : BINK_MEMORY_POOL_SIZE;
 	bink_globals.memory_pool_offset= 0;
@@ -650,6 +693,7 @@ void bink_playback_start(
 		error(_error_immediate, "### ERROR bink failed to fucking steal some fucking memory from the fucking texture cache");
 		bink_free_texture_cache();
 	}
+#endif
 
 	return;
 }
@@ -978,6 +1022,23 @@ static void bink_playback_update__internal(
 {
 	if (bink_globals.initialized && bink_globals.bink)
 	{
+#ifdef HALO_IOS_GUEST
+		if (TEST_FLAG(bink_globals.flags, _bink_playback_button_click_stops_movie_bit))
+		{
+			boolean allow_skipping= TEST_FLAG(bink_globals.flags, _bink_playback_dont_allow_skipping_if_filesystem_check_thread_is_active_bit) ?
+				!filesystem_check_thread_is_active() : TRUE;
+			if (allow_skipping && bink_query_analog_controller_buttons())
+			{
+				bink_playback_stop();
+				return;
+			}
+		}
+		if (!host_movie_active())
+		{
+			bink_playback_stop();
+			return;
+		}
+#else
 		if (global_frame_rate_throttle)
 		{
 			bink_globals.needs_decode= BinkWait(bink_globals.bink)==0;
@@ -1007,6 +1068,7 @@ static void bink_playback_update__internal(
 		{
 			bink_playback_stop();
 		}
+#endif
 	}
 
 	return;

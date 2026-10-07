@@ -26,7 +26,7 @@ This folder holds the native iOS app. For using the app, see the [documentation]
 | `halo_ios_platform.m`, `halo_ios_net.c` | Invites, recent games, networking |
 | `halo_settings_core.h` | All settings, saving, bounds |
 | `HaloSettingsViewController.m`, `HaloUI.m` | Settings screens |
-| `HaloLibrary.m`, `HaloMods.m`, `halo_map_order.h` | Map library and mods |
+| `HaloLibrary.m`, `HaloMods.m`, `halo_map_order.h` | Xbox/Custom Edition libraries, legacy replacement migration and MP4 movie library |
 | `HaloBackupArchive.m` | Backups and recovery |
 | `halo_log_report.h`, `HaloLogViewController.m` | Diagnostics |
 | `halo_pad_input.h`, `halo_color.h`, `halo_scancodes.h` | Controller shaping, colours, key names (all tested) |
@@ -54,7 +54,7 @@ cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_settin
 
 ## Following the upstream project
 
-New OpenCE builds are merged from the previous upstream build, this repository and the new build, then checked locally where possible and by the Apple workflow before release. M2.6.80 added `tools/ios_upstream_acceptance.py`; the PC updater can run it against the exact candidate OpenCE tree with `--upstream-root <tree> --require-upstream`. The historical build-125 baseline keeps 27 pre-M2.6.80 flags-off divergences fingerprinted in `upstream_baseline_deltas.json` for audit history. M2.6.81 was the first promoted newer integration to pass `--require-clean-flags-off`; M2.6.83 became the green build-138 compile baseline and M2.6.84 added only Non-Jailbreak host diagnostics. M2.6.85 promoted OpenCE build 144/network 21; M2.6.86 added only Non-Jailbreak Stage-2 host diagnostics. M2.6.87 promotes OpenCE build 146/network 22 while preserving those diagnostics. All 43 upstream-owned files containing iOS adaptations become exact OpenCE build-146 source when `HALO_IOS_GUEST` is disabled. Files that are only upstream's are taken byte-for-byte. See
+New OpenCE builds are merged from the previous upstream build, this repository and the new build, then checked locally where possible and by the Apple workflow before release. M2.6.80 added `tools/ios_upstream_acceptance.py`; the PC updater can run it against the exact candidate OpenCE tree with `--upstream-root <tree> --require-upstream`. The historical build-125 baseline keeps 27 pre-M2.6.80 flags-off divergences fingerprinted in `upstream_baseline_deltas.json` for audit history. M2.6.81 was the first promoted newer integration to pass `--require-clean-flags-off`; M2.6.83 became the green build-138 compile baseline and M2.6.84 added only Non-Jailbreak host diagnostics. M2.6.85 promoted OpenCE build 144/network 21; M2.6.86 added only Non-Jailbreak Stage-2 host diagnostics. M2.6.87 promotes OpenCE build 146/network 22 while preserving those diagnostics. M2.6.88 keeps build 146 and adapts its Custom Edition map system to iOS while adding the guarded MP4 movie bridge. All 43 upstream-owned files containing iOS adaptations become exact OpenCE build-146 source when `HALO_IOS_GUEST` is disabled. Files that are only upstream's are taken byte-for-byte. See
 [the official project and credits](../../docs/UPSTREAM.md).
 
 ## Release notes

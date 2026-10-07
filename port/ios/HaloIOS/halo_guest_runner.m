@@ -38,6 +38,7 @@
 #include "halo_scancodes.h"
 #include "halo_launch_state.h"
 #import "HaloSettingsStore.h"
+#import "HaloMods.h"
 #include "../../include/halo_ios_campaign_options.h"
 #include "halo_engine_settings.h"
 #include <string.h>
@@ -2402,6 +2403,48 @@ static void ios_active_invite(uint32_t text)
     halo_ios_set_hosted_invite(NULL);
 }
 
+static int ios_copy_guest_string(uint32_t address, char *out, size_t capacity)
+{
+    if (!out || capacity < 2 || !address) return 0;
+    for (size_t index = 0; index < capacity; ++index) {
+        const char *ch = gp((uint64_t)address + index, 1);
+        if (!ch) { out[0] = 0; return 0; }
+        out[index] = *ch;
+        if (!out[index]) return 1;
+    }
+    out[0] = 0;
+    return 0;
+}
+
+static int ios_host_movie_available(uint32_t path)
+{
+    char text[512];
+    if (!ios_copy_guest_string(path, text, sizeof(text))) return 0;
+    int available = HaloMovieAvailablePath(text) ? 1 : 0;
+    if (available) say("MOVIE: MP4 fallback available for %s", text);
+    return available;
+}
+
+static int ios_host_movie_start(uint32_t path, unsigned long flags)
+{
+    char text[512];
+    if (!ios_copy_guest_string(path, text, sizeof(text))) return 0;
+    int started = HaloMovieStartPath(text, flags) ? 1 : 0;
+    say("MOVIE: guest requested %s -> MP4 %s", text, started ? "started" : "missing/failed");
+    return started;
+}
+
+static int ios_host_movie_active(void)
+{
+    return HaloMovieIsActive() ? 1 : 0;
+}
+
+static void ios_host_movie_stop(void)
+{
+    say("MOVIE: stop/complete");
+    HaloMovieStop();
+}
+
 static int ios_sdl_set_clipboard_text(uint32_t text)
 {
     const char *string = gp(text, 1);
@@ -2922,6 +2965,10 @@ static void *resolve_host_import(const char *name)
     MAP("host_audio_open", ios_audio_open);
     MAP("host_audio_fill", ios_audio_fill);
     MAP("host_audio_push", ios_audio_push);
+    MAP("host_movie_available", ios_host_movie_available);
+    MAP("host_movie_start", ios_host_movie_start);
+    MAP("host_movie_active", ios_host_movie_active);
+    MAP("host_movie_stop", ios_host_movie_stop);
     MAP("host_cheat_flags", ios_cheat_flags);
     MAP("host_viewmodel_flags", ios_viewmodel_flags);
     MAP("host_touch_auto_fire", ios_touch_auto_fire);

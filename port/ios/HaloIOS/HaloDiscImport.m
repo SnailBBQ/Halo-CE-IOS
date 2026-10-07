@@ -1,6 +1,5 @@
 #import "HaloDiscImport.h"
 #import "HaloBackupArchive.h"
-#import "HaloMods.h"
 
 static NSURL *Work(void){return [HaloBackupWork() URLByAppendingPathComponent:@"disc-install" isDirectory:YES];}
 static NSURL *Journal(void){return [Work() URLByAppendingPathComponent:@"journal.plist"];}
@@ -65,7 +64,7 @@ BOOL HaloDiscInstall(NSURL *stage,BOOL replace,HaloDiscCancel cancel,NSUInteger 
             if(exists&&!replace)skip++;else [files addObject:file];
         }
         if(kept)*kept=skip;if(!files.count)return YES;
-        NSArray *plan=HaloModsPlanBaseImport(files,stage);NSMutableArray *records=[NSMutableArray array];
+        NSMutableArray *plan=[NSMutableArray arrayWithCapacity:files.count];for(NSURL *file in files)[plan addObject:@{@"source":file,@"target":[maps URLByAppendingPathComponent:file.lastPathComponent]}];NSMutableArray *records=[NSMutableArray array];
         /* A prior committed install may have been terminated during cleanup,
          * after retiring its journal. Never reuse its numbered originals. */
         HaloBackupRequire(![fm fileExistsAtPath:Work().path] || [fm removeItemAtURL:Work() error:nil],@"Cannot clean completed disc recovery files.");

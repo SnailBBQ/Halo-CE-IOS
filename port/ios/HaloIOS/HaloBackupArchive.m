@@ -24,8 +24,11 @@ void HaloBackupRequire(BOOL ok,NSString *message) { if(!ok) @throw [NSException 
 BOOL HaloBackupAllowed(NSString *path) {
     if(![path isKindOfClass:NSString.class] || path.length>1024 || [path hasPrefix:@"/"] || [path containsString:@"\\"])return NO;
     for(NSString *part in path.pathComponents)if([part isEqual:@".."] || [part isEqual:@"."] || !part.length)return NO;
-    return [path hasPrefix:@"save/"] || ([path hasPrefix:@"maps/"] && [path.pathExtension.lowercaseString isEqual:@"map"]) ||
-        ([path hasPrefix:@"map_thumbnails/"] && [@[@"png",@"jpg",@"jpeg"] containsObject:path.pathExtension.lowercaseString]) ||
+    NSString *ext=path.pathExtension.lowercaseString;
+    BOOL ce=([path hasPrefix:@"custom_maps/"] || [path hasPrefix:@"custom_maps_disabled/"]) && [@[@"map",@"bmp",@"txt"] containsObject:ext];
+    BOOL movie=[path hasPrefix:@"videos/"] && [ext isEqual:@"mp4"];
+    return [path hasPrefix:@"save/"] || ([path hasPrefix:@"maps/"] && [ext isEqual:@"map"]) || ce || movie ||
+        ([path hasPrefix:@"map_thumbnails/"] && [@[@"png",@"jpg",@"jpeg"] containsObject:ext]) ||
         [path isEqual:@"settings-icon.png"] || [path isEqual:@"settings.txt"] || [path isEqual:@"config.toml"];
 }
 /* Bit 1 remains the legacy combined saves/profiles selection. New bits 16 and
@@ -75,7 +78,7 @@ static unsigned Section(NSString *path) {
     if([p hasPrefix:@"save/c/profiles/"] || [p hasPrefix:@"save/z/saved/player_profiles/"] || [p hasPrefix:@"save/z/saved/playlists/"] ||
        [@[@"save/z/lastprof.txt",@"save/z/last_solo.txt",@"save/z/lastmpmp.txt",@"save/z/lastmpvr.txt"] containsObject:p])return 1|32;
     if([p hasPrefix:@"save/"])return 0;
-    return [p hasPrefix:@"maps/"]||[p hasPrefix:@"map_thumbnails/"]?8:[p isEqual:@"config.toml"]?2:6;
+    return [p hasPrefix:@"maps/"]||[p hasPrefix:@"custom_maps/"]||[p hasPrefix:@"custom_maps_disabled/"]||[p hasPrefix:@"videos/"]||[p hasPrefix:@"map_thumbnails/"]?8:[p isEqual:@"config.toml"]?2:6;
 }
 static NSString *Relative(NSURL *file,NSURL *root) {
     /* /var and /private/var may name the same app directory. Enumeration and

@@ -1,45 +1,88 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-<key>CFBundleDisplayName</key><string>Halo CE</string>
-<key>CFBundleIdentifier</key><string>com.haloceuniversal.ios.m0</string>
-<key>CFBundleName</key><string>Halo CE</string>
-<key>CFBundleExecutable</key><string>HaloIOS</string>
-<key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.2.87</string>
-<key>CFBundleVersion</key><string>2687</string>
-<key>HaloSourceMilestone</key><string>M2.6.87</string>
-<key>HaloOpenCERelease</key><string>build-146</string>
-<key>HaloOpenCECommit</key><string>314f576515585560ea6b375b0d5b8a02fd8991af</string>
-<key>HaloNetworkVersion</key><integer>22</integer>
-<key>HaloGameStateBytes</key><integer>20971520</integer>
-<key>HaloGuestABI</key><string>OpenCE arm64_32</string>
-<key>HaloGuestArchitecture</key><string>aligned-arena-v1</string>
-<key>HaloGuestAdaptation</key><string>ios-guarded-v1</string>
-<key>HaloRenderer</key><string>Apple OpenGL ES</string>
-<key>HaloBuildFlavor</key><string>Development</string>
-<key>HaloDiagnosticMode</key><string>none</string>
-<key>HaloGuestSHA256</key><string>unknown</string>
-<key>HaloSourceCommit</key><string>local</string>
-<key>HaloBuildRun</key><string>local</string>
-<key>UIFileSharingEnabled</key><true/>
-<key>LSSupportsOpeningDocumentsInPlace</key><true/>
-<key>UILaunchScreen</key><dict/>
-<key>UISupportedInterfaceOrientations</key>
-<array>
-    <string>UIInterfaceOrientationLandscapeLeft</string>
-    <string>UIInterfaceOrientationLandscapeRight</string>
-</array>
-<key>UIRequiresFullScreen</key><true/>
-<key>CADisableMinimumFrameDurationOnPhone</key><true/>
-<key>CFBundleURLTypes</key>
-<array><dict>
-    <key>CFBundleURLName</key><string>com.haloceuniversal.ios.invite</string>
-    <key>CFBundleURLSchemes</key><array><string>halo</string></array>
-</dict></array>
-<key>NSBonjourServices</key><array><string>_haloce._udp</string><string>_haloce-check._tcp</string></array>
-<key>NSLocalNetworkUsageDescription</key>
-<string>Halo uses your local network to find and join system link games with other players nearby.</string>
-<key>GCSupportedGameControllers</key>
-<array><dict><key>ProfileName</key><string>ExtendedGamepad</string></dict></array>
-</dict></plist>
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Halo CE</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.haloceuniversal.ios.m0</string>
+	<key>CFBundleName</key>
+	<string>Halo CE</string>
+	<key>CFBundleExecutable</key>
+	<string>HaloIOS</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.2.88</string>
+	<key>CFBundleVersion</key>
+	<string>2688</string>
+	<key>HaloSourceMilestone</key>
+	<string>M2.6.88</string>
+	<key>HaloOpenCERelease</key>
+	<string>build-146</string>
+	<key>HaloOpenCECommit</key>
+	<string>314f576515585560ea6b375b0d5b8a02fd8991af</string>
+	<key>HaloNetworkVersion</key>
+	<integer>22</integer>
+	<key>HaloGameStateBytes</key>
+	<integer>20971520</integer>
+	<key>HaloGuestABI</key>
+	<string>OpenCE arm64_32</string>
+	<key>HaloGuestArchitecture</key>
+	<string>aligned-arena-v1</string>
+	<key>HaloGuestAdaptation</key>
+	<string>ios-guarded-v1</string>
+	<key>HaloRenderer</key>
+	<string>Apple OpenGL ES</string>
+	<key>HaloBuildFlavor</key>
+	<string>Development</string>
+	<key>HaloDiagnosticMode</key>
+	<string>none</string>
+	<key>HaloGuestSHA256</key>
+	<string>unknown</string>
+	<key>HaloSourceCommit</key>
+	<string>local</string>
+	<key>HaloBuildRun</key>
+	<string>local</string>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIRequiresFullScreen</key>
+	<true/>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.haloceuniversal.ios.invite</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>halo</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_haloce._udp</string>
+		<string>_haloce-check._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Halo uses your local network to find and join system link games with other players nearby.</string>
+	<key>GCSupportedGameControllers</key>
+	<array>
+		<dict>
+			<key>ProfileName</key>
+			<string>ExtendedGamepad</string>
+		</dict>
+	</array>
+</dict>
+</plist>

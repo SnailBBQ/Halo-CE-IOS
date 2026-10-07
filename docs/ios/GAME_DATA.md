@@ -4,8 +4,7 @@ The app does not include game maps. Supply them from your own copy of *Halo: Com
 
 ## What you need
 
-- **Xbox `.map` files** from the original Xbox game (the Xbox cache format, "version 5"). The PC release and the Master Chief Collection use a
-  different map format that this engine does not read.
+- **Xbox `.map` files** from the original Xbox game (the Xbox cache format, "version 5"). The original Xbox maps remain the base game data. OpenCE build 146 can additionally load standard Halo Custom Edition version-609 maps from a separate `custom_maps` folder; those do not replace the Xbox files.
 - **`ui.map`** is required. It is the main menu.
 - The maps for the levels you want to play. A few are listed below; the retail disc has all of them.
 - European (PAL) maps work. The engine adjusts them as they load so they play like the North American maps, so players of both releases
@@ -40,8 +39,7 @@ Version 5 describes the map format, not the disc revision. PC, MCC and Custom Ed
 If maps already exist, choose **Keep** to preserve matching files and add missing ones, or **Replace** to install matching disc originals.
 Files are validated and copied into private staging before installation. **Cancel** preserves the previous library; an interrupted
 installation is recovered before the next engine launch. An incomplete `ui.map` is never installed.
-Enabled mods remain separate and apply on the next app launch. Replacing a modded map updates its saved original, so unloading
-the mod restores the newly imported disc map. Existing maps not found on the disc are preserved.
+Custom Edition maps are separate from disc/Xbox imports. Installing or replacing an Xbox disc map does not overwrite `custom_maps`. Existing Xbox maps not found on the disc are preserved.
 
 You can still extract maps on a computer with `extract-xiso` or `xdvdfs`, then use **Import maps** as before.
 An existing `ui.map` never causes Halo to wait for a disc image.
@@ -64,18 +62,18 @@ The app checks that `ui.map` is present and not tiny; the engine does the real v
 
 | Location (Files → On My iPhone/iPad → Halo CE → Halo) | Contents |
 | --- | --- |
-| `maps/` | Your game maps |
-| `map_thumbnails/` | Map pictures you chose in the library |
+| `maps/` | Original/Xbox version-5 game maps |
+| `custom_maps/` | Enabled Halo Custom Edition v609 maps, resource caches and optional `.bmp`/`.txt` sidecars |
+| `custom_maps_disabled/` | CE maps you disabled without deleting |
+| `videos/` | User-supplied MP4 fallbacks for Halo Bink movie requests |
+| `map_thumbnails/` | Pictures you chose for the Xbox map library |
 | `save/` | Profiles and saved campaign progress |
 | `config.toml` | The engine's own configuration (most settings are in the app's Settings instead) |
 | `game_invite.txt` | The current multiplayer invite, when no iCloud Drive folder is chosen. See [Multiplayer](MULTIPLAYER.md#alternate-way-of-using-invite-codes-icloud-drive) |
 | log files | Diagnostics shared from Settings → Logs. See [Troubleshooting](TROUBLESHOOTING.md) |
 
-The mod library keeps its originals and recovery copies in the app's private storage, not in Files, and that takes extra space.
+## Custom Edition maps and movies
 
-## The map library and mods
+**Settings → Mods** keeps the original Xbox library separate from OpenCE's Custom Edition library. Import standard CE version-609 maps, their optional `.bmp`/`.txt` sidecars and the shared `bitmaps.map`, `sounds.map` and `loc.map` resources into the Custom Edition section. OpenSauce maps are not supported by OpenCE build 146.
 
-**Settings → Mods** is the map library. It lists the installed game files with their pictures and header checks, and it manages replacement maps
-("mods") that can be switched on and off. See [Settings → Mods](SETTINGS.md#mods).
-
-Only compiled Xbox map files work as mods. Loose editor tags, PC-format maps and executable plugins are not supported.
+The same screen can import user-supplied MP4 fallbacks for Halo's movie names (`intro`, `credits`, `attract1`–`attract3`). The app does not include or convert copyrighted movie assets; it only supplies native playback for files the user provides.

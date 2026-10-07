@@ -10,6 +10,9 @@ ATTRACT_MODE.C
 #include "real_math.h"
 #include "cache_files.h"
 #include "bink_playback.h"
+#ifdef HALO_IOS_GUEST
+extern int host_movie_available(const char *path);
+#endif
 #include "ui_widget.h"
 #include "sound_manager.h"
 #include "international_strings.h"
@@ -163,7 +166,11 @@ const char *attract_mode_get_localized_movie_path(
 			break;
 		}
 
+#ifdef HALO_IOS_GUEST
+		if (file_exists(file_reference_create_from_path(&movie_file, bss_00453ae8, FALSE)) || host_movie_available(bss_00453ae8))
+#else
 		if (file_exists(file_reference_create_from_path(&movie_file, bss_00453ae8, FALSE)))
+#endif
 		{
 			break;
 		}
