@@ -5,9 +5,9 @@ statements about "current" behaviour in it describe the milestone they were writ
 
 ## Part 1 — Status log (the former project status page)
 
-Current iOS update: **M2.6.89** — OpenCE build 146, network 22. M2.6.89 keeps the M2.6.88 feature set; M2.6.88 retires the iOS replacement-map Mods UI in favor of upstream Custom Edition maps and adds a user-supplied MP4 fallback for Halo Bink movie requests while preserving M2.6.86's Non-Jailbreak Stage-2 flexible-base synthetic guest. The M2.6.80 build identity, automatic engine-change save protection and upstream acceptance gates remain. See the [release notes](RELEASE_NOTES.md) for the current state.
+Current iOS update: **M2.6.90** — OpenCE build 146, network 22. M2.6.90 keeps the M2.6.88 feature set and fixes the remaining Apple test-harness `Marker` collision; M2.6.88 retires the iOS replacement-map Mods UI in favor of upstream Custom Edition maps and adds a user-supplied MP4 fallback for Halo Bink movie requests while preserving M2.6.86's Non-Jailbreak Stage-2 flexible-base synthetic guest. The M2.6.80 build identity, automatic engine-change save protection and upstream acceptance gates remain. See the [release notes](RELEASE_NOTES.md) for the current state.
 
-Updated October 7, 2026. Current development milestone: **M2.6.89** (Apple packaging-test hotfix for the Custom Edition/MP4 integration on OpenCE build 146; Actions/device validation pending).
+Updated October 7, 2026. Current development milestone: **M2.6.90** (second Apple packaging-test hotfix for the Custom Edition/MP4 integration on OpenCE build 146; Actions/device validation pending).
 
 ### Collected status notes (historical)
 

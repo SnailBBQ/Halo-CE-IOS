@@ -6,7 +6,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak diagnostic build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The current source update is **M2.6.89**, keeping OpenCE build 146 (network version 22) while integrating its Custom Edition map support into the iOS library and adding a user-supplied MP4 fallback for Halo Bink movie requests. The M2.6.86 flexible-base synthetic guest remains unchanged and still does **not** launch the real Halo guest from an arbitrary base. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
+> **Status: playable.** The current source update is **M2.6.90**, keeping OpenCE build 146 (network version 22) while integrating its Custom Edition map support into the iOS library and adding a user-supplied MP4 fallback for Halo Bink movie requests. The M2.6.86 flexible-base synthetic guest remains unchanged and still does **not** launch the real Halo guest from an arbitrary base. See the [release notes](docs/ios/RELEASE_NOTES.md) and the [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
@@ -14,11 +14,11 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 >
 > **Non-jailbreak support:** A non-jailbreak version is currently a work in progress and is not yet considered ready for general use.
 >
-> **Free-account sideloading (Sideloadly, AltStore, SideStore):** not supported yet. Device logs now show more than one stock-iOS boundary. An iPhone 14 Plus on iOS 16.2 can reserve a contiguous 4 GiB span but only at a non-4-GiB-aligned address, while an older iPad cannot reserve 4 GiB contiguously at all. M2.6.89 preserves the M2.6.86 arbitrary-base memory-model test; it does not yet run Halo from it. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
+> **Free-account sideloading (Sideloadly, AltStore, SideStore):** not supported yet. Device logs now show more than one stock-iOS boundary. An iPhone 14 Plus on iOS 16.2 can reserve a contiguous 4 GiB span but only at a non-4-GiB-aligned address, while an older iPad cannot reserve 4 GiB contiguously at all. M2.6.90 preserves the M2.6.86 arbitrary-base memory-model test; it does not yet run Halo from it. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 >
 > **Paid Apple Developer accounts:** people who have one may be able to sign the regular app with the `extended-virtual-addressing` and `increased-memory-limit` capabilities and get it to start on a non-jailbroken device. We have not tested this, and the project does not require or build around paid accounts. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 
-**Source update:** [M2.6.89](port/ios/UPDATE_M2689.md) is the Apple test-harness hotfix for the M2.6.88 Custom Edition/MP4 integration. It keeps OpenCE **build 146/network 22**, the Custom Edition library under `Documents/Halo/custom_maps`, and native iOS playback of user-supplied MP4 files for Halo Bink movie requests. OpenSauce maps remain refused upstream. The real iOS guest still uses the existing aligned-arena architecture; the Stage-2 arbitrary-base path remains synthetic only. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
+**Source update:** [M2.6.90](port/ios/UPDATE_M2690.md) is the second Apple test-harness hotfix for the M2.6.88 Custom Edition/MP4 integration; it removes the final Apple SDK `Marker` collision in the disc-install harness while leaving runtime behavior unchanged. It keeps OpenCE **build 146/network 22**, the Custom Edition library under `Documents/Halo/custom_maps`, and native iOS playback of user-supplied MP4 files for Halo Bink movie requests. OpenSauce maps remain refused upstream. The real iOS guest still uses the existing aligned-arena architecture; the Stage-2 arbitrary-base path remains synthetic only. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of OpenCE on PC" width="760"><br>
