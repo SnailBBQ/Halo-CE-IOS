@@ -448,7 +448,7 @@ jobs:
             /usr/libexec/PlistBuddy -c 'Set :CFBundleName Halo CE Mod Test' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLName com.haloceuniversal.ios.modtest.invite' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Halo CE Mod Test' "$APP/Info.plist"
-            # the Mod Test app's version is the official one with a trailing .1 (0.2.88 / 2688 becomes 0.2.88.1 / 268801)
+            # the Mod Test app's version is the official one with a trailing .1 (0.2.89 / 2689 becomes 0.2.89.1 / 268901)
             OFFICIAL_SHORT=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")
             OFFICIAL_BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
             /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${OFFICIAL_SHORT}.1" "$APP/Info.plist"

@@ -1,13 +1,13 @@
 #import "HaloMods.h"
 #import "HaloBackupArchive.h"
-#define CHECK(x) do { if(!(x)){fprintf(stderr,"FAIL line %d: %s\n",__LINE__,#x);return 1;} }while(0)
+#define CHECK(...) do { if(!(__VA_ARGS__)){fprintf(stderr,"FAIL line %d: %s\n",__LINE__,#__VA_ARGS__);return 1;} }while(0)
 
 static void Map(NSString *path, uint32_t version, unsigned char marker) {
     [NSFileManager.defaultManager createDirectoryAtPath:path.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil];
     NSMutableData *data=[NSMutableData dataWithLength:4096];uint32_t magic=CFSwapInt32HostToLittle(0x68656164),v=CFSwapInt32HostToLittle(version),foot=CFSwapInt32HostToLittle(0x666f6f74);
     memcpy(data.mutableBytes,&magic,4);memcpy((char *)data.mutableBytes+4,&v,4);memcpy((char *)data.mutableBytes+2044,&foot,4);((unsigned char *)data.mutableBytes)[2048]=marker;[data writeToFile:path atomically:YES];
 }
-static unsigned char Marker(NSString *path) { NSData *data=[NSData dataWithContentsOfFile:path];return data.length>2048?((const unsigned char *)data.bytes)[2048]:0; }
+static unsigned char ReadMarker(NSString *path) { NSData *data=[NSData dataWithContentsOfFile:path];return data.length>2048?((const unsigned char *)data.bytes)[2048]:0; }
 static void Bytes(NSString *path, const char *text) { [NSFileManager.defaultManager createDirectoryAtPath:path.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil];[[NSData dataWithBytes:text length:strlen(text)] writeToFile:path atomically:YES]; }
 
 int main(void){@autoreleasepool{
@@ -22,7 +22,7 @@ int main(void){@autoreleasepool{
     Map([[folder URLByAppendingPathComponent:@"a10.map"] path],5,3);Map([[mods URLByAppendingPathComponent:@"base/a10.map"] path],5,1);
     CHECK([@[@{@"id":identifier,@"file":@"a10.map",@"enabled":@YES,@"hash":@"0000000000000000000000000000000000000000000000000000000000000000"}] writeToURL:[mods URLByAppendingPathComponent:@"list.plist"] atomically:YES]);
     CHECK([@{@"a10.map":@YES} writeToURL:[mods URLByAppendingPathComponent:@"base.plist"] atomically:YES]);
-    CHECK(HaloModsLegacyExists());NSError *error=nil;CHECK(HaloModsRetireLegacy(&error));CHECK(!HaloModsLegacyExists());CHECK(Marker(target)==1);
+    CHECK(HaloModsLegacyExists());NSError *error=nil;CHECK(HaloModsRetireLegacy(&error));CHECK(!HaloModsLegacyExists());CHECK(ReadMarker(target)==1);
 
     /* Standard CE v609 maps coexist in custom_maps; resource maps and optional
        picture/description files are accepted without touching maps/. */
@@ -30,7 +30,7 @@ int main(void){@autoreleasepool{
     Map(ce,609,6);Bytes([incoming stringByAppendingPathComponent:@"my_level.bmp"],"BMfixture");Bytes([incoming stringByAppendingPathComponent:@"my_level.txt"],"fixture description");Bytes([incoming stringByAppendingPathComponent:@"bitmaps.map"],"resource");
     HaloCustomContentImport(@[[NSURL fileURLWithPath:ce],[NSURL fileURLWithPath:[incoming stringByAppendingPathComponent:@"my_level.bmp"]],[NSURL fileURLWithPath:[incoming stringByAppendingPathComponent:@"my_level.txt"]],[NSURL fileURLWithPath:[incoming stringByAppendingPathComponent:@"bitmaps.map"]]]);
     NSArray *maps=HaloCustomMapsList();CHECK(maps.count==1);NSDictionary *entry=maps[0];CHECK([entry[@"valid"] boolValue]&&[entry[@"enabled"] boolValue]&&[entry[@"picture"] boolValue]&&[entry[@"description"] boolValue]);
-    CHECK([HaloCustomResourcesStatus()[@"bitmaps.map"] boolValue]);CHECK([fm fileExistsAtPath:[root stringByAppendingPathComponent:@"custom_maps/my_level.map"]]);CHECK(Marker(target)==1);
+    CHECK([HaloCustomResourcesStatus()[@"bitmaps.map"] boolValue]);CHECK([fm fileExistsAtPath:[root stringByAppendingPathComponent:@"custom_maps/my_level.map"]]);CHECK(ReadMarker(target)==1);
     HaloCustomMapSetEnabled(@"my_level.map",NO);CHECK([fm fileExistsAtPath:[root stringByAppendingPathComponent:@"custom_maps_disabled/my_level.map"]]);CHECK(![fm fileExistsAtPath:[root stringByAppendingPathComponent:@"custom_maps/my_level.map"]]);
     HaloCustomMapSetEnabled(@"my_level.map",YES);CHECK([fm fileExistsAtPath:[root stringByAppendingPathComponent:@"custom_maps/my_level.map"]]);
 
