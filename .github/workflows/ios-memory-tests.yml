@@ -35,6 +35,7 @@ jobs:
           python3 tools/tests/test_ios_import_coverage.py
           python3 tools/tests/test_ios_gl_timing_wrappers.py
           python3 tools/tests/test_ios_non_jailbreak_flag.py
+          python3 tools/tests/test_ios_nonjb_exec_trace.py
           python3 tools/tests/test_ios_mod_test_flag.py
           python3 tools/tests/test_ios_asset_integrity.py
           python3 tools/tests/test_ios_checkpoint_size.py

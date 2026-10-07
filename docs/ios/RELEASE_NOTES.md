@@ -1,15 +1,15 @@
 # Release notes
 
-The current update is **M2.6.83**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.84**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.83](../../port/ios/UPDATE_M2683.md) is the second guest-compile hotfix for the build-138 integration. It keeps OpenCE build 138 (`76addf6…`), network 20 and M2.6.82's dependency repairs, and changes the iOS native texel shortcut in `decode_level()` from a bare return to `return TRUE` to match build 138's new boolean contract. A regression test now checks that contract. M2.6.82 reached object 1416/1473 before this mismatch stopped the arm64_32 guest compile.
+**Latest:** [M2.6.84](../../port/ios/UPDATE_M2684.md) keeps the green M2.6.83 OpenCE build-138/network-20 baseline and changes only the Non-Jailbreak diagnostics. It adds a guest-arena RW→RX execution canary and numbered persistent phases around `__guest_start`, including a first `host_set_tp` marker that proves real guest instructions progressed into the guest thread runtime. The existing exact-4-GiB-anywhere flexible-base probe remains. Regular and Mod Test runtime behavior are unchanged.
 
-**Previous engine update:** [M2.6.81](../../port/ios/UPDATE_M2681.md) integrated OpenCE build 138/network 20 with strict upstream equivalence, but its first Actions run failed the guest compile because iOS-only dependency includes were dropped during the rebase. [M2.6.80](../../port/ios/UPDATE_M2680.md) is the last fully green Actions baseline.
+**Previous engine update:** [M2.6.81](../../port/ios/UPDATE_M2681.md) integrated OpenCE build 138/network 20 with strict upstream equivalence, but its first Actions run failed the guest compile because iOS-only dependency includes were dropped during the rebase. [M2.6.83](../../port/ios/UPDATE_M2683.md) passed GitHub Actions and is the current green build-138 compile baseline.
 
 **Previous:** [M2.6.79](../../port/ios/UPDATE_M2679.md) is the green baseline-cleanup build: stale version/upstream metadata was corrected, notes-only iOS Markdown no longer starts an automatic IPA build, the mod-cache diagnostics test runs once, and the XISO test driver is warning-clean under GCC and Clang.
 
@@ -55,7 +55,8 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
-| M2.6.83 | Second build-138 guest-compile hotfix: returns `TRUE` from the host-decoded `BOOL decode_level()` path, adds a return-contract regression check, and keeps OpenCE build 138/network 20 plus strict 43/43 flags-off equivalence. Actions/device validation pending. |
+| M2.6.84 | Non-Jailbreak execution-boundary diagnostics: guest-arena RW→RX canary, persistent phases 401–418 around `__guest_start`, first-host-import proof, and the existing flexible 4 GiB probe. M2.6.83 is the green build-138 baseline. |
+| M2.6.83 | Second build-138 guest-compile hotfix: returns `TRUE` from the host-decoded `BOOL decode_level()` path, adds a return-contract regression check, and keeps OpenCE build 138/network 20 plus strict 43/43 flags-off equivalence. GitHub Actions passed; physical build-138 device validation remains. |
 | M2.6.82 | Guest-compile hotfix for M2.6.81: restores iOS-only dependency headers under `HALO_IOS_GUEST`, adds a regression test, keeps OpenCE build 138/network 20 and strict 43/43 flags-off equivalence. Actions/device validation pending. |
 | M2.6.81 | OpenCE build 138 / network 20 integration; strict 43/43 flags-off upstream equivalence; first Actions run failed the arm64_32 guest compile before IPA packaging. |
 | M2.6.80 | Build identity, automatic engine-change `.halobackup`, reusable upstream acceptance gates, and Non-JB flexible 4 GiB-anywhere feasibility probe. GitHub Actions passed; device validation remains feature-dependent. |

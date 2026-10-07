@@ -27,7 +27,7 @@ static inline int halo_phase_is_startup(const char *phase)
 {
     static const char *const startup[] = {
         "app launched", "engine boot", "guest start", "guest bridge", "guest image",
-        "guest boot environment", "guest thread", "guest entering", "first frame"
+        "guest boot environment", "guest thread", "guest entering", "nonjb ", "first frame"
     };
 
     if (!phase || !*phase)

@@ -42,6 +42,7 @@ int main(void)
     CHECK(halo_launch_next_level("guest image", 0, 0) == HALO_SAFE_ON, "stopped while loading the image fails the start");
     CHECK(halo_launch_next_level("guest boot environment", 0, 0) == HALO_SAFE_ON, "boot environment phase");
     CHECK(halo_launch_next_level("guest entering __guest_start", 0, 0) == HALO_SAFE_ON, "prefix match");
+    CHECK(halo_launch_next_level("nonjb 413 calling __guest_start", 0, 0) == HALO_SAFE_ON, "Non-JB persistent execution breadcrumbs count as startup");
     CHECK(halo_launch_next_level("waiting for maps", 0, 0) == HALO_SAFE_NORMAL, "waiting on the setup screen is not a failed start");
     CHECK(halo_launch_next_level("first frame presented", 0, 0) == HALO_SAFE_ON, "stopped before it ran long enough");
     CHECK(halo_launch_next_level("backgrounded", 0, 0) == HALO_SAFE_NORMAL, "going to the background is not a failure");

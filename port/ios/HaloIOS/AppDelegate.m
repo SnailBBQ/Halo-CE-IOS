@@ -195,7 +195,7 @@ static NSString *HaloPerfLine(void)
 - (void)startupHelp:(UIButton *)sender {
     (void)sender;
 #if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
-    NSString *startupMessage=@"This experimental build measures whether stock/free-signed iOS can reserve one exact 4 GiB guest span anywhere, even when no 4-GiB-aligned window exists. The current Non-Jailbreak architecture still requires the aligned arena to actually run Halo; a successful Flexible 4 GiB line is evidence for the next flexible-base stage, not a successful game start.\n\nExecution: a compatible debugger/JIT method may still be needed on stock iOS.\n\nShare logs for the actual result. Never share Apple credentials or pairing files.";
+    NSString *startupMessage=@"This experimental build measures both Non-Jailbreak blockers. It still probes whether stock/free-signed iOS can reserve one exact 4 GiB span anywhere for the planned flexible-base architecture. When an aligned arena is available, it also runs a tiny execution canary from the real guest arena and writes persistent numbered breadcrumbs around the handoff to __guest_start.\n\nA successful Flexible 4 GiB line is feasibility evidence, not yet an arbitrary-base Halo runtime. The execution trace is diagnostic only.\n\nShare logs for the actual result. Never share Apple credentials or pairing files.";
 #else
     NSString *startupMessage=@"Address space: the regular build uses Extended Virtual Addressing for its 4-GiB-aligned guest arena. Increased Memory Limit controls RAM allowance separately.\n\nExecution: a compatible debugger/JIT method may be needed on stock iOS. Support depends on the device and iOS version.\n\nShare logs for the actual failure. Never share Apple credentials or pairing files.";
 #endif

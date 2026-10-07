@@ -213,6 +213,9 @@ static NSString *g_data_root;
 static NSString *g_save_root;
 
 static _Thread_local uint32_t g_guest_tp;
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+static _Atomic int g_nonjb_first_host_import_logged;
+#endif
 static _Thread_local int g_guest_errno;
 
 static uint32_t g_guest_writable_start;
@@ -2193,6 +2196,15 @@ static void ios_host_set_tp(uint32_t thread)
     }
 
     g_guest_tp = thread;
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+    if (g_main_host_thread_valid &&
+        pthread_equal(pthread_self(), g_main_host_thread) &&
+        atomic_exchange_explicit(&g_nonjb_first_host_import_logged, 1, memory_order_relaxed) == 0)
+    {
+        say("NON-JB EXECUTION TRACE: [416] first guest host import reached: host_set_tp(0x%08x)", thread);
+        halo_crash_phase("nonjb 416 first host import host_set_tp");
+    }
+#endif
 }
 
 static HgCache g_geometry_cache;
@@ -3182,6 +3194,10 @@ static int load_guest_image(NSString *path)
         }
     }
     halo_crash_phase("guest image: protected");
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+    halo_crash_phase("nonjb 405 real guest image protected");
+    say("NON-JB EXECUTION TRACE: [405] real halo_guest.elf executable pages are mapped and RX-protected");
+#endif
 
     g_header=(struct halo_guest_header *)halo_guest_ptr(HALO_GUEST_IMAGE_BASE,sizeof(*g_header));
     if(!g_header || g_header->magic!=HALO_GUEST_MAGIC || g_header->abi_version!=HALO_GUEST_ABI_VERSION){
@@ -3489,6 +3505,64 @@ static void report_profile(void)
         say("  profile host    %5.1f%%  %s", 100.0 * host[i].samples / total, host[i].name);
 }
 
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+/*
+ * Execute two known AArch64 instructions from a temporary page inside the real
+ * guest arena.  The page uses the same RW commit -> instruction-cache flush ->
+ * RX protection path as halo_guest.elf.  It is diagnostic only and is released
+ * before the real guest starts.  If iOS terminates the process on instruction
+ * fetch, launch-phase.txt remains at step 403 for the next launch to report.
+ */
+static int nonjb_guest_arena_exec_canary(void)
+{
+    enum { CANARY_GUEST_VA = 0x0FFF0000u, CANARY_MAGIC = 0x4841u };
+    const uint32_t code[] = {
+        0x52890820u, /* movz w0, #0x4841 */
+        0xD65F03C0u  /* ret */
+    };
+    size_t page = halo_guest_page_size();
+    void *host;
+    uint32_t (*entry)(void);
+    uint32_t result;
+
+    halo_crash_phase("nonjb 402 exec canary mapping");
+    say("NON-JB EXECUTION TRACE: [402] preparing guest-arena executable canary at guest 0x%08x", CANARY_GUEST_VA);
+    if (!page || !halo_guest_commit(CANARY_GUEST_VA, page))
+    {
+        say("NON-JB EXECUTION TRACE: canary RW commit FAILED (errno=%d: %s)", errno, strerror(errno));
+        halo_crash_phase("nonjb 402 exec canary commit failed");
+        return 0;
+    }
+
+    host = halo_guest_ptr(CANARY_GUEST_VA, sizeof(code));
+    if (!host)
+    {
+        say("NON-JB EXECUTION TRACE: canary host pointer lookup FAILED");
+        halo_guest_decommit(CANARY_GUEST_VA, page);
+        halo_crash_phase("nonjb 402 exec canary pointer failed");
+        return 0;
+    }
+    memcpy(host, code, sizeof(code));
+    sys_icache_invalidate(host, sizeof(code));
+    if (!halo_guest_protect(CANARY_GUEST_VA, page, PROT_READ | PROT_EXEC))
+    {
+        say("NON-JB EXECUTION TRACE: canary RX protection FAILED (errno=%d: %s)", errno, strerror(errno));
+        halo_guest_decommit(CANARY_GUEST_VA, page);
+        halo_crash_phase("nonjb 402 exec canary protect failed");
+        return 0;
+    }
+
+    halo_crash_phase("nonjb 403 exec canary entering");
+    say("NON-JB EXECUTION TRACE: [403] executing canary from host %p; if the process vanishes here, instruction fetch from guest-arena RX memory is the boundary", host);
+    entry = (uint32_t (*)(void))host;
+    result = entry();
+    halo_crash_phase("nonjb 404 exec canary returned");
+    say("NON-JB EXECUTION TRACE: [404] canary returned 0x%04x (expected 0x%04x): %s", result, CANARY_MAGIC, result == CANARY_MAGIC ? "PASS" : "FAIL");
+    halo_guest_decommit(CANARY_GUEST_VA, page);
+    return result == CANARY_MAGIC;
+}
+#endif
+
 static void *main_guest_thread(void *opaque)
 {
     struct main_guest_context context=*(struct main_guest_context *)opaque;
@@ -3499,6 +3573,10 @@ static void *main_guest_thread(void *opaque)
     profiler_start_for_current_thread();
     if (g_main_thread_va)
         g_guest_tp = g_main_thread_va;
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+    halo_crash_phase("nonjb 410 main guest thread entered");
+    say("NON-JB EXECUTION TRACE: [410] main guest host thread entered on guest stack");
+#endif
 
     halo_ios_net_set_resolver(ios_net_resolver);
     halo_ios_net_set_logger(ios_net_log);
@@ -3518,11 +3596,28 @@ static void *main_guest_thread(void *opaque)
     if(reason==0)
     {
         halo_guest_exec_guard_set_active(1);
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+        halo_crash_phase("nonjb 411 execution guard armed");
+        say("NON-JB EXECUTION TRACE: [411] guest execution guard armed");
+#endif
         void (*start)(uint32_t)=(void (*)(uint32_t))halo_guest_ptr(g_header->start,1);
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+        halo_crash_phase("nonjb 412 guest start pointer resolved");
+        say("NON-JB EXECUTION TRACE: [412] __guest_start pointer resolved: host=%p guest=0x%08x boot=0x%08x", (void *)start, g_header->start, context.boot_va);
+#endif
         say("ENTERING REAL arm64_32 __guest_start()... (PC host=%p guest VA=0x%08x)",
             (void *)start, g_header->start);
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+        halo_crash_phase("nonjb 413 calling __guest_start");
+        say("NON-JB EXECUTION TRACE: [413] branching into real __guest_start now");
+#else
         halo_crash_phase("guest entering __guest_start");
+#endif
         start(context.boot_va);
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+        halo_crash_phase("nonjb 418 __guest_start returned");
+        say("NON-JB EXECUTION TRACE: [418] __guest_start returned to the host unexpectedly");
+#endif
         halo_guest_exec_guard_set_active(0);
         reason=HALO_GUEST_ABORT_HOST;
     }
@@ -3565,6 +3660,9 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
     g_guest_writable_start=0;
     g_main_thread_va=0;
     g_main_host_thread_valid=0;
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+    atomic_store_explicit(&g_nonjb_first_host_import_logged, 0, memory_order_relaxed);
+#endif
     g_logged_ioctl=0;
     g_logged_tp_repair=0;
     halo_vm_init(&g_vm, UINT32_C(0xA0000000), UINT32_C(0xD0000000), 0x4000u);
@@ -3594,6 +3692,12 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
     }
     halo_guest_exec_stats_reset();
     halo_crash_phase("guest bridge installed");
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+    halo_crash_phase("nonjb 401 guest bridge installed");
+    say("NON-JB EXECUTION TRACE: [401] PAGEZERO execution bridge installed; testing executable code in the actual guest arena next");
+    if (!nonjb_guest_arena_exec_canary())
+        say("NON-JB EXECUTION TRACE: canary did not pass; continuing into the real guest so the next boundary can still be observed if iOS allows it");
+#endif
 
     NSString *elf=[[NSBundle mainBundle] pathForResource:@"halo_guest" ofType:@"elf"];
     if(!elf)
@@ -3642,6 +3746,11 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
         say("FULL GUEST BLOCKED: guest main stack allocation failed.");
         return 0;
     }
+
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+    halo_crash_phase("nonjb 408 guest main stack ready");
+    say("NON-JB EXECUTION TRACE: [408] 16 MiB guest main stack committed at 0x%08x", stack_va);
+#endif
 
     struct main_guest_context *context=calloc(1,sizeof(*context));
     context->boot_va=boot;

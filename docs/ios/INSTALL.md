@@ -23,7 +23,7 @@ The **Mod Test** app is a separate download, `HaloCE-ModTest.ipa` from the Mod L
 ## 2. Sideload it
 
 The IPA is ad-hoc signed, which is not enough for iOS to run it on a device. You re-sign it with your own Apple ID or developer account
-as you install it. Tools such as Sideloadly, AltStore or SideStore install the app, but with a free Apple ID the engine stops at startup on the one device we have a log from (see [Sideloading with free and paid accounts](#sideloading-with-free-and-paid-accounts)). Follow your tool's setup instructions. The general process is:
+as you install it. Tools such as Sideloadly, AltStore or SideStore install the app, but free-account Halo is not yet supported: different devices have stopped at different startup boundaries (see [Sideloading with free and paid accounts](#sideloading-with-free-and-paid-accounts)). Follow your tool's setup instructions. The general process is:
 
 1. Connect your iPhone or iPad, or follow your tool's wireless setup.
 2. Choose `HaloCE.ipa` in the tool and sign in with your Apple ID.
@@ -72,13 +72,12 @@ Deleting the app also deletes its maps, saves and settings. Export a [backup](BA
 
 **Confirmed to work:** jailbroken devices. TrollStore installs keep the entitlements the app asks for, so they are expected to work too.
 
-**A free Apple ID (Sideloadly, AltStore, SideStore): not supported.** The app installs, but it stops at startup with `STARTUP BLOCKED: ADDRESS SPACE`. A log from an iPhone 14 Plus on iOS 16.2, signed with Sideloadly, shows why:
+**A free Apple ID (Sideloadly, AltStore, SideStore): not supported.** Two device logs now show that stock/free-signed startup can fail at different boundaries:
 
-- The install is signed without `extended-virtual-addressing` and `increased-memory-limit`. iOS lets the process use about 11.4 GiB of address space.
-- The game needs one 4 GiB window aligned to 4 GiB. None exists. The largest free block (4.9 GiB) runs from 10.5 GiB to the limit, and the nearest aligned window, 12 to 16 GiB, would end 640 MiB past it.
-- iOS refused the window every way we asked for it, including asking the system to find one itself.
+- An iPhone 14 Plus on iOS 16.2, signed with Sideloadly, has neither memory entitlement. It can reserve 4 GiB generally but has no usable 4-GiB-aligned 4 GiB guest window, so the current aligned-arena runtime stops at `STARTUP BLOCKED: ADDRESS SPACE`.
+- An iPhone 16 Pro Max (`iPhone17,2`) on iOS 27.2, also without those memory entitlements, let the system place an aligned 4 GiB arena at `0x7000000000`. That older Non-Jailbreak build loaded the maps, scenario/BSP/global state and real guest ELF and resolved all host imports, then disappeared when control was handed to `__guest_start`. That result shows that address space is not the only stock-iOS blocker.
 
-This is an address-space limit, not a memory limit, and signing differently with a free account does not remove it. The **Non-Jailbreak Version** is a diagnostic build for collecting this kind of log. On a free account it is expected to stop at startup.
+M2.6.84's **Non-Jailbreak Version** is therefore a diagnostic build for both cases. It keeps the exact-4-GiB-anywhere flexible-base feasibility probe and, when an aligned arena exists, runs a tiny execution canary from the real guest arena and records persistent numbered phases around `__guest_start`. A successful diagnostic is evidence about the next engineering step, not proof that free-account Halo is supported.
 
 **A paid Apple Developer account (untested):** documentation for other apps says extended virtual addressing is available only to paid accounts, and that you enable it for your own App ID in the developer portal. If you have such an account and one of these tools, you may be able to sign the regular `HaloCE.ipa` with the `extended-virtual-addressing` and `increased-memory-limit` capabilities, so that the app starts the way it does on a jailbroken device. Use the regular app, not the Non-Jailbreak Version, which requests no entitlements by design. We have not tried this. This project does not require a paid account, does not build around one, and cannot support signing problems. If you try it, please share `ios-boot.log` and what you did.
 
@@ -96,13 +95,7 @@ Compare the same diagnostic IPA installed through a known-working environment an
 
 ## Stock iOS compatibility test
 
-M2.6.62 uses the existing **Halo CE Mod Test** app for the optional direct-allocation
-experiment. It no longer creates a separate Compatibility Test app. Manually run
-**Halo CE iOS — Build IPA** on `main` and tick **Mod Test**. That build replaces
-the Mod Test installation, so export its saves and profiles before testing.
-The official app keeps the proven allocator. Both apps provide Startup Help
-and Share logs. The Sideloadly test on iOS 16.2 still failed to reserve the
-aligned arena when both memory entitlements were absent; this is not a signing bypass.
+Use the dedicated **Non-Jailbreak Version** from **Halo CE iOS — Build IPA** on `main`. Leave **Mod Test app** off. This flavor uses the same game/data identity as the regular app but compiles in stock-iOS diagnostics and requests no memory entitlements. M2.6.84 records both address-space feasibility and the executable-code boundary; it does not enable the arbitrary-base guest or bypass signing restrictions. Export a backup before changing installers or signing methods.
 
 1. In the developer/signing setup, enable **Extended Virtual Addressing** for the
    actual App ID if the account supports it, then regenerate the provisioning
