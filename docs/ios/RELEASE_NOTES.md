@@ -7,7 +7,9 @@ cannot prove how the app looks or feels on a device, so every note says what sti
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.97](../../port/ios/UPDATE_M2697.md) integrates OpenCE build 154/network 24, updates the iOS host for the changed `host_gl_read_buffer` import and narrows the Stage-3 x27 guard to the exact compiler-emitted forms.
+**Latest:** [M2.6.98](../../port/ios/UPDATE_M2698.md) integrates OpenCE build 155 (network 24). No host import changed.
+
+**Previous:** [M2.6.97](../../port/ios/UPDATE_M2697.md) (passed Actions) integrated build 154/network 24, updated the `host_gl_read_buffer` import and narrowed the Stage-3 x27 guard.
 
 **Previous:** [M2.6.96](../../port/ios/UPDATE_M2696.md) (passed Actions) kept build 146/network 22 and accepted only x27 host-stack preservation/restoration while rejecting x27 computation, w27 use and all source x15 use.
 
@@ -59,6 +61,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.98 | OpenCE build 155 / network 24 integration; no host import change. |
 | M2.6.97 | OpenCE build 154 / network 24 integration; `host_gl_read_buffer` import update; Stage-3 x27 guard narrowed to exact LLVM forms. |
 | M2.6.96 | Stage-3 reserved-register guard hotfix: allow only LLVM's 64-bit x27 callee-save preservation/restoration through the real host stack; all computational x27/w27 and source x15 uses remain fatal; runtime ABI unchanged. |
 | M2.6.95 | Stage-3 converter hotfix: support valid AArch64 register-offset guest memory forms exposed by the real OpenCE compile (`[Xn, Xm]`, LSL/SXTX, UXTW/SXTW), with assembler regression coverage; runtime ABI unchanged. |

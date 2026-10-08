@@ -1,8 +1,8 @@
 # Halo CE iOS — Project status
 
-**Status: playable on the regular/jailbreak path.** **Current source update: M2.6.97** (regular app 0.2.97, Mod Test 0.2.97.1), on OpenCE build 154 / network 24 with Custom Edition maps and the MP4 movie fallback, while continuing the experimental Non-Jailbreak **real-guest flexible-base Stage 3** path. M2.6.93 passed GitHub Actions and the iPhone 14 Plus passed Stage 2 at `0x2A0000000`. M2.6.96 passed GitHub Actions with the x27 callee-save guard fix. Actions/device validation are required for the M2.6.97 engine update.
+**Status: playable on the regular/jailbreak path.** **Current source update: M2.6.98** (regular app 0.2.98, Mod Test 0.2.98.1), on OpenCE build 155 / network 24 with Custom Edition maps and the MP4 movie fallback, while continuing the experimental Non-Jailbreak **real-guest flexible-base Stage 3** path. M2.6.93 passed GitHub Actions and the iPhone 14 Plus passed Stage 2 at `0x2A0000000`. M2.6.97 (build 154) passed GitHub Actions. Actions/device validation are required for the M2.6.98 engine update.
 
-**Source update:** [M2.6.97](port/ios/UPDATE_M2697.md) moves the engine from OpenCE build 146 / network 22 to **build 154 / network 24**. The iOS host implements the changed `host_gl_read_buffer(buffer, offset, size, data)` import with OpenGL ES 3.0's `GL_COPY_READ_BUFFER`, and the Stage-3 x27 guard accepts only the three stack-pair forms LLVM emits. Regular and Mod Test builds keep the aligned-arena architecture.
+**Source update:** [M2.6.98](port/ios/UPDATE_M2698.md) moves the engine from OpenCE build 154 to **build 155** (network 24 unchanged). No host import changed. Regular and Mod Test builds keep the aligned-arena architecture.
 
 ## Two apps, plus a stock-iOS build
 
@@ -22,7 +22,7 @@ The regular app and Mod Test share the same features and are updated together. T
 
 ## Implemented, waiting for device validation
 
-- M2.6.97 OpenCE build 154 / network 24 integration, the `host_gl_read_buffer` host-import update, and a tighter Stage-3 x27 guard (exactly `stp/ldp x28, x27, [sp, #N]`, the pre-index `[sp, #N]!` and post-index `[sp], #N` forms). M2.6.96 introduced the guard and passed Actions.
+- M2.6.98 OpenCE build 155 / network 24 integration (loose sound tag files for map makers, off by default; sound-cache size made a shared constant). M2.6.97 passed Actions: build 154, the `host_gl_read_buffer` import and the tightened Stage-3 x27 guard.
 - OpenCE build 144 / network 21 source integration from M2.6.85, including renderer call reduction, co-op/netcode fixes, map-tag validation, additional hardening and GPU/visibility/water performance changes through build 144.
 - The Settings additions of M2.6.48 (cheat sections and new cheats, left-handed layout, gyro, controller remap, heat-aware frame cap, performance overlay, Ambient volume, recent games and QR, Profiles, problem report, custom accent colours).
 - Picture options, touch aiming and AirPlay mirroring (M2.6.50).
