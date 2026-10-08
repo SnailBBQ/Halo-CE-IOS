@@ -574,6 +574,14 @@ FLEX_STACK_ADD_RE = re.compile(
 FLEX_STACK_MOV_RE = re.compile(
     r'^(?P<ind>\s*)mov\s+x(?P<rd>\d+)\s*,\s*(?P<src>sp|x29)\s*$')
 FLEX_BR_RE = re.compile(r'^(?P<ind>\s*)br\s+x(?P<rn>\d+)\s*$')
+# A frame-chain walk (__builtin_return_address(1) and friends) loads the caller's saved frame
+# pointer from [x29]. That slot holds a HOST address (x29 = sp), unlike every other pointer
+# the guest keeps in memory, which is a 32-bit guest VA. Loaded raw it would be truncated by
+# the later uxtw translation (M2.6.100 Non-JB log: get_return_eip faulted at x27 + low32(sp)).
+FLEX_FRAME_LOAD_RE = re.compile(
+    r'^(?P<ind>\s*)ldr\s+x(?P<rt>\d+)\s*,\s*\[\s*x29\s*(?:,\s*#\s*0\s*)?\]\s*(?:[;@].*)?$')
+FLEX_FRAME_LDP_RE = re.compile(
+    r'^(?P<ind>\s*)ldp\s+x(?P<rt>\d+)\s*,\s*x(?P<rt2>\d+)\s*,\s*\[\s*x29\s*(?:,\s*#\s*0\s*)?\]\s*(?:[;@].*)?$')
 
 
 def _flex_address(rn):
@@ -615,6 +623,12 @@ def _flex_canonicalized(lines):
                 raise ConvertError(f'flex-base reserved register x{rd} used by address materialization')
             if rd < 29 or rd == 30:
                 out.append(f"{m['ind']}sub x{rd}, x{rd}, x{FLEX_BASE}")
+            continue
+        m = FLEX_FRAME_LOAD_RE.match(line) or FLEX_FRAME_LDP_RE.match(line)
+        if m:
+            rt = int(m['rt'])
+            if (rt < 29 or rt == 30) and rt not in (ARENA_SCRATCH, FLEX_BASE):
+                out.append(f"{m['ind']}sub x{rt}, x{rt}, x{FLEX_BASE}")
             continue
         m = FLEX_STACK_ADD_RE.match(line) or FLEX_STACK_MOV_RE.match(line)
         if m:

@@ -7,7 +7,9 @@ cannot prove how the app looks or feels on a device, so every note says what sti
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.100](../../port/ios/UPDATE_M2700.md) translates guest pointers held in x30 in the Regular/Mod Test (aligned) converter, removing the 16-million-fault audio decode hot spot found in a Regular device log. OpenCE stays on build 155/network 24.
+**Latest:** [M2.6.101](../../port/ios/UPDATE_M2701.md) fixes a Non-Jailbreak crash found on-device: a frame-pointer chain load in the HUD stack check was truncated by the flexible-base translation. Regular is unchanged. OpenCE stays on build 155/network 24.
+
+**Previous:** [M2.6.100](../../port/ios/UPDATE_M2700.md) translated guest pointers held in x30 in the Regular/Mod Test (aligned) converter, removing the 16-million-fault audio decode hot spot found in a Regular device log. OpenCE stays on build 155/network 24.
 
 **Previous:** [M2.6.99](../../port/ios/UPDATE_M2699.md) translated x30 guest pointers in the Non-Jailbreak converter (found from the M2.6.98 iPhone log).
 
@@ -65,6 +67,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.101 | Non-Jailbreak converter: the saved frame pointer loaded from `[x29]` (a host address) is canonicalized before translation; found on-device from the M2.6.100 Non-JB log. |
 | M2.6.100 | Regular/Mod Test converter: guest pointers held in x30 are translated, so the audio ADPCM decode no longer takes ~16M SIGSEGV-bridge faults; frame-rate fix from the Regular device log. |
 | M2.6.99 | Non-Jailbreak converter: guest pointers held in x30 (reused link register) are translated; found on-device from the M2.6.98 log. |
 | M2.6.98 | OpenCE build 155 / network 24 integration; no host import change. |

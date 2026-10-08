@@ -285,6 +285,18 @@ assert "\tblr x30\n" in x30_branches and "\tbr x30\n" in x30_branches      # a w
 x30_addr = conv.ios_flex_base_fastpath("\tadrp x30, g\n\tadd x30, sp, #16\n\tmov x30, x29\n", "x30adr.o.darwin.s")
 assert x30_addr.count("sub x30, x30, x27") == 3, x30_addr
 
+# M2.6.100 Non-JB device log: get_return_eip (__builtin_return_address(1)) loads the caller's
+# saved frame pointer from [x29]. It is a host address; the old converter then truncated it with
+# uxtw and faulted at x27 + low32(sp). The loaded frame pointer must be made a guest VA first.
+frame_in = "\tldr x8, [x29]\n\tldr x30, [x8, #8]\n"
+frame_out = conv.ios_flex_base_fastpath(frame_in, "frame.o.darwin.s")
+assert frame_out.startswith("\tldr x8, [x29]\n\tsub x8, x8, x27\n"), frame_out
+assert "add x15, x27, w8, uxtw\n\tldr x30, [x15, #8]" in frame_out, frame_out
+frame_ldp = conv.ios_flex_base_fastpath("\tldp x8, x9, [x29]\n", "frameldp.o.darwin.s")
+assert "ldp x8, x9, [x29]\n\tsub x8, x8, x27" in frame_ldp, frame_ldp
+for untouched in ("\tldr w0, [x29]\n", "\tldr x0, [x29, #8]\n", "\tldr x0, [x29, #-8]\n", "\tldp x29, x30, [sp], #16\n", "\tldp x0, x1, [x29, #16]\n"):
+    out = conv.ios_flex_base_fastpath(untouched, "u.o.darwin.s")
+    assert out == untouched, (untouched, out)
 keep = "\tstp x29, x30, [sp, #-16]!\n\tldr w0, [x29, #8]\n\tldp x29, x30, [sp], #16\n\tret\n"
 assert conv.ios_flex_base_fastpath(keep, "keep.o.darwin.s") == keep
 
@@ -335,6 +347,24 @@ int flex_x30_probe(int x) {
             m = re.match(r"^\s*(?:%s)\b[^\[]*\[\s*(x\d+|sp)\b" % conv.ARENA_MEM_OPS, line)
             assert not m or m.group(1) in ("x15", "sp", "x29"), f"untranslated guest memory base: {line.strip()}"
         subprocess.run([clang, "--target=aarch64-linux-android", "-c", str(td / "x30.s"), "-o", str(td / "x30.o")],
+                       check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+if clang:
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        (td / "gre.c").write_text("__attribute__((noinline)) long get_return_eip(void) { return (long)(__INTPTR_TYPE__)__builtin_return_address(1); }\n")
+        subprocess.run([
+            clang, "--target=arm64_32-apple-watchos", "-ffixed-x15", "-ffixed-x27", "-mcpu=cortex-a53", "-O2",
+            "-fno-omit-frame-pointer", "-fno-stack-protector", "-fno-unwind-tables", "-fno-asynchronous-unwind-tables",
+            "-w", "-S", str(td / "gre.c"), "-o", str(td / "gre.darwin.s"),
+        ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        subprocess.run([sys.executable, str(ROOT / "tools/android_asm_convert.py"), "--ios-flex-base-fastpath",
+                        str(td / "gre.darwin.s"), str(td / "gre.s")], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        gre = (td / "gre.s").read_text()
+        # the real hud_draw.c get_return_eip: frame pointer load, canonicalize, then translate the next load
+        m = re.search(r"ldr\s+(x\d+), \[x29\]\s*\n\s*sub\s+\1, \1, x27\s*\n\s*add x15, x27, w\d+, uxtw\s*\n\s*ldr x30, \[x15, #8\]", gre)
+        assert m, gre
+        subprocess.run([clang, "--target=aarch64-linux-android", "-c", str(td / "gre.s"), "-o", str(td / "gre.o")],
                        check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
 compressed = """\
