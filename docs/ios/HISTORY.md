@@ -5,9 +5,9 @@ statements about "current" behaviour in it describe the milestone they were writ
 
 ## Part 1 — Status log (the former project status page)
 
-Current iOS update: **M2.6.95** — OpenCE build 146, network 22. M2.6.94 was the first real-guest flexible-base Stage-3 candidate; its first Non-JB Actions build correctly failed closed at object 50/1492 when musl emitted a legal bare X-register offset (`ldrb w16, [x12, x16]`) that the converter had not yet accepted. M2.6.95 preserves the x27 arena-base/x15 scratch ABI and adds the complete register-offset families used by Clang while invalid pairings still fail closed. Regular/Mod Test and the Custom Edition/MP4 feature set are unchanged.
+Current iOS update: **M2.6.96** — OpenCE build 146, network 22. M2.6.95 fixed the first real Stage-3 register-offset gap and advanced the Non-JB guest compile to object 63/1492. There, musl `scandir.o` showed LLVM legally preserving fixed x27 in a host-stack callee-save pair (`stp/ldp ... x27 ... [sp]`). M2.6.96 keeps x27 unavailable for computation but permits only those 64-bit host-stack save/reload forms; x15 and all other x27/w27 source uses remain fail-closed. Regular/Mod Test and the Custom Edition/MP4 feature set are unchanged.
 
-Updated October 8, 2026. Current development milestone: **M2.6.95** (Non-Jailbreak Stage-3 register-offset converter hotfix on OpenCE build 146; Actions/device validation pending).
+Updated October 8, 2026. Current development milestone: **M2.6.96** (Non-Jailbreak Stage-3 reserved-x27 preservation guard hotfix on OpenCE build 146; Actions/device validation pending).
 
 ### Collected status notes (historical)
 

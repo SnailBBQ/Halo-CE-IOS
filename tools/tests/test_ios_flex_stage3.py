@@ -10,6 +10,7 @@ import importlib.util
 import shutil
 import subprocess
 import tempfile
+import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 HOST = ROOT / "port/ios/HaloIOS"
@@ -146,15 +147,73 @@ startup_out = conv.ios_flex_base_fastpath(
     startup, "build/android/guest/obj/port/android/guest/runtime/guest_start.o.darwin.s")
 assert "add x15, x27, w0, uxtw" in startup_out
 
-# Any source use of a reserved register or any surviving compressed jump table
-# must fail loudly: Stage 3 cannot safely fall back to pointer-upgrade faults.
-for bad in ("\tmov x27, x0\n", "\tmov w15, #1\n"):
+# x15 is always converter-owned. x27 is guest-base state, but LLVM may still
+# preserve a fixed callee-saved x27 in a normal host-stack prologue/epilogue.
+# That save/reload is safe and must not be mistaken for register allocation.
+preserve_x27 = """\
+\tstp x28, x27, [sp, #16]
+\tldp x28, x27, [sp, #16]
+"""
+preserve_out = conv.ios_flex_base_fastpath(preserve_x27, "scandir-like.o.darwin.s")
+assert preserve_out == preserve_x27
+
+# Reproduce the real M2.6.95 scandir-class failure with arm64_32 clang when the
+# target is available. Under register pressure LLVM may pair fixed x27 with x28
+# for a callee-save spill even though it never allocates x27 for computation.
+if clang:
+    pressure_c = r"""
+extern int ext(int);
+int flex_x27_spill_probe(int *p, int n, int (*cb)(int)) {
+    int a0=p[0],a1=p[1],a2=p[2],a3=p[3],a4=p[4];
+    int a5=p[5],a6=p[6],a7=p[7],a8=p[8],a9=p[9];
+    int s=0;
+    for (int i=0;i<n;i++) {
+        s += cb(a0+i)+ext(a1+i)+ext(a2+i)+ext(a3+i)+ext(a4+i);
+        s += ext(a5+i)+ext(a6+i)+ext(a7+i)+ext(a8+i)+ext(a9+i);
+    }
+    return s;
+}
+"""
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        csrc = td / "x27_spill.c"
+        darwin = td / "x27_spill.darwin.s"
+        elfasm = td / "x27_spill.s"
+        obj = td / "x27_spill.o"
+        csrc.write_text(pressure_c)
+        subprocess.run([
+            clang, "--target=arm64_32-apple-watchos", "-ffixed-x15", "-ffixed-x27",
+            "-mllvm", "-aarch64-enable-compress-jump-tables=false",
+            "-O2", "-std=c99", "-ffreestanding", "-fno-common",
+            "-S", str(csrc), "-o", str(darwin),
+        ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        subprocess.run([
+            sys.executable, str(ROOT / "tools/android_asm_convert.py"),
+            "--ios-flex-base-fastpath", str(darwin), str(elfasm),
+        ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        subprocess.run([
+            clang, "--target=aarch64-linux-android", "-c", str(elfasm), "-o", str(obj),
+        ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        assert obj.is_file() and obj.stat().st_size > 0
+
+# Any executable use beyond host-stack preservation remains fatal. A 32-bit
+# w27 spill is also forbidden because it would truncate the 64-bit arena base.
+for bad in (
+    "\tmov x27, x0\n",
+    "\tadd x0, x27, #4\n",
+    "\tldr w0, [x27]\n",
+    "\tbr x27\n",
+    "\tstr w27, [sp, #4]\n",
+    "\tstr x27, [sp, #8]\n",
+    "\tldp x26, x27, [sp, #16]\n",
+    "\tmov w15, #1\n",
+):
     try:
         conv.ios_flex_base_fastpath(bad, "bad.o.darwin.s")
     except conv.ConvertError:
         pass
     else:
-        raise AssertionError("reserved-register use did not fail flexible-base conversion")
+        raise AssertionError(f"unsafe reserved-register use did not fail: {bad!r}")
 compressed = """\
 \t.text
 f:

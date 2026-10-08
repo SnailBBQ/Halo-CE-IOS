@@ -615,9 +615,48 @@ def _flex_canonicalized(lines):
     return out
 
 
+FLEX_X27_STACK_PAIR_RE = re.compile(
+    r'^\s*(?:stp|ldp)\s+(?:x28\s*,\s*x27|x27\s*,\s*x28)\s*,\s*'
+    r'\[\s*sp\b[^\]]*\](?:!)?(?:\s*,\s*#\s*-?(?:0x[0-9a-fA-F]+|\d+))?\s*$')
+
+
+def _flex_reserved_register_violation(line):
+    """Return an unsafe reserved-register token from one assembly line.
+
+    arm64_32 clang honors -ffixed-x27 for allocation, but LLVM's callee-save
+    layout can still pair x28 with fixed x27 in the host-stack prologue and
+    epilogue.  Stress-compiling the real target produces only that x28/x27
+    STP/LDP preservation pattern. It is safe: x27 already contains the arena
+    base, the spill saves that exact 64-bit value, and the reload restores it.
+    No other executable source use of x27 is accepted. x15 is always reserved
+    for converter scratch and is never accepted in source instructions.
+    """
+    # Darwin clang comments use ';'. Ignore comments and assembler directives
+    # so literals/CFI metadata cannot trip the executable-register guard.
+    code = line.split(';', 1)[0].strip()
+    if not code or code.startswith('.') or code.endswith(':'):
+        return None
+    if re.search(r'\b[xw]15\b', code):
+        return 'x15'
+    if not re.search(r'\b[xw]27\b', code):
+        return None
+    # Any 32-bit w27 use would truncate the high half of the arena base.
+    if re.search(r'\bw27\b', code):
+        return 'w27'
+    # The one compiler-generated exception we can justify from the real target:
+    # x28/x27 64-bit callee-save preservation/restoration on the host SP.
+    if FLEX_X27_STACK_PAIR_RE.match(code):
+        return None
+    return 'x27'
+
+
 def ios_flex_base_fastpath(assembly: str, input_path: str) -> str:
-    if re.search(r'\b[xw](?:15|27)\b', assembly):
-        raise ConvertError(f'{input_path}: flexible-base guest source names reserved x15/x27')
+    for source_line in assembly.splitlines():
+        token = _flex_reserved_register_violation(source_line)
+        if token:
+            raise ConvertError(
+                f'{input_path}: flexible-base guest source uses reserved {token}: '
+                f'{source_line.strip()}')
     if '.Lhalo_ios_flex_' in assembly:
         raise ConvertError('iOS flexible-base fast-path label collision')
 
