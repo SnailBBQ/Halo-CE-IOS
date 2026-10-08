@@ -5,6 +5,7 @@
 #import "halo_ios_audio.h"
 #import <UIKit/UIKit.h>
 #import <AVFoundation/AVFoundation.h>
+#import <CoreMedia/CoreMedia.h>
 #include <stdatomic.h>
 #endif
 

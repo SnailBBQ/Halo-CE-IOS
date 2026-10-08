@@ -1,13 +1,13 @@
 # Release notes
 
-The current update is **M2.6.90**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.91**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.90](../../port/ios/UPDATE_M2690.md) keeps the M2.6.88 Custom Edition/MP4 feature set on OpenCE build 146/network 22 and fixes the remaining Apple SDK `Marker` collision in `test_ios_disc_install.m`. M2.6.89 already repaired the Custom Edition harness and that workflow step now passes; Actions and device validation are still required for M2.6.90.
+**Latest:** [M2.6.91](../../port/ios/UPDATE_M2691.md) keeps the M2.6.88 Custom Edition/MP4 feature set on OpenCE build 146/network 22 and fixes the device-host link by adding CoreMedia for `kCMTimeZero`. The framework-link audit now recognizes CoreMedia use so this exact error is caught before Xcode links the app. M2.6.89 and M2.6.90 fixed the two Apple Objective-C harness failures; Actions and device validation are still required for M2.6.91.
 
 **Previous:** [M2.6.89](../../port/ios/UPDATE_M2689.md) repaired the first Apple packaging harness failure in `test_ios_mods.m`. [M2.6.88](../../port/ios/UPDATE_M2688.md) introduced the Custom Edition library and MP4 fallback but failed during the Apple packaging test harness. [M2.6.87](../../port/ios/UPDATE_M2687.md) integrated OpenCE build 146/network 22. [M2.6.86](../../port/ios/UPDATE_M2686.md) added Non-Jailbreak flexible-base Stage 2 on the previous build-144 engine.
 
@@ -57,6 +57,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.91 | Apple host-link hotfix: link CoreMedia for the MP4 fallback's `kCMTimeZero` use and extend the framework dependency audit. Runtime behavior unchanged; Actions/device validation pending. |
 | M2.6.90 | Second Apple packaging-test hotfix: rename the final `Marker` helper in the disc-install harness and add a suite-wide collision guard. CE/MP4/runtime behavior unchanged; Actions/device validation pending. |
 | M2.6.89 | First Apple packaging-test hotfix: repair `test_ios_mods.m` (`Marker` collision and comma-safe variadic `CHECK`). The Custom Edition migration step passes after this fix. |
 | M2.6.88 | iOS Custom Edition map manager replaces replacement maps; user-supplied MP4 fallback for Bink intro/credits/attract movies; legacy overlay retirement; OpenCE build 146/network 22 and M2.6.86 Stage-2 Non-JB diagnostics retained. Actions/device validation pending. |

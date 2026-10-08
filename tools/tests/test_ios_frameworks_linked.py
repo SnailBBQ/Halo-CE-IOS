@@ -20,6 +20,7 @@ SYMBOLS = {
     "CoreMotion": r"\b(CMMotionManager|CMDeviceMotion|CMAttitude|CMPedometer|CMAltimeter|CMHeadphoneMotionManager)\b",
     "GameController": r"\b(GCController|GCExtendedGamepad|GCKeyboard|GCMouse|GCMicroGamepad)\b",
     "AVFoundation": r"\b(AVAudioEngine|AVAudioSession|AVAudioSourceNode|AVAudioFormat|AVAudioPlayer|AVPlayer|AVCaptureSession)\b",
+    "CoreMedia": r"\b(kCMTime\w*|CMTime(?:Make|MakeWithSeconds|GetSeconds|Compare|Add|Subtract|ConvertScale)|CMClock\w*|CMSampleBuffer\w*|CMFormatDescription\w*)\b",
     "UniformTypeIdentifiers": r"\bUTType[A-Z]\w*",
     "OpenGLES": r"\b(EAGLContext|kEAGL\w+|EAGLSharegroup)\b",
     "QuartzCore": r"\b(CADisplayLink|CAShapeLayer|CATransaction|CALayer|CAEAGLLayer|CACurrentMediaTime|CABasicAnimation|CAMediaTiming|CAGradientLayer)\b",
