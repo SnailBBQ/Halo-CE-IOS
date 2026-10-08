@@ -39,6 +39,7 @@ on:
       - 'tools/tests/test_ios_guest_return_contracts.py'
       - 'tools/tests/test_ios_nonjb_exec_trace.py'
       - 'tools/tests/test_ios_flex_stage2.py'
+      - 'tools/tests/test_ios_flex_stage3.py'
       - 'tools/tests/test_ios_custom_content.py'
       - 'tools/tests/test_ios_flex_base_model.c'
       - 'tools/tests/test_ios_campaign_policy.py'
@@ -154,6 +155,7 @@ jobs:
           python3 tools/tests/test_ios_guest_return_contracts.py
           python3 tools/tests/test_ios_nonjb_exec_trace.py
           python3 tools/tests/test_ios_flex_stage2.py
+          python3 tools/tests/test_ios_flex_stage3.py
           python3 tools/tests/test_ios_nonjb_link_dependencies.py
           python3 tools/tests/test_ios_custom_content.py
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_flex_base_model.c -o "$RUNNER_TEMP/halo-flex-model-test"
@@ -236,6 +238,7 @@ jobs:
         env:
           ARENA_FASTPATH: ${{ github.event.inputs.arena_fastpath || 'true' }}
           COMPATIBILITY_TEST: ${{ inputs.compatibility_test || false }}
+          NON_JAILBREAK: ${{ inputs.non_jailbreak || false }}
         run: |
           set -euxo pipefail
           python3 configure.py --pgo=off
@@ -252,9 +255,15 @@ jobs:
               raise SystemExit("guest compile flags not found in build.ninja")
           s = s.replace("-DHALO_ANDROID=1", "-DHALO_ANDROID=1 -DHALO_IOS_GUEST=1")
           import os
+          non_jailbreak = os.environ.get("NON_JAILBREAK", "").lower() == "true"
           if os.environ.get("COMPATIBILITY_TEST", "").lower() == "true":
               s = s.replace("-DHALO_IOS_GUEST=1", "-DHALO_IOS_GUEST=1 -DHALO_MOD_TEST=1")
-          if os.environ.get("ARENA_FASTPATH", "true").lower() != "false":
+          if non_jailbreak:
+              s = s.replace("-DHALO_IOS_GUEST=1", "-DHALO_IOS_GUEST=1 -DHALO_IOS_FLEX_BASE=1")
+          fastpath = os.environ.get("ARENA_FASTPATH", "true").lower() != "false"
+          if non_jailbreak and not fastpath:
+              raise SystemExit("Non-Jailbreak Stage 3 requires the flexible-base pointer rewrite; leave arena_fastpath enabled")
+          if fastpath:
               converter = "tools/android_asm_convert.py $out.darwin.s $out.s"
               target = "--target=arm64_32-apple-watchos"
               if converter not in s or target not in s:
@@ -275,19 +284,27 @@ jobs:
                   return run.returncode == 0
               if probe("-ffixed-x15") is False:
                   raise SystemExit("clang rejects -ffixed-x15 for the guest target")
-              # x15 is the rewrite's scratch register and must never be live in compiled code.
               extra = " -ffixed-x15"
-              # Compressed jump tables could overflow once instructions are inserted, so the
-              # rewrite skips functions that use them. Turn them off where clang can.
+              if non_jailbreak:
+                  if probe("-ffixed-x27") is False:
+                      raise SystemExit("clang rejects -ffixed-x27 required by the Non-Jailbreak flexible-base guest")
+                  extra += " -ffixed-x27"
+              compressed_flag = None
               for flag in ("-aarch64-enable-compress-jump-tables=false",):
                   if probe("-mllvm", flag) is True:
+                      compressed_flag = flag
                       extra += " -mllvm " + flag
                       print("guest build: compressed jump tables disabled via " + flag)
                       break
-              else:
+              if non_jailbreak and compressed_flag is None:
+                  raise SystemExit("Non-Jailbreak Stage 3 requires compressed jump tables to be disabled")
+              if compressed_flag is None:
                   print("guest build: clang has no known switch for compressed jump tables; "
                         "functions that use them stay on the signal bridge")
-              s = s.replace(converter, "tools/android_asm_convert.py --ios-arena-fastpath $out.darwin.s $out.s")
+              if non_jailbreak:
+                  s = s.replace(converter, "tools/android_asm_convert.py --ios-flex-base-fastpath $out.darwin.s $out.s")
+              else:
+                  s = s.replace(converter, "tools/android_asm_convert.py --ios-arena-fastpath $out.darwin.s $out.s")
               s = s.replace(target, target + extra)
           linker = "ld.lld -m aarch64linux -static"
           if linker not in s:
@@ -444,18 +461,19 @@ jobs:
           # The Non-Jailbreak Version's code exists in the executable only when it was asked for, so an ordinary build is
           # proved to be without it. (The strings are read into a variable first: a pipe into grep -q would fail on SIGPIPE.)
           EXECUTABLE_STRINGS=$(/usr/bin/strings -a "$APP/$EXECUTABLE")
+          GUEST_STRINGS=$(/usr/bin/strings -a "$APP/halo_guest.elf")
           if [ "$NON_JAILBREAK" = true ]; then
-            grep -q -- 'Non-Jailbreak Version (' <<< "$EXECUTABLE_STRINGS"
+            grep -q -- 'Non-Jailbreak Version (' <<< "$EXECUTABLE_STRINGS" || grep -q -- 'Non-Jailbreak Version (Stage 3)' <<< "$EXECUTABLE_STRINGS"
             grep -q -- 'Address-space probe (nothing stays reserved)' <<< "$EXECUTABLE_STRINGS"
             grep -q -- 'Flexible 4 GiB ANYWHERE:' <<< "$EXECUTABLE_STRINGS"
             grep -q -- 'NON-JB EXECUTION TRACE:' <<< "$EXECUTABLE_STRINGS"
-            grep -q -- 'FLEXIBLE-BASE STAGE 2:' <<< "$EXECUTABLE_STRINGS"
-          elif grep -q -e 'Non-Jailbreak Version (' -e 'Address-space probe (nothing stays reserved)' -e 'Flexible 4 GiB ANYWHERE:' -e 'NON-JB EXECUTION TRACE:' -e 'FLEXIBLE-BASE STAGE 2:' <<< "$EXECUTABLE_STRINGS"; then
+            grep -q -- 'NON-JB FLEX STAGE 3:' <<< "$EXECUTABLE_STRINGS"
+            grep -q -- 'HALO_IOS_FLEX_BASE_GUEST_V1' <<< "$GUEST_STRINGS"
+          elif grep -q -e 'Non-Jailbreak Version (' -e 'Non-Jailbreak Version (Stage 3)' -e 'Address-space probe (nothing stays reserved)' -e 'Flexible 4 GiB ANYWHERE:' -e 'NON-JB EXECUTION TRACE:' -e 'NON-JB FLEX STAGE 3:' <<< "$EXECUTABLE_STRINGS" || grep -q -- 'HALO_IOS_FLEX_BASE_GUEST_V1' <<< "$GUEST_STRINGS"; then
             echo "::error::Non-Jailbreak code is present in a build that did not ask for it."
             exit 1
           fi
           # The same proof for the Mod Test app: its engine and host code exist only in a build that asked for it.
-          GUEST_STRINGS=$(/usr/bin/strings -a "$APP/halo_guest.elf")
           if [ "$COMPATIBILITY_TEST" = true ]; then
             grep -q -- 'MOD TEST:' <<< "$GUEST_STRINGS"
             grep -q -- 'Mod Test build:' <<< "$EXECUTABLE_STRINGS"
@@ -479,15 +497,21 @@ jobs:
           GUEST_SHA=$(/usr/bin/shasum -a 256 "$APP/halo_guest.elf" | awk '{print $1}')
           FLAVOR=Regular
           DIAGNOSTICS=none
+          GUEST_ARCHITECTURE=aligned-arena-v1
+          GUEST_ADAPTATION=ios-guarded-v1
           if [ "$COMPATIBILITY_TEST" = true ]; then
             FLAVOR=ModTest
             DIAGNOSTICS=direct-aligned-arena-test
           elif [ "$NON_JAILBREAK" = true ]; then
             FLAVOR=NonJailbreak
-            DIAGNOSTICS=flex-base-stage2+exec-trace-v2
+            DIAGNOSTICS=flex-base-stage3-real-guest+exec-trace-v3
+            GUEST_ARCHITECTURE=flexible-base-x27-v1
+            GUEST_ADAPTATION=ios-flex-x27-v1
           fi
           /usr/libexec/PlistBuddy -c "Set :HaloBuildFlavor $FLAVOR" "$APP/Info.plist"
           /usr/libexec/PlistBuddy -c "Set :HaloDiagnosticMode $DIAGNOSTICS" "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :HaloGuestArchitecture $GUEST_ARCHITECTURE" "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :HaloGuestAdaptation $GUEST_ADAPTATION" "$APP/Info.plist"
           /usr/libexec/PlistBuddy -c "Set :HaloGuestSHA256 $GUEST_SHA" "$APP/Info.plist"
           /usr/libexec/PlistBuddy -c "Set :HaloSourceCommit ${GITHUB_SHA:-local}" "$APP/Info.plist"
           /usr/libexec/PlistBuddy -c "Set :HaloBuildRun ${GITHUB_RUN_ID:-local}" "$APP/Info.plist"

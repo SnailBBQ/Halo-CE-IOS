@@ -34,8 +34,9 @@ for marker in (
 
 assert RUNNER.index('halo_crash_phase("nonjb 403 exec canary entering")') < RUNNER.index("result = entry();")
 assert RUNNER.index("result = entry();") < RUNNER.index('halo_crash_phase("nonjb 404 exec canary returned")')
-assert RUNNER.index('halo_crash_phase("nonjb 413 calling __guest_start")') < RUNNER.index("start(context.boot_va);")
-assert RUNNER.index("start(context.boot_va);") < RUNNER.index('halo_crash_phase("nonjb 418 __guest_start returned")')
+call = 'halo_nonjb_guest_call_u32((void *)start, context.boot_va, halo_guest_base_address());'
+assert RUNNER.index('halo_crash_phase("nonjb 413 calling __guest_start")') < RUNNER.index(call)
+assert RUNNER.index(call) < RUNNER.index('halo_crash_phase("nonjb 418 __guest_start returned")')
 
 # The first host callback is evidence that real guest code progressed through __guest_start.
 set_tp = RUNNER[RUNNER.index("static void ios_host_set_tp"):RUNNER.index("static HgCache g_geometry_cache")]
@@ -74,5 +75,5 @@ assert "nonjb_guest_arena_exec_canary" not in ordinary
 assert "NON-JB EXECUTION TRACE" in nonjb and "nonjb_guest_arena_exec_canary" in nonjb
 
 assert '"nonjb "' in STATE, "launch-state classifier must preserve silent-stop breadcrumbs"
-assert "keeps the M2.6.84 execution trace" in APP and "Stage 2 runs an isolated synthetic 32-bit guest model" in APP
-print("PASS: Non-JB uses the real guest-arena RW->RX path for an execution canary, persists numbered guest-handoff breadcrumbs, records the first host import, and leaves ordinary builds untouched")
+assert "Stage 3 real-guest flexible-base execution" in APP and "Stage 2 remains only as a fallback diagnostic" in APP
+print("PASS: Non-JB preserves the execution canary and handoff trace while Stage 3 routes the real guest through the x27 entry trampoline; ordinary builds stay untouched")

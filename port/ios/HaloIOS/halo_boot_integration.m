@@ -88,7 +88,7 @@ static void boot_non_jailbreak_diagnostics(void (^line)(const char *))
     struct kinfo_proc process;
     size_t process_size = sizeof(process);
     memset(&process, 0, sizeof(process));
-    line("Non-Jailbreak Version (diagnostics): the official app plus address-space and JIT diagnostics. Nothing changes when the normal reservation works.");
+    line("Non-Jailbreak Version (Stage 3): uses the ordinary aligned arena when available; otherwise one exact 4 GiB arbitrary-base arena may become the real OpenCE guest after flexible-base ABI verification.");
     say(line, "Host compiled: %s %s; bundle=%s", __DATE__, __TIME__, NSBundle.mainBundle.bundleIdentifier.UTF8String ?: "unknown");
     if (sysctl(mib, 4, &process, &process_size, NULL, 0) == 0 && process_size == sizeof(process))
         say(line, "Debugger attached at boot: %s (does not prove JIT authorization)", (process.kp_proc.p_flag & P_TRACED) ? "yes" : "no");
@@ -132,13 +132,13 @@ void halo_ios_start_game_boot(void (^line)(const char *text))
             char flex[4096];
             int flex_pass;
             say_block(line, halo_guest_runtime_nonjb_report());
-            line("Non-Jailbreak Version: the real OpenCE guest still requires the aligned arena. Stage 2 now runs an isolated base+uint32 synthetic guest when one exact 4 GiB span can be reserved at a hostile address; it never launches Halo from that arena.");
-            halo_crash_phase("nonjb 519 flex stage2 requested");
+            line("Non-Jailbreak Version: Stage 3 could not reserve the real guest arena. Re-running the isolated Stage-2 model only as a diagnostic; it cannot start Halo by itself.");
+            halo_crash_phase("nonjb 519 flex stage2 requested after stage3 reserve failure");
             flex_pass = halo_guest_runtime_nonjb_flex_stage2(flex, sizeof(flex), halo_crash_phase);
             say_block(line, flex);
             line("Check the installed app's signing capabilities. This failure occurs before map loading; it is not a Jetsam termination report.");
             if (flex_pass)
-                line("STARTUP BLOCKED: REAL GUEST FLEX-BASE CONVERSION NOT ENABLED");
+                line("STARTUP BLOCKED: STAGE 3 REAL-ARENA RESERVATION FAILED EVEN THOUGH THE ISOLATED MODEL PASSED");
             else
                 line("STARTUP BLOCKED: ADDRESS SPACE / FLEX STAGE 2 DID NOT PASS");
             return;
@@ -158,6 +158,13 @@ void halo_ios_start_game_boot(void (^line)(const char *text))
         (unsigned long long)halo_guest_span(),
         halo_guest_page_size(),
         halo_guest_base_is_4gb_aligned() ? "YES" : "NO");
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+    if (halo_guest_runtime_is_flexible_base())
+    {
+        halo_crash_phase("nonjb 600 flex real guest arena active");
+        line("NON-JB FLEX STAGE 3: the hostile 4 GiB reservation is now the real guest arena. Host-side map/scenario bootstrap and the real flexible-base halo_guest.elf will be attempted.");
+    }
+#endif
 
     line("");
     line("[1/3] Loading real ui.map cache and original-address tag state...");

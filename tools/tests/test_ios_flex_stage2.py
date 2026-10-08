@@ -48,20 +48,21 @@ assert "g_guest_base =" not in block, "synthetic arena must never become the rea
 assert "start(context.boot_va)" not in block and "halo_guest_runner" not in block
 assert "The real OpenCE guest is still deliberately disabled" in block
 
-# The Stage-2 call happens only after aligned-arena initialization failed.
+# Stage 2 is now only a fallback diagnostic after Stage 3 failed to obtain a real arena.
 fail_branch = BOOT[BOOT.index('line("FATAL: 4-GiB-aligned original-address guest runtime failed.")'):BOOT.index("[1/3] Loading real ui.map")]
+assert "Stage 3 could not reserve the real guest arena" in fail_branch
 assert "halo_guest_runtime_nonjb_flex_stage2" in fail_branch
 assert fail_branch.index("halo_guest_runtime_nonjb_flex_stage2") < fail_branch.index("return;")
-assert "STARTUP BLOCKED: REAL GUEST FLEX-BASE CONVERSION NOT ENABLED" in fail_branch
+assert "STARTUP BLOCKED: STAGE 3 REAL-ARENA RESERVATION FAILED EVEN THOUGH THE ISOLATED MODEL PASSED" in fail_branch
 
 # CI must compile the Non-JB runtime and run the host arithmetic model before
 # spending the macOS build on an IPA.
 assert "test_ios_flex_stage2.py" in WF
 assert "test_ios_flex_base_model.c" in WF
 assert "-DHALO_NON_JAILBREAK=1" in WF and "halo-flex-runtime.o" in WF
-assert "FLEXIBLE-BASE STAGE 2:" in WF
-assert "flex-base-stage2+exec-trace-v2" in WF
+assert "NON-JB FLEX STAGE 3:" in WF
+assert "flex-base-stage3-real-guest+exec-trace-v3" in WF
 
-assert "Stage 2 never launches the real Halo guest" in APP
+assert "Stage 2 remains only as a fallback diagnostic" in APP
 assert "Stage 2" in HEADER
-print("PASS: Stage 2 uses a hostile 4-GiB base+uint32 model, exercises representative memory/thread/import/RX paths, stays isolated from g_guest_base, and is CI-gated")
+print("PASS: Stage 2 remains an isolated hostile-base diagnostic, runs only after Stage-3 real-arena reservation failure, and stays CI-gated")

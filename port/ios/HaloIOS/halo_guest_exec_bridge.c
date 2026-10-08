@@ -218,6 +218,23 @@ static void bridge_signal(int signal_number, siginfo_t *info, void *opaque)
 
         if (rn != 31 && value != 0 && value < FOUR_GB)
         {
+            /* The legacy aligned arena may safely upgrade a low guest pointer
+             * in-place because truncating the resulting host address recovers
+             * the same guest VA. That identity is deliberately false in the
+             * Stage-3 arbitrary-base arena. A low-pointer memory fault there
+             * means the correctness-critical flexible-base converter missed a
+             * site; abort instead of poisoning the guest register with a host
+             * pointer whose low 32 bits are not the guest VA. */
+            if (halo_guest_runtime_is_flexible_base())
+            {
+                g_stats.last_fault_address = fault;
+                g_stats.last_host_pc = pc;
+                g_stats.last_guest_pc = guest_pc;
+                g_stats.last_instruction = instruction;
+                g_stats.last_base_register = rn;
+                abort_guest_from_signal(fault, pc, instruction, opaque);
+                return;
+            }
             set_register(context, rn, base + (uint32_t)value);
             g_stats.pointer_upgrades++;
             fault_hist_add(guest_pc);

@@ -323,6 +323,7 @@ def ios_pointer_fastpath(assembly: str, input_path: str) -> str:
 # ---------------------------------------------------------------------------
 
 ARENA_SCRATCH = 15
+FLEX_BASE = 27
 ARENA_MASK = '0xffffffff00000000'
 # Early start-up and thread entry code stays on the signal bridge; everything else is rewritten.
 ARENA_SKIP_PATHS = ('/guest/runtime/guest_start.', '/guest/runtime/guest_thread.')
@@ -341,6 +342,7 @@ ARENA_MEM_RE = re.compile(
     r'\[\s*x(?P<rn>\d+)\s*(?:,\s*(?P<off>[^\]]*?))?\s*\](?P<wb>!)?'
     r'(?:\s*,\s*(?P<post>#\s*-?(?:0x[0-9a-fA-F]+|\d+)|x\d+))?\s*$')
 ARENA_IMM_RE = re.compile(r'^#\s*(-?(?:0x[0-9a-fA-F]+|\d+))$')
+ARENA_LO12_RE = re.compile(r'^:lo12:(?:[\w.$]+|"[^"]+")(?:[+-]\d+)?$')
 ARENA_REGOFF_RE = re.compile(
     r'^(?P<r>[xw])(?P<n>\d+)\s*(?:,\s*(?P<ext>[a-z]+)\s*(?:#\s*(?P<amt>\d+))?)?$')
 ARENA_BLR_RE = re.compile(r'^(?P<ind>\s*)blr\s+x(?P<rn>\d+)\s*$')
@@ -367,8 +369,14 @@ def _arena_adjust(rn, imm):
     return [f'\tsub x{rn}, x{rn}, #{-imm}']
 
 
-def arena_rewrite_line(line, label):
-    """Return replacement lines for one instruction, or None to keep it."""
+def arena_rewrite_line(line, label, address_builder=None, allow_lo12=False):
+    """Return replacement lines for one instruction, or None to keep it.
+
+    address_builder defaults to the aligned-arena normalization. The Non-JB
+    flexible-base converter supplies a builder that uses reserved x27.
+    """
+    if address_builder is None:
+        address_builder = _arena_address
     m = ARENA_MEM_RE.match(line)
     if m:
         rn = int(m['rn'])
@@ -383,6 +391,13 @@ def arena_rewrite_line(line, label):
             im = ARENA_IMM_RE.match(off)
             if im:
                 imm = int(im[1], 0)
+            elif allow_lo12 and ARENA_LO12_RE.match(off) and not wb and not post:
+                # A converted Darwin ``sym@PAGEOFF`` memory operand becomes
+                # ``:lo12:sym``.  The guest ELF symbols retain their original
+                # 32-bit VAs, and every iOS arena base is at least page aligned,
+                # so the low 12-bit relocation remains valid after mapping the
+                # canonical page VA through either the aligned or x27 base.
+                pass
             else:
                 # Register offsets only where the roles are unambiguous: the
                 # base register is the pointer, the other one is the index.
@@ -420,7 +435,7 @@ def arena_rewrite_line(line, label):
             access_off = ''
         else:
             access_off = f', {off}' if off else ''
-        out += _arena_address(rn)
+        out += address_builder(rn)
         out.append(f"{m['ind']}{m['op']} {m['regs'].strip()}, [x{ARENA_SCRATCH}{access_off}]")
         if post_register is not None:
             out.append(f'\tadd x{rn}, x{rn}, x{post_register}')
@@ -440,7 +455,7 @@ def arena_rewrite_line(line, label):
         return [
             f'\tlsr {s}, x{rn}, #32',
             f'\tcbnz {s}, {label}_w',
-            *_arena_address(rn),
+            *address_builder(rn),
             f'\tblr {s}',
             f'\tb {label}_e',
             f'{label}_w:',
@@ -495,16 +510,151 @@ def ios_arena_fastpath(assembly: str, input_path: str) -> str:
     return '\n'.join(out) + '\n'
 
 
+
+# ---------------------------------------------------------------------------
+# iOS flexible-base fast path (M2.6.94, Non-Jailbreak guest only)
+#
+# The aligned fast path can recover the arena base from the high 32 bits of
+# the executing PC. That identity disappears when a stock-iOS process can only
+# reserve a 4 GiB span at an arbitrary base such as 0x2a0000000.
+#
+# The flexible guest therefore reserves x27 for the real 64-bit arena base and
+# x15 for address scratch. Ordinary arm64_32 pointers remain canonical 32-bit
+# guest VAs. Every memory access through a general register becomes:
+#
+#     add x15, x27, wN, uxtw
+#     ldr ..., [x15, ...]
+#
+# arm64_32 clang can also materialize addresses from PC/SP/FP as 64-bit host
+# addresses (for example &static or &local). On a true <=4 GiB process those
+# are already valid 32-bit pointer values; in a relocated arena they are not.
+# Canonicalize those address-producing instructions back to guest VAs by
+# subtracting x27 immediately after the materialization. This keeps pointer
+# values stored in guest memory 32-bit and prevents low32(host) from leaking.
+#
+# Unlike the aligned fast path, this mode is correctness-critical: no function
+# may silently fall back to PAGEZERO pointer upgrading because truncating an
+# arbitrary host address would corrupt the guest pointer. Compressed jump-table
+# functions and objects that already name x15/x27 therefore fail conversion.
+# ---------------------------------------------------------------------------
+
+FLEX_ADR_RE = re.compile(r'^(?P<ind>\s*)adr(?P<page>p?)\s+x(?P<rd>\d+)\s*,\s*.+$')
+FLEX_STACK_ADD_RE = re.compile(
+    r'^(?P<ind>\s*)(?P<op>add|sub)\s+x(?P<rd>\d+)\s*,\s*(?P<src>sp|x29)\s*,\s*.+$')
+FLEX_STACK_MOV_RE = re.compile(
+    r'^(?P<ind>\s*)mov\s+x(?P<rd>\d+)\s*,\s*(?P<src>sp|x29)\s*$')
+FLEX_BR_RE = re.compile(r'^(?P<ind>\s*)br\s+x(?P<rn>\d+)\s*$')
+
+
+def _flex_address(rn):
+    return [f'\tadd x{ARENA_SCRATCH}, x{FLEX_BASE}, w{rn}, uxtw']
+
+
+def _flex_rewrite_br(line, label):
+    """Map a 32-bit guest tail-call target without changing LR."""
+    match = FLEX_BR_RE.match(line)
+    if not match:
+        return None
+    rn = int(match['rn'])
+    # x30 is already the real host return address. x15/x27 are reserved and
+    # rejected at object scope, so only ordinary general registers need help.
+    if rn >= 30 or rn in (ARENA_SCRATCH, FLEX_BASE):
+        return None
+    scratch = f'x{ARENA_SCRATCH}'
+    return [
+        f'\tlsr {scratch}, x{rn}, #32',
+        f'\tcbnz {scratch}, {label}_w',
+        *_flex_address(rn),
+        f'\tbr {scratch}',
+        f'{label}_w:',
+        f'\tbr x{rn}',
+    ]
+
+
+def _flex_canonicalized(lines):
+    """Canonicalize clang-created host addresses back to 32-bit guest VAs."""
+    out = []
+    for line in lines:
+        out.append(line)
+        m = FLEX_ADR_RE.match(line)
+        if m:
+            rd = int(m['rd'])
+            if rd in (ARENA_SCRATCH, FLEX_BASE):
+                raise ConvertError(f'flex-base reserved register x{rd} used by address materialization')
+            if rd < 29:
+                out.append(f"{m['ind']}sub x{rd}, x{rd}, x{FLEX_BASE}")
+            continue
+        m = FLEX_STACK_ADD_RE.match(line) or FLEX_STACK_MOV_RE.match(line)
+        if m:
+            rd = int(m['rd'])
+            # x29 is the live frame pointer and x30 the link register; never
+            # rewrite them. Any other x-register materialized from SP/FP is a
+            # pointer value in arm64_32 and must become a guest VA.
+            if rd < 29 and rd not in (ARENA_SCRATCH, FLEX_BASE):
+                out.append(f"{m['ind']}sub x{rd}, x{rd}, x{FLEX_BASE}")
+    return out
+
+
+def ios_flex_base_fastpath(assembly: str, input_path: str) -> str:
+    if re.search(r'\b[xw](?:15|27)\b', assembly):
+        raise ConvertError(f'{input_path}: flexible-base guest source names reserved x15/x27')
+    if '.Lhalo_ios_flex_' in assembly:
+        raise ConvertError('iOS flexible-base fast-path label collision')
+
+    lines = assembly.splitlines()
+    for line in lines:
+        if ARENA_COMPRESSED_RE.match(line):
+            raise ConvertError(
+                f'{input_path}: compressed jump table remains in flexible-base guest; '
+                'the Non-JB build must disable compressed jump tables')
+
+    lines = _flex_canonicalized(lines)
+    out, sites, blr_sites = [], 0, 0
+    flex_gpr_mem_re = re.compile(
+        r'^\s*(?:' + ARENA_MEM_OPS + r')\b.*\[\s*x(?P<rn>\d+)\b')
+    for line in lines:
+        label = f'.Lhalo_ios_flex_{sites + blr_sites}'
+        replacement = _flex_rewrite_br(line, label)
+        if replacement is None:
+            replacement = arena_rewrite_line(
+                line, label, _flex_address, allow_lo12=True)
+        if replacement is None:
+            # Flexible-base correctness cannot fall back to PAGEZERO pointer
+            # upgrading: a host pointer truncated through a W register would no
+            # longer equal the guest VA. Reject any remaining guest memory
+            # access through a general register so CI exposes unsupported
+            # addressing forms before they reach a device. SP/FP are real host
+            # stack/frame pointers and are intentionally left untouched.
+            mm = flex_gpr_mem_re.match(line)
+            if mm:
+                rn = int(mm['rn'])
+                if rn < 29 and rn not in (ARENA_SCRATCH, FLEX_BASE):
+                    raise ConvertError(
+                        f'{input_path}: unconverted flexible-base memory access '
+                        f'through x{rn}: {line.strip()}')
+            out.append(line)
+            continue
+        if ARENA_BLR_RE.match(line) or FLEX_BR_RE.match(line):
+            blr_sites += 1
+        else:
+            sites += 1
+        out.extend(replacement)
+    print(f'iOS flexible-base fast path: {sites} memory sites, {blr_sites} indirect branches in {input_path}')
+    return '\n'.join(out) + '\n'
+
 def main():
     args = sys.argv[1:]
     ios_fastpath = False
     ios_arena = False
+    ios_flex = False
     while args and args[0].startswith("--"):
         flag = args.pop(0)
         if flag == "--ios-pointer-fastpath":
             ios_fastpath = True
         elif flag == "--ios-arena-fastpath":
             ios_arena = True
+        elif flag == "--ios-flex-base-fastpath":
+            ios_flex = True
         else:
             print(__doc__)
             sys.exit(2)
@@ -517,8 +667,12 @@ def main():
         result = Converter(lines).run()
         if ios_fastpath:
             result = ios_pointer_fastpath(result, args[0])
+        if ios_arena and ios_flex:
+            raise ConvertError('choose either aligned-arena or flexible-base fast path')
         if ios_arena:
             result = ios_arena_fastpath(result, args[0])
+        if ios_flex:
+            result = ios_flex_base_fastpath(result, args[0])
     except ConvertError as e:
         print(f"{args[0]}: {e}", file=sys.stderr)
         sys.exit(1)

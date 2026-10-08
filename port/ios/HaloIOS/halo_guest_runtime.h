@@ -22,6 +22,8 @@ void *halo_guest_base_address(void);
 size_t halo_guest_page_size(void);
 uint64_t halo_guest_span(void);
 int halo_guest_base_is_4gb_aligned(void);
+/* Nonzero only when the active real guest arena came from the Non-JB arbitrary-base fallback. */
+int halo_guest_runtime_is_flexible_base(void);
 
 #if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
 /* Non-Jailbreak Version diagnostics. The first is the address-space survey written when the production reservation was refused

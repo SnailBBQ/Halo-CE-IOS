@@ -216,6 +216,32 @@ static NSString *g_save_root;
 static _Thread_local uint32_t g_guest_tp;
 #if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
 static _Atomic int g_nonjb_first_host_import_logged;
+static void halo_nonjb_guest_call_u32(void *entry, uint32_t argument, void *base);
+
+/* Stage-3 guest entry trampoline. The Non-JB halo_guest.elf is compiled with
+ * x27 reserved, and its flexible-base converter treats x27 as the immutable
+ * 64-bit arena base. Every host->guest entry point must establish it before
+ * branching into arm64_32 code. Host imports preserve x27 because it is
+ * callee-saved in the native AArch64 ABI. */
+#if defined(__arm64__) || defined(__aarch64__)
+__attribute__((naked, noinline)) static void halo_nonjb_guest_call_u32(void *entry, uint32_t argument, void *base)
+{
+    __asm__ volatile(
+        "stp x27, x30, [sp, #-16]!\n"
+        "mov x16, x0\n"
+        "mov w0, w1\n"
+        "mov x27, x2\n"
+        "blr x16\n"
+        "ldp x27, x30, [sp], #16\n"
+        "ret\n");
+}
+#else
+static void halo_nonjb_guest_call_u32(void *entry, uint32_t argument, void *base)
+{
+    (void)base;
+    ((void (*)(uint32_t))entry)(argument);
+}
+#endif
 #endif
 static _Thread_local int g_guest_errno;
 
@@ -2138,7 +2164,21 @@ static void ios_host_log(int priority, uint32_t text)
     (void)priority;
     const char *s = gp(text, 1);
     if (s)
+    {
         say("[guest] %s", s);
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+        if (!strcmp(s, "HALO_IOS_FLEX_BASE_GUEST_V1"))
+        {
+            halo_crash_phase("nonjb 607 flex real guest entered __guest_start");
+            say("NON-JB FLEX STAGE 3: [607] real flexible-base guest entered __guest_start and completed its first host_log import");
+        }
+        else if (!strcmp(s, "HALO_IOS_FLEX_STAGE3_MAIN"))
+        {
+            halo_crash_phase("nonjb 609 flex real guest entering OpenCE main");
+            say("NON-JB FLEX STAGE 3: [609] guest constructors completed; entering OpenCE main()");
+        }
+#endif
+    }
 }
 
 static void ios_host_abort(uint32_t reason)
@@ -2204,6 +2244,11 @@ static void ios_host_set_tp(uint32_t thread)
     {
         say("NON-JB EXECUTION TRACE: [416] first guest host import reached: host_set_tp(0x%08x)", thread);
         halo_crash_phase("nonjb 416 first host import host_set_tp");
+        if (halo_guest_runtime_is_flexible_base())
+        {
+            halo_crash_phase("nonjb 608 flex real guest thread pointer initialized");
+            say("NON-JB FLEX STAGE 3: [608] guest thread/TLS initialization reached host_set_tp(0x%08x)", thread);
+        }
     }
 #endif
 }
@@ -2889,7 +2934,11 @@ static void *guest_secondary_thread(void *opaque)
         halo_guest_exec_guard_set_active(1);
         void (*entry)(uint32_t) =
             (void (*)(uint32_t))halo_guest_ptr(g_header->thread_start, 1);
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+        halo_nonjb_guest_call_u32((void *)entry, start.handle, halo_guest_base_address());
+#else
         entry(start.handle);
+#endif
         halo_guest_exec_guard_set_active(0);
     }
     else
@@ -3106,6 +3155,20 @@ static int load_guest_image(NSString *path)
             error.localizedDescription.UTF8String ?: "unknown");
         return 0;
     }
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+    {
+        static const char marker[] = "HALO_IOS_FLEX_BASE_GUEST_V1";
+        NSData *markerData = [NSData dataWithBytes:marker length:sizeof(marker)-1];
+        if ([g_elf rangeOfData:markerData options:0 range:NSMakeRange(0, g_elf.length)].location == NSNotFound)
+        {
+            say("FULL GUEST BLOCKED: Non-JB halo_guest.elf lacks the flexible-base ABI marker.");
+            say("STARTUP BLOCKED: FLEX GUEST/ABI MISMATCH");
+            return 0;
+        }
+        halo_crash_phase("nonjb 601 flex guest ABI marker verified");
+        say("NON-JB FLEX STAGE 3: [601] flexible-base guest ABI marker verified");
+    }
+#endif
     if(g_elf.length < sizeof(Elf64_Ehdr)){ say("FULL GUEST: halo_guest.elf is too small (%lu bytes).",(unsigned long)g_elf.length); return 0; }
 
     g_ehdr=(const Elf64_Ehdr *)g_elf.bytes;
@@ -3176,6 +3239,14 @@ static int load_guest_image(NSString *path)
         if(va<low)low=va;
         if((uint64_t)va+mem>high)high=va+mem;
     }
+
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+    if (halo_guest_runtime_is_flexible_base())
+    {
+        halo_crash_phase("nonjb 602 flex real guest ELF segments loaded");
+        say("NON-JB FLEX STAGE 3: [602] real halo_guest.elf segments copied into the hostile arena");
+    }
+#endif
 
     /* Only the executable segments need it, each over its own bytes. */
     halo_crash_phase("guest image: instruction cache");
@@ -3276,6 +3347,13 @@ static int load_guest_image(NSString *path)
         g_guest_writable_start, g_main_thread_va);
     say("HOST IMPORTS: %u resolved, %u guarded fallback",
         resolved,fallback);
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+    if (halo_guest_runtime_is_flexible_base())
+    {
+        halo_crash_phase("nonjb 603 flex real guest imports resolved");
+        say("NON-JB FLEX STAGE 3: [603] import table resolved inside the real arbitrary-base guest image");
+    }
+#endif
     return 1;
 }
 
@@ -3657,10 +3735,16 @@ static void *main_guest_thread(void *opaque)
 #if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
         halo_crash_phase("nonjb 413 calling __guest_start");
         say("NON-JB EXECUTION TRACE: [413] branching into real __guest_start now");
+        if (halo_guest_runtime_is_flexible_base())
+        {
+            halo_crash_phase("nonjb 606 flex real guest branch __guest_start");
+            say("NON-JB FLEX STAGE 3: [606] setting x27=guest_base and branching into real __guest_start");
+        }
+        halo_nonjb_guest_call_u32((void *)start, context.boot_va, halo_guest_base_address());
 #else
         halo_crash_phase("guest entering __guest_start");
-#endif
         start(context.boot_va);
+#endif
 #if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
         halo_crash_phase("nonjb 418 __guest_start returned");
         say("NON-JB EXECUTION TRACE: [418] __guest_start returned to the host unexpectedly");
@@ -3681,6 +3765,10 @@ static void *main_guest_thread(void *opaque)
             st.last_guest_pc,
             (unsigned long long)st.last_host_pc,
             st.last_instruction);
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+        if (halo_guest_runtime_is_flexible_base() && st.last_fault_address && st.last_fault_address < FOUR_GB)
+            say("NON-JB FLEX STAGE 3: unconverted low-pointer memory fault at guest PC 0x%08x (base register x%u). The converter deliberately aborted instead of applying the aligned-arena pointer-upgrade fallback.", st.last_guest_pc, st.last_base_register);
+#endif
     }
 
     halo_ios_set_hosted_invite(NULL); /* also clear on a guarded guest exit */
@@ -3729,8 +3817,18 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
 
     if(!halo_guest_base_is_4gb_aligned())
     {
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+        if (!halo_guest_runtime_is_flexible_base())
+        {
+            say("FULL GUEST BLOCKED: guest arena is neither aligned nor an active Stage-3 flexible arena.");
+            return 0;
+        }
+        halo_crash_phase("nonjb 600 flex real guest arena active");
+        say("NON-JB FLEX STAGE 3: [600] real OpenCE guest will use arbitrary-base arena %p with x27 translation", halo_guest_base_address());
+#else
         say("FULL GUEST BLOCKED: guest arena is not 4-GiB aligned.");
         return 0;
+#endif
     }
     if(!halo_guest_exec_bridge_install())
     {
@@ -3775,6 +3873,13 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
 
     uint32_t boot=build_boot();
     halo_crash_phase("guest boot environment built");
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+    if (boot && halo_guest_runtime_is_flexible_base())
+    {
+        halo_crash_phase("nonjb 604 flex real guest boot built");
+        say("NON-JB FLEX STAGE 3: [604] real guest argv/environment boot block built at guest VA 0x%08x", boot);
+    }
+#endif
     if(!boot)
     {
         say("FULL GUEST BLOCKED: boot environment allocation failed.");
@@ -3797,6 +3902,11 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
 #if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
     halo_crash_phase("nonjb 408 guest main stack ready");
     say("NON-JB EXECUTION TRACE: [408] 16 MiB guest main stack committed at 0x%08x", stack_va);
+    if (halo_guest_runtime_is_flexible_base())
+    {
+        halo_crash_phase("nonjb 605 flex real guest stack ready");
+        say("NON-JB FLEX STAGE 3: [605] real guest stack is mapped at host %p for guest VA 0x%08x", halo_guest_ptr(stack_va, stack_size), stack_va);
+    }
 #endif
 
     struct main_guest_context *context=calloc(1,sizeof(*context));

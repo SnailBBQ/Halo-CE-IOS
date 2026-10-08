@@ -20,7 +20,7 @@ import os
 for text in [generated,generated.replace('\n','\r\n')]:
     for mode in ['true','false']:
         (scratch/'build.ninja').write_bytes((text+'\n-DHALO_ANDROID=1\n--target=arm64_32-apple-watchos\nld.lld -m aarch64linux -static\ntools/android_gl_stubs.py\n').encode())
-        subprocess.run([sys.executable,'-c',body],cwd=scratch,check=True,env={**os.environ,'ARENA_FASTPATH':mode})
+        subprocess.run([sys.executable,'-c',body],cwd=scratch,check=True,env={**os.environ,'ARENA_FASTPATH':mode,'NON_JAILBREAK':'false','COMPATIBILITY_TEST':'false'})
         patched=(scratch/'build.ninja').read_text()
         assert '--ios-pointer-fastpath' not in patched
         assert '--wrap=memcpy --wrap=memmove --wrap=memset' in patched
@@ -33,14 +33,31 @@ for text in [generated,generated.replace('\n','\r\n')]:
             assert 'tools/android_asm_convert.py $out.darwin.s $out.s' in patched
             assert '--ios-arena-fastpath' not in patched and 'ffixed-x15' not in patched
 # the default (variable unset) must also enable the rewrite
-env={k:v for k,v in os.environ.items() if k!='ARENA_FASTPATH'}
+env={k:v for k,v in os.environ.items() if k not in ('ARENA_FASTPATH','NON_JAILBREAK','COMPATIBILITY_TEST')}
+env.update({'NON_JAILBREAK':'false','COMPATIBILITY_TEST':'false'})
 (scratch/'build.ninja').write_bytes((generated+'\n-DHALO_ANDROID=1\n--target=arm64_32-apple-watchos\nld.lld -m aarch64linux -static\ntools/android_gl_stubs.py\n').encode())
 subprocess.run([sys.executable,'-c',body],cwd=scratch,check=True,env=env)
 assert '--ios-arena-fastpath' in (scratch/'build.ninja').read_text()
+# Non-Jailbreak Stage 3 gets a distinct guest ABI: x15 scratch + x27 arena base,
+# flexible-base converter, and an explicit HALO_IOS_FLEX_BASE define.
+(scratch/'build.ninja').write_bytes((generated+'\n-DHALO_ANDROID=1\n--target=arm64_32-apple-watchos\nld.lld -m aarch64linux -static\ntools/android_gl_stubs.py\n').encode())
+subprocess.run([sys.executable,'-c',body],cwd=scratch,check=True,
+               env={**os.environ,'ARENA_FASTPATH':'true','NON_JAILBREAK':'true','COMPATIBILITY_TEST':'false'})
+nonjb=(scratch/'build.ninja').read_text()
+assert '-DHALO_IOS_GUEST=1 -DHALO_IOS_FLEX_BASE=1' in nonjb
+assert 'tools/android_asm_convert.py --ios-flex-base-fastpath $out.darwin.s $out.s' in nonjb
+assert '--target=arm64_32-apple-watchos -ffixed-x15 -ffixed-x27' in nonjb
+assert '-aarch64-enable-compress-jump-tables=false' in nonjb
+assert '--ios-arena-fastpath' not in nonjb
+# Stage 3 is correctness-critical and must not build with the rewrite disabled.
+(scratch/'build.ninja').write_bytes((generated+'\n-DHALO_ANDROID=1\n--target=arm64_32-apple-watchos\nld.lld -m aarch64linux -static\ntools/android_gl_stubs.py\n').encode())
+assert subprocess.run([sys.executable,'-c',body],cwd=scratch,
+    env={**os.environ,'ARENA_FASTPATH':'false','NON_JAILBREAK':'true','COMPATIBILITY_TEST':'false'},
+    capture_output=True).returncode!=0
 # an unrecognised guest target must fail loudly instead of silently dropping -ffixed-x15
 (scratch/'build.ninja').write_bytes((generated+'\n-DHALO_ANDROID=1\nld.lld -m aarch64linux -static\ntools/android_gl_stubs.py\n').encode())
 assert subprocess.run([sys.executable,'-c',body],cwd=scratch,env=env,capture_output=True).returncode!=0
-print('PASS: real android_guest_cc command emitted by repository Ninja writer, LF/CRLF continuation matching and full workflow transformation (arena fast path on/off/default/missing target)')
+print('PASS: real android_guest_cc command emitted by repository Ninja writer, LF/CRLF continuation matching and full workflow transformation (regular aligned and Non-JB flexible-base guest ABIs)')
 
 # Only regular-app main pushes may spend hosted build time. Keep expensive
 # jobs behind diagnostics and cancel obsolete builds on replacement pushes.
@@ -77,8 +94,10 @@ assert wf.index('Reject conflicting build flavors') < wf.index('- name: Install 
 assert "inputs.non_jailbreak && 'HaloCE-iOS-NonJailbreak' || inputs.compatibility_test && 'HaloCE-iOS-ModTest' || 'HaloCE-iOS'" in wf
 assert "python3 tools/ios_upstream_acceptance.py --json" in wf, 'every candidate runs the reusable upstream acceptance gates'
 assert "Set :HaloBuildFlavor $FLAVOR" in wf and "Set :HaloGuestSHA256 $GUEST_SHA" in wf and "Set :HaloSourceCommit ${GITHUB_SHA:-local}" in wf
-assert "DIAGNOSTICS=flex-base-stage2+exec-trace-v2" in wf and "DIAGNOSTICS=direct-aligned-arena-test" in wf
-assert "Address-space probe (nothing stays reserved)" in wf and "Flexible 4 GiB ANYWHERE:" in wf and "NON-JB EXECUTION TRACE:" in wf and "FLEXIBLE-BASE STAGE 2:" in wf and "-e 'Flexible 4 GiB ANYWHERE:'" in wf
+assert "DIAGNOSTICS=flex-base-stage3-real-guest+exec-trace-v3" in wf and "DIAGNOSTICS=direct-aligned-arena-test" in wf
+assert "GUEST_ARCHITECTURE=flexible-base-x27-v1" in wf and "GUEST_ADAPTATION=ios-flex-x27-v1" in wf
+assert "Set :HaloGuestArchitecture $GUEST_ARCHITECTURE" in wf and "Set :HaloGuestAdaptation $GUEST_ADAPTATION" in wf
+assert "Address-space probe (nothing stays reserved)" in wf and "Flexible 4 GiB ANYWHERE:" in wf and "NON-JB EXECUTION TRACE:" in wf and "NON-JB FLEX STAGE 3:" in wf and "HALO_IOS_FLEX_BASE_GUEST_V1" in wf and "-e 'Flexible 4 GiB ANYWHERE:'" in wf
 assert 'va_plan' in memory and 'va_map' in memory and 'test_ios_non_jailbreak_flag.py' in memory and 'test_ios_mod_test_flag.py' in memory and 'test_ios_asset_integrity.py' in memory and 'test_ios_checkpoint_size.py' in memory and 'test_ios_mod_cache_policy.c' in memory
 assert memory.index('          done\n          cc -std=c11 -Wall -Wextra -Werror tools/tests/test_ios_mod_cache_policy.c') > memory.index('for t in settings_core'), 'mod-cache policy test must run once, after the generated-test loop'
 # Mod Test: its version follows the official one, and its code is proved absent from every other build.

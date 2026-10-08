@@ -29,6 +29,7 @@ extern int csops(pid_t pid, unsigned int ops, void *useraddr, size_t usersize);
 
 static uint8_t *g_guest_base;
 static size_t g_page_size;
+static int g_guest_flexible_base;
 static char g_init_error[256];
 const char *halo_guest_runtime_last_error(void) { return g_init_error; }
 
@@ -693,6 +694,7 @@ int halo_guest_runtime_init(void)
                 g_init_error[0] = 0;
                 g_page_size = (size_t)page;
                 g_guest_base = (uint8_t *)(uintptr_t)fixed;
+                g_guest_flexible_base = 0;
                 return 1;
             }
             if (halo_va_try_fixed_arena(&reserver, &fixed, &fixed_error, &tried))
@@ -703,6 +705,7 @@ int halo_guest_runtime_init(void)
                 g_init_error[0] = 0;
                 g_page_size = (size_t)page;
                 g_guest_base = (uint8_t *)(uintptr_t)fixed;
+                g_guest_flexible_base = 0;
                 return 1;
             }
             {
@@ -712,6 +715,33 @@ int halo_guest_runtime_init(void)
                 halo_va_text(g_nonjb_report, sizeof(g_nonjb_report), &used,
                     "Fallback: no 4 GiB-aligned window could be had. The system's own search was refused (%s), and no fixed window could be reserved either (%u tried, first refusal: %s).\n",
                     aligned_why, tried, why);
+            }
+
+            /* M2.6.94 Stage 3: unlike Stage 2, this reservation becomes the
+             * real guest arena. The Non-JB guest is built with the x27
+             * flexible-base ABI, so low32(host)==guest is no longer needed. */
+            {
+                void *flex = mmap(NULL, (size_t)HALO_GUEST_SPAN, PROT_NONE,
+                                  MAP_PRIVATE | MAP_ANON, -1, 0);
+                if (flex != MAP_FAILED &&
+                    (uintptr_t)flex <= UINTPTR_MAX - (uintptr_t)HALO_GUEST_SPAN)
+                {
+                    uintptr_t address = (uintptr_t)flex;
+                    int hostile = (address & (uintptr_t)(HALO_GUEST_SPAN - 1)) != 0;
+                    halo_va_text(g_nonjb_report, sizeof(g_nonjb_report), &used,
+                        "Stage 3 real-guest fallback: reserved 4 GiB at 0x%llx (%s). This arena is now active; the Non-JB guest must carry the flexible-base ABI marker.\n",
+                        (unsigned long long)address, hostile ? "unaligned/hostile" : "4-GiB aligned");
+                    g_init_error[0] = 0;
+                    g_page_size = (size_t)page;
+                    g_guest_base = (uint8_t *)flex;
+                    g_guest_flexible_base = hostile;
+                    return 1;
+                }
+                if (flex != MAP_FAILED)
+                    munmap(flex, (size_t)HALO_GUEST_SPAN);
+                halo_va_text(g_nonjb_report, sizeof(g_nonjb_report), &used,
+                    "Stage 3 real-guest fallback: FAILED to reserve one exact 4 GiB span anywhere (errno %d: %s).\n",
+                    errno, strerror(errno));
             }
         }
 #endif
@@ -742,6 +772,7 @@ int halo_guest_runtime_init(void)
 
     g_page_size = (size_t)page;
     g_guest_base = (uint8_t *)aligned;
+    g_guest_flexible_base = 0;
     return 1;
 }
 
@@ -751,6 +782,7 @@ void halo_guest_runtime_shutdown(void)
         munmap(g_guest_base, (size_t)HALO_GUEST_SPAN);
     g_guest_base = NULL;
     g_page_size = 0;
+    g_guest_flexible_base = 0;
 }
 
 void *halo_guest_ptr(halo_guest_va_t va, size_t size)
@@ -834,4 +866,9 @@ int halo_guest_base_is_4gb_aligned(void)
 {
     return g_guest_base &&
            (((uintptr_t)g_guest_base & (uintptr_t)(HALO_GUEST_SPAN - 1)) == 0);
+}
+
+int halo_guest_runtime_is_flexible_base(void)
+{
+    return g_guest_base && g_guest_flexible_base;
 }
