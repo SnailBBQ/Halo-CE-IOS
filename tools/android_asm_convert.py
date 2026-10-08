@@ -369,20 +369,29 @@ def _arena_adjust(rn, imm):
     return [f'\tsub x{rn}, x{rn}, #{-imm}']
 
 
-def arena_rewrite_line(line, label, address_builder=None, allow_lo12=False, flex_register_offsets=False):
+def arena_rewrite_line(line, label, address_builder=None, allow_lo12=False, flex_register_offsets=False,
+                       allow_x30=False):
     """Return replacement lines for one instruction, or None to keep it.
 
     address_builder defaults to the aligned-arena normalization. The Non-JB
     flexible-base converter supplies a builder that uses reserved x27.
+
+    allow_x30 (flexible-base only): LLVM saves the link register in the prologue
+    and, under register pressure, then allocates x30 as an ordinary register that
+    can hold a guest pointer (musl-free crypto such as monocypher's mod_l does).
+    The aligned model never needed to translate it (its signal bridge upgrades
+    the pointer), but the flexible model has no fallback, so [x30] is a guest
+    memory base there. x29 is the Darwin frame pointer and is never a data pointer.
     """
     if address_builder is None:
         address_builder = _arena_address
     m = ARENA_MEM_RE.match(line)
     if m:
         rn = int(m['rn'])
-        # x15 is the scratch register; x29/x30 hold stack/return addresses
-        # that are always arena-wide already.
-        if rn >= 29 or rn == ARENA_SCRATCH:
+        # x15 is the scratch register; x29 is the frame pointer and x30 the
+        # return address, both arena-wide already (aligned model), except that
+        # the flexible-base model also treats a reused x30 as a guest pointer.
+        if rn > 30 or rn == 29 or (rn == 30 and not allow_x30) or rn == ARENA_SCRATCH:
             return None
         off = (m['off'] or '').strip()
         wb, post = m['wb'], m['post']
@@ -468,7 +477,7 @@ def arena_rewrite_line(line, label, address_builder=None, allow_lo12=False, flex
     b = ARENA_BLR_RE.match(line)
     if b:
         rn = int(b['rn'])
-        if rn >= 30 or rn == ARENA_SCRATCH:
+        if rn > 30 or (rn == 30 and not allow_x30) or rn == ARENA_SCRATCH:
             return None
         s = f'x{ARENA_SCRATCH}'
         # Wide targets (host stubs, arena addresses) are called unchanged.
@@ -578,7 +587,9 @@ def _flex_rewrite_br(line, label):
     rn = int(match['rn'])
     # x30 is already the real host return address. x15/x27 are reserved and
     # rejected at object scope, so only ordinary general registers need help.
-    if rn >= 30 or rn in (ARENA_SCRATCH, FLEX_BASE):
+    # x30 is allowed: a real return address is wide (non-zero high half) and
+    # takes the unchanged branch below, a reused x30 guest pointer is mapped.
+    if rn > 30 or rn in (ARENA_SCRATCH, FLEX_BASE):
         return None
     scratch = f'x{ARENA_SCRATCH}'
     return [
@@ -601,7 +612,7 @@ def _flex_canonicalized(lines):
             rd = int(m['rd'])
             if rd in (ARENA_SCRATCH, FLEX_BASE):
                 raise ConvertError(f'flex-base reserved register x{rd} used by address materialization')
-            if rd < 29:
+            if rd < 29 or rd == 30:
                 out.append(f"{m['ind']}sub x{rd}, x{rd}, x{FLEX_BASE}")
             continue
         m = FLEX_STACK_ADD_RE.match(line) or FLEX_STACK_MOV_RE.match(line)
@@ -610,7 +621,7 @@ def _flex_canonicalized(lines):
             # x29 is the live frame pointer and x30 the link register; never
             # rewrite them. Any other x-register materialized from SP/FP is a
             # pointer value in arm64_32 and must become a guest VA.
-            if rd < 29 and rd not in (ARENA_SCRATCH, FLEX_BASE):
+            if (rd < 29 or rd == 30) and rd not in (ARENA_SCRATCH, FLEX_BASE):
                 out.append(f"{m['ind']}sub x{rd}, x{rd}, x{FLEX_BASE}")
     return out
 
@@ -686,7 +697,7 @@ def ios_flex_base_fastpath(assembly: str, input_path: str) -> str:
         replacement = _flex_rewrite_br(line, label)
         if replacement is None:
             replacement = arena_rewrite_line(
-                line, label, _flex_address, allow_lo12=True, flex_register_offsets=True)
+                line, label, _flex_address, allow_lo12=True, flex_register_offsets=True, allow_x30=True)
         if replacement is None:
             # Flexible-base correctness cannot fall back to PAGEZERO pointer
             # upgrading: a host pointer truncated through a W register would no
@@ -697,7 +708,7 @@ def ios_flex_base_fastpath(assembly: str, input_path: str) -> str:
             mm = flex_gpr_mem_re.match(line)
             if mm:
                 rn = int(mm['rn'])
-                if rn < 29 and rn not in (ARENA_SCRATCH, FLEX_BASE):
+                if (rn < 29 or rn == 30) and rn not in (ARENA_SCRATCH, FLEX_BASE):
                     raise ConvertError(
                         f'{input_path}: unconverted flexible-base memory access '
                         f'through x{rn}: {line.strip()}')

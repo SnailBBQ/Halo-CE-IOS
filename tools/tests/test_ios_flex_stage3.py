@@ -260,6 +260,81 @@ for bad in (
         pass
     else:
         raise AssertionError(f"unsafe reserved-register use did not fail: {bad!r}")
+# M2.6.99-class gap seen on a real iPhone 14 Plus (M2.6.98 log): LLVM saves the link
+# register and, under register pressure, reuses x30 as an ordinary register holding a
+# guest pointer (monocypher's mod_l: "ldr w9, [x30]"). The flexible model has no
+# signal-bridge fallback, so a memory access through x30 must be translated like any
+# other base register. The return address (ret, ldp/stp x29,x30 on SP) must not change.
+x30_in = (
+    "\tldr w9, [x30]\n"
+    "\tstr w11, [x30, #8]\n"
+    "\tldr x0, [x30, #16]!\n"
+    "\tldr x1, [x2, x30]\n"
+)
+x30_out = conv.ios_flex_base_fastpath(x30_in, "x30.o.darwin.s")
+assert "add x15, x27, w30, uxtw\n\tldr w9, [x15]" in x30_out, x30_out
+assert "add x15, x27, w30, uxtw\n\tstr w11, [x15, #8]" in x30_out, x30_out
+assert "add x30, x30, #16\n\tadd x15, x27, w30, uxtw\n\tldr x0, [x15]" in x30_out, x30_out
+assert "add x15, x27, w2, uxtw\n\tldr x1, [x15, x30]" in x30_out, x30_out    # x30 as an index stays an index
+assert "[x30" not in x30_out, x30_out
+
+x30_branches = conv.ios_flex_base_fastpath("\tblr x30\n\tbr x30\n", "x30br.o.darwin.s")
+assert x30_branches.count("lsr x15, x30, #32") == 2 and x30_branches.count("add x15, x27, w30, uxtw") == 2, x30_branches
+assert "\tblr x30\n" in x30_branches and "\tbr x30\n" in x30_branches      # a wide (host) value is used unchanged
+
+x30_addr = conv.ios_flex_base_fastpath("\tadrp x30, g\n\tadd x30, sp, #16\n\tmov x30, x29\n", "x30adr.o.darwin.s")
+assert x30_addr.count("sub x30, x30, x27") == 3, x30_addr
+
+keep = "\tstp x29, x30, [sp, #-16]!\n\tldr w0, [x29, #8]\n\tldp x29, x30, [sp], #16\n\tret\n"
+assert conv.ios_flex_base_fastpath(keep, "keep.o.darwin.s") == keep
+
+# The regular aligned converter must stay exactly as it was: it still leaves x30 alone.
+aligned_x30 = "\tldr w9, [x30]\n\tblr x30\n"
+assert conv.ios_arena_fastpath(aligned_x30, "/x/aligned.o.darwin.s") == aligned_x30
+
+if clang:
+    x30_c = r"""
+typedef struct { int a; short b; char c; double d; float f[4]; void *next; } S;
+extern S *getS(int);
+extern int ext(int);
+int flex_x30_probe(int x) {
+    S *p0=getS(x+0),*p1=getS(x+1),*p2=getS(x+2),*p3=getS(x+3),*p4=getS(x+4),*p5=getS(x+5),*p6=getS(x+6),*p7=getS(x+7);
+    S *p8=getS(x+8),*p9=getS(x+9),*p10=getS(x+10),*p11=getS(x+11),*p12=getS(x+12),*p13=getS(x+13),*p14=getS(x+14);
+    S *p15=getS(x+15),*p16=getS(x+16),*p17=getS(x+17),*p18=getS(x+18),*p19=getS(x+19),*p20=getS(x+20),*p21=getS(x+21);
+    unsigned long long acc = 0;
+    for (int i = 0; i < x; i++) {
+#define T(p,q) acc += p->a * p->b + (unsigned long long)p->c + (unsigned long long)p->d; p->f[i & 3] += acc; p->a = (int)acc ^ i; p->next = q;
+        T(p0,p1) T(p1,p2) T(p2,p3) T(p3,p4) T(p4,p5) T(p5,p6) T(p6,p7) T(p7,p8) T(p8,p9) T(p9,p10) T(p10,p11)
+        T(p11,p12) T(p12,p13) T(p13,p14) T(p14,p15) T(p15,p16) T(p16,p17) T(p17,p18) T(p18,p19) T(p19,p20) T(p20,p21) T(p21,p0)
+        acc += ext(i);
+    }
+    return (int)acc;
+}
+"""
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        (td / "x30.c").write_text(x30_c)
+        subprocess.run([
+            clang, "--target=arm64_32-apple-watchos", "-ffixed-x15", "-ffixed-x27",
+            "-mllvm", "-aarch64-enable-compress-jump-tables=false", "-mcpu=cortex-a53",
+            "-O2", "-std=gnu11", "-ffreestanding", "-fno-common", "-fno-omit-frame-pointer", "-w",
+            "-S", str(td / "x30.c"), "-o", str(td / "x30.darwin.s"),
+        ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        probe_asm = (td / "x30.darwin.s").read_text()
+        # Non-vacuous: LLVM must really be using x30 as a memory base here.
+        assert re.search(r"^\s*(ld|st)[a-z0-9]*\s[^\n]*\[x30", probe_asm, re.M), \
+            "x30 register-pressure probe no longer reuses x30 as a pointer register"
+        subprocess.run([
+            sys.executable, str(ROOT / "tools/android_asm_convert.py"),
+            "--ios-flex-base-fastpath", str(td / "x30.darwin.s"), str(td / "x30.s"),
+        ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        converted = (td / "x30.s").read_text()
+        for line in converted.splitlines():
+            m = re.match(r"^\s*(?:%s)\b[^\[]*\[\s*(x\d+|sp)\b" % conv.ARENA_MEM_OPS, line)
+            assert not m or m.group(1) in ("x15", "sp", "x29"), f"untranslated guest memory base: {line.strip()}"
+        subprocess.run([clang, "--target=aarch64-linux-android", "-c", str(td / "x30.s"), "-o", str(td / "x30.o")],
+                       check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
 compressed = """\
 \t.text
 f:
