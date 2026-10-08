@@ -1,13 +1,13 @@
 # Release notes
 
-The current update is **M2.6.92**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.93**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.92](../../port/ios/UPDATE_M2692.md) keeps OpenCE build 146/network 22 and the M2.6.88 Custom Edition/MP4 feature set. The regular M2.6.91 build is reported green. M2.6.92 fixes the Non-Jailbreak-only Stage-2 device link by using Apple `sys_icache_invalidate()` instead of Clang's unavailable `__clear_cache` helper and adds a real arm64 iPhoneOS object/symbol preflight before Xcode.
+**Latest:** [M2.6.93](../../port/ios/UPDATE_M2693.md) keeps OpenCE build 146/network 22 and the M2.6.88 Custom Edition/MP4 feature set. The regular M2.6.91 build is reported green. M2.6.92 changed Stage 2 to Apple `sys_icache_invalidate()`; M2.6.93 fixes the CI placement mistake by running the real arm64 iPhoneOS object/symbol preflight in the macOS app job rather than the Ubuntu guest job.
 
 **Previous:** [M2.6.89](../../port/ios/UPDATE_M2689.md) repaired the first Apple packaging harness failure in `test_ios_mods.m`. [M2.6.88](../../port/ios/UPDATE_M2688.md) introduced the Custom Edition library and MP4 fallback but failed during the Apple packaging test harness. [M2.6.87](../../port/ios/UPDATE_M2687.md) integrated OpenCE build 146/network 22. [M2.6.86](../../port/ios/UPDATE_M2686.md) added Non-Jailbreak flexible-base Stage 2 on the previous build-144 engine.
 
@@ -57,6 +57,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.93 | Non-Jailbreak workflow hotfix: move the arm64 iPhoneOS `xcrun`/symbol preflight from Ubuntu to the macOS app job. Runtime unchanged; Non-JB Actions/device validation pending. |
 | M2.6.92 | Non-Jailbreak Stage-2 Apple link hotfix: use `sys_icache_invalidate()` for the arbitrary-base RX canary and preflight the real arm64 iPhoneOS object for forbidden `__clear_cache` lowering. Regular runtime unchanged; Non-JB Actions/device validation pending. |
 | M2.6.91 | Apple host-link hotfix: link CoreMedia for the MP4 fallback's `kCMTimeZero` use and extend the framework dependency audit. Runtime behavior unchanged; Actions/device validation pending. |
 | M2.6.90 | Second Apple packaging-test hotfix: rename the final `Marker` helper in the disc-install harness and add a suite-wide collision guard. CE/MP4/runtime behavior unchanged; Actions/device validation pending. |

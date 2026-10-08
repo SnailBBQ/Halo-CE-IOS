@@ -60,7 +60,12 @@ assert 'gh release' not in wf and 'gh release' not in memory
 # The Non-Jailbreak build is a manual flag on the official app. It never changes an ordinary run.
 assert "      non_jailbreak:\n        description:" in wf and "        type: boolean\n        default: false\n      arena_fastpath:" in wf
 assert wf.count('-DHALO_NON_JAILBREAK=1') == 3 and "if [ \"$NON_JAILBREAK\" = true ]; then" in wf
-assert 'halo-flex-runtime.o' in wf and 'halo-flex-runtime-ios.o' in wf, 'the extra HALO_NON_JAILBREAK defines are the host and iPhoneOS Stage-2 preflights'
+guest_job=wf.split('  build-arm64_32-guest:',1)[1].split('\n  build-ios-app:',1)[0]
+app_job=wf.split('  build-ios-app:',1)[1]
+assert 'halo-flex-runtime.o' in guest_job and 'halo-flex-runtime-ios.o' not in guest_job, 'Ubuntu keeps only the portable Stage-2 compile'
+assert 'xcrun --sdk iphoneos' not in guest_job, 'Ubuntu guest job must never require the Apple toolchain'
+assert 'Verify Non-JB iPhoneOS runtime dependencies' in app_job and 'halo-flex-runtime-ios.o' in app_job and 'xcrun --sdk iphoneos' in app_job, 'real iPhoneOS preflight belongs in macOS app job'
+assert app_job.index('Verify Non-JB iPhoneOS runtime dependencies') < app_job.index('- name: Build device host app')
 assert "sidestore:" not in wf and "com.haloceuniversal.ios.sidestore" not in wf and "HaloCE-iOS-Sidestore" not in wf
 assert "ios_signed_guest" not in wf and "HALO_SIGNED_GUEST" not in wf and "SIGNED GUEST" not in wf and "HaloIOS-NonJailbreak.entitlements" in wf and "--require-absent-memory" in wf
 assert "elif [ \"$NON_JAILBREAK\" = true ]; then\n            HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_NON_JAILBREAK=1')" in wf, 'the Non-Jailbreak flag links nothing into the app'

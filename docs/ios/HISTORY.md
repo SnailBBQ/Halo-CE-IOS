@@ -5,9 +5,9 @@ statements about "current" behaviour in it describe the milestone they were writ
 
 ## Part 1 — Status log (the former project status page)
 
-Current iOS update: **M2.6.92** — OpenCE build 146, network 22. M2.6.92 keeps the M2.6.88 feature set and the reported-green regular M2.6.91 host, and fixes the Non-Jailbreak Stage-2 Apple link by using `sys_icache_invalidate()` instead of an unavailable `__clear_cache` helper; M2.6.90 fixed the final Apple test-harness `Marker` collision; M2.6.88 retires the iOS replacement-map Mods UI in favor of upstream Custom Edition maps and adds a user-supplied MP4 fallback for Halo Bink movie requests while preserving M2.6.86's Non-Jailbreak Stage-2 flexible-base synthetic guest. The M2.6.80 build identity, automatic engine-change save protection and upstream acceptance gates remain. See the [release notes](RELEASE_NOTES.md) for the current state.
+Current iOS update: **M2.6.93** — OpenCE build 146, network 22. M2.6.93 keeps the M2.6.88 feature set and the reported-green regular M2.6.91 host, and keeps M2.6.92's `sys_icache_invalidate()` fix while moving its Apple-only iPhoneOS preflight from Ubuntu to the macOS app job; M2.6.90 fixed the final Apple test-harness `Marker` collision; M2.6.88 retires the iOS replacement-map Mods UI in favor of upstream Custom Edition maps and adds a user-supplied MP4 fallback for Halo Bink movie requests while preserving M2.6.86's Non-Jailbreak Stage-2 flexible-base synthetic guest. The M2.6.80 build identity, automatic engine-change save protection and upstream acceptance gates remain. See the [release notes](RELEASE_NOTES.md) for the current state.
 
-Updated October 7, 2026. Current development milestone: **M2.6.92** (Non-Jailbreak Stage-2 Apple cache-flush link hotfix on OpenCE build 146; Non-JB Actions/device validation pending).
+Updated October 7, 2026. Current development milestone: **M2.6.93** (Non-Jailbreak Apple-preflight placement fix on OpenCE build 146; Non-JB Actions/device validation pending).
 
 ### Collected status notes (historical)
 

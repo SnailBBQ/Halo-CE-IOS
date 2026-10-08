@@ -159,15 +159,6 @@ jobs:
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_flex_base_model.c -o "$RUNNER_TEMP/halo-flex-model-test"
           "$RUNNER_TEMP/halo-flex-model-test"
           cc -std=gnu11 -Wall -Wextra -Werror -DHALO_NON_JAILBREAK=1 -Iport/ios/HaloIOS -pthread -c port/ios/HaloIOS/halo_guest_runtime.c -o "$RUNNER_TEMP/halo-flex-runtime.o"
-          SDKROOT="$(xcrun --sdk iphoneos --show-sdk-path)"
-          xcrun --sdk iphoneos clang -std=gnu11 -Wall -Wextra -Werror -target arm64-apple-ios15.0 -isysroot "$SDKROOT" -DHALO_NON_JAILBREAK=1 -Iport/ios/HaloIOS -c port/ios/HaloIOS/halo_guest_runtime.c -o "$RUNNER_TEMP/halo-flex-runtime-ios.o"
-          NONJB_UNDEFINED="$(nm -u "$RUNNER_TEMP/halo-flex-runtime-ios.o")"
-          printf '%s\n' "$NONJB_UNDEFINED"
-          printf '%s\n' "$NONJB_UNDEFINED" | grep -q 'sys_icache_invalidate'
-          if printf '%s\n' "$NONJB_UNDEFINED" | grep -q 'clear_cache'; then
-            echo "Non-JB iPhoneOS object unexpectedly depends on __clear_cache" >&2
-            exit 1
-          fi
           python3 tools/tests/test_ios_log_export.py
           cc -std=c11 -Wall -Wextra -Werror tools/tests/test_ios_vertex_constants.c -o "$RUNNER_TEMP/halo-constants-test"
           "$RUNNER_TEMP/halo-constants-test"
@@ -357,6 +348,25 @@ jobs:
           xcrun --sdk iphoneos --show-sdk-version
           clang --version
           ls -lh build/guest/halo_guest.elf
+
+      - name: Verify Non-JB iPhoneOS runtime dependencies
+        if: ${{ inputs.non_jailbreak }}
+        run: |
+          set -euxo pipefail
+          python3 tools/tests/test_ios_nonjb_link_dependencies.py
+          SDKROOT="$(xcrun --sdk iphoneos --show-sdk-path)"
+          xcrun --sdk iphoneos clang -std=gnu11 -Wall -Wextra -Werror \
+            -target arm64-apple-ios15.0 -isysroot "$SDKROOT" \
+            -DHALO_NON_JAILBREAK=1 -Iport/ios/HaloIOS \
+            -c port/ios/HaloIOS/halo_guest_runtime.c \
+            -o "$RUNNER_TEMP/halo-flex-runtime-ios.o"
+          NONJB_UNDEFINED="$(xcrun nm -u "$RUNNER_TEMP/halo-flex-runtime-ios.o")"
+          printf '%s\n' "$NONJB_UNDEFINED"
+          printf '%s\n' "$NONJB_UNDEFINED" | grep -q 'sys_icache_invalidate'
+          if printf '%s\n' "$NONJB_UNDEFINED" | grep -q 'clear_cache'; then
+            echo "Non-JB iPhoneOS object unexpectedly depends on __clear_cache" >&2
+            exit 1
+          fi
 
       - name: Verify streaming backups and recovery
         run: |

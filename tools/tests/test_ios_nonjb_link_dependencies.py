@@ -14,18 +14,24 @@ assert "#else" in helper and "__builtin___clear_cache" in helper
 assert RUNTIME.count("__builtin___clear_cache") == 2, "one mention is the explanatory comment and one is the non-Apple fallback"
 assert "nonjb_flush_instruction_cache(exec_host, sizeof(exec_code));" in RUNTIME
 
-# CI must compile the Stage-2 runtime for the actual iPhoneOS arm64 target,
-# inspect its undefined-symbol set, and reject any compiler-emitted clear-cache
-# helper before spending time on the full Xcode build.
+# CI must keep Apple-only tooling out of the Ubuntu guest job, then compile
+# the Stage-2 runtime for the actual iPhoneOS arm64 target in the macOS app
+# job before the Xcode device build.
+guest_job = WF.split("  build-arm64_32-guest:", 1)[1].split("\n  build-ios-app:", 1)[0]
+app_job = WF.split("  build-ios-app:", 1)[1]
+assert "xcrun --sdk iphoneos" not in guest_job, "Ubuntu guest job must not invoke Apple xcrun"
+assert "halo-flex-runtime-ios.o" not in guest_job, "iPhoneOS object preflight belongs in macOS job"
+assert "halo-flex-runtime.o" in guest_job, "portable Non-JB Stage-2 compile stays in Ubuntu job"
 for token in (
-    "test_ios_nonjb_link_dependencies.py",
+    "Verify Non-JB iPhoneOS runtime dependencies",
+    "if: ${{ inputs.non_jailbreak }}",
     "xcrun --sdk iphoneos --show-sdk-path",
     "-target arm64-apple-ios15.0",
     "halo-flex-runtime-ios.o",
-    "nm -u",
+    "xcrun nm -u",
     "sys_icache_invalidate",
     "clear_cache",
 ):
-    assert token in WF, token
-assert WF.index("halo-flex-runtime-ios.o") < WF.index("- name: Build device host app")
-print("PASS: Non-JB Stage-2 uses Apple's sys_icache_invalidate and CI audits the real iPhoneOS object for forbidden __clear_cache lowering before Xcode")
+    assert token in app_job, token
+assert app_job.index("Verify Non-JB iPhoneOS runtime dependencies") < app_job.index("- name: Build device host app")
+print("PASS: Non-JB Stage-2 uses Apple's sys_icache_invalidate; Ubuntu stays Apple-tool-free and the macOS job audits the real iPhoneOS object before Xcode")
