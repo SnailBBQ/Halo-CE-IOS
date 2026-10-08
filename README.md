@@ -6,7 +6,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak diagnostic build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable on the regular/jailbreak path.** The current source update is **M2.6.101**, on OpenCE **build 155** (network version 24) with Custom Edition maps, the MP4 movie fallback and the experimental Non-Jailbreak **Stage 3 real-guest flexible-base execution** path. The M2.6.98 Non-Jailbreak build on an iPhone 14 Plus ran the real guest through phases 600–609 into OpenCE `main()`, with OpenGL ES and audio up, before stopping on a memory access through x30; M2.6.99 translates that case. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
+> **Status: playable on the regular/jailbreak path.** The current source update is **M2.6.101**, on OpenCE **build 155** (network version 24) with Custom Edition maps, the MP4 movie fallback and the **Non-Jailbreak Stage 3 real-guest flexible-base execution** path. The M2.6.101 Non-Jailbreak build (sideloaded with Sideloadly, no memory entitlements) is confirmed playable on an iPhone 14 Plus (iOS 16.2): it booted, played the a10 campaign level and loaded a second map in a roughly ten-minute session at about 60 FPS with no crashes and no pointer faults (device log of 2026-10-08). That is one device and one session; other devices, longer play and multiplayer are untested. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
@@ -14,7 +14,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 >
 > **Non-jailbreak support:** A non-jailbreak version is currently a work in progress and is not yet considered ready for general use.
 >
-> **Free-account sideloading (Sideloadly, AltStore, SideStore):** experimental, not supported yet. An iPhone 14 Plus on iOS 16.2 can reserve a contiguous 4 GiB span only at a non-4-GiB-aligned address, and M2.6.93 proved base+uint32 memory, threads/imports and executable code there. M2.6.96 is the current **real** OpenCE arm64_32 arbitrary-base candidate; it retains Stage 3 and repairs the reserved-x27 preservation false positive exposed by the second real guest build. An older iPad still cannot reserve 4 GiB contiguously at all and remains outside this design. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
+> **Free-account sideloading (Sideloadly, AltStore, SideStore):** working on one tested device, but not yet supported. An iPhone 14 Plus on iOS 16.2 can reserve a contiguous 4 GiB span only at a non-4-GiB-aligned address, and M2.6.93 proved base+uint32 memory, threads/imports and executable code there. M2.6.101 is the current **real** OpenCE arm64_32 arbitrary-base build and has been played on that phone (see above). An older iPad still cannot reserve 4 GiB contiguously at all and remains outside this design. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 >
 > **Paid Apple Developer accounts:** people who have one may be able to sign the regular app with the `extended-virtual-addressing` and `increased-memory-limit` capabilities and get it to start on a non-jailbroken device. We have not tested this, and the project does not require or build around paid accounts. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 

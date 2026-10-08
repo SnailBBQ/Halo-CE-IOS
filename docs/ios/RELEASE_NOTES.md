@@ -7,6 +7,8 @@ cannot prove how the app looks or feels on a device, so every note says what sti
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
+**Device result, 2026-10-08:** the M2.6.101 Non-Jailbreak build is confirmed playable on an iPhone 14 Plus (iOS 16.2, Sideloadly): a10 played, second map loaded, about 60 FPS, no crashes, no pointer faults. Documentation only; no code change after M2.6.101.
+
 **Latest:** [M2.6.101](../../port/ios/UPDATE_M2701.md) fixes a Non-Jailbreak crash found on-device: a frame-pointer chain load in the HUD stack check was truncated by the flexible-base translation. Regular is unchanged. OpenCE stays on build 155/network 24.
 
 **Previous:** [M2.6.100](../../port/ios/UPDATE_M2700.md) translated guest pointers held in x30 in the Regular/Mod Test (aligned) converter, removing the 16-million-fault audio decode hot spot found in a Regular device log. OpenCE stays on build 155/network 24.
