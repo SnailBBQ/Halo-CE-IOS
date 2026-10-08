@@ -4,19 +4,25 @@ A native iPhone and iPad port of *Halo: Combat Evolved*. It runs the recovered X
 [OpenCE](https://github.com/OpenCommunityEdition/OpenCE) (formerly Halo CE Universal) inside a native iOS app, with touch and
 controller support, cross-play multiplayer with OpenCE players, and a full in-app Settings menu.
 
-> **One branch.** The regular app, Mod Test, and the Non-Jailbreak diagnostic build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
+> **One branch.** The regular app, Mod Test, and the Non-Jailbreak build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable on the regular/jailbreak path.** The current source update is **M2.6.101**, on OpenCE **build 155** (network version 24) with Custom Edition maps, the MP4 movie fallback and the **Non-Jailbreak Stage 3 real-guest flexible-base execution** path. The M2.6.101 Non-Jailbreak build (sideloaded with Sideloadly, no memory entitlements) is confirmed playable on an iPhone 14 Plus (iOS 16.2): it booted, played the a10 campaign level and loaded a second map in a roughly ten-minute session at about 60 FPS with no crashes and no pointer faults (device log of 2026-10-08). That is one device and one session; other devices, longer play and multiplayer are untested. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
+> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is playable on a stock, sideloaded iPhone 14 Plus (see [Device test results](#device-test-results)). The current source update is **M2.6.101**, on OpenCE **build 155** (network version 24) with Custom Edition maps and the MP4 movie fallback. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
-> **Jailbreak required:** Halo CE iOS is currently confirmed working on jailbroken iOS devices.
+> **Jailbroken devices:** the regular app is confirmed working on jailbroken iOS devices.
 >
-> **Non-jailbreak support:** A non-jailbreak version is currently a work in progress and is not yet considered ready for general use.
+> **Non-jailbroken devices:** the **Non-Jailbreak Version** (a separate option in **Actions → Halo CE iOS — Build IPA**) is confirmed working on one stock iPhone, an iPhone 14 Plus on iOS 16.2, sideloaded with Sideloadly using a normal account and no memory entitlements. It has been tested on that one device only, so it is playable but not yet broadly tested or officially supported.
 >
-> **Free-account sideloading (Sideloadly, AltStore, SideStore):** working on one tested device, but not yet supported. An iPhone 14 Plus on iOS 16.2 can reserve a contiguous 4 GiB span only at a non-4-GiB-aligned address, and M2.6.93 proved base+uint32 memory, threads/imports and executable code there. M2.6.101 is the current **real** OpenCE arm64_32 arbitrary-base build and has been played on that phone (see above). An older iPad still cannot reserve 4 GiB contiguously at all and remains outside this design. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
+> **Free-account sideloading (Sideloadly, AltStore, SideStore):** works on the tested device with the Non-Jailbreak Version. It needs the phone to be able to reserve one contiguous 4 GiB span of address space, and an iPhone 14 Plus on iOS 16.2 can do that only at a non-4-GiB-aligned address, which this build handles. An older iPad cannot reserve 4 GiB contiguously at all and is outside this design. Other iPhones are untested. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 >
 > **Paid Apple Developer accounts:** people who have one may be able to sign the regular app with the `extended-virtual-addressing` and `increased-memory-limit` capabilities and get it to start on a non-jailbroken device. We have not tested this, and the project does not require or build around paid accounts. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
+
+## Device test results
+
+**2026-10-08, iPhone 14 Plus, iOS 16.2, M2.6.101 Non-Jailbreak Version, sideloaded with Sideloadly (no memory entitlements).** The game booted, the a10 campaign level was played and a second map loaded, in a session of roughly ten minutes at about 60 FPS with no crashes and no pointer faults. The same-day Regular-app log on the same phone held about 60 FPS in gameplay after M2.6.100.
+
+This is one device and one session. Other devices, longer play, vehicles and multiplayer are untested. Details are in the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
 
 **Source update:** [M2.6.101](port/ios/UPDATE_M2701.md) fixes the next Non-Jailbreak device crash (a frame-pointer chain walk in the HUD stack check) and records the Regular log after M2.6.100, which held about 60 FPS in gameplay. [M2.6.100](port/ios/UPDATE_M2700.md) was a Regular/Mod Test performance pass. A device log showed 16.2 million signal-bridge faults, 99.7% from the audio ADPCM decode loop, which reads guest memory through x30 (LLVM reuses the link register as a normal register). The aligned converter now translates x30 like any other base register, so those loads no longer fault. The Non-Jailbreak converter shares the same x30 handling from M2.6.99. OpenCE stays on **build 155 / network 24**. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
