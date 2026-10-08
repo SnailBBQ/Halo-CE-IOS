@@ -162,7 +162,7 @@ def check_memory(instruction, rn_values, index_choices=(5, 0x1000, 0xfffffff0)):
 narrow = [0x90000100, 0x1000, 0xec001ff8, 0x7ffffff0]
 wide = [ARENA + 0x90000100, ARENA + 0xed001ff0]
 checks = 0
-for rn in [r for r in range(29) if r != 15]:
+for rn in [r for r in range(29) if r != 15] + [30]:    # x30: LLVM reuses the link register as a pointer register
     forms = [
         f'\tldr w0, [x{rn}]', f'\tldr w0, [x{rn}, #12]', f'\tstr w1, [x{rn}, #-12]',
         f'\tldr x3, [x{rn}, #4096]', f'\tldrb w3, [x{rn}, #1]', f'\tldrsh x3, [x{rn}, #2]',
@@ -192,13 +192,13 @@ assert not any(w in between for w in ('ldr', 'str', 'ldp', 'stp', 'ld1', 'st1', 
 
 # Sites that must stay on the signal bridge.
 keep = [
-    '\tldr w0, [sp, #16]', '\tstp x29, x30, [sp, #-16]!', '\tldr w0, [x29, #-8]', '\tldr x0, [x30]',
+    '\tldr w0, [sp, #16]', '\tstp x29, x30, [sp, #-16]!', '\tldr w0, [x29, #-8]', '\tldr x0, [x29]',
     '\tldr w0, [x15, #4]', '\tldr w8, [x8, :lo12:g_value]', '\tldr w0, [x1, x2]',
     '\tldr w0, [x1, x2, lsl #0]', '\tldr w0, [x1, x2, sxtx #2]', '\tldr w0, [x1, w2, lsl #2]',
     '\tldr w0, [x1, #sym]', '\tldr w0, [x1], x2', '\tld1 { v0.4s }, [x1, #16]', '\tld1 { v0.4s }, [x1]!',
     '\tld1 { v0.4s }, [x1], x15', '\tld1 { v0.4s }, [x1], x1',
     '\tprfm pldl1keep, [x1, #64]', '\tldaxr w0, [x1, #4]', '\tstlxr w2, w0, [x1], #4', '\tldr w0, =lit', '\tldr w0, Lpool', '\tldr w0, [x1, #8]!!', '\tbr x8',
-    '\tblr x30', '\tblr x15', '\tadd x0, x1, x2', '\tstr w0, [x1, #8], #4',
+    '\tblr x15', '\tadd x0, x1, x2', '\tstr w0, [x1, #8], #4',
 ]
 for line in keep:
     assert m.arena_rewrite_line(line, '.Lx') is None, line
@@ -207,7 +207,7 @@ for line in keep:
 neon = ['\tld1 { v0.4s }, [x{rn}]', '\tld1 { v0.4s, v1.4s }, [x{rn}]', '\tld1 { v0.s }[1], [x{rn}]',
         '\tst1 { v0.16b }, [x{rn}]', '\tld1r { v0.4s }, [x{rn}]', '\tst2 { v0.4s, v1.4s }, [x{rn}]',
         '\tld1 { v0.4s }, [x{rn}], #16', '\tst1 { v0.4s }, [x{rn}], #16', '\tld1 { v0.4s }, [x{rn}], x9']
-for rn in [r for r in range(29) if r not in (9, 15)]:
+for rn in [r for r in range(29) if r not in (9, 15)] + [30]:
     for template in neon:
         line = template.replace('{rn}', str(rn))
         lines = m.arena_rewrite_line(line, '.Lx')
@@ -224,7 +224,7 @@ for rn in [r for r in range(29) if r not in (9, 15)]:
         checks += 1
 
 # Indirect calls: narrow function pointers are translated, wide ones are unchanged.
-for rn in range(0, 30):
+for rn in range(0, 31):
     if rn == 15:
         continue
     lines = m.arena_rewrite_line(f'\tblr x{rn}', '.Lhalo_ios_arena_9')
@@ -307,5 +307,143 @@ with tempfile.TemporaryDirectory() as tmp:
     run = subprocess.run([sys.executable, str(root / 'tools/android_asm_convert.py'), '--bogus', str(src), str(dst)],
                          capture_output=True, text=True)
     assert run.returncode == 2
+
+# The regular app's frame-rate bug (M2.6.98 log): the ADPCM decoder inlined into dsound_sdl.c's
+# stream_process keeps its nibble pointer in x30 (LLVM reuses the saved link register), and every
+# such load was left on the SIGSEGV signal bridge: 16 million faults, about 7 us each, in one session,
+# 170-200 ms "render" frames while sounds streamed. This compiles that exact decoder with the
+# regular guest flags and requires every guest memory access to be translated.
+ADPCM_C = r"""
+#define NULL ((void*)0)
+typedef unsigned long size_t; extern void *malloc(size_t); extern void free(void*); extern void *memcpy(void*,const void*,size_t);
+#define XBOX_ADPCM_BLOCK_BYTES 36
+#define XBOX_ADPCM_BLOCK_SAMPLES 64
+static const int ima_index_table[16] =
+{
+	-1, -1, -1, -1, 2, 4, 6, 8,
+	-1, -1, -1, -1, 2, 4, 6, 8,
+};
+
+static const int ima_step_table[89] =
+{
+	7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45,
+	50, 55, 60, 66, 73, 80, 88, 97, 107, 118, 130, 143, 157, 173, 190, 209, 230,
+	253, 279, 307, 337, 371, 408, 449, 494, 544, 598, 658, 724, 796, 876, 963,
+	1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066, 2272, 2499, 2749, 3024, 3327,
+	3660, 4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845, 8630, 9493, 10442,
+	11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794,
+	32767,
+};
+
+static int ima_expand(int nibble, int *predictor, int *index)
+{
+	int step = ima_step_table[*index];
+	int difference = step >> 3;
+
+	if (nibble & 1) difference += step >> 2;
+	if (nibble & 2) difference += step >> 1;
+	if (nibble & 4) difference += step;
+	if (nibble & 8) difference = -difference;
+	*predictor += difference;
+	if (*predictor > 32767) *predictor = 32767;
+	if (*predictor < -32768) *predictor = -32768;
+	*index += ima_index_table[nibble];
+	if (*index < 0) *index = 0;
+	if (*index > 88) *index = 88;
+	return *predictor;
+}
+
+/* Xbox ADPCM: per block, a 4-byte header per channel (first sample, step
+index), then 4-byte groups of eight nibbles, low nibble first, alternating
+between channels; 64 samples per channel. The header's sample is the block's
+first, and the nibbles code the 63 after it: the 64th nibble only pads the
+block (the maps' sounds always have 0 there), and decoding it in place of the
+header's sample put a wrong sample in every 64, a buzz at 344 Hz in 22 kHz
+sounds. */
+static short *decode_adpcm(const unsigned char *source, unsigned long size, unsigned long channels,
+	unsigned long *frame_count)
+{
+	unsigned long block_bytes = XBOX_ADPCM_BLOCK_BYTES * channels;
+	unsigned long blocks = size / block_bytes;
+	short *samples = malloc((blocks ? blocks : 1) * XBOX_ADPCM_BLOCK_SAMPLES * channels * sizeof(short));
+	unsigned long block, channel;
+
+	if (!samples)
+	{
+		*frame_count = 0;
+		return NULL;
+	}
+	for (block = 0; block < blocks; block++)
+	{
+		const unsigned char *data = source + block * block_bytes;
+		short *output = samples + block * XBOX_ADPCM_BLOCK_SAMPLES * channels;
+
+		for (channel = 0; channel < channels; channel++)
+		{
+			const unsigned char *header = data + channel * 4;
+			int predictor = (short)(header[0] | (header[1] << 8));
+			int index = header[2] > 88 ? 88 : header[2];
+			unsigned long group, byte;
+
+			output[channel] = (short)predictor;
+			for (group = 0; group < 8; group++)
+			{
+				const unsigned char *nibbles = data + 4 * channels + (group * channels + channel) * 4;
+
+				for (byte = 0; byte < 4; byte++)
+				{
+					/* nibble n codes sample n + 1 */
+					unsigned long sample = group * 8 + byte * 2 + 1;
+
+					output[sample * channels + channel] = (short)ima_expand(nibbles[byte] & 0xf, &predictor, &index);
+					if (sample + 1 < XBOX_ADPCM_BLOCK_SAMPLES)
+						output[(sample + 1) * channels + channel] = (short)ima_expand(nibbles[byte] >> 4, &predictor, &index);
+				}
+			}
+		}
+	}
+	*frame_count = blocks * XBOX_ADPCM_BLOCK_SAMPLES;
+	return samples;
+}
+
+static short *decode_pcm(const unsigned char *source, unsigned long size, unsigned long channels,
+	unsigned long *frame_count)
+{
+	unsigned long frames = size / (2 * channels);
+	short *samples = malloc((frames ? frames : 1) * channels * sizeof(short));
+
+	if (samples)
+		memcpy(samples, source, frames * channels * sizeof(short));
+	*frame_count = samples ? frames : 0;
+	return samples;
+}
+struct sdl_stream{ unsigned channels; int adpcm; };
+short *probe(const struct sdl_stream *stream, const unsigned char *buf, unsigned long size, unsigned long *frames){
+  return stream->adpcm ? decode_adpcm(buf,size,stream->channels,frames) : decode_pcm(buf,size,stream->channels,frames);
+}
+"""
+clang = __import__('shutil').which('clang')
+if clang:
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        (td / 'adpcm.c').write_text(ADPCM_C)
+        subprocess.run([clang, '--target=arm64_32-apple-watchos', '-U__APPLE__', '-D__linux__=1', '-DHALO_ANDROID=1',
+                        '-DHALO_IOS_GUEST=1', '-mcpu=cortex-a53', '-fshort-wchar', '-fno-stack-protector',
+                        '-fno-unwind-tables', '-fno-asynchronous-unwind-tables', '-ffp-contract=off', '-O2',
+                        '-fno-omit-frame-pointer', '-ffixed-x15', '-ffreestanding', '-fno-common', '-fno-strict-aliasing',
+                        '-fwrapv', '-w', '-std=gnu11', '-S', str(td / 'adpcm.c'), '-o', str(td / 'adpcm.darwin.s')],
+                       check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        darwin = (td / 'adpcm.darwin.s').read_text()
+        if not re.search(r'^\s*(ld|st)[a-z0-9]*\s[^\n]*\[x30', darwin, re.M):
+            print('NOTE: the ADPCM probe does not use x30 as a pointer register in this clang; unit cases still pin the rule')
+        run = subprocess.run([sys.executable, str(root / 'tools/android_asm_convert.py'), '--ios-arena-fastpath',
+                              str(td / 'adpcm.darwin.s'), str(td / 'adpcm.s')], capture_output=True, text=True)
+        assert run.returncode == 0, run.stderr
+        mem = re.compile(r'^\s*(?:' + m.ARENA_MEM_OPS + r')\b[^\[]*\[\s*(x\d+|sp)\b')
+        for line in (td / 'adpcm.s').read_text().splitlines():
+            hit = mem.match(line)
+            assert not hit or hit.group(1) in ('x15', 'sp', 'x29'), f'guest memory access left on the signal bridge: {line.strip()}'
+        subprocess.run([clang, '--target=aarch64-linux-android', '-c', str(td / 'adpcm.s'), '-o', str(td / 'adpcm.o')],
+                       check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
 print(f'PASS: {checks} instruction forms checked for address, writeback and register preservation; skip rules, blr, jump tables, CLI')

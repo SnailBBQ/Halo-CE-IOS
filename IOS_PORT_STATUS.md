@@ -1,8 +1,8 @@
 # Halo CE iOS — Project status
 
-**Status: playable on the regular/jailbreak path.** **Current source update: M2.6.99** (regular app 0.2.99, Mod Test 0.2.99.1), on OpenCE build 155 / network 24 with Custom Edition maps and the MP4 movie fallback, while continuing the experimental Non-Jailbreak **real-guest flexible-base Stage 3** path. M2.6.93 passed GitHub Actions and the iPhone 14 Plus passed Stage 2 at `0x2A0000000`. The M2.6.98 Non-Jailbreak IPA ran the real guest into OpenCE `main()` on that phone and stopped on an untranslated `ldr w9, [x30]` in `mod_l`; M2.6.99 fixes that class. Actions/device validation are required for M2.6.99.
+**Status: playable on the regular/jailbreak path.** **Current source update: M2.6.100** (regular app 0.2.100, Mod Test 0.2.100.1), on OpenCE build 155 / network 24 with Custom Edition maps and the MP4 movie fallback, while continuing the experimental Non-Jailbreak **real-guest flexible-base Stage 3** path. M2.6.93 passed GitHub Actions and the iPhone 14 Plus passed Stage 2 at `0x2A0000000`. The M2.6.98 Non-Jailbreak IPA ran the real guest into OpenCE `main()` on that phone and stopped on an untranslated `ldr w9, [x30]` in `mod_l`; M2.6.99 fixes that class. M2.6.100 applies the same x30 translation to the regular (aligned) converter to remove a frame-rate bottleneck seen in a Regular device log. Actions/device validation are required for M2.6.99 and M2.6.100.
 
-**Source update:** [M2.6.99](port/ios/UPDATE_M2699.md) makes the flexible-base converter treat x30 as a guest-pointer base (memory accesses, `blr`/`br`, and PC/SP/FP-derived addresses written into it), because LLVM saves the link register and then reuses x30 as a general register. The aligned converter, Regular and Mod Test builds are unchanged. OpenCE stays on build 155 / network 24.
+**Source update:** [M2.6.100](port/ios/UPDATE_M2700.md) makes the aligned (Regular and Mod Test) converter treat x30 as a guest-pointer base, as the flexible-base converter has since M2.6.99. A Regular device log showed 16.2 million SIGSEGV-bridge faults, 99.7% from the audio ADPCM decode loop (`stream_process`), costing roughly 7 µs each and collapsing some windows to 10-33 FPS. OpenCE stays on build 155 / network 24.
 
 ## Two apps, plus a stock-iOS build
 
@@ -22,6 +22,7 @@ The regular app and Mod Test share the same features and are updated together. T
 
 ## Implemented, waiting for device validation
 
+- M2.6.100 aligned-converter x30 translation (Regular/Mod Test frame-rate fix from the device log).
 - M2.6.99 Non-Jailbreak x30 guest-pointer translation, found from the M2.6.98 device log (guest reached OpenCE `main()`, OpenGL and audio, then faulted at `mod_l+0x190`). M2.6.98 integrated OpenCE build 155 and M2.6.97 build 154; both passed Actions.
 - OpenCE build 144 / network 21 source integration from M2.6.85, including renderer call reduction, co-op/netcode fixes, map-tag validation, additional hardening and GPU/visibility/water performance changes through build 144.
 - The Settings additions of M2.6.48 (cheat sections and new cheats, left-handed layout, gyro, controller remap, heat-aware frame cap, performance overlay, Ambient volume, recent games and QR, Profiles, problem report, custom accent colours).

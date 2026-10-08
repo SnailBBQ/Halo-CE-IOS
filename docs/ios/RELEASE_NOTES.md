@@ -7,7 +7,9 @@ cannot prove how the app looks or feels on a device, so every note says what sti
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.99](../../port/ios/UPDATE_M2699.md) translates guest pointers held in x30 in the Non-Jailbreak converter (found from the M2.6.98 iPhone log). OpenCE stays on build 155/network 24.
+**Latest:** [M2.6.100](../../port/ios/UPDATE_M2700.md) translates guest pointers held in x30 in the Regular/Mod Test (aligned) converter, removing the 16-million-fault audio decode hot spot found in a Regular device log. OpenCE stays on build 155/network 24.
+
+**Previous:** [M2.6.99](../../port/ios/UPDATE_M2699.md) translated x30 guest pointers in the Non-Jailbreak converter (found from the M2.6.98 iPhone log).
 
 **Previous:** [M2.6.98](../../port/ios/UPDATE_M2698.md) integrated OpenCE build 155 (network 24). No host import changed.
 
@@ -63,6 +65,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.100 | Regular/Mod Test converter: guest pointers held in x30 are translated, so the audio ADPCM decode no longer takes ~16M SIGSEGV-bridge faults; frame-rate fix from the Regular device log. |
 | M2.6.99 | Non-Jailbreak converter: guest pointers held in x30 (reused link register) are translated; found on-device from the M2.6.98 log. |
 | M2.6.98 | OpenCE build 155 / network 24 integration; no host import change. |
 | M2.6.97 | OpenCE build 154 / network 24 integration; `host_gl_read_buffer` import update; Stage-3 x27 guard narrowed to exact LLVM forms. |

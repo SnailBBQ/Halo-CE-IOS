@@ -369,29 +369,30 @@ def _arena_adjust(rn, imm):
     return [f'\tsub x{rn}, x{rn}, #{-imm}']
 
 
-def arena_rewrite_line(line, label, address_builder=None, allow_lo12=False, flex_register_offsets=False,
-                       allow_x30=False):
+def arena_rewrite_line(line, label, address_builder=None, allow_lo12=False, flex_register_offsets=False):
     """Return replacement lines for one instruction, or None to keep it.
 
     address_builder defaults to the aligned-arena normalization. The Non-JB
     flexible-base converter supplies a builder that uses reserved x27.
 
-    allow_x30 (flexible-base only): LLVM saves the link register in the prologue
-    and, under register pressure, then allocates x30 as an ordinary register that
-    can hold a guest pointer (musl-free crypto such as monocypher's mod_l does).
-    The aligned model never needed to translate it (its signal bridge upgrades
-    the pointer), but the flexible model has no fallback, so [x30] is a guest
-    memory base there. x29 is the Darwin frame pointer and is never a data pointer.
+    x30: LLVM saves the link register in the prologue and, under register
+    pressure, then allocates x30 as an ordinary register that can hold a guest
+    pointer (monocypher's mod_l and the inlined ADPCM decoder in dsound_sdl.c's
+    stream_process both do). Both models therefore treat [x30] like any other
+    base register: the flexible model has no fallback (it aborted on mod_l), and
+    in the aligned model every such access that is left alone is a SIGSEGV on
+    the signal bridge (the M2.6.98 log showed 16 million of them from the ADPCM
+    loop, each costing about 7 us). x29 is the Darwin frame pointer and is never
+    a data pointer; a real return address in x30 is only ever used by ret.
     """
     if address_builder is None:
         address_builder = _arena_address
     m = ARENA_MEM_RE.match(line)
     if m:
         rn = int(m['rn'])
-        # x15 is the scratch register; x29 is the frame pointer and x30 the
-        # return address, both arena-wide already (aligned model), except that
-        # the flexible-base model also treats a reused x30 as a guest pointer.
-        if rn > 30 or rn == 29 or (rn == 30 and not allow_x30) or rn == ARENA_SCRATCH:
+        # x15 is the scratch register; x29 is the frame pointer and always a real
+        # host stack address. x30 is translated (see above).
+        if rn > 30 or rn == 29 or rn == ARENA_SCRATCH:
             return None
         off = (m['off'] or '').strip()
         wb, post = m['wb'], m['post']
@@ -477,7 +478,7 @@ def arena_rewrite_line(line, label, address_builder=None, allow_lo12=False, flex
     b = ARENA_BLR_RE.match(line)
     if b:
         rn = int(b['rn'])
-        if rn > 30 or (rn == 30 and not allow_x30) or rn == ARENA_SCRATCH:
+        if rn > 30 or rn == ARENA_SCRATCH:
             return None
         s = f'x{ARENA_SCRATCH}'
         # Wide targets (host stubs, arena addresses) are called unchanged.
@@ -697,7 +698,7 @@ def ios_flex_base_fastpath(assembly: str, input_path: str) -> str:
         replacement = _flex_rewrite_br(line, label)
         if replacement is None:
             replacement = arena_rewrite_line(
-                line, label, _flex_address, allow_lo12=True, flex_register_offsets=True, allow_x30=True)
+                line, label, _flex_address, allow_lo12=True, flex_register_offsets=True)
         if replacement is None:
             # Flexible-base correctness cannot fall back to PAGEZERO pointer
             # upgrading: a host pointer truncated through a W register would no
