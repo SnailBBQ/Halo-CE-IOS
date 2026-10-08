@@ -19,6 +19,7 @@
 #if defined(__APPLE__)
 #include <mach/mach.h>
 #include <mach/vm_map.h>
+#include <libkern/OSCacheControl.h>
 #endif
 extern int csops(pid_t pid, unsigned int ops, void *useraddr, size_t usersize);
 #endif
@@ -229,6 +230,20 @@ typedef struct NonjbFlexNode {
 
 typedef uint32_t (*NonjbFlexImport)(const HaloFlexBaseModel *, uint32_t, uint32_t);
 typedef uint32_t (*NonjbFlexCallback)(const HaloFlexBaseModel *, uint32_t, uint32_t);
+
+/* Flush code bytes before switching a Stage-2 page from RW to RX. Apple
+ * provides sys_icache_invalidate() in libSystem. Using Clang's
+ * __builtin___clear_cache() for an iOS arm64 object can lower to an external
+ * __clear_cache helper that the device target does not provide, so keep the
+ * builtin only for non-Apple host-test builds. */
+static void nonjb_flush_instruction_cache(void *start, size_t size)
+{
+#if defined(__APPLE__)
+    sys_icache_invalidate(start, size);
+#else
+    __builtin___clear_cache((char *)start, (char *)start + size);
+#endif
+}
 
 static int nonjb_flex_range(const HaloFlexBaseModel *model, size_t page,
                             uint32_t va, size_t size,
@@ -553,9 +568,16 @@ int halo_guest_runtime_nonjb_flex_stage2(char *out, size_t size,
         failure = "unaligned-arena execution page could not be committed RW";
         goto cleanup;
     }
-    memcpy(halo_flex_ptr(&model, FLEX_EXEC_VA, sizeof(exec_code)), exec_code, sizeof(exec_code));
-    __builtin___clear_cache((char *)halo_flex_ptr(&model, FLEX_EXEC_VA, sizeof(exec_code)),
-                            (char *)halo_flex_ptr(&model, FLEX_EXEC_VA, sizeof(exec_code)) + sizeof(exec_code));
+    {
+        void *exec_host = halo_flex_ptr(&model, FLEX_EXEC_VA, sizeof(exec_code));
+        if (!exec_host)
+        {
+            failure = "unaligned-arena execution pointer translation failed";
+            goto cleanup;
+        }
+        memcpy(exec_host, exec_code, sizeof(exec_code));
+        nonjb_flush_instruction_cache(exec_host, sizeof(exec_code));
+    }
     if (!nonjb_flex_commit(&model, page, FLEX_EXEC_VA, page, PROT_READ | PROT_EXEC))
     {
         failure = "unaligned-arena execution page could not be protected RX";

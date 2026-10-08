@@ -59,8 +59,8 @@ assert 'guest_pgo' not in wf and 'ios/modtest' not in wf and '--pgo=off' in wf
 assert 'gh release' not in wf and 'gh release' not in memory
 # The Non-Jailbreak build is a manual flag on the official app. It never changes an ordinary run.
 assert "      non_jailbreak:\n        description:" in wf and "        type: boolean\n        default: false\n      arena_fastpath:" in wf
-assert wf.count('-DHALO_NON_JAILBREAK=1') == 2 and "if [ \"$NON_JAILBREAK\" = true ]; then" in wf
-assert 'halo-flex-runtime.o' in wf, 'the second HALO_NON_JAILBREAK define is the compile-only Stage-2 preflight'
+assert wf.count('-DHALO_NON_JAILBREAK=1') == 3 and "if [ \"$NON_JAILBREAK\" = true ]; then" in wf
+assert 'halo-flex-runtime.o' in wf and 'halo-flex-runtime-ios.o' in wf, 'the extra HALO_NON_JAILBREAK defines are the host and iPhoneOS Stage-2 preflights'
 assert "sidestore:" not in wf and "com.haloceuniversal.ios.sidestore" not in wf and "HaloCE-iOS-Sidestore" not in wf
 assert "ios_signed_guest" not in wf and "HALO_SIGNED_GUEST" not in wf and "SIGNED GUEST" not in wf and "HaloIOS-NonJailbreak.entitlements" in wf and "--require-absent-memory" in wf
 assert "elif [ \"$NON_JAILBREAK\" = true ]; then\n            HOST_FLAGS=('OTHER_CFLAGS=$(inherited) -DHALO_NON_JAILBREAK=1')" in wf, 'the Non-Jailbreak flag links nothing into the app'

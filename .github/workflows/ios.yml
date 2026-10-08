@@ -154,10 +154,20 @@ jobs:
           python3 tools/tests/test_ios_guest_return_contracts.py
           python3 tools/tests/test_ios_nonjb_exec_trace.py
           python3 tools/tests/test_ios_flex_stage2.py
+          python3 tools/tests/test_ios_nonjb_link_dependencies.py
           python3 tools/tests/test_ios_custom_content.py
           cc -std=c11 -Wall -Wextra -Werror -Iport/ios/HaloIOS tools/tests/test_ios_flex_base_model.c -o "$RUNNER_TEMP/halo-flex-model-test"
           "$RUNNER_TEMP/halo-flex-model-test"
           cc -std=gnu11 -Wall -Wextra -Werror -DHALO_NON_JAILBREAK=1 -Iport/ios/HaloIOS -pthread -c port/ios/HaloIOS/halo_guest_runtime.c -o "$RUNNER_TEMP/halo-flex-runtime.o"
+          SDKROOT="$(xcrun --sdk iphoneos --show-sdk-path)"
+          xcrun --sdk iphoneos clang -std=gnu11 -Wall -Wextra -Werror -target arm64-apple-ios15.0 -isysroot "$SDKROOT" -DHALO_NON_JAILBREAK=1 -Iport/ios/HaloIOS -c port/ios/HaloIOS/halo_guest_runtime.c -o "$RUNNER_TEMP/halo-flex-runtime-ios.o"
+          NONJB_UNDEFINED="$(nm -u "$RUNNER_TEMP/halo-flex-runtime-ios.o")"
+          printf '%s\n' "$NONJB_UNDEFINED"
+          printf '%s\n' "$NONJB_UNDEFINED" | grep -q 'sys_icache_invalidate'
+          if printf '%s\n' "$NONJB_UNDEFINED" | grep -q 'clear_cache'; then
+            echo "Non-JB iPhoneOS object unexpectedly depends on __clear_cache" >&2
+            exit 1
+          fi
           python3 tools/tests/test_ios_log_export.py
           cc -std=c11 -Wall -Wextra -Werror tools/tests/test_ios_vertex_constants.c -o "$RUNNER_TEMP/halo-constants-test"
           "$RUNNER_TEMP/halo-constants-test"
@@ -448,7 +458,7 @@ jobs:
             /usr/libexec/PlistBuddy -c 'Set :CFBundleName Halo CE Mod Test' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleURLTypes:0:CFBundleURLName com.haloceuniversal.ios.modtest.invite' "$APP/Info.plist"
             /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName Halo CE Mod Test' "$APP/Info.plist"
-            # the Mod Test app's version is the official one with a trailing .1 (0.2.91 / 2691 becomes 0.2.91.1 / 269101)
+            # the Mod Test app's version is the official one with a trailing .1 (0.2.92 / 2692 becomes 0.2.92.1 / 269201)
             OFFICIAL_SHORT=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")
             OFFICIAL_BUILD=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")
             /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${OFFICIAL_SHORT}.1" "$APP/Info.plist"
