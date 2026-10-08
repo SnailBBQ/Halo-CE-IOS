@@ -1,13 +1,13 @@
 # Release notes
 
-The current update is **M2.6.94**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.95**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
 No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
 
-**Latest:** [M2.6.94](../../port/ios/UPDATE_M2694.md) keeps OpenCE build 146/network 22 and the Custom Edition/MP4 feature set, and advances the manual Non-Jailbreak flavor from the proven Stage-2 synthetic model to a **real OpenCE flexible-base Stage 3** attempt. M2.6.93 passed Actions and an iPhone 14 Plus completed Stage 2 at the hostile base `0x2A0000000`, including executable code. M2.6.94 builds a separate x27-base guest ABI and records real-guest phases 600–609.
+**Latest:** [M2.6.95](../../port/ios/UPDATE_M2695.md) keeps OpenCE build 146/network 22 and the M2.6.94 real-guest Stage-3 architecture, but repairs the first converter gap found by the actual Non-JB guest build. M2.6.94 stopped fail-closed at object 50/1492 on musl `towctrans.o` because `[Xn, Xm]` register-offset addressing was not accepted. M2.6.95 adds valid bare/shifted X-register and UXTW/SXTW W-register offset forms while keeping invalid combinations fail-closed.
 
 **Previous:** [M2.6.89](../../port/ios/UPDATE_M2689.md) repaired the first Apple packaging harness failure in `test_ios_mods.m`. [M2.6.88](../../port/ios/UPDATE_M2688.md) introduced the Custom Edition library and MP4 fallback but failed during the Apple packaging test harness. [M2.6.87](../../port/ios/UPDATE_M2687.md) integrated OpenCE build 146/network 22. [M2.6.86](../../port/ios/UPDATE_M2686.md) added Non-Jailbreak flexible-base Stage 2 on the previous build-144 engine.
 
@@ -57,6 +57,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.95 | Stage-3 converter hotfix: support valid AArch64 register-offset guest memory forms exposed by the real OpenCE compile (`[Xn, Xm]`, LSL/SXTX, UXTW/SXTW), with assembler regression coverage; runtime ABI unchanged. |
 | M2.6.94 | Non-Jailbreak real-guest flexible-base Stage 3: x27 arena-base ABI, fail-closed assembly rewrite, real arbitrary-base guest arena, flex ELF marker and phases 600–609. M2.6.93 Stage 2 passed on iPhone 14 Plus; Stage 3 Actions/device validation pending. |
 | M2.6.93 | Non-Jailbreak workflow hotfix: move the arm64 iPhoneOS `xcrun`/symbol preflight from Ubuntu to the macOS app job. Runtime unchanged; Non-JB Actions/device validation pending. |
 | M2.6.92 | Non-Jailbreak Stage-2 Apple link hotfix: use `sys_icache_invalidate()` for the arbitrary-base RX canary and preflight the real arm64 iPhoneOS object for forbidden `__clear_cache` lowering. Regular runtime unchanged; Non-JB Actions/device validation pending. |

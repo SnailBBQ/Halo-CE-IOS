@@ -369,7 +369,7 @@ def _arena_adjust(rn, imm):
     return [f'\tsub x{rn}, x{rn}, #{-imm}']
 
 
-def arena_rewrite_line(line, label, address_builder=None, allow_lo12=False):
+def arena_rewrite_line(line, label, address_builder=None, allow_lo12=False, flex_register_offsets=False):
     """Return replacement lines for one instruction, or None to keep it.
 
     address_builder defaults to the aligned-arena normalization. The Non-JB
@@ -405,10 +405,30 @@ def arena_rewrite_line(line, label, address_builder=None, allow_lo12=False):
                 if not ro or wb or post:
                     return None
                 ext, amt = ro['ext'], ro['amt']
+                # AArch64 register-offset addressing accepts an X-register
+                # index with no explicit modifier; that spelling means the
+                # normal LSL #0 form (for example ``ldrb w0, [x1, x2]``).
+                # Clang also emits explicit LSL/SXTX X-register offsets and
+                # UXTW/SXTW W-register offsets.  Preserve the complete offset
+                # expression verbatim after translating only the guest base
+                # register through x27.  The input assembly has already been
+                # accepted by Clang, so we only need to reject forms whose
+                # register-width/extension pairing is not meaningful here.
                 if ro['r'] == 'w':
                     if ext not in ('uxtw', 'sxtw'):
                         return None
+                elif flex_register_offsets:
+                    # Stage 3 must accept the full compiler-emitted X-register
+                    # offset family. Bare Xm is LSL #0; SXTX is also legal.
+                    if ext not in (None, 'lsl', 'sxtx'):
+                        return None
                 elif not (ext == 'lsl' and amt and int(amt) > 0):
+                    # Preserve the historical aligned-arena rewrite exactly:
+                    # bare/zero-shift X-register offsets remain on its signal
+                    # bridge rather than changing the regular app in this
+                    # Non-JB-only hotfix.
+                    return None
+                if amt is not None and int(amt) < 0:
                     return None
         if wb and imm is None:
             return None
@@ -617,7 +637,7 @@ def ios_flex_base_fastpath(assembly: str, input_path: str) -> str:
         replacement = _flex_rewrite_br(line, label)
         if replacement is None:
             replacement = arena_rewrite_line(
-                line, label, _flex_address, allow_lo12=True)
+                line, label, _flex_address, allow_lo12=True, flex_register_offsets=True)
         if replacement is None:
             # Flexible-base correctness cannot fall back to PAGEZERO pointer
             # upgrading: a host pointer truncated through a W register would no

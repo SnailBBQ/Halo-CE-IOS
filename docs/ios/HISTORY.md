@@ -5,9 +5,9 @@ statements about "current" behaviour in it describe the milestone they were writ
 
 ## Part 1 — Status log (the former project status page)
 
-Current iOS update: **M2.6.94** — OpenCE build 146, network 22. M2.6.93 passed GitHub Actions and its Stage-2 hostile-base model passed on the iPhone 14 Plus at `0x2A0000000`, including memory/remap, atomics/threading, host imports/callbacks and the RX canary. M2.6.94 is the first real-guest flexible-base candidate: the manual Non-Jailbreak guest reserves x27 as the 64-bit arena base, x15 as address scratch, rewrites guest memory and indirect branches, canonicalizes PC/SP/FP-derived C pointers, verifies a guest ABI marker and records phases 600–609 around real startup. Regular and Mod Test remain on the aligned architecture. Custom Edition maps, MP4 fallback, build identity, engine-change save protection and upstream acceptance gates remain.
+Current iOS update: **M2.6.95** — OpenCE build 146, network 22. M2.6.94 was the first real-guest flexible-base Stage-3 candidate; its first Non-JB Actions build correctly failed closed at object 50/1492 when musl emitted a legal bare X-register offset (`ldrb w16, [x12, x16]`) that the converter had not yet accepted. M2.6.95 preserves the x27 arena-base/x15 scratch ABI and adds the complete register-offset families used by Clang while invalid pairings still fail closed. Regular/Mod Test and the Custom Edition/MP4 feature set are unchanged.
 
-Updated October 8, 2026. Current development milestone: **M2.6.94** (Non-Jailbreak real-guest flexible-base Stage 3 on OpenCE build 146; Actions/device validation pending).
+Updated October 8, 2026. Current development milestone: **M2.6.95** (Non-Jailbreak Stage-3 register-offset converter hotfix on OpenCE build 146; Actions/device validation pending).
 
 ### Collected status notes (historical)
 

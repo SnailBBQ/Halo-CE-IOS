@@ -1,4 +1,4 @@
-"""M2.6.94 Non-Jailbreak real-guest flexible-base Stage 3 guards.
+"""M2.6.95 Non-Jailbreak real-guest flexible-base Stage 3 guards.
 
 The test stays host-portable: it validates the correctness-critical assembly
 rewrite on representative arm64_32 output and checks that only the Non-JB
@@ -7,6 +7,9 @@ physical logs.
 """
 from pathlib import Path
 import importlib.util
+import shutil
+import subprocess
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 HOST = ROOT / "port/ios/HaloIOS"
@@ -46,7 +49,13 @@ forms = [
     'ldr q0, [x{rn}, #16]', 'str d0, [x{rn}, #8]', 'ldp x3, x4, [x{rn}, #16]',
     'stp w3, w4, [x{rn}, #-8]', 'ldpsw x3, x4, [x{rn}, #8]',
     'ldr w0, [x{rn}, w2, uxtw #2]', 'ldrb w0, [x{rn}, w2, sxtw]',
-    'str x0, [x{rn}, x2, lsl #3]', 'ldaxr w0, [x{rn}]', 'stlxr w5, w0, [x{rn}]',
+    # Clang uses all of these legal X-register offset spellings.  Bare Xm is
+    # the default LSL #0 form and is the exact shape that towctrans.o exposed
+    # in the first real Stage-3 guest build.
+    'ldrb w16, [x{rn}, x16]', 'ldr w0, [x{rn}, x2, lsl #0]',
+    'str x0, [x{rn}, x2, lsl #3]', 'ldr x0, [x{rn}, x2, sxtx]',
+    'ldr x0, [x{rn}, x2, sxtx #3]',
+    'ldaxr w0, [x{rn}]', 'stlxr w5, w0, [x{rn}]',
     'ldar w0, [x{rn}]', 'stlr w1, [x{rn}]', 'ldaxp x3, x4, [x{rn}]',
     'stlxp w5, x3, x4, [x{rn}]',
 ]
@@ -64,6 +73,44 @@ for rn in range(29):
 for stack_line in ('\tldr w0, [sp, #16]\n', '\tldr w0, [x29, #-8]\n', '\tstp x29, x30, [sp, #-16]!\n'):
     assert conv.ios_flex_base_fastpath(stack_line, 'stack.o.darwin.s') == stack_line
 assert checked >= 500
+
+
+# M2.6.95 regression from the first real Stage-3 guest build: musl's
+# towctrans.o emitted a bare X-register offset.  AArch64 defines ``[Xn, Xm]``
+# as the ordinary LSL #0 register-offset form, so translate only the guest
+# pointer base and preserve the index register verbatim.
+towctrans = conv.ios_flex_base_fastpath(
+    "\tldrb w16, [x12, x16]\n", "towctrans.o.darwin.s")
+assert towctrans == "\tadd x15, x27, w12, uxtw\n\tldrb w16, [x15, x16]\n"
+
+# Also make the ELF assembler accept the representative register-offset
+# output when a clang driver is available.  This checks the full
+# converter->AArch64-assembler boundary without needing the Android NDK.
+clang = shutil.which("clang")
+if clang:
+    asm = "\t.text\n\t.globl flex_regoff_probe\nflex_regoff_probe:\n" + towctrans + "\tret\n"
+    with tempfile.TemporaryDirectory() as td:
+        src = Path(td) / "probe.s"
+        obj = Path(td) / "probe.o"
+        src.write_text(asm)
+        subprocess.run(
+            [clang, "--target=aarch64-linux-android", "-c", str(src), "-o", str(obj)],
+            check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        assert obj.is_file() and obj.stat().st_size > 0
+
+# Register-offset validation remains fail-closed for invalid width/extension
+# pairings rather than accepting arbitrary bracket syntax.
+for bad_regoff in (
+    "\tldr w0, [x8, w9]\n",
+    "\tldr w0, [x8, x9, uxtw #2]\n",
+    "\tldr w0, [x8, w9, lsl #2]\n",
+):
+    try:
+        conv.ios_flex_base_fastpath(bad_regoff, "bad-regoff.o.darwin.s")
+    except conv.ConvertError as exc:
+        assert "unconverted flexible-base memory access" in str(exc)
+    else:
+        raise AssertionError(f"invalid register-offset form was accepted: {bad_regoff!r}")
 
 # Tail-call function pointers use BR rather than BLR at -O2. They must be
 # translated directly instead of depending on a PAGEZERO instruction-fetch
@@ -84,7 +131,7 @@ assert "add x15, x27, w9, uxtw\n\tstr w10, [x15, :lo12:g]" in pageoff_out
 # Any bracketed guest memory form the converter cannot translate must fail
 # loudly.  The flexible ABI cannot safely rely on the old pointer-upgrade
 # signal fallback.
-unhandled = "\tldr w0, [x8, x9, sxtx]\n"
+unhandled = "\tldr w0, [x8, x9, uxtw #2]\n"
 try:
     conv.ios_flex_base_fastpath(unhandled, "unhandled.o.darwin.s")
 except conv.ConvertError as exc:
