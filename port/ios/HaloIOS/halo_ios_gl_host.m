@@ -532,29 +532,24 @@ int halo_ios_gl_has_extension(const char *name)
     return 0;
 }
 
-uint32_t halo_ios_gl_read_buffer_word(uint32_t buffer, uint32_t offset)
+/* Copies size bytes of a buffer object into data (the snapshots of the visibility tests' counters). OpenGL ES has no
+   glGetBufferSubData, so the range is mapped and copied. Binds GL_COPY_READ_BUFFER (ES 3.0), which the renderer uses only
+   for its copies, and leaves it unbound; a failed mapping reads as zeros. Same behavior as OpenCE build 154's host_gl.c. */
+void halo_ios_gl_read_buffer(uint32_t buffer, uint32_t offset, uint32_t size, void *data)
 {
-    uint32_t value = 0;
-    GLint previous = 0;
+    if (!size || !data)
+        return;
 
-#ifdef GL_ATOMIC_COUNTER_BUFFER_BINDING
-    glGetIntegerv(GL_ATOMIC_COUNTER_BUFFER_BINDING, &previous);
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, buffer);
-    const void *mapping = glMapBufferRange(GL_ATOMIC_COUNTER_BUFFER,
-                                           offset,
-                                           sizeof(value),
-                                           GL_MAP_READ_BIT);
+    glBindBuffer(GL_COPY_READ_BUFFER, buffer);
+    const void *mapping = glMapBufferRange(GL_COPY_READ_BUFFER, (GLintptr)offset, (GLsizeiptr)size, GL_MAP_READ_BIT);
     if (mapping)
     {
-        memcpy(&value, mapping, sizeof(value));
-        glUnmapBuffer(GL_ATOMIC_COUNTER_BUFFER);
+        memcpy(data, mapping, size);
+        glUnmapBuffer(GL_COPY_READ_BUFFER);
     }
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, (GLuint)previous);
-#else
-    (void)buffer;
-    (void)offset;
-#endif
-    return value;
+    else
+        memset(data, 0, size);
+    glBindBuffer(GL_COPY_READ_BUFFER, 0);
 }
 
 void halo_ios_gl_buffer_write(uint32_t target, uint32_t offset, uint32_t size, const void *data)

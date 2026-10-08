@@ -54,9 +54,9 @@ turns the reverb off; audio.enabled = false skips opening a device
 #define XBOX_ADPCM_BLOCK_SAMPLES 64
 
 /* the resampler (resampling) */
-#define RESAMPLER_ZERO_CROSSINGS 16
+#define RESAMPLER_ZERO_CROSSINGS 24
 #define RESAMPLER_TABLE_STEPS 256
-#define RESAMPLER_CUTOFF 0.88
+#define RESAMPLER_CUTOFF 0.96
 #define RESAMPLER_KAISER_BETA 6.5
 #define RESAMPLER_MAXIMUM_STRETCH 2
 #define RESAMPLER_HISTORY 128
@@ -414,9 +414,11 @@ static void voice_gains(const struct sdl_stream *stream, float *left, float *rig
 Each voice is resampled to the output rate by band-limited interpolation (J.
 O. Smith's): an output sample is the source frames around its moment, each
 weighted by a windowed sinc low pass centred there. The low pass keeps
-RESAMPLER_CUTOFF of the source's band and takes the images of it out (65 dB
-down): linear interpolation, which the mixer did before, left them only 8 to
-20 dB down, a gritty haze above 11 kHz over every 22 kHz voice. A voice
+RESAMPLER_CUTOFF of the source's band (a 22 kHz voice is 0.5 dB down at 10
+kHz) and takes the images of it out (80 dB down), but for those of its last
+few hundred hertz, which lie beside them, about 20 dB down. Linear
+interpolation, which the mixer did before, left the images only 8 to 20 dB
+down, a gritty haze above 11 kHz over every 22 kHz voice. A voice
 played faster than the output rate takes its frames (a step over 1) gets the
 low pass narrowed to match, up to RESAMPLER_MAXIMUM_STRETCH times, so it
 does not alias. The frames come from the voice's packets in turn, so the low
@@ -1251,7 +1253,15 @@ static void audio_start(void)
 		spec.format = SDL_AUDIO_F32;
 		spec.channels = OUTPUT_CHANNELS;
 		spec.freq = OUTPUT_RATE;
+#ifdef HALO_ANDROID
+		/* frames per callback: on Android each callback is handed to a thread
+		that can run the guest (host_sdl.c): 512 left it too little time and
+		the menus' music broke up, which 1024 does not (about 21 ms at 48 kHz,
+		11 ms more than 512) */
+		SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "1024");
+#else
 		SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "512");
+#endif
 		audio_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_callback, NULL);
 		if (audio_stream)
 		{

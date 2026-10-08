@@ -13,17 +13,17 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.2.96</string>
+	<string>0.2.97</string>
 	<key>CFBundleVersion</key>
-	<string>2696</string>
+	<string>2697</string>
 	<key>HaloSourceMilestone</key>
-	<string>M2.6.96</string>
+	<string>M2.6.97</string>
 	<key>HaloOpenCERelease</key>
-	<string>build-146</string>
+	<string>build-154</string>
 	<key>HaloOpenCECommit</key>
-	<string>314f576515585560ea6b375b0d5b8a02fd8991af</string>
+	<string>544ee497b6c1da195fa4dd9363851074edc63cbb</string>
 	<key>HaloNetworkVersion</key>
-	<integer>22</integer>
+	<integer>24</integer>
 	<key>HaloGameStateBytes</key>
 	<integer>20971520</integer>
 	<key>HaloGuestABI</key>

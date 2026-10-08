@@ -7,7 +7,7 @@ BOOL HaloModsLegacyExists(void);
 BOOL HaloModsRetireLegacy(NSError **error);
 
 /* Halo Custom Edition content. Active files live in Documents/Halo/custom_maps
- * exactly where OpenCE build 146 scans them. Disabled maps are moved to the
+ * exactly where OpenCE build 154 scans them. Disabled maps are moved to the
  * sibling custom_maps_disabled directory; resource maps stay active. */
 NSArray<NSDictionary *> *HaloCustomMapsList(void);
 NSDictionary<NSString *, NSNumber *> *HaloCustomResourcesStatus(void);

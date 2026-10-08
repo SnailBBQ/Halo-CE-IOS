@@ -6,7 +6,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak diagnostic build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable on the regular/jailbreak path.** The current source update is **M2.6.96**, keeping OpenCE build 146 (network version 22), Custom Edition maps and the MP4 movie fallback while continuing the experimental Non-Jailbreak **Stage 3 real-guest flexible-base execution** path. M2.6.95 advanced the real flexible guest compile to object 63/1492 and exposed a false-positive guard: LLVM can preserve fixed x27 in a host-stack callee-save pair. M2.6.96 accepts only that preservation pattern while keeping every computational reserved-register use fail-closed. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
+> **Status: playable on the regular/jailbreak path.** The current source update is **M2.6.97**, which moves the engine to OpenCE **build 154** (network version 24) and keeps Custom Edition maps, the MP4 movie fallback and the experimental Non-Jailbreak **Stage 3 real-guest flexible-base execution** path. M2.6.96 (green on GitHub Actions) let the Stage-3 converter pass LLVM's harmless x27 host-stack save/reload; M2.6.97 tightens that rule to the exact forms the real compiler emits. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
@@ -18,7 +18,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 >
 > **Paid Apple Developer accounts:** people who have one may be able to sign the regular app with the `extended-virtual-addressing` and `increased-memory-limit` capabilities and get it to start on a non-jailbroken device. We have not tested this, and the project does not require or build around paid accounts. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 
-**Source update:** [M2.6.96](port/ios/UPDATE_M2696.md) keeps the Non-Jailbreak **real-guest flexible-base Stage 3** architecture and fixes the next fail-closed converter guard exposed by the actual arm64_32 build. The guest still reserves x27 as the immutable 64-bit arena base and x15 as scratch. LLVM is now allowed to save/reload x27 only through the real host stack as a 64-bit callee-saved register; arithmetic, branches, guest-memory addressing, w27 use and source x15 remain forbidden. Regular and Mod Test builds keep the proven aligned architecture. OpenCE remains **build 146/network 22**; Custom Edition maps and MP4 fallback are unchanged. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
+**Source update:** [M2.6.97](port/ios/UPDATE_M2697.md) integrates **OpenCE build 154 / network version 24** (from build 146 / network 22), updates the iOS host for the changed `host_gl_read_buffer` import, and narrows the Non-Jailbreak converter's x27 allowance to the exact LLVM forms. Regular and Mod Test builds keep the proven aligned architecture; Non-Jailbreak keeps its x27 flexible-base guest. Matching OpenCE network versions are required for cross-play, so update other clients alongside the app. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of OpenCE on PC" width="760"><br>

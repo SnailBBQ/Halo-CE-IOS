@@ -2681,9 +2681,10 @@ static int ios_gl_has_extension(uint32_t name_va)
     return halo_ios_gl_has_extension(name);
 }
 
-static uint32_t ios_gl_read_word(uint32_t buffer, uint32_t offset)
+static void ios_gl_read_buffer(uint32_t buffer, uint32_t offset, uint32_t size, uint32_t data_va)
 {
-    return halo_ios_gl_read_buffer_word(buffer, offset);
+    void *data = (data_va && size) ? gp(data_va, size) : NULL;
+    halo_ios_gl_read_buffer(buffer, offset, size, data);
 }
 
 static void ios_gl_buffer_write(uint32_t target, uint32_t offset,
@@ -3075,7 +3076,7 @@ static void *resolve_host_import(const char *name)
 
     MAP("host_gl_get_string", ios_gl_get_string);
     MAP("host_gl_has_extension", ios_gl_has_extension);
-    MAP("host_gl_read_buffer_word", ios_gl_read_word);
+    MAP("host_gl_read_buffer", ios_gl_read_buffer);
     MAP("host_gl_buffer_write", ios_gl_buffer_write);
     MAP("host_gl_fence_frame", ios_gl_fence);
     MAP("host_gl_wait_frame", ios_gl_wait);

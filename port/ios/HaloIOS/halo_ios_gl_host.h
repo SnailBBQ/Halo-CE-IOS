@@ -30,7 +30,7 @@ void halo_ios_gl_set_frame_cap(int fps);
 void *halo_ios_gl_resolve_import(const char *import_name);
 void halo_ios_gl_get_string(uint32_t name, int index, char *buffer, uint32_t size);
 int halo_ios_gl_has_extension(const char *name);
-uint32_t halo_ios_gl_read_buffer_word(uint32_t buffer, uint32_t offset);
+void halo_ios_gl_read_buffer(uint32_t buffer, uint32_t offset, uint32_t size, void *data);
 void halo_ios_gl_buffer_write(uint32_t target, uint32_t offset, uint32_t size, const void *data);
 void halo_ios_gl_fence_frame(uint32_t slot);
 void halo_ios_gl_wait_frame(uint32_t slot);

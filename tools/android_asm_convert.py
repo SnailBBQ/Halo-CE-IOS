@@ -615,9 +615,19 @@ def _flex_canonicalized(lines):
     return out
 
 
+_FLEX_IMM = r'#\s*-?(?:0x[0-9a-fA-F]+|\d+)'
+# Exactly the three forms real arm64_32 LLVM emits (verified by stress compile at
+# -O0/-O1/-O2/-Os, with and without frame pointers):
+#     stp x28, x27, [sp, #N]      ldp x28, x27, [sp, #N]
+#     stp x28, x27, [sp, #N]!     (pre-index prologue)
+#     ldp x28, x27, [sp], #N      (post-index epilogue)
+# plus the plain [sp] spelling. The base must be sp and the offset a literal.
 FLEX_X27_STACK_PAIR_RE = re.compile(
-    r'^\s*(?:stp|ldp)\s+(?:x28\s*,\s*x27|x27\s*,\s*x28)\s*,\s*'
-    r'\[\s*sp\b[^\]]*\](?:!)?(?:\s*,\s*#\s*-?(?:0x[0-9a-fA-F]+|\d+))?\s*$')
+    r'^(?:stp|ldp)\s+(?:x28\s*,\s*x27|x27\s*,\s*x28)\s*,\s*(?:'
+    r'\[\s*sp\s*\]'
+    r'|\[\s*sp\s*,\s*' + _FLEX_IMM + r'\s*\]!?'
+    r'|\[\s*sp\s*\]\s*,\s*' + _FLEX_IMM +
+    r')$')
 
 
 def _flex_reserved_register_violation(line):

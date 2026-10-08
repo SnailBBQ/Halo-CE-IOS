@@ -7,6 +7,7 @@ physical logs.
 """
 from pathlib import Path
 import importlib.util
+import re
 import shutil
 import subprocess
 import tempfile
@@ -157,6 +158,47 @@ preserve_x27 = """\
 preserve_out = conv.ios_flex_base_fastpath(preserve_x27, "scandir-like.o.darwin.s")
 assert preserve_out == preserve_x27
 
+# The three forms real arm64_32 LLVM emits (offset, pre-index prologue, post-index
+# epilogue), in either register order, plus CFI metadata and comments naming x27.
+real_forms = """\
+\t.cfi_offset w27, -24
+\tstp x28, x27, [sp, #-96]!        ; 16-byte Folded Spill
+\tstp x28, x27, [sp, #16]          ; 16-byte Folded Spill
+\tldp x28, x27, [sp, #16]          ; 16-byte Folded Reload
+\tldp x28, x27, [sp], #96          ; 16-byte Folded Reload
+\tstp x27, x28, [sp, #0x20]
+\tldp x27, x28, [sp]
+\t; x27 and w15 only mentioned in a comment
+\tadd x0, x0, #1 ; scratch x27 note
+"""
+real_out = conv.ios_flex_base_fastpath(real_forms, "forms.o.darwin.s")
+for form in ("[sp, #-96]!", "[sp], #96", "[sp, #16]"):
+    assert form in real_out, form
+
+# Near misses must still fail: wrong base, register offset, other partner register,
+# wrong width, non-literal offset, writeback on the wrong side, x15 in any width.
+for bad in (
+    "\tstp x28, x27, [x8, #16]\n",
+    "\tstp x28, x27, [x29, #16]\n",
+    "\tstp x28, x27, [sp, x1]\n",
+    "\tstp x26, x27, [sp, #16]\n",
+    "\tstp w28, w27, [sp, #16]\n",
+    "\tstp x28, x27, [sp, #foo]\n",
+    "\tstp x28, x27, [sp, #16]!, #8\n",
+    "\tstp x28, x27, [sp]!\n",
+    "\tstp x28, x27, [sp, #16]\n\tldr x0, [x27]\n",
+    "\tmov x15, x0\n",
+    "\tldr w0, [x15]\n",
+    "\tadd x0, x15, #4\n",
+    "\tstp x15, x28, [sp, #16]\n",
+):
+    try:
+        conv.ios_flex_base_fastpath(bad, "near-miss.o.darwin.s")
+    except conv.ConvertError:
+        pass
+    else:
+        raise AssertionError(f"near-miss reserved-register use did not fail: {bad!r}")
+
 # Reproduce the real M2.6.95 scandir-class failure with arm64_32 clang when the
 # target is available. Under register pressure LLVM may pair fixed x27 with x28
 # for a callee-save spill even though it never allocates x27 for computation.
@@ -187,6 +229,10 @@ int flex_x27_spill_probe(int *p, int n, int (*cb)(int)) {
             "-O2", "-std=c99", "-ffreestanding", "-fno-common",
             "-S", str(csrc), "-o", str(darwin),
         ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        # The probe must really reproduce the x27 preservation pair, otherwise this
+        # regression would pass vacuously if LLVM stopped emitting it.
+        assert re.search(r"^\s*(stp|ldp)\s+x28, x27, \[sp", darwin.read_text(), re.M), \
+            "register-pressure probe no longer emits an x28/x27 stack pair"
         subprocess.run([
             sys.executable, str(ROOT / "tools/android_asm_convert.py"),
             "--ios-flex-base-fastpath", str(darwin), str(elfasm),
