@@ -126,7 +126,7 @@ static NSURL *HaloExportExternalSaves(void) {
     NSString *resourceSummary=[NSString stringWithFormat:@"bitmaps.map %@  ·  sounds.map %@  ·  loc.map %@",
         [resources[@"bitmaps.map"] boolValue]?@"✓":@"—",[resources[@"sounds.map"] boolValue]?@"✓":@"—",[resources[@"loc.map"] boolValue]?@"✓":@"—"];
     [self.rows addArrangedSubview:HaloUICardView(@"Custom Edition Maps",@[
-        HaloUINote(@"OpenCE build 159 loads standard Halo Custom Edition version 609 maps beside the original Xbox maps. Nothing here replaces Documents/Halo/maps. Import CE .map files plus bitmaps.map, sounds.map and loc.map when a map needs the shared resource caches. Optional <map>.bmp and <map>.txt files provide the in-game picture and description. OpenSauce maps are intentionally unsupported upstream."),
+        HaloUINote(@"OpenCE build 167 loads standard Halo Custom Edition version 609 maps beside the original Xbox maps. Nothing here replaces Documents/Halo/maps. Import CE .map files plus bitmaps.map, sounds.map and loc.map when a map needs the shared resource caches. Optional <map>.bmp and <map>.txt files provide the in-game picture and description. OpenSauce maps are intentionally unsupported upstream."),
         HaloUIValueRow(@"Shared resources",resourceSummary,nil),
         HaloUIButton(@"Import Custom Edition content",1,^(UIButton *b){(void)b;weakSelf.pickerKind=7;UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:YES];picker.allowsMultipleSelection=YES;picker.delegate=weakSelf;[weakSelf presentViewController:picker animated:YES completion:nil];}),
         HaloUIButton(@"Refresh Custom Edition library",0,^(UIButton *b){(void)b;[weakSelf render];})])];
@@ -138,7 +138,7 @@ static NSURL *HaloExportExternalSaves(void) {
         [items addObject:HaloUIButton(@"Remove custom map",2,^(UIButton *b){(void)b;UIAlertController *a=[UIAlertController alertControllerWithTitle:@"Remove Custom Edition map?" message:[NSString stringWithFormat:@"%@ and its optional picture/description will be deleted from Halo. Shared resource maps are not touched.",file] preferredStyle:UIAlertControllerStyleAlert];[a addAction:[UIAlertAction actionWithTitle:@"Remove" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *x){(void)x;[weakSelf run:^NSURL *{HaloCustomMapRemove(file);return nil;} completion:^(NSURL *u){(void)u;[weakSelf render];}];}]];[a addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];[weakSelf presentViewController:a animated:YES completion:nil];})];
         [self.rows addArrangedSubview:HaloUICardView(file,items)];
     }
-    if(!custom.count)[self.rows addArrangedSubview:HaloUICardView(nil,@[HaloUINote(@"No Custom Edition maps installed yet. Importing CE content writes directly to Documents/Halo/custom_maps, the folder OpenCE build 159 scans.")])];
+    if(!custom.count)[self.rows addArrangedSubview:HaloUICardView(nil,@[HaloUINote(@"No Custom Edition maps installed yet. Importing CE content writes directly to Documents/Halo/custom_maps, the folder OpenCE build 167 scans.")])];
 
     NSArray *movies=HaloMoviesList();NSMutableDictionary *movieFiles=[NSMutableDictionary dictionary];for(NSDictionary *movie in movies)movieFiles[[movie[@"file"] lowercaseString]]=movie;
     NSMutableArray *movieStatus=[NSMutableArray array];

@@ -2275,6 +2275,8 @@ static void ios_memory_watch_initialize(void) {ios_texture_checks_reset();}
 static void ios_memory_watch_protect(uint32_t a, uint32_t b) { (void)a; (void)b; }
 static uint32_t ios_memory_watch_generation(uint32_t a, uint32_t b) { (void)a; (void)b; return 0; }
 static uint32_t ios_memory_watch_serial(void) { return 1; }
+/* build 167: the watch is not write-protected on iOS (generation stays 0), so there are no page hashes to refresh per frame. */
+static void ios_memory_watch_begin_frame(void) {}
 static void ios_memory_watch_prepare_write(uint32_t a, uint32_t b) { (void)a; (void)b; }
 static void ios_memory_watch_forget(uint32_t a,uint32_t b) {
     pthread_mutex_lock(&g_texture_check_lock);ht_forget(&g_texture_checks,a,b);pthread_mutex_unlock(&g_texture_check_lock);
@@ -3063,6 +3065,7 @@ static void *resolve_host_import(const char *name)
     MAP("host_memory_watch_serial", ios_memory_watch_serial);
     MAP("host_memory_watch_prepare_write", ios_memory_watch_prepare_write);
     MAP("host_memory_watch_forget", ios_memory_watch_forget);
+    MAP("host_memory_watch_begin_frame", ios_memory_watch_begin_frame);
 
     MAP("host_sdl_init", ios_sdl_init);
     MAP("host_sdl_set_hint", ios_sdl_set_hint);

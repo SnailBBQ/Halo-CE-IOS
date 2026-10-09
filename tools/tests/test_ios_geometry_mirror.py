@@ -19,6 +19,7 @@ typedef intptr_t GLsizeiptr;
 #define PLATFORM_CONTIGUOUS_BASE ((unsigned long)(uintptr_t)memory)
 #define PLATFORM_CONTIGUOUS_SIZE 0x800000UL
 #define GL_COPY_WRITE_BUFFER 1
+#define STREAM_BUFFER_RING 3
 #define GL_DYNAMIC_DRAW 2
 static unsigned char memory[PLATFORM_CONTIGUOUS_SIZE];
 static unsigned char gpu[2][0x400000];

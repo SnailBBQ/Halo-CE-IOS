@@ -1,14 +1,14 @@
-"""Compile the real definition-preemption path and its iOS caller guards."""
+"""Compile the real definition-preemption path and its caller guard (OpenCE build 167 made sound_set_definition_end report a retired voice itself)."""
 from pathlib import Path
 import re, subprocess, tempfile, os
 root=Path(__file__).resolve().parents[2]
 s=(root/'source/sound/sound_manager.c').read_text(encoding='utf-8')
-m=re.search(r'static void sound_set_definition_end\s*\([^;]*?\)\s*\{',s)
+ms=list(re.finditer(r'static boolean sound_set_definition_end\s*\([^;]*?\)\s*\{',s)); assert len(ms)==1; m=ms[0]
 start=m.start(); pos=m.end(); depth=1
 while depth:
  depth+=(s[pos]=='{')-(s[pos]=='}');pos+=1
 fn=s[start:pos]
-a=s.index('long changing_sound_index ='); b=s.index('#else',a)
+a=s.index('if (!sound_set_definition_end(channel->sound_index))'); b=s.index('definition = sound_definition_get(sound->definition_index);',a)
 guard=s[a:b]
 outer=s[s.index('/* The looping update may'):]
 assert 'if (channel->sound_index == NONE)\n\t\t\t\tcontinue;' in outer
@@ -17,6 +17,8 @@ assert re.search(r'263,\s*cache_sound->software_reference_count\);',cache)
 code=r'''
 #include <assert.h>
 #define NONE -1
+#define FALSE 0
+typedef int boolean;
 #define TRUE 1
 #define _sound_waiting_for_cache_bit 1
 #define SET_FLAG(flags,bit,value) ((flags)|=(bit))
@@ -46,7 +48,6 @@ static void reset(void){current=(struct sound_datum){.next_definition_index=2,.p
 int main(void){
 reset();caller();assert(continued==1 && !stopped && current.definition_index==2);
 reset();summary.like_source_count=2;caller();assert(stopped==10 && !continued && !alive);
-reset();summary.like_source_count=2;chosen=0;caller();assert(stopped==10 && !continued);
 reset();summary.like_definition_count=2;caller();assert(stopped==10 && !continued);
 reset();summary.like_definition_count=2;chosen=1;caller();assert(stopped==11 && continued==1 && alive);
 return 0;}

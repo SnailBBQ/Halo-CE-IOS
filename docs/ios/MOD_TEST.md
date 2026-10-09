@@ -12,7 +12,7 @@ features of the regular app and receives every update at the same time.
 | Name on the device | Halo CE | Halo CE Mod Test |
 | Bundle ID | `com.haloceuniversal.ios.m0` | `com.haloceuniversal.ios.modtest` |
 | Invite scheme | `halo://` | `halomodtest://` |
-| Version | 0.2.102 | 0.2.102.1 |
+| Version | 0.2.103 | 0.2.103.1 |
 | Build | Automatic IPA on `main` | Manual: tick **Mod Test app** |
 | Output | `HaloCE.ipa`, artifact `HaloCE-iOS` | `HaloCE.ipa`, artifact `HaloCE-iOS-ModTest` |
 | Data | Its own maps, saves and settings | Its own, completely separate |
@@ -27,7 +27,7 @@ campaign maps may be larger than stock. The engine changes are limited to the iO
 1. Run **Halo CE iOS — Build IPA** on `main` with **Mod Test app** ticked. Install that IPA next to the regular app. See [Build the IPA](BUILD.md) and [Install](INSTALL.md).
    Check the app's name and its separate Files folder before copying any content.
 2. Import your working Xbox version-5 `ui.map` into the test app. Leave the regular app and its maps alone.
-3. For the **large converted-map experiment**, import the converted Xbox-format map under the exact file name **`a10.map`**. Separately, M2.6.88 also exposes OpenCE build-159 Custom Edition v609 maps in the normal Custom Edition library; that upstream feature does not use the Mod Test replacement path.
+3. For the **large converted-map experiment**, import the converted Xbox-format map under the exact file name **`a10.map`**. Separately, M2.6.88 also exposes OpenCE build-167 Custom Edition v609 maps in the normal Custom Edition library; that upstream feature does not use the Mod Test replacement path.
 4. Start a fresh campaign. Capture the logs before and after loading, the intro, your first weapon pickup and each level transition.
 5. Test saving a checkpoint, reloading it, and returning to the menu. Report crashes, rejected ranges, memory pressure, missing scripts or assets, distorted models and audio problems.
 6. Compare with the stock a10 **in the test app only** using a separate backup/import. The old replacement-map Mods switch/restore feature was retired in M2.6.88. Do not assume a save from the converted map can resume with stock content.
