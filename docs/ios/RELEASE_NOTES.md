@@ -9,7 +9,9 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 **Device result, 2026-10-08:** the M2.6.101 Non-Jailbreak build is confirmed playable on an iPhone 14 Plus (iOS 16.2, Sideloadly): a10 played, second map loaded, about 60 FPS, no crashes, no pointer faults. Documentation only; no code change after M2.6.101.
 
-**Latest:** [M2.6.101](../../port/ios/UPDATE_M2701.md) fixes a Non-Jailbreak crash found on-device: a frame-pointer chain load in the HUD stack check was truncated by the flexible-base translation. Regular is unchanged. OpenCE stays on build 155/network 24.
+**Latest:** [M2.6.102](../../port/ios/UPDATE_M2702.md) integrates OpenCE build 159 (network 24): voice chat with the Opus codec and player vote-kick. iOS can hear voices but has no microphone path, so it cannot talk. Needs Actions and device validation, Regular first.
+
+**Previous:** [M2.6.101](../../port/ios/UPDATE_M2701.md) fixes a Non-Jailbreak crash found on-device: a frame-pointer chain load in the HUD stack check was truncated by the flexible-base translation. Regular is unchanged. OpenCE stays on build 155/network 24.
 
 **Previous:** [M2.6.100](../../port/ios/UPDATE_M2700.md) translated guest pointers held in x30 in the Regular/Mod Test (aligned) converter, removing the 16-million-fault audio decode hot spot found in a Regular device log. OpenCE stays on build 155/network 24.
 
@@ -69,6 +71,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.102 | OpenCE build 159 / network 24 integration: voice chat (Opus), vote-kick, three new host audio-stream imports answered as "no microphone" on iOS. |
 | M2.6.101 | Non-Jailbreak converter: the saved frame pointer loaded from `[x29]` (a host address) is canonicalized before translation; found on-device from the M2.6.100 Non-JB log. |
 | M2.6.100 | Regular/Mod Test converter: guest pointers held in x30 are translated, so the audio ADPCM decode no longer takes ~16M SIGSEGV-bridge faults; frame-rate fix from the Regular device log. |
 | M2.6.99 | Non-Jailbreak converter: guest pointers held in x30 (reused link register) are translated; found on-device from the M2.6.98 log. |

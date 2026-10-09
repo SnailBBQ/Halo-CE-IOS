@@ -2668,6 +2668,27 @@ static int ios_sdl_audio_resume(uint32_t stream)
     return 0;
 }
 
+/* Voice chat's microphone (OpenCE build 159, port/linux/src/voice_audio.c) reads a capture stream the guest opened with
+ * no callback. iOS opens no guest audio stream (ios_sdl_open_audio returns 0, so the guest sees "no microphone" and
+ * retries quietly), which means these three are never reached with a live stream: they report an unusable stream (-1)
+ * and destroying one is a no-op. Other players' voices still decode and mix into the game's own output. */
+static int ios_sdl_audio_stream_get(uint32_t stream, uint32_t data, int length)
+{
+    (void)stream; (void)data; (void)length;
+    return -1;
+}
+
+static int ios_sdl_audio_stream_available(uint32_t stream)
+{
+    (void)stream;
+    return -1;
+}
+
+static void ios_sdl_audio_stream_destroy(uint32_t stream)
+{
+    (void)stream;
+}
+
 static void ios_gl_get_string(uint32_t name, int index, uint32_t buffer_va, uint32_t size)
 {
     char *buffer = gp(buffer_va, size);
@@ -3073,6 +3094,9 @@ static void *resolve_host_import(const char *name)
     MAP("host_sdl_open_audio_stream", ios_sdl_open_audio);
     MAP("host_sdl_put_audio_stream_data", ios_sdl_audio_data);
     MAP("host_sdl_resume_audio_stream_device", ios_sdl_audio_resume);
+    MAP("host_sdl_get_audio_stream_data", ios_sdl_audio_stream_get);
+    MAP("host_sdl_get_audio_stream_available", ios_sdl_audio_stream_available);
+    MAP("host_sdl_destroy_audio_stream", ios_sdl_audio_stream_destroy);
 
     MAP("host_gl_get_string", ios_gl_get_string);
     MAP("host_gl_has_extension", ios_gl_has_extension);

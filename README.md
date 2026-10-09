@@ -6,7 +6,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is playable on a stock, sideloaded iPhone 14 Plus (see [Device test results](#device-test-results)). The current source update is **M2.6.101**, on OpenCE **build 155** (network version 24) with Custom Edition maps and the MP4 movie fallback. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
+> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is playable on a stock, sideloaded iPhone 14 Plus (see [Device test results](#device-test-results)). The current source update is **M2.6.102**, on OpenCE **build 159** (network version 24) with Custom Edition maps and the MP4 movie fallback. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
@@ -24,7 +24,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 This is one device and one session. Other devices, longer play, vehicles and multiplayer are untested. Details are in the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
 
-**Source update:** [M2.6.101](port/ios/UPDATE_M2701.md) fixes the next Non-Jailbreak device crash (a frame-pointer chain walk in the HUD stack check) and records the Regular log after M2.6.100, which held about 60 FPS in gameplay. [M2.6.100](port/ios/UPDATE_M2700.md) was a Regular/Mod Test performance pass. A device log showed 16.2 million signal-bridge faults, 99.7% from the audio ADPCM decode loop, which reads guest memory through x30 (LLVM reuses the link register as a normal register). The aligned converter now translates x30 like any other base register, so those loads no longer fault. The Non-Jailbreak converter shares the same x30 handling from M2.6.99. OpenCE stays on **build 155 / network 24**. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
+**Source update:** [M2.6.102](port/ios/UPDATE_M2702.md) moves to OpenCE **build 159 / network 24**, which adds voice chat (the Opus codec) and player vote-kick. On iOS you can hear other players' voices; the iPhone has no microphone path yet, so it cannot talk. [M2.6.101](port/ios/UPDATE_M2701.md) fixed the next Non-Jailbreak device crash (a frame-pointer chain walk in the HUD stack check) and records the Regular log after M2.6.100, which held about 60 FPS in gameplay. [M2.6.100](port/ios/UPDATE_M2700.md) was a Regular/Mod Test performance pass. A device log showed 16.2 million signal-bridge faults, 99.7% from the audio ADPCM decode loop, which reads guest memory through x30 (LLVM reuses the link register as a normal register). The aligned converter now translates x30 like any other base register, so those loads no longer fault. The Non-Jailbreak converter shares the same x30 handling from M2.6.99. Windows, Linux and Android stay on [OpenCE](https://github.com/OpenCommunityEdition/OpenCE/releases).
 
 <p align="center">
   <img src="docs/ios/images/main-menu-pc.jpg" alt="The main menu of OpenCE on PC" width="760"><br>
