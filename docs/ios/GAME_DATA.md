@@ -4,7 +4,7 @@ The app does not include game maps. Supply them from your own copy of *Halo: Com
 
 ## What you need
 
-- **Xbox `.map` files** from the original Xbox game (the Xbox cache format, "version 5"). The original Xbox maps remain the base game data. OpenCE build 167 can additionally load standard Halo Custom Edition version-609 maps from a separate `custom_maps` folder; those do not replace the Xbox files.
+- **Xbox `.map` files** from the original Xbox game (the Xbox cache format, "version 5"). The original Xbox maps remain the base game data. OpenCE build 182 can additionally load standard Halo Custom Edition version-609 maps from a separate `custom_maps` folder; those do not replace the Xbox files.
 - **`ui.map`** is required. It is the main menu.
 - The maps for the levels you want to play. A few are listed below; the retail disc has all of them.
 - European (PAL) maps work. The engine adjusts them as they load so they play like the North American maps, so players of both releases
@@ -74,6 +74,6 @@ The app checks that `ui.map` is present and not tiny; the engine does the real v
 
 ## Custom Edition maps and movies
 
-**Settings → Mods** keeps the original Xbox library separate from OpenCE's Custom Edition library. Import standard CE version-609 maps, their optional `.bmp`/`.txt` sidecars and the shared `bitmaps.map`, `sounds.map` and `loc.map` resources into the Custom Edition section. OpenSauce maps are not supported by OpenCE build 167.
+**Settings → Mods** keeps the original Xbox library separate from OpenCE's Custom Edition library. Import standard CE version-609 maps, their optional `.bmp`/`.txt` sidecars and the shared `bitmaps.map`, `sounds.map` and `loc.map` resources into the Custom Edition section. OpenSauce maps are not supported by OpenCE build 182.
 
 The same screen can import user-supplied MP4 fallbacks for Halo's movie names (`intro`, `credits`, `attract1`–`attract3`). The app does not include or convert copyrighted movie assets; it only supplies native playback for files the user provides.

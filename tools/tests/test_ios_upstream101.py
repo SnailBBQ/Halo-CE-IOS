@@ -21,7 +21,9 @@ struct widget_instance {short local_player_index;};
 struct advertised_game {int open,player_count,maximum_player_count;};
 static struct advertised_game game={1,3,8};static struct advertised_game *active=&game;
 static int playing[4],dispatched,failed,full,joined,initialized;
-static int we_are_at_the_main_menu=1,player_spawn_count=2;
+static int we_are_at_the_main_menu=1,player_spawn_count=2,split_players=1,port_players=2;
+static int pc_menu_split_players(void){return split_players;}
+static int players_port_local_player_count(void){return port_players;}
 static short controllers[2]={0,1};
 static struct {int adding,controller;} lobby_join={0,NONE};
 static short player_ui_get_single_player_local_player_controller(short p){return controllers[p];}
@@ -37,13 +39,17 @@ static void ui_widget_port_dispatch_event(struct widget_instance *w,int event,sh
 static boolean multiplayer_player(short c){initialized++;playing[c]=1;return TRUE;}
 static boolean ui_widget_port_join(struct widget_instance *w,struct advertised_game *g,const char *name,boolean *deleted){(void)w;(void)name;(void)deleted;assert(g==active);joined=lobby_local_player_count();return TRUE;}
 '''
-code+=function('source/interface/ui_widget.c','widget_takes_events_of_controller')
+code+=function('source/interface/ui_widget.c','widget_takes_any_controller')+'\n'+function('source/interface/ui_widget.c','widget_takes_events_of_controller')
 for name in ('preview_add','preview_leave','preview_join'):code+='\n'+function('port/linux/game/menu_functions.c',name)
 code+=r'''
 int main(void){struct widget_instance w={0};boolean deleted=0;
 assert(widget_takes_events_of_controller(&w,0));assert(widget_takes_events_of_controller(&w,1));assert(!widget_takes_events_of_controller(&w,2));assert(!widget_takes_events_of_controller(&w,-1));
 we_are_at_the_main_menu=0;assert(!widget_takes_events_of_controller(&w,1));we_are_at_the_main_menu=1;player_spawn_count=1;assert(!widget_takes_events_of_controller(&w,1));player_spawn_count=2;
 w.local_player_index=NONE;assert(widget_takes_events_of_controller(&w,2));w.local_player_index=1;assert(widget_takes_events_of_controller(&w,1));assert(!widget_takes_events_of_controller(&w,0));
+/* build 182: with one person playing (not split) any controller drives the first player's menus */
+w.local_player_index=0;split_players=0;assert(widget_takes_events_of_controller(&w,1) && widget_takes_events_of_controller(&w,2));
+we_are_at_the_main_menu=0;port_players=2;assert(!widget_takes_events_of_controller(&w,2));port_players=1;assert(widget_takes_events_of_controller(&w,2));
+we_are_at_the_main_menu=1;port_players=2;split_players=1;assert(!widget_takes_events_of_controller(&w,2));w.local_player_index=1;
 playing[0]=1;assert(preview_add(&w,1,&deleted) && lobby_join.controller==1);
 playing[1]=1;assert(!preview_add(&w,1,&deleted) && dispatched==1);
 assert(preview_join(&w,0,&deleted) && joined==2 && !initialized);

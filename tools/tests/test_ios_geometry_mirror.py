@@ -10,6 +10,7 @@ PREFIX = r'''
 #include <string.h>
 #define HALO_IOS_GUEST 1
 #define HALO_ANDROID 1
+#define HALO_GLES 1
 #define TRUE 1
 #define FALSE 0
 typedef int BOOL;

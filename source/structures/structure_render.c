@@ -156,21 +156,21 @@ static boolean compare_surface_indices(
 	long surface_index1,
 	long surface_index2);
 static void structure_render_dynamic_triangles_from_bitvector(
-	short surface_count,
+	long surface_count,
 	long *surface_indices,
 	unsigned long *surface_flags,
 	short *triangles);
 static void structure_render_dynamic_triangles_from_indices(
-	short surface_count,
+	long surface_count,
 	long *surface_indices,
 	short *triangles);
 static long structure_render_build_dynamic_triangles(
 	long *surface_indices,
-	short surface_count,
+	long surface_count,
 	unsigned long *surface_flags);
 static void structure_render_pass(
 	long *surface_indices,
-	short surface_count,
+	long surface_count,
 	long dynamic_triangles_index,
 	void (*begin_lightmap)(struct bitmap_data const *lightmap_bitmap),
 	void (*draw_triangles)(
@@ -268,7 +268,7 @@ static boolean compare_surface_indices(
 }
 
 static void structure_render_dynamic_triangles_from_bitvector(
-	short surface_count,
+	long surface_count,
 	long *surface_indices,
 	unsigned long *surface_flags,
 	short *triangles)
@@ -281,7 +281,7 @@ static void structure_render_dynamic_triangles_from_bitvector(
     host_scene_scan((unsigned int)&p);return;
 #endif
 	struct structure_bsp *structure_bsp = global_structure_bsp_get();
-	short surface_index_index = 0;
+	long surface_index_index = 0;
 	long surface_index = 0;
 
 	if (structure_bsp->surfaces.count > 0)
@@ -338,7 +338,7 @@ static void structure_render_dynamic_triangles_from_bitvector(
 }
 
 static void structure_render_dynamic_triangles_from_indices(
-	short surface_count,
+	long surface_count,
 	long *surface_indices,
 	short *triangles)
 {
@@ -351,7 +351,7 @@ static void structure_render_dynamic_triangles_from_indices(
     host_scene_scan((unsigned int)&p);return;
 #endif
 	struct structure_bsp *structure_bsp = global_structure_bsp_get();
-	short surface_index_index;
+	long surface_index_index;
 
 	qsort_4byte(surface_indices, surface_count, compare_surface_indices);
 
@@ -377,7 +377,7 @@ static void structure_render_dynamic_triangles_from_indices(
 
 static long structure_render_build_dynamic_triangles(
 	long *surface_indices,
-	short surface_count,
+	long surface_count,
 	unsigned long *surface_flags)
 {
 	struct structure_bsp *structure_bsp = global_structure_bsp_get();
@@ -426,7 +426,7 @@ static long structure_render_build_dynamic_triangles(
 
 static void structure_render_pass(
 	long *surface_indices,
-	short surface_count,
+	long surface_count,
 	long dynamic_triangles_index,
 	void (*begin_lightmap)(struct bitmap_data const *lightmap_bitmap),
 	void (*draw_triangles)(
@@ -508,7 +508,7 @@ static void structure_render_pass(
 			struct structure_material *material;
 			struct shader *shader;
 			long *chunk_start;
-			short chunk_count;
+			long chunk_count;
 
 			if (surface_index_cursor >= surface_index_end)
 			{
@@ -543,7 +543,7 @@ static void structure_render_pass(
 				&& *surface_index_cursor < material->first_surface_index + material->surface_count);
 #endif
 
-			chunk_count = (short)(surface_index_cursor - chunk_start);
+			chunk_count = surface_index_cursor - chunk_start;
 
 			if (breakable_surface_extant(material->breakable_surface_index))
 			{

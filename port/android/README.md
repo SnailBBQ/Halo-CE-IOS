@@ -6,8 +6,9 @@
 
 The game shows its graphics with OpenGL ES 3. It plays sound through SDL3
 (AAudio). It accepts input from game controllers, for example a PlayStation
-5 DualSense on Bluetooth. The app needs Android 9 (API 28) or later. It
-operates on 64-bit-only devices, for example the Pixel 9 Pro XL.
+5 DualSense on Bluetooth, and from the touchscreen (refer to "Controls").
+The app needs Android 9 (API 28) or later. It operates on 64-bit-only
+devices, for example the Pixel 9 Pro XL.
 
 The Android build uses the platform layer of the Linux build
 (`port/linux/src`). Refer to [port/linux/README.md](../linux/README.md).
@@ -127,8 +128,82 @@ with the positions on the Xbox controller:
 | Create | back | |
 
 The controller gets the rumble. The back gesture of Android is the B
-button. A Bluetooth or USB keyboard operates as on Linux. The screen does
-not accept touch input.
+button. A Bluetooth or USB keyboard operates as on Linux.
+
+The touchscreen operates the menus: tap an item to select it (on a
+setting with values, tap its left or right half), tap a button of the key
+at the bottom of a screen (for example "B = Back") to push it, and drag to
+scroll a list (down or right steps back, up or left steps forward). A drag
+stops at the first and the last item, and it does not change a setting's
+value. Touches that start in the edge-gesture zones of Android do not tap
+or scroll at the sides, and do not scroll at the top and bottom, because the
+first swipe from an edge in full screen only shows the system bars.
+
+A tap during a cinematic that can be skipped skips it, as A does. On the
+on-screen keyboard, tap a key to press it, "B =BACK" to cancel and
+"A =ENTER" to accept the name.
+
+### Touch controls
+
+In a game, the app shows touch controls over the picture. They are a
+controller for player 1. With the default buttons of the profile:
+
+| Control | Function in the game |
+| --- | --- |
+| stick (lower left) | move |
+| swipe on the screen away from the buttons | look |
+| Fire | right trigger |
+| Grenade | left trigger |
+| A / Jump, B / Melee, X / Reload, Y / Weapon | A, B, X, Y |
+| Crouch, Zoom | left and right stick clicks |
+| Light, Gren. type | white, black |
+| Pause, Back | start, back |
+| Up, Down, Left, Right | D-pad |
+
+The names on the buttons follow the profile's "Button layout" (Settings >
+Gamepads): with "Swap triggers", the right trigger's button says "Grenade".
+The stick moves the player with every "Stick layout", southpaw too.
+
+A finger that holds a button can also swipe to look, so you can fire and
+aim with one thumb. The controls are a finger wide (48 dp) or larger, but
+on a small screen of high density they stay apart rather than reach that
+size. A short tap reaches the game even when it is shorter than one frame.
+Swipes that start in the edge-gesture zones of Android do not turn the
+view. The swipe aims as the controller's stick does, not as a mouse: the
+aim slows over a target and follows a moving one, as with a controller,
+and it follows the profile's "invert look" (the gyroscope turns the view
+as the phone turns, never inverted). The setting `input.touch_aim_assist`
+turns the aim assist off. "Look sensitivity" sets how far a swipe turns;
+the mouse settings do not apply.
+
+The touch controls show only in a game. In the menus and during
+cinematics they hide, and the touchscreen operates the menus as described
+above. They also hide when a controller is connected, for example the
+built-in controller of a handheld. A device without a touchscreen (a TV)
+never shows them. The setting `input.touch_controls` changes this (refer
+to "Settings").
+
+The buttons at the top of the screen:
+
+- "Hide" removes the controls (and stops the gyroscope aiming and the
+  vibration) until you push "Touch"; the app remembers it.
+- "Options" opens these items:
+  - "General": the phone's vibration (on by default; it follows the
+    vibration setting of the game's profile), aiming with the gyroscope
+    (off by default), a floating move stick (off by default: the stick goes
+    where your thumb lands in the lower left of the screen), the opacity of
+    the controls, "Hide or add buttons" (hide a button, add a copy of a
+    button) and "Edit buttons size".
+  - "Edit buttons layout": drag the controls to new positions, then push
+    "Save". "Export" and "Import" write and read a layout file with the
+    file picker of the system.
+  - "Look sensitivity".
+
+"Hide" and "Options" act when the finger lifts on them: a swipe that
+starts on them turns the view instead.
+
+The app keeps the layout in its own preferences, not in `config.toml`.
+Removing the app's data or the app removes the layout.
 
 ## Settings
 
@@ -148,6 +223,8 @@ These settings are only for Android:
 
 | Setting | Function |
 | --- | --- |
+| `input.touch_aim_assist` | `true` (the default): the touch controls' swipe aiming gets the aim assist of a controller (the aim slows over a target and follows a moving one). `false`: none, as with a mouse; the bullets' own autoaim stays. |
+| `input.touch_controls` | The touch controls in a game. `"auto"` (the default): shown on a touchscreen while no controller is connected. `"on"`: also shown with a controller. `"off"`: never shown. A device without a touchscreen never shows them. The menus take taps in any case. |
 | `display.screen_width` | The number of columns of the 480-line picture. `0` (the default): the shape of the display (1068 on a 20:9 phone). `640`: the 4:3 shape of the Xbox. |
 | `debug.sample_seconds` | Refer to "Find problems". |
 | `debug.memory_watch` | `true` (the default): the app notices the game's writes to textures and vertices by page protection. `false`: it compares page contents once a frame instead, which is slower. Refer to "Limits". |
@@ -207,9 +284,7 @@ the Xbox:
 - Black bars and fades cover all of the screen, and so do the menus' dims
   and backgrounds (the pause menu's dim, dialogs, the menus' gradient).
 
-The changes are in `#ifdef HALO_ANDROID` in `rasterizer_xbox.c`, `render.c`,
-`ui_widget.c`, `cinematics.c`, `main.c` and
-`rasterizer_xbox_screen_effect.c`.
+All the ports draw this way.
 
 ## How the port operates
 
@@ -253,7 +328,7 @@ and supplies the thread pointer and TLS.
 
 - Reserves the address space of the guest below 4 GB: the Xbox memory at
   `0x80000000`, the image, and pools for the memory of the guest
-  (`host/host_memory.c`).
+  (`host/host_memory.c`). Refer to "The fixed addresses".
 - Loads the image and fills its import table (`host/host_loader.c`).
 - Starts the `main` of the game and each guest thread on a stack in guest
   memory, because ILP32 code keeps stack addresses in 32-bit registers
@@ -269,6 +344,49 @@ two ABIs use the same registers for 32-bit integers, floats and pointers.
 `tools/android_gl_stubs.py` makes the OpenGL ES stubs from
 `port/linux/src/gl.h`. `tools/android_posix_stubs.py` makes the stubs of the
 `posix_*` functions, which copy the `errno` of the host.
+
+### The fixed addresses
+
+The guest needs the Xbox memory at `0x80000000` to `0x88000000` and the
+image above it, to `0x8c000000`. The cache files contain pointers to these
+addresses. The Java runtime of Android (ART) also reserves its spaces below
+4 GB. On some devices, for example handhelds with a large Java heap (the
+AYN Thor, the Retroid Pocket), ART's large object space covers
+`0x80000000`. ART fills that space from its bottom, so the part at
+`0x80000000` is usually empty.
+
+Thus:
+
+1. The game operates in a process of its own (`:game`), with a fresh Java
+   heap. The launcher, the import of a disc image and an earlier game do
+   not leave objects there.
+2. At the start of that process, `HaloApplication` loads `libmain.so`. Its
+   `JNI_OnLoad` reserves the fixed addresses before the Java side
+   allocates large objects.
+3. If ART's large object space is in the way, the host takes back only the
+   part that covers the fixed addresses, and only if no page of it is in
+   use (`/proc/self/pagemap`, or `mincore` and the swap of that part if
+   the device refuses `pagemap`). The host never takes the other spaces of
+   ART.
+
+If the addresses are not available, the game shows a message, and writes
+the mappings below 4 GB to `memory_map.txt` in the data folder and to the
+log.
+
+To test the reclaim on any device, set a system property before you start
+the game. The app then puts a stand-in for ART's large object space over
+the fixed addresses:
+
+- `adb shell setprop debug.halo.art_overlap idle`: the stand-in is empty
+  at `0x80000000`. The log shows `reclaimed idle ART range`, and the game
+  starts.
+- `adb shell setprop debug.halo.art_overlap busy`: a page at `0x80100000`
+  is in use. The game shows the message and writes `memory_map.txt`.
+- Add `-nopagemap` to either value (`idle-nopagemap`) to test as on a
+  device that refuses `/proc/self/pagemap`. Add `-swapped`
+  (`idle-nopagemap-swapped`) to also move the objects of the stand-in to
+  swap; with `busy`, the page in the fixed addresses too.
+- `adb shell setprop debug.halo.art_overlap ""`: normal operation.
 
 ### OpenGL ES
 
@@ -314,9 +432,17 @@ floating-point contraction, as on x86.
 
 ### Game source changes
 
+The port's code tells three things apart, each its own macro, which the
+Android build defines all of (`tools/android_build.py`):
+
+- `HALO_ARM64_GUEST`: the guest's ABI (ILP32 AArch64 code in a 64-bit
+  process);
+- `HALO_GLES`: the OpenGL ES renderer;
+- `HALO_ANDROID`: the app (its display, input, files and lifecycle).
+
 The x86 inline assembly is replaced by C (refer to
 [port/linux/README.md](../linux/README.md#game-source-changes)).
-These changes are in `#ifdef HALO_ANDROID`:
+These changes are in `#ifdef HALO_ARM64_GUEST`:
 
 - Seven `#pragma bss_seg(".bss")` lines are removed. The Darwin target does
   not accept them.
@@ -350,9 +476,12 @@ assembly of the port is necessary:
 
 - Bink video is not available. The game skips the movies.
 - The device must let the app reserve the fixed guest addresses, from
-  `0x80000000` to approximately `0x89000000`. If the addresses are not
-  available, the app shows a message.
-- The game does not accept touch input. Use a controller or a keyboard.
+  `0x80000000` to `0x8c000000`. If ART uses them, the app shows a message
+  (refer to "The fixed addresses").
+- Touch operates the menus and skips cinematics. In the game, the touch
+  controls appear when no controller is connected; their size follows the
+  height of the screen (larger on a tablet than on a phone), never smaller
+  than a finger.
 - Kernels with 16 KB pages (a developer option of Android 15) do not
   operate. The Xbox memory uses 4 KB pages.
 - The x86 Android emulator runs the app through its ARM translation. The

@@ -2442,9 +2442,10 @@ static void dsound_channel_set_properties(
 #ifdef HALO_IOS_GUEST
 	real requested= properties->gain;
 	real pause= dsound_globals.pause_gain;
+	real prop_gain;
 	real gain;
 
-	/* the same out-of-range gains, here and in the pause gain */
+	/* the same out-of-range gains, here and in the pause gain (a NaN plays at 0) */
 	if (!(requested>=0.f))
 		requested= 0.f;
 	else if (requested>1.f)
@@ -2453,9 +2454,14 @@ static void dsound_channel_set_properties(
 		pause= 0.f;
 	else if (pause>1.f)
 		pause= 1.f;
-	gain= pause*requested;
+	prop_gain= requested;
+	gain= pause*prop_gain;
 #else
-	real gain= dsound_globals.pause_gain*properties->gain;
+	/* port: a Custom Edition map's sound can be louder than a channel plays
+	(foundation's Reach sniper rifle fire has a gain modifier of 1.5); played
+	at full gain, as Halo PC does, rather than halting */
+	real prop_gain = PIN(properties->gain, 0.f, 1.f);
+	real gain= dsound_globals.pause_gain*prop_gain;
 #endif
 
 	match_assert(
@@ -2464,7 +2470,7 @@ static void dsound_channel_set_properties(
 #ifdef HALO_IOS_GUEST
 		requested>=0.f && requested<=1.f);
 #else
-		properties->gain>=0.f && properties->gain<=1.f);
+		prop_gain>=0.f && prop_gain<=1.f);
 #endif
 	match_assert(
 		"c:\\halo\\SOURCE\\sound\\sound_dsound_xbox.c",
@@ -2970,12 +2976,7 @@ static void dsound_error(
 			break;
 	}
 
-	/* BUG (preserved for exact matching): the format has three conversions but January
-	 * passes two values (0x5b93e0 +0x93..+0xa2), so "#%d" prints the next stack word.
-	 * Reached on every DirectSound failure reported through dsound_error. A corrected
-	 * build should pass result as the third value. Source-policy approval pending
-	 * (2026-09-27 audit). */
-	error(_error_silent, "DirectSound:  '%s' (%s#%d)", message, result_name);
+	error(_error_silent, "DirectSound:  '%s' (%s#%d)", message, result_name, (int)result);
 
 	return;
 }

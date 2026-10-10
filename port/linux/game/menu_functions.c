@@ -8,8 +8,10 @@ calls them from PC_MENU_FUNCTION_BASE on):
 - "port quit game" (and the PC version's "main menu quit game") quits, as
   closing the window does;
 - the PC version's "profile set edit begin" begins editing the first player
-  profile, as its settings screens need, and fails with none (its handlers
-  then open the screens that make one);
+  profile, as its settings screens need, and fails with none: the main
+  menu's then asks for a new one's name, as the menu's other items do, and
+  its handlers open the screens that make the profile ("new campaign
+  decision", after which Settings' is the one being edited);
 - "gamespy screen init" hides the server browser's error and filter panels,
   and the title of the mode "mp type set mode" did not choose (Internet or
   LAN);
@@ -68,6 +70,7 @@ their handlers open opens.
 #include "interface/event_manager.h"
 #include "interface/player_ui.h"
 #include "interface/ui_widget.h"
+#include "interface/ui_widget_event_handler_functions.h"
 #include "main/main.h"
 #include "networking/network_game_manager.h"
 #include "saved games/player_profile.h"
@@ -112,6 +115,7 @@ boolean ui_widget_port_dispatch_event(struct widget_instance *widget, short even
 void ui_widget_port_go_back(struct widget_instance *widget);
 short ui_widget_port_list_index(struct widget_instance *list_widget);
 boolean ui_widget_port_saved_game(char const **map_name, short *level, short *difficulty);
+char const *ui_widget_event_handler_function_name(long function_index);
 short main_get_solo_level_from_name(char const *name);
 boolean player_name_clean(wchar_t *name, long count);
 short players_port_local_player_count(void);
@@ -593,6 +597,53 @@ boolean pc_menu_profile_edit_begin(void)
 		return FALSE;
 	player_ui_begin_editing_profile(player_ui_get_active_player_profile_index(0));
 	return TRUE;
+}
+
+/* the game's own function of the name (as its tags name it), run for the
+widget: for ours of a name of the game's, which do more than it */
+static boolean game_function(char const *name, struct widget_instance *widget, struct event_record *event,
+	boolean *widget_deleted)
+{
+	char const *function;
+	long index;
+
+	for (index = 0; (function = ui_widget_event_handler_function_name(index)) != NULL; index++)
+	{
+		if (!strcmp(function, name))
+			return ui_widget_event_handler_function_invoke(widget, event, (word)index, widget_deleted);
+	}
+	return FALSE;
+}
+
+/* "profile set edit begin": Settings, the main menu's and a game's pause
+menu's. With no profile, the main menu's asks for a new one's name, as the
+menu's other items do ("new game if no plyr profiles"), and fails: the
+screens its handler then opens make the profile and edit it
+(new_profile_decision). Without the name asked, they made none, and showed
+"new campaign decision" as failed. The pause menu's has no such screens,
+and only fails. */
+static boolean profile_edit_begin(struct widget_instance *widget, struct event_record *event,
+	boolean *widget_deleted)
+{
+	if (pc_menu_profile_edit_begin())
+		return TRUE;
+	/* (a press: the profile is made on its controller) */
+	if (main_menu_is_active() && event && event->controller_index >= 0 && event->controller_index < 4)
+		game_function("new campaign chosen", widget, event, widget_deleted);
+	return FALSE;
+}
+
+/* "new campaign decision" (the screen after a new profile's name, each of
+the main menu's items having its own): the game's makes the profile, if the
+name was entered. Settings' then begins editing it: the PC version's screens
+open Settings with nothing more run, and its screen closes at once with no
+profile being edited ("close if not editing profile"). */
+static boolean new_profile_decision(struct widget_instance *widget, struct event_record *event,
+	boolean *widget_deleted)
+{
+	if (!game_function("new campaign decision", widget, event, widget_deleted))
+		return FALSE;
+	return strcmp(widget->name, "settings_creating_profile") || pc_menu_profile_edit_begin();
 }
 
 /* ---------- the campaign */
@@ -1586,6 +1637,17 @@ static boolean color_list_initialize(struct widget_instance *list)
 	return TRUE;
 }
 
+/* (ui_widget.c) whether the pointer moved the menus' focus last */
+boolean ui_widget_port_pointer_focused(void);
+
+/* Whether a list whose focus is on its first or last row moves on: when the
+d-pad put it there. The pointer resting there would make it move every
+frame; the wheel scrolls it instead. */
+static boolean list_scrolls_at_end(void)
+{
+	return !ui_widget_port_pointer_focused();
+}
+
 /* a list of more items than its rows: the row chosen kept off its ends
 while there are more past them, the list moving instead; the item chosen,
 or NONE (its buttons) */
@@ -1593,12 +1655,12 @@ static short list_scroll(struct widget_instance *list, short *first, short count
 {
 	short row = focused_row(list);
 
-	if (row == rows - 1 && *first + rows < count)
+	if (row == rows - 1 && *first + rows < count && list_scrolls_at_end())
 	{
 		(*first)++;
 		focus_row(list, --row);
 	}
-	else if (row == 0 && *first > 0)
+	else if (row == 0 && *first > 0 && list_scrolls_at_end())
 	{
 		(*first)--;
 		focus_row(list, ++row);
@@ -2754,13 +2816,13 @@ static void gametype_list_update(struct widget_instance *list)
 		if (row == list->focused_child && row_index >= 1 && row_index <= GAMETYPE_ROWS)
 			focused = (short)(row_index - 1);
 	}
-	if (focused == count - 1 && multiplayer.gametype_first + count < multiplayer.bank_count)
+	if (focused == count - 1 && multiplayer.gametype_first + count < multiplayer.bank_count && list_scrolls_at_end())
 	{
 		multiplayer.gametype_first++;
 		focus_row(list, (short)focused);
 		focused--;
 	}
-	else if (focused == 0 && multiplayer.gametype_first > 0)
+	else if (focused == 0 && multiplayer.gametype_first > 0 && list_scrolls_at_end())
 	{
 		multiplayer.gametype_first--;
 		focus_row(list, 2);
@@ -3505,12 +3567,12 @@ static void lobby_browser_update(struct widget_instance *list)
 
 	lobby_browser.count = lobby_browser_valid_games(lobby_browser.games,
 		(short)p2p_lobby_games(lobby_browser.games, LOBBY_BROWSER_GAMES));
-	if (focused == BROWSER_ROWS - 1 && lobby_browser.first + BROWSER_ROWS < lobby_browser.count)
+	if (focused == BROWSER_ROWS - 1 && lobby_browser.first + BROWSER_ROWS < lobby_browser.count && list_scrolls_at_end())
 	{
 		lobby_browser.first++;
 		lobby_browser_focus_row(list, --focused);
 	}
-	else if (focused == 0 && lobby_browser.first > 0)
+	else if (focused == 0 && lobby_browser.first > 0 && list_scrolls_at_end())
 	{
 		lobby_browser.first--;
 		lobby_browser_focus_row(list, ++focused);
@@ -4018,6 +4080,27 @@ static boolean profile_save_changes(struct widget_instance *widget, boolean *wid
 	ui_play_audio_feedback_sound(SOUND_FORWARD);
 	ui_widget_port_go_back(widget);
 	*widget_deleted = TRUE;
+	return TRUE;
+}
+
+/* "port profile settings save" (Gamepads' OK in a single-player campaign:
+menu_tags.c's pause_settings_patch): the profile saved at once, not on
+Settings' OK, so that the campaign's next save of the player's profile
+keeps it; saving makes it the player's own (player_ui_save_profile), and it
+is edited again from what was saved, for Settings to go on with */
+static boolean profile_settings_save(struct widget_instance *widget)
+{
+	long index = player_ui_get_edit_profile_index();
+
+	settings_each(screen_of(widget), setting_changed_save);
+	if (!player_ui_get_edit_player_profile() || !player_ui_edit_profile_is_dirty())
+		return TRUE;
+	if (!player_ui_save_profile())
+	{
+		platform_log("menus: could not save the profile's changes");
+		return campaign_fail();
+	}
+	player_ui_begin_editing_profile(index);
 	return TRUE;
 }
 
@@ -5395,7 +5478,11 @@ boolean pc_menu_event_function_invoke(
 		}
 		else if (!strcmp(name, "profile set edit begin"))
 		{
-			return pc_menu_profile_edit_begin();
+			return profile_edit_begin(widget, event, widget_deleted);
+		}
+		else if (!strcmp(name, "new campaign decision"))
+		{
+			return new_profile_decision(widget, event, widget_deleted);
 		}
 		/* (the press posted is the controller's that chose the button: a
 		split screen player's LEAVE is theirs) */
@@ -5514,6 +5601,10 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "player profile save changes"))
 		{
 			return profile_save_changes(widget, widget_deleted);
+		}
+		else if (!strcmp(name, "port profile settings save"))
+		{
+			return profile_settings_save(widget);
 		}
 		else if (!strcmp(name, "direct ip connect go"))
 		{

@@ -2691,6 +2691,17 @@ static void ios_sdl_audio_stream_destroy(uint32_t stream)
     (void)stream;
 }
 
+/* OpenCE build 182 added Android's on-screen controls (touch_input.c). iOS has its own touch overlay, which reaches the guest
+ * through the gamepad-1 axes above, so the guest's touch layer is answered as an idle one: no insets, no stick, no buttons, no
+ * look delta. The out parameters are written (a guest stack array would otherwise be read uninitialised every frame). */
+static void ios_gesture_insets(uint32_t insets){int32_t *p=gp(insets,4*sizeof(*p));if(p)memset(p,0,4*sizeof(*p));}
+static void ios_touch_read(uint32_t state){int32_t *p=gp(state,7*sizeof(*p));if(p)memset(p,0,7*sizeof(*p));}
+static void ios_touch_look_read(uint32_t delta){float *p=gp(delta,4*sizeof(*p));if(p)memset(p,0,4*sizeof(*p));}
+static void ios_touch_rumble(uint32_t low,uint32_t high){(void)low;(void)high;}
+static void ios_touch_scene(int32_t scene){(void)scene;}
+static void ios_touch_bindings(uint32_t controls){(void)controls;}
+static void ios_sdl_close_gamepad(uint32_t gamepad){(void)gamepad;}
+
 static void ios_gl_get_string(uint32_t name, int index, uint32_t buffer_va, uint32_t size)
 {
     char *buffer = gp(buffer_va, size);
@@ -3100,6 +3111,13 @@ static void *resolve_host_import(const char *name)
     MAP("host_sdl_get_audio_stream_data", ios_sdl_audio_stream_get);
     MAP("host_sdl_get_audio_stream_available", ios_sdl_audio_stream_available);
     MAP("host_sdl_destroy_audio_stream", ios_sdl_audio_stream_destroy);
+    MAP("host_gesture_insets", ios_gesture_insets);
+    MAP("host_touch_read", ios_touch_read);
+    MAP("host_touch_look_read", ios_touch_look_read);
+    MAP("host_touch_rumble", ios_touch_rumble);
+    MAP("host_touch_scene", ios_touch_scene);
+    MAP("host_touch_bindings", ios_touch_bindings);
+    MAP("host_sdl_close_gamepad", ios_sdl_close_gamepad);
 
     MAP("host_gl_get_string", ios_gl_get_string);
     MAP("host_gl_has_extension", ios_gl_has_extension);

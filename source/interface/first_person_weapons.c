@@ -127,6 +127,9 @@ symbols in this file:
 #include "sound/game_sound.h"
 #include "sound/sound_manager.h"
 #include "units/units.h"
+#include "view_fov.h" /* port: port/linux/game/view_fov.c */
+#include "shaders/shader_definitions.h" /* port: (the shield's flare on the arms) */
+#include "shaders/shaders.h"
 
 /* ---------- constants */
 
@@ -481,6 +484,9 @@ void first_person_weapon_draw(
        grenade/melee simulation and the local player's visibility to peers. */
     if (!viewmodel_flags) return;
 #endif
+	/* port: not drawn with display.viewmodel_visible off (view_fov.c) */
+	if (!viewmodel_is_visible())
+		return;
 	if (render.local_player_index!=NONE)
 	{
 		struct first_person_weapon *first_person_weapon= first_person_weapon_get(render.local_player_index);
@@ -555,6 +561,26 @@ void first_person_weapon_draw(
 							first_person_weapon->weapon_index,
 							0,
 							FLAG(_render_model_first_person_bit));
+					}
+
+					/* port: the shield's flare on the arms as on the body, the
+					unit's own modifier shader (display.viewmodel_shield,
+					view_fov.c); the weapon above is drawn without it */
+					if (viewmodel_shield_is_visible())
+					{
+						struct object_definition *unit_definition= object_definition_get(object_get(unit_index)->definition_index);
+
+						if (unit_definition->object.modifier_shader.index!=NONE)
+						{
+							struct shader *modifier_shader= shader_definition_get(unit_definition->object.modifier_shader.index);
+
+							if (shader_type_is_valid_for_modifier(modifier_shader->base.type))
+							{
+								model_effect.modifier_shader= modifier_shader;
+								model_effect.modifier_animation.colors= unit->object.outgoing_change_colors;
+								model_effect.modifier_animation.values= unit->object.outgoing_function_values;
+							}
+						}
 					}
 
 #ifdef HALO_IOS_GUEST

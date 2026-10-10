@@ -82,6 +82,7 @@ int host_sdl_gamepad_axis(unsigned int gamepad, int axis);
 int host_sdl_gamepad_button(unsigned int gamepad, int button);
 int host_sdl_gamepad_type(unsigned int gamepad);
 int host_sdl_rumble_gamepad(unsigned int gamepad, unsigned int low, unsigned int high, unsigned int milliseconds);
+void host_sdl_close_gamepad(unsigned int gamepad);
 /* callback: void (*)(void *userdata, unsigned int stream, int additional, int total),
 called on the audio thread */
 unsigned int host_sdl_open_audio_stream(unsigned int device, const void *spec, unsigned int callback, unsigned int userdata);
@@ -112,5 +113,25 @@ void host_gl_wait_frame(unsigned int slot);
 
 /* the storage directories the port uses, copied into buffer */
 void host_android_path(int which, char *buffer, unsigned int size);
+
+/* the edges where Android keeps its gestures, as left, top, right, bottom
+in pixels of the current orientation, into insets[4]; all 0 when unknown */
+void host_gesture_insets(int *insets);
+
+/* ---------- the on-screen touch controls (host_touch.c) */
+
+/* the overlay's controller: the SDL axes (left x, y, right x, y, left
+trigger, right trigger) and the SDL button bits, into state[7] */
+void host_touch_read(int *state);
+/* the overlay's view swipe, then its gyroscope turn, since the last read,
+into delta[4] */
+void host_touch_look_read(float *delta);
+/* port 0's motors, for the phone's vibration */
+void host_touch_rumble(unsigned int low, unsigned int high);
+/* tells the overlay when to show: touch_input.c's _touch_scene_* */
+void host_touch_scene(int scene);
+/* the game control on each of the 16 controller buttons (touch_game.c),
+for the overlay's labels */
+void host_touch_bindings(const int *controls);
 
 #endif

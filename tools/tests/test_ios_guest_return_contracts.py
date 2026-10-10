@@ -7,7 +7,7 @@ textures = (ROOT / 'port/linux/src/xbox_textures.c').read_text()
 signature = 'static BOOL decode_level(const struct xgpu_texture_description *description, unsigned long level,'
 assert signature in textures, 'build-138 decode_level must remain BOOL'
 start = textures.index(signature)
-end = textures.index('\n#ifdef HALO_ANDROID', start)
+end = textures.index('\n#ifdef HALO_GLES', start)
 body = textures[start:end]
 
 assert 'if (host_texture_decode_texels((unsigned int)packet)) return TRUE;' in body, \

@@ -29,12 +29,13 @@ def xdk_headers() -> List[Path]:
 
 def game_sources(config: Dict[str, Any]) -> List[Path]:
     """the game's C sources (port.json "game"): every one under its root but
-    those excluded"""
+    those excluded (a file, or a folder: a name ending in "/")"""
     game = config["game"]
-    excluded = set(game.get("exclude", []))
+    excluded = game.get("exclude", [])
     return sorted(
         source for source in Path(game["root"]).rglob("*.c")
-        if source.as_posix() not in excluded
+        if not any(source.as_posix() == name or (name.endswith("/") and source.as_posix().startswith(name))
+                   for name in excluded)
     )
 
 
@@ -150,6 +151,25 @@ def updater_defines(release: bool) -> str:
         number = "0"
     flavor = "release" if release else "debug"
     return f'-DHALO_BUILD_NUMBER={number} -DHALO_BUILD_FLAVOR=\\"{flavor}\\"'
+
+def configuration_defines(sln: Any) -> List[str]:
+    """what configure.py's options define for every unit of a native build:
+    --release (no assertions), --profile (the profiling build's recording,
+    port/linux/src/profile_trace.c)"""
+    defines = []
+    if getattr(sln, "port_release", False):
+        defines.append("-DHALO_RELEASE")
+    if getattr(sln, "port_profile", False):
+        defines.append("-DHALO_PROFILE")
+    return defines
+
+
+def check_profile_options(profile: bool, pgo: str) -> None:
+    """A profiling build is optimised with the committed profiles or none:
+    trained, a profile would record the profiling code's own paths."""
+    if profile and pgo == "train":
+        raise ValueError("--profile cannot be used with --pgo=train: train profiles with a normal build")
+
 
 PLATFORM_FLAGS = [
     "-std=gnu11",
@@ -484,8 +504,8 @@ def generate_linux_build(n: Writer, sln: Any) -> None:
     # (a debug build checks its stack frames, and stops at the first one
     # overrun, as it stops at the first failed assertion; a release build
     # does not, so that an overrun nobody has met cannot end a game)
-    abi = " ".join(LINUX_ABI_FLAGS + target + (["-DHALO_RELEASE"] if getattr(sln, "port_release", False)
-                                               else ["-fstack-protector-strong"]))
+    abi = " ".join(LINUX_ABI_FLAGS + target + configuration_defines(sln)
+                   + ([] if getattr(sln, "port_release", False) else ["-fstack-protector-strong"]))
     port_include = PORT_DIR / "include"
     sdk_flags = f"-idirafter {XDK_INCLUDE}"
     libs = " ".join(f"-l{lib}" for lib in config.get("libraries", []))
