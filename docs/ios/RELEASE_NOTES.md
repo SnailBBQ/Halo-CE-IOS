@@ -9,7 +9,9 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 **Device result, 2026-10-08:** the M2.6.101 Non-Jailbreak build is confirmed playable on an iPhone 14 Plus (iOS 16.2, Sideloadly): a10 played, second map loaded, about 60 FPS, no crashes, no pointer faults. Documentation only; no code change after M2.6.101.
 
-**Latest:** [M2.6.104](../../port/ios/UPDATE_M2704.md) integrates OpenCE build 182 (**network 25**: an iPhone on this build cannot join hosts on build 154-167, which are network 24). It adds Video Setup categories (Graphics, FOV and Viewmodels), a viewmodel on/off and arm-shield setting, an elevator netcode fix and Android's touch controls, which iOS answers as idle (iOS keeps its own overlay). Needs Actions and device validation, Regular first.
+**Latest:** [M2.6.105](../../port/ios/UPDATE_M2705.md) integrates OpenCE build 201 (**network 28**: an iPhone on this build cannot join hosts on build 182 or older). It adds Custom Edition map sharing between players (on by default; downloaded and hashed maps are named `name_<hash>.map` in `custom_maps`), shield glow, armor colors and first-person legs. No host import changed. Needs Actions and device validation, Regular first.
+
+**Previous:** [M2.6.104](../../port/ios/UPDATE_M2704.md) integrated OpenCE build 182 (**network 25**: an iPhone on this build cannot join hosts on build 154-167, which are network 24). It adds Video Setup categories (Graphics, FOV and Viewmodels), a viewmodel on/off and arm-shield setting, an elevator netcode fix and Android's touch controls, which iOS answers as idle (iOS keeps its own overlay). Needs Actions and device validation, Regular first.
 
 **Previous:** [M2.6.103](../../port/ios/UPDATE_M2703.md) integrated OpenCE build 167 (network 24): netcode and sound-lifecycle fixes, correct transparent-surface ordering, a vote-kick switch on Server Setup and finer mouse-sensitivity steps. Needs Actions and device validation, Regular first.
 
@@ -75,6 +77,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.105 | OpenCE build 201 / network 28 integration: Custom Edition map sharing, shield glow and armor colors, first-person legs; no host import change. |
 | M2.6.104 | OpenCE build 182 / network 25 integration: Video Setup categories, viewmodel switch, elevator netcode fix, profiler; seven new host imports (touch controls, gamepad close) answered as an idle touch layer on iOS. |
 | M2.6.103 | OpenCE build 167 / network 24 integration: netcode, sound-lifecycle and transparent-geometry fixes, vote-kick switch on Server Setup, finer mouse sensitivity; one new memory-watch host import answered as a no-op on iOS. |
 | M2.6.102 | OpenCE build 159 / network 24 integration: voice chat (Opus), vote-kick, three new host audio-stream imports answered as "no microphone" on iOS. |
