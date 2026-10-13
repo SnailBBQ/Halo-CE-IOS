@@ -64,7 +64,7 @@
 
 #define HALO_GUEST_IMAGE_BASE UINT32_C(0x88000000)
 #define HALO_GUEST_MAGIC UINT32_C(0x4F4C4148)
-#define HALO_GUEST_ABI_VERSION 1
+#define HALO_GUEST_ABI_VERSION 2
 #define FOUR_GB UINT64_C(0x100000000)
 
 #define PT_LOAD 1
@@ -138,6 +138,7 @@ struct halo_guest_header
     uint32_t start;
     uint32_t thread_start;
     uint32_t thread_attach;
+    uint32_t thread_detach;
     uint32_t init_array_start;
     uint32_t init_array_end;
 };
@@ -2974,6 +2975,17 @@ static void *guest_secondary_thread(void *opaque)
 #else
         entry(start.handle);
 #endif
+        if (g_guest_tp && g_header->thread_detach)
+        {
+            /* ABI 2: frees the guest thread control block, like upstream's thread_main. */
+            void (*detach)(uint32_t) =
+                (void (*)(uint32_t))halo_guest_ptr(g_header->thread_detach, 1);
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+            halo_nonjb_guest_call_u32((void *)detach, 0, halo_guest_base_address());
+#else
+            detach(0);
+#endif
+        }
         halo_guest_exec_guard_set_active(0);
     }
     else

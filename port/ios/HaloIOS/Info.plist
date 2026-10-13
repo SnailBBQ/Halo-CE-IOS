@@ -13,11 +13,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.2.105</string>
+	<string>0.2.106</string>
 	<key>CFBundleVersion</key>
-	<string>2705</string>
+	<string>2706</string>
 	<key>HaloSourceMilestone</key>
-	<string>M2.6.105</string>
+	<string>M2.6.106</string>
 	<key>HaloOpenCERelease</key>
 	<string>build-201</string>
 	<key>HaloOpenCECommit</key>

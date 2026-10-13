@@ -19,3 +19,27 @@ if missing:
         print("   ", name)
     sys.exit(1)
 print(f"PASS: all {len(listed)} host imports the game can call are implemented by the iOS runner")
+
+
+# Guest ABI contract: the runner must agree with the header the guest is built against, or the game never starts
+# ("FULL GUEST: image header mismatch."). Broke M2.6.104/105 when upstream moved to ABI 2.
+abi = (ROOT / "port/android/include/halo_android_abi.h").read_text(encoding="utf-8", errors="replace")
+def define(text, name):
+    m = re.search(r"#define\s+" + name + r"\s+(?:UINT32_C\()?(0x[0-9A-Fa-f]+|\d+)u?\)?", text)
+    return int(m.group(1), 0) if m else None
+def fields(text):
+    m = re.search(r"struct\s+halo_guest_header\s*\{(.*?)\}", text, re.S)
+    body = re.sub(r"/\*.*?\*/", "", m.group(1), flags=re.S) if m else ""
+    return re.findall(r"uint32_t\s+(\w+)\s*;", body)
+problems = []
+for name in ("HALO_GUEST_MAGIC", "HALO_GUEST_ABI_VERSION"):
+    if define(abi, name) is None or define(abi, name) != define(runner, name):
+        problems.append(f"{name}: upstream header {define(abi, name)} vs runner {define(runner, name)}")
+if fields(abi) != fields(runner):
+    problems.append(f"halo_guest_header fields differ:\n  upstream {fields(abi)}\n  runner   {fields(runner)}")
+if problems:
+    print("the iOS runner disagrees with the guest ABI header:")
+    for p in problems:
+        print("   ", p)
+    sys.exit(1)
+print("PASS: guest ABI version and header layout match the runner")
