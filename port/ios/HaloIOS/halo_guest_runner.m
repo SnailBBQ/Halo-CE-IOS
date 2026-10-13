@@ -44,6 +44,7 @@
 #include <string.h>
 #include <strings.h>
 #include <zlib.h>
+#include <CommonCrypto/CommonHMAC.h>
 #include "halo_dxt_decode.h"
 #include "halo_crc_native.h"
 #include "halo_texel_native.h"
@@ -2942,6 +2943,15 @@ static int ios_posix_upnp_forward(uint32_t port, uint32_t preferred_port, uint32
 }
 static uint32_t ios_posix_zero_u32(void){return 0;}
 static void ios_posix_random(uint32_t buffer_va,uint32_t size){void*b=gp(buffer_va,size);if(b)arc4random_buf(b,size);}
+/* HMAC-SHA1 for the ICE checks of internet play (posix_hmac_sha1). */
+static void ios_posix_hmac_sha1(uint32_t key_va,int32_t key_size,uint32_t data_va,int32_t size,uint32_t digest_va)
+{
+    void *digest=gp(digest_va,CC_SHA1_DIGEST_LENGTH);
+    if(!digest) return;
+    const void *key=key_size>0?gp(key_va,(size_t)key_size):"";
+    const void *data=size>0?gp(data_va,(size_t)size):"";
+    CCHmac(kCCHmacAlgSHA1,key?key:"",key&&key_size>0?(size_t)key_size:0,data?data:"",data&&size>0?(size_t)size:0,digest);
+}
 
 static void missing_import(void)
 {
@@ -3194,6 +3204,17 @@ static void *resolve_host_import(const char *name)
         PMAP("discord_read", ios_posix_minus_one);
         PMAP("discord_close", ios_posix_zero_int);
         PMAP("random_bytes", ios_posix_random);
+        PMAP("hmac_sha1", ios_posix_hmac_sha1);
+        /* DTLS (browser peers over WebRTC) needs Mbed TLS, which the iOS build does not carry:
+           no fingerprint means "no DTLS", and internet play uses its native path. */
+        PMAP("dtls_fingerprint", ios_posix_zero_int);
+        PMAP("dtls_open", ios_posix_minus_one);
+        PMAP("dtls_close", ios_posix_zero_int);
+        PMAP("dtls_input", ios_posix_zero_int);
+        PMAP("dtls_receive", ios_posix_minus_one);
+        PMAP("dtls_send", ios_posix_minus_one);
+        PMAP("dtls_output", ios_posix_minus_one);
+        PMAP("dtls_peer_fingerprint", ios_posix_zero_int);
 #undef PMAP
         if(!strncmp(n,"socket",6) || !strncmp(n,"discord",7) || !strncmp(n,"upnp",4))
             return (void *)ios_posix_minus_one;

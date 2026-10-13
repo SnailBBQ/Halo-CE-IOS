@@ -43,3 +43,17 @@ if problems:
         print("   ", p)
     sys.exit(1)
 print("PASS: guest ABI version and header layout match the runner")
+
+
+# Every posix_* helper in posix.h becomes a hostposix_<name> import in the guest (tools/android_posix_stubs.py);
+# an unmapped one aborts the thread that calls it (M2.6.104/105 stopped at "Internet play: joining" on posix_dtls_*).
+posix = re.sub(r"/\*.*?\*/", "", (ROOT / "port/linux/src/posix.h").read_text(encoding="utf-8", errors="replace"), flags=re.S)
+helpers = [m[1][len("posix_"):] for m in re.findall(r"^([A-Za-z_][\w \*]*?)\b(posix_\w+)\s*\([^;]*?\);", posix, re.M | re.S)]
+pmapped = set(re.findall(r'PMAP\("(\w+)"', runner))
+unmapped = [name for name in helpers if name not in pmapped]
+if unmapped:
+    print("posix.h helpers the guest imports as hostposix_*, but the iOS runner does not map them:")
+    for name in unmapped:
+        print("   ", name)
+    sys.exit(1)
+print(f"PASS: all {len(helpers)} hostposix_* imports are mapped")
