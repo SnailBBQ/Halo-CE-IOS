@@ -50,6 +50,22 @@ M2.6.67 integrated OpenCE build 101. It includes upstream multiplayer split-scre
 
 Public discovery depends on an active public host and reachable upstream brokers; it does not list every stock Halo PC or MCC server. iOS exposes two local input slots: touch plus one controller or two controllers. Upstream desktop support for four local players does not imply four-controller support in this iOS host. Build 98 cross-platform and local-player join/leave behavior still need device testing.
 
+## Voice chat
+
+You hear the other players in every case. To talk, open the game's **Settings > Audio** and set **Voice Chat**:
+
+- **OPEN MIC** sends your voice while the microphone hears speech. The first time, iOS asks for microphone access; if you decline, change it in iOS **Settings > Halo CE > Microphone**.
+- **OFF** never opens the microphone.
+- **PUSH TO TALK** (the game's default) needs a keyboard key and does nothing on iPhone, so choose OPEN MIC to talk. The app never asks for the microphone while it is not set to OPEN MIC.
+
+Headphones with a microphone (AirPods and other Bluetooth or wired headsets) are used automatically when connected, for both talking and listening. With Bluetooth headphones, iOS lowers the sound quality for as long as the microphone is open, so the game sounds worse while OPEN MIC is on. Switch to OFF to get full quality back.
+
+The host decides who can hear whom.
+
+## Map sharing and data use
+
+OpenCE can send Custom Edition maps, and the resource maps they need, between players: a host sends a map to a player who joins without it, and other players in the game help (`network.map_share`, `network.map_seed`, `network.map_download`). These are on by default. Sending uses your upload, mobile data included, and the resource maps (`bitmaps.map`, `sounds.map`, `loc.map`) come from your own copy of the game. Turn sharing off in the game's network settings (**Map sharing**) if you do not want your phone to send maps, especially on mobile data.
+
 ## Alternate way of using invite codes: iCloud Drive
 
 `game_invite.txt` holds the invite of the game you are hosting.

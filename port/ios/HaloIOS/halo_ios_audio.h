@@ -25,6 +25,19 @@ int halo_ios_audio_is_open(void);
 /* Plain-language state for the log: why sound is or is not playing. */
 const char *halo_ios_audio_status(void);
 
+/* Voice chat's microphone. Open asks for the microphone permission the first time (and waits for the answer),
+ * switches the audio session to play-and-record with Bluetooth headsets allowed (AirPods and other headphones with a
+ * microphone are used when connected), and captures 48 kHz mono float. Returns 1 when samples will arrive. */
+int halo_ios_mic_open(uint32_t sample_rate);
+/* Takes up to max_frames captured samples; returns how many. */
+uint32_t halo_ios_mic_read(float *out, uint32_t max_frames);
+uint32_t halo_ios_mic_available(void);
+/* Stops capture and puts the audio session back to playback only. */
+void halo_ios_mic_close(void);
+int halo_ios_mic_is_open(void);
+/* Plain-language state for the log: why the microphone is or is not working. */
+const char *halo_ios_mic_status(void);
+
 #ifdef __cplusplus
 }
 #endif

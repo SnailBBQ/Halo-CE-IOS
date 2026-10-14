@@ -452,6 +452,8 @@ jobs:
           test -n "$APP"
           cp build/guest/halo_guest.elf "$APP/halo_guest.elf"
           cp port/assets/network/brokers.txt "$APP/brokers.txt"
+          python3 tools/ios_notices.py "$APP/THIRD_PARTY_NOTICES.txt"
+          test -s "$APP/THIRD_PARTY_NOTICES.txt"
 
           EXECUTABLE=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP/Info.plist")
           test "$EXECUTABLE" = "HaloIOS"
@@ -545,6 +547,7 @@ jobs:
           /usr/bin/unzip -Z1 HaloCE.ipa | grep -qx 'Payload/HaloIOS.app/Info.plist'
           /usr/bin/unzip -Z1 HaloCE.ipa | grep -qx 'Payload/HaloIOS.app/HaloIOS'
           /usr/bin/unzip -Z1 HaloCE.ipa | grep -qx 'Payload/HaloIOS.app/halo_guest.elf'
+          /usr/bin/unzip -Z1 HaloCE.ipa | grep -qx 'Payload/HaloIOS.app/THIRD_PARTY_NOTICES.txt'
           if [ "$NON_JAILBREAK" = true ]; then
             mv HaloCE.ipa HaloCE-NonJailbreak.ipa
           fi

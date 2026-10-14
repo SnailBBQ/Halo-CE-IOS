@@ -2653,11 +2653,27 @@ static int ios_sdl_rumble(uint32_t gamepad, uint32_t low, uint32_t high, uint32_
     return 1;
 }
 
+/* The guest's only audio stream without a callback is voice chat's microphone (voice_audio.c: SDL_AUDIO_F32, mono, 48 kHz).
+ * It is served from the phone's microphone or a connected headset (AirPods and other Bluetooth or wired headsets with a
+ * microphone). Streams with a callback (the game's output on other platforms) stay unavailable: iOS plays the game's sound
+ * through halo_ios_audio. */
+#define IOS_MIC_STREAM 0x4D494301u
 static uint32_t ios_sdl_open_audio(uint32_t device, uint32_t spec,
                                    uint32_t callback, uint32_t userdata)
 {
-    (void)device; (void)spec; (void)callback; (void)userdata;
-    return 0;
+    (void)device; (void)userdata;
+    if (callback) return 0;
+    const uint32_t *s = gp(spec, 3 * sizeof(uint32_t));
+    if (!s) return 0;
+    /* SDL_AudioSpec: format, channels, freq. SDL_AUDIO_F32 is 0x8120. */
+    if (s[0] != 0x8120u || s[1] != 1u) return 0;
+    if (!halo_ios_mic_open(s[2])) {
+        static _Atomic int logged;
+        if (!atomic_exchange(&logged, 1)) say("voice chat: %s", halo_ios_mic_status());
+        return 0;
+    }
+    say("voice chat: %s", halo_ios_mic_status());
+    return IOS_MIC_STREAM;
 }
 
 static int ios_sdl_audio_data(uint32_t stream, uint32_t data, int length)
@@ -2668,29 +2684,27 @@ static int ios_sdl_audio_data(uint32_t stream, uint32_t data, int length)
 
 static int ios_sdl_audio_resume(uint32_t stream)
 {
-    (void)stream;
-    return 0;
+    return stream == IOS_MIC_STREAM && halo_ios_mic_is_open();
 }
 
-/* Voice chat's microphone (OpenCE build 159, port/linux/src/voice_audio.c) reads a capture stream the guest opened with
- * no callback. iOS opens no guest audio stream (ios_sdl_open_audio returns 0, so the guest sees "no microphone" and
- * retries quietly), which means these three are never reached with a live stream: they report an unusable stream (-1)
- * and destroying one is a no-op. Other players' voices still decode and mix into the game's own output. */
+/* The microphone stream (see ios_sdl_open_audio): reads and counts are in bytes of 32-bit float samples. */
 static int ios_sdl_audio_stream_get(uint32_t stream, uint32_t data, int length)
 {
-    (void)stream; (void)data; (void)length;
-    return -1;
+    if (stream != IOS_MIC_STREAM || length < 4) return -1;
+    float *out = gp(data, (size_t)length);
+    if (!out) return -1;
+    return (int)(halo_ios_mic_read(out, (uint32_t)length / 4u) * 4u);
 }
 
 static int ios_sdl_audio_stream_available(uint32_t stream)
 {
-    (void)stream;
-    return -1;
+    if (stream != IOS_MIC_STREAM) return -1;
+    return (int)(halo_ios_mic_available() * 4u);
 }
 
 static void ios_sdl_audio_stream_destroy(uint32_t stream)
 {
-    (void)stream;
+    if (stream == IOS_MIC_STREAM) halo_ios_mic_close();
 }
 
 /* OpenCE build 182 added Android's on-screen controls (touch_input.c). iOS has its own touch overlay, which reaches the guest
