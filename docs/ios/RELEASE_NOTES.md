@@ -9,7 +9,9 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 **Device result, 2026-10-08:** the M2.6.101 Non-Jailbreak build is confirmed playable on an iPhone 14 Plus (iOS 16.2, Sideloadly): a10 played, second map loaded, about 60 FPS, no crashes, no pointer faults. Documentation only; no code change after M2.6.101.
 
-**Latest:** [M2.6.108](../../port/ios/UPDATE_M2708.md) adds the voice chat microphone (open mic, headsets with a microphone) and bundles the third-party notices.
+**Latest:** [M2.6.109](../../port/ios/UPDATE_M2709.md) integrates OpenCE build 206 (**network 29**: an iPhone on this build cannot join hosts on build 201 or older). Custom Edition maps keep their own names.
+
+**Previous:** [M2.6.108](../../port/ios/UPDATE_M2708.md) adds the voice chat microphone (open mic, headsets with a microphone) and bundles the third-party notices.
 
 **Important:** M2.6.104 and M2.6.105 do not start, and M2.6.106 freezes when you join an internet game. [M2.6.107](../../port/ios/UPDATE_M2707.md) fixes both; use M2.6.107 or M2.6.103.
 
@@ -82,6 +84,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 | Update | Highlights |
 | --- | --- |
 | M2.6.105 | OpenCE build 201 / network 28 integration: Custom Edition map sharing, shield glow and armor colors, first-person legs; no host import change. |
+| M2.6.109 | OpenCE build 206 / network 29 integration: maps keep their names, safer map downloads, p2p address fix, stb_vorbis moved; no host import change. |
 | M2.6.108 | Voice chat microphone on iOS (open mic, AirPods and other headsets), third-party notices bundled in the IPA, documentation for install, voice chat and map sharing. |
 | M2.6.107 | Fix: joining an internet game no longer freezes (the iOS host lacked the 9 hostposix_dtls/hmac imports that build 182 added; hmac_sha1 implemented, DTLS reports unavailable). Gate now checks every hostposix_* import. |
 | M2.6.106 | Fix: runner now speaks guest ABI 2 (M2.6.104/105 stopped at "image header mismatch" and would not start). Adds an ABI consistency check to the gate. |
