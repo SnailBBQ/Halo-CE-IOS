@@ -1,9 +1,9 @@
 #import "HaloMods.h"
 #import "HaloBackupArchive.h"
+#include "halo_toml_flags.h"
 #ifndef HALO_BACKUP_TEST
 #import "HaloSettingsStore.h"
 #import "halo_ios_audio.h"
-#include "halo_toml_flags.h"
 #import <UIKit/UIKit.h>
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
