@@ -647,6 +647,7 @@ static NSString *HaloPerfLine(void)
     });return YES;
 }
 - (BOOL)finishLaunch:(UIApplication *)application options:(NSDictionary *)launchOptions {
+    HaloMapSharingMigrateDefaultOff();
     halo_ios_set_hosted_invite(NULL); /* discard any invite left by a terminated run */
     [self prepareLaunchState];
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];

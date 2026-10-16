@@ -3,6 +3,7 @@
 #ifndef HALO_BACKUP_TEST
 #import "HaloSettingsStore.h"
 #import "halo_ios_audio.h"
+#include "halo_toml_flags.h"
 #import <UIKit/UIKit.h>
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
@@ -223,7 +224,7 @@ static void ValidateCEMap(NSURL *url)
     NSDictionary *info = CustomMapInfo(url, YES);
     uint32_t version = [info[@"version"] unsignedIntValue];
     if (version == 5) HaloBackupRequire(NO, @"That is an Xbox version 5 map. Use Import maps for original/Xbox maps; Custom Edition Maps requires version 609.");
-    HaloBackupRequire([info[@"valid"] boolValue], @"Custom Edition map header is invalid or unsupported. OpenCE build 206 supports standard version 609 CE maps; OpenSauce maps are not supported.");
+    HaloBackupRequire([info[@"valid"] boolValue], @"Custom Edition map header is invalid or unsupported. OpenCE build 211 supports standard version 609 CE maps; OpenSauce maps are not supported.");
 }
 
 void HaloCustomContentImport(NSArray<NSURL *> *files)
@@ -454,3 +455,53 @@ BOOL HaloMovieStartPath(const char *binkPath, unsigned long flags) { (void)binkP
 BOOL HaloMovieIsActive(void) { return NO; }
 void HaloMovieStop(void) {}
 #endif
+
+
+/* ---------- map sharing (config.toml) ---------- */
+
+static NSString *HaloConfigTomlPath(void) { return [HaloBackupRoot() stringByAppendingPathComponent:@"config.toml"]; }
+
+BOOL HaloMapSharingEnabled(void)
+{
+    NSString *text = [NSString stringWithContentsOfFile:HaloConfigTomlPath() encoding:NSUTF8StringEncoding error:nil];
+    if (!text) return NO; /* no file yet: the iOS default is off */
+    const char *utf8 = text.UTF8String;
+    return halo_toml_get_bool(utf8, "network", "map_share") == 1 || halo_toml_get_bool(utf8, "network", "map_seed") == 1;
+}
+
+/* add_missing: a switch the person flips adds the keys; the one-time migration only turns existing "true" lines off. */
+static BOOL HaloMapSharingWrite(BOOL on, int add_missing)
+{
+    NSString *path = HaloConfigTomlPath();
+    NSString *text = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
+    if (!text) {
+        if (!add_missing) return YES;
+        text = @""; /* the engine reads a file with only these keys and fills in the rest */
+    }
+    int changed_share = 0, changed_seed = 0;
+    char *first = halo_toml_set_bool(text.UTF8String, "network", "map_share", on, add_missing, &changed_share);
+    if (!first) return NO;
+    char *second = halo_toml_set_bool(first, "network", "map_seed", on, add_missing, &changed_seed);
+    free(first);
+    if (!second) return NO;
+    BOOL ok = YES;
+    if (changed_share || changed_seed) {
+        NSString *updated = [NSString stringWithUTF8String:second];
+        NSError *error = nil;
+        ok = updated && [updated writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:&error];
+    }
+    free(second);
+    return ok;
+}
+
+BOOL HaloMapSharingSet(BOOL on) { return HaloMapSharingWrite(on, 1); }
+
+void HaloMapSharingMigrateDefaultOff(void)
+{
+    NSString *key = @"HaloMapSharingDefaultOffV1";
+    NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
+    if ([defaults boolForKey:key]) return;
+    /* builds before M2.6.110 wrote map_share/map_seed = true into config.toml; this turns those two lines off once, so a
+       later choice in Settings is never undone */
+    if (HaloMapSharingWrite(NO, 0)) [defaults setBool:YES forKey:key];
+}

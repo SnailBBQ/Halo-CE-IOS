@@ -3,6 +3,7 @@
 #import "HaloSettingsStore.h"
 #import "HaloUI.h"
 #import "HaloLibrary.h"
+#import "HaloMods.h"
 #import "HaloBackupArchive.h"
 #import "HaloHudEditor.h"
 #import "halo_ios_platform.h"
@@ -1099,6 +1100,7 @@ static UIView *HaloProfileSummary(NSString *title,NSString *detail) {
         HaloUISwitchRow(@"Internet play",nil,settings->game_online,^(BOOL on){[self update:^(HsSettings *s){s->game_online=on;}];}),
         HaloUISwitchRow(@"UPnP port forwarding",@"Allow the engine to ask your router for a port mapping. Router support is required.",settings->game_upnp,^(BOOL on){[self update:^(HsSettings *s){s->game_upnp=on;}];}),
         HaloUISwitchRow(@"Join from clipboard",nil,settings->join_from_clipboard,^(BOOL on){[self update:^(HsSettings *s){s->join_from_clipboard=on;}];}),
+        HaloUISwitchRow(@"Share maps with other players",@"Off by default. When on, this iPhone sends Custom Edition maps (and the resource maps they need) to players who join without them, and helps others send them, using your upload and mobile data. Downloading a map a game needs is not affected. Takes effect the next time the game starts.",HaloMapSharingEnabled(),^(BOOL on){if(!HaloMapSharingSet(on))halo_ios_toast("Could not save the map sharing setting");}),
         HaloUISegmentRow(@"Player names",@[@"All",@"Allies",@"Enemies",@"None"],settings->game_player_names,^(NSInteger choice){[self update:^(HsSettings *s){s->game_player_names=(int)choice;}];}),
         HaloUINote(@"Shared with in-game Network Setup. Connection options may require leaving and reopening a network session. This does not change iOS Local Network permission or router settings directly.")])];
     [self add:HaloUICardView(@"Share or move a profile", @[

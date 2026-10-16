@@ -137,6 +137,10 @@ static const struct config_setting config_settings[] =
 		"Draw the HUD (meters, counters, panels, motion sensor, reticles,\n"
 		"waypoints, scopes) from the high-res assets (8x the maps' bitmaps);\n"
 		"false draws the maps' own bitmaps." },
+	{ "display.hud_button_style", _config_string, "\"classic\"", "HALO_HUD_BUTTON_STYLE", _environment_value, _platform_all,
+		"High-res gameplay controller buttons: classic uses plain Xbox faces;\n"
+		"gems uses shaded Xbox faces; menu_gems uses the menu's button art.\n"
+		"Requires display.high_res_hud." },
 	{ "display.high_res_text", _config_boolean, "true", "HALO_HIGH_RES_TEXT", _environment_value, _platform_all,
 		"Draw the menus' and HUD's text with the fonts in port/assets/fonts\n"
 		"(Overpass) at the resolution the game draws at, and the menus' titles\n"
@@ -397,19 +401,38 @@ static const struct config_setting config_settings[] =
 		_platform_all,
 		"Hosting: the minutes a player kicked by a vote cannot join again (1 to\n"
 		"1440)." },
+#ifdef HALO_IOS_GUEST
+	/* iOS: a phone sends maps to other players only when its owner turns sharing on (Settings > Multiplayer, or the
+	in-game map sharing screens); network.map_download stays on */
+	{ "network.map_share", _config_boolean, "false", "HALO_NET_MAP_SHARE", _environment_value, _platform_all,
+		"Hosting: send a player who joins without the game's Custom Edition map\n"
+		"the map (from custom_maps), and the resource maps it needs that the\n"
+		"player lacks (bitmaps.map, sounds.map, loc.map). The game's other\n"
+		"players help (network.map_seed)." },
+#else
 	{ "network.map_share", _config_boolean, "true", "HALO_NET_MAP_SHARE", _environment_value, _platform_all,
 		"Hosting: send a player who joins without the game's Custom Edition map\n"
 		"the map (from custom_maps), and the resource maps it needs that the\n"
 		"player lacks (bitmaps.map, sounds.map, loc.map). The game's other\n"
 		"players help (network.map_seed)." },
+#endif
 	{ "network.map_share_upload", _config_integer, "1024", "HALO_NET_MAP_SHARE_UPLOAD", _environment_value,
 		_platform_all,
 		"Hosting: the most kilobytes a second the host sends of maps (16 to\n"
 		"65536), so that the game's own traffic keeps the rest of the upload." },
+#ifdef HALO_IOS_GUEST
+	/* iOS: a phone sends maps to other players only when its owner turns sharing on (Settings > Multiplayer, or the
+	in-game map sharing screens); network.map_download stays on */
+	{ "network.map_seed", _config_boolean, "false", "HALO_NET_MAP_SEED", _environment_value, _platform_all,
+		"Playing in another's game: help send its map to players who join\n"
+		"without it, as a torrent's peers do (the pieces this machine has, at\n"
+		"most network.map_seed_upload)." },
+#else
 	{ "network.map_seed", _config_boolean, "true", "HALO_NET_MAP_SEED", _environment_value, _platform_all,
 		"Playing in another's game: help send its map to players who join\n"
 		"without it, as a torrent's peers do (the pieces this machine has, at\n"
 		"most network.map_seed_upload)." },
+#endif
 	{ "network.map_seed_upload", _config_integer, "256", "HALO_NET_MAP_SEED_UPLOAD", _environment_value,
 		_platform_all,
 		"Playing in another's game: the most kilobytes a second this machine\n"

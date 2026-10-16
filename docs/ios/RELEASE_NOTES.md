@@ -9,7 +9,9 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 **Device result, 2026-10-08:** the M2.6.101 Non-Jailbreak build is confirmed playable on an iPhone 14 Plus (iOS 16.2, Sideloadly): a10 played, second map loaded, about 60 FPS, no crashes, no pointer faults. Documentation only; no code change after M2.6.101.
 
-**Latest:** [M2.6.109](../../port/ios/UPDATE_M2709.md) integrates OpenCE build 206 (**network 29**: an iPhone on this build cannot join hosts on build 201 or older). Custom Edition maps keep their own names.
+**Latest:** [M2.6.110](../../port/ios/UPDATE_M2710.md) integrates OpenCE build 211 (network 29 as before: no compatibility change from M2.6.109) and turns map sharing off by default, with a switch in Settings > Multiplayer.
+
+**Previous:** [M2.6.109](../../port/ios/UPDATE_M2709.md) integrates OpenCE build 206 (**network 29**: an iPhone on this build cannot join hosts on build 201 or older). Custom Edition maps keep their own names.
 
 **Previous:** [M2.6.108](../../port/ios/UPDATE_M2708.md) adds the voice chat microphone (open mic, headsets with a microphone) and bundles the third-party notices.
 
@@ -84,6 +86,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 | Update | Highlights |
 | --- | --- |
 | M2.6.105 | OpenCE build 201 / network 28 integration: Custom Edition map sharing, shield glow and armor colors, first-person legs; no host import change. |
+| M2.6.110 | OpenCE build 211 integration (HUD button styles, vehicle and passenger meters, HUD upscaling, voice frame check); map sharing off by default on iOS with a Settings switch. |
 | M2.6.109 | OpenCE build 206 / network 29 integration: maps keep their names, safer map downloads, p2p address fix, stb_vorbis moved; no host import change. |
 | M2.6.108 | Voice chat microphone on iOS (open mic, AirPods and other headsets), third-party notices bundled in the IPA, documentation for install, voice chat and map sharing. |
 | M2.6.107 | Fix: joining an internet game no longer freezes (the iOS host lacked the 9 hostposix_dtls/hmac imports that build 182 added; hmac_sha1 implemented, DTLS reports unavailable). Gate now checks every hostposix_* import. |

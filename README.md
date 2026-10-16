@@ -6,7 +6,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is playable on a stock, sideloaded iPhone 14 Plus (see [Device test results](#device-test-results)). The current source update is **M2.6.109**, on OpenCE **build 206** (network version 29) with Custom Edition maps and the MP4 movie fallback. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
+> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is playable on a stock, sideloaded iPhone 14 Plus (see [Device test results](#device-test-results)). The current source update is **M2.6.110**, on OpenCE **build 211** (network version 29) with Custom Edition maps and the MP4 movie fallback. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
@@ -27,6 +27,8 @@ This is one device and one session. Other devices, longer play, vehicles and mul
 **New:** [M2.6.108](port/ios/UPDATE_M2708.md) adds the voice chat microphone (Settings > Audio > Voice Chat > OPEN MIC) and works with AirPods and other headsets with a microphone.
 
 **Fix:** [M2.6.107](port/ios/UPDATE_M2707.md) repairs M2.6.104-106: a startup failure (guest ABI mismatch, fixed in M2.6.106) and a freeze when joining an internet game. Do not use those builds.
+
+**Update:** [M2.6.110](port/ios/UPDATE_M2710.md) moves to OpenCE **build 211** (same network version 29) and turns **map sharing off by default** on iOS, with a switch in Settings > Multiplayer. Not yet run on a device.
 
 **Source update:** [M2.6.109](port/ios/UPDATE_M2709.md) moves to OpenCE **build 206 / network 29**: a new network version (it cannot join build 201 or older hosts, nor they it). Custom Edition maps keep their own names (build 201 renamed them with a hash), map downloads are checked, and the changes are described in the update note. Not yet run on a device.
 

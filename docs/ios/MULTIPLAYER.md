@@ -64,7 +64,9 @@ The host decides who can hear whom.
 
 ## Map sharing and data use
 
-OpenCE can send Custom Edition maps, and the resource maps they need, between players: a host sends a map to a player who joins without it, and other players in the game help (`network.map_share`, `network.map_seed`, `network.map_download`). These are on by default. Sending uses your upload, mobile data included, and the resource maps (`bitmaps.map`, `sounds.map`, `loc.map`) come from your own copy of the game. Turn sharing off in the game's network settings (**Map sharing**) if you do not want your phone to send maps, especially on mobile data.
+OpenCE can send Custom Edition maps, and the resource maps they need, between players: a host sends a map to a player who joins without it, and other players in the game help (`network.map_share`, `network.map_seed`). **On iPhone both are off by default** (from M2.6.110, including installs that already had a config.toml from an earlier version). Your phone then only receives: if a game needs a map you lack, it still downloads it from the host and other players (`network.map_download`, on).
+
+To let your phone send maps, turn on **Settings > Multiplayer > Network setup > Share maps with other players**. It changes the two keys in `Documents/Halo/config.toml` and takes effect the next time the game starts. The game's own screens (Server Settings > Map Share Options when hosting; Network Setup > Map sharing for the rest) change the same file. Sending uses your upload and mobile data, and the resource maps (`bitmaps.map`, `sounds.map`, `loc.map`) come from your own copy of the game.
 
 ## Alternate way of using invite codes: iCloud Drive
 
