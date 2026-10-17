@@ -34,3 +34,9 @@ BOOL HaloMapSharingEnabled(void);
 BOOL HaloMapSharingSet(BOOL on);
 /* Once per install: turns off sharing in a config.toml written by an earlier version, which wrote "true". */
 void HaloMapSharingMigrateDefaultOff(void);
+/* Voice chat mode in config.toml (audio.voice_chat): 0 off, 1 open mic, 2 push to talk (the default; needs a keyboard or controller button). */
+NSInteger HaloVoiceChatMode(void);
+BOOL HaloVoiceChatSetMode(NSInteger mode);
+/* Any true/false key of config.toml: the file's value, or fallback when the key is absent; the setter adds the key when needed. */
+BOOL HaloConfigBool(const char *section, const char *key, BOOL fallback);
+BOOL HaloConfigSetBool(const char *section, const char *key, BOOL value);

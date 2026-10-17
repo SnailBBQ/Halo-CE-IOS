@@ -40,6 +40,21 @@ int main(void) {
     set("[network]\r\nmap_share = true\r\n", "network", "map_share", 0, 0, "[network]\r\nmap_share = false\r\n", 1);
     /* no trailing newline */
     set("[network]\nmap_share = true", "network", "map_share", 0, 0, "[network]\nmap_share = false", 1);
+    /* quoted text values (voice chat mode) */
+    char word[32];
+    CHECK(halo_toml_get_string("[audio]\nvoice_chat = \"open_mic\"  # x\n", "audio", "voice_chat", word, sizeof word) && !strcmp(word, "open_mic"));
+    CHECK(!halo_toml_get_string("[audio]\nvolume = 1\n", "audio", "voice_chat", word, sizeof word));
+    CHECK(halo_toml_get_string("audio.voice_chat = \"off\"\n", "audio", "voice_chat", word, sizeof word) && !strcmp(word, "off"));
+    { int c = -1; char *o = halo_toml_set_string("[audio]\nvoice_chat = \"push_to_talk\"  # keep\nvolume = 1\n", "audio", "voice_chat", "open_mic", 0, &c);
+      CHECK(!strcmp(o, "[audio]\nvoice_chat = \"open_mic\"  # keep\nvolume = 1\n") && c == 1); free(o); }
+    { int c = -1; char *o = halo_toml_set_string("[audio]\nvoice_chat = \"off\"\n", "audio", "voice_chat", "off", 0, &c);
+      CHECK(!strcmp(o, "[audio]\nvoice_chat = \"off\"\n") && c == 0); free(o); }
+    { int c = -1; char *o = halo_toml_set_string("[audio]\nvolume = 1\n", "audio", "voice_chat", "open_mic", 1, &c);
+      CHECK(!strcmp(o, "[audio]\nvoice_chat = \"open_mic\"\nvolume = 1\n") && c == 1); free(o); }
+    { int c = -1; char *o = halo_toml_set_string("[display]\na = 1\n", "audio", "voice_chat", "off", 1, &c);
+      CHECK(!strcmp(o, "[display]\na = 1\n\n[audio]\nvoice_chat = \"off\"\n") && c == 1); free(o); }
+    { int c = -1; char *o = halo_toml_set_string("[audio]\nvoice_chat = \"off\"\n", "audio", "voice_chat", "open_mic", 0, &c);
+      CHECK(!strcmp(o, "[audio]\nvoice_chat = \"open_mic\"\n") && c == 1); free(o); }
     printf(failures ? "FAILED\n" : "OK\n");
     return failures != 0;
 }

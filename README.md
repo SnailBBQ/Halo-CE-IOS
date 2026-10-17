@@ -28,6 +28,8 @@ This is one device and one session. Other devices, longer play, vehicles and mul
 
 **Fix:** [M2.6.107](port/ios/UPDATE_M2707.md) repairs M2.6.104-106: a startup failure (guest ABI mismatch, fixed in M2.6.106) and a freeze when joining an internet game. Do not use those builds.
 
+**Update:** [M2.6.111](port/ios/UPDATE_M2711.md) adds a **Voice chat** control (Off, Open mic, Push to talk) to Settings > Audio and an optional original-animations switch for big games.
+
 **Update:** [M2.6.110](port/ios/UPDATE_M2710.md) moves to OpenCE **build 211** (same network version 29) and turns **map sharing off by default** on iOS, with a switch in Settings > Multiplayer. Not yet run on a device.
 
 **Source update:** [M2.6.109](port/ios/UPDATE_M2709.md) moves to OpenCE **build 206 / network 29**: a new network version (it cannot join build 201 or older hosts, nor they it). Custom Edition maps keep their own names (build 201 renamed them with a hash), map downloads are checked, and the changes are described in the update note. Not yet run on a device.

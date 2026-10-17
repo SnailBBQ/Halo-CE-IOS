@@ -505,3 +505,50 @@ void HaloMapSharingMigrateDefaultOff(void)
        later choice in Settings is never undone */
     if (HaloMapSharingWrite(NO, 0)) [defaults setBool:YES forKey:key];
 }
+
+/* ---------- voice chat mode (config.toml) ---------- */
+
+static const char *const kVoiceChatNames[3] = { "off", "open_mic", "push_to_talk" };
+
+NSInteger HaloVoiceChatMode(void)
+{
+    NSString *text = [NSString stringWithContentsOfFile:HaloConfigTomlPath() encoding:NSUTF8StringEncoding error:nil];
+    char word[32];
+    if (!text || !halo_toml_get_string(text.UTF8String, "audio", "voice_chat", word, sizeof word)) return 2; /* the engine's default */
+    for (NSInteger i = 0; i < 3; i++) if (!strcmp(word, kVoiceChatNames[i])) return i;
+    return 2;
+}
+
+BOOL HaloVoiceChatSetMode(NSInteger mode)
+{
+    if (mode < 0 || mode > 2) return NO;
+    NSString *path = HaloConfigTomlPath();
+    NSString *text = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil] ?: @"";
+    int changed = 0;
+    char *updated = halo_toml_set_string(text.UTF8String, "audio", "voice_chat", kVoiceChatNames[mode], 1, &changed);
+    if (!updated) return NO;
+    BOOL ok = YES;
+    if (changed) ok = [[NSString stringWithUTF8String:updated] writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    free(updated);
+    return ok;
+}
+
+BOOL HaloConfigBool(const char *section, const char *key, BOOL fallback)
+{
+    NSString *text = [NSString stringWithContentsOfFile:HaloConfigTomlPath() encoding:NSUTF8StringEncoding error:nil];
+    int value = text ? halo_toml_get_bool(text.UTF8String, section, key) : -1;
+    return value < 0 ? fallback : value == 1;
+}
+
+BOOL HaloConfigSetBool(const char *section, const char *key, BOOL value)
+{
+    NSString *path = HaloConfigTomlPath();
+    NSString *text = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil] ?: @"";
+    int changed = 0;
+    char *updated = halo_toml_set_bool(text.UTF8String, section, key, value ? 1 : 0, 1, &changed);
+    if (!updated) return NO;
+    BOOL ok = YES;
+    if (changed) ok = [[NSString stringWithUTF8String:updated] writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    free(updated);
+    return ok;
+}

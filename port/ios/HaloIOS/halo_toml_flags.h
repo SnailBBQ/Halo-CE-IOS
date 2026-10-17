@@ -125,4 +125,104 @@ static inline char *halo_toml_set_bool(const char *text, const char *section, co
     if(changed)*changed=modified;
     return out;
 }
+/* ---- quoted text values (key = "word"), used by the voice chat mode ---- */
+
+/* Like halo_toml_line, for a key whose value is a quoted string: 2 = the wanted key, with *vs at the opening quote and *ve just past
+ * the closing quote. */
+static inline int halo_toml_string_line(const char *start, const char *end, const char *current, const char *section, const char *key,
+                                        const char **vs, const char **ve) {
+    const char *p=start;
+    while(p<end && halo_toml_is_space(*p))p++;
+    if(p>=end || *p=='#')return 0;
+    if(*p=='['){return p+1<end && p[1]=='['?0:1;}
+    const char *name=p;
+    while(p<end && halo_toml_is_key_char(*p))p++;
+    size_t length=(size_t)(p-name),key_length=strlen(key),section_length=strlen(section);
+    while(p<end && halo_toml_is_space(*p))p++;
+    if(!length || p>=end || *p!='=')return 0;
+    int match=0;
+    if(!strcmp(current,section) && length==key_length && !strncmp(name,key,key_length))match=1;
+    if(!current[0] && length==section_length+1+key_length && !strncmp(name,section,section_length) && name[section_length]=='.' &&
+       !strncmp(name+section_length+1,key,key_length))match=1;
+    if(!match)return 0;
+    p++;
+    while(p<end && halo_toml_is_space(*p))p++;
+    if(p>=end || *p!='"')return 0;
+    const char *q=p+1;
+    while(q<end && *q!='"')q++;
+    if(q>=end)return 0;
+    *vs=p;*ve=q+1;
+    return 2;
+}
+
+/* Copies the text between the quotes into out; 1 when found, 0 when the key is absent. The last one wins. */
+static inline int halo_toml_get_string(const char *text, const char *section, const char *key, char *out, size_t size) {
+    char current[64]="";
+    int found=0;
+    const char *line=text;
+    while(*line){
+        const char *end=strchr(line,'\n');if(!end)end=line+strlen(line);
+        const char *vs=NULL,*ve=NULL;
+        int kind=halo_toml_string_line(line,end,current,section,key,&vs,&ve);
+        if(kind==1)halo_toml_header_name(line,end,current,sizeof current);
+        else if(kind==2){size_t n=(size_t)(ve-vs)-2;if(n>=size)n=size-1;memcpy(out,vs+1,n);out[n]=0;found=1;}
+        line=*end?end+1:end;
+    }
+    return found;
+}
+
+/* A new malloc'ed text with every matching line's quoted value replaced; the key is added under [section] when none matched and
+ * add_missing is set. value must not contain quotes or newlines. */
+static inline char *halo_toml_set_string(const char *text, const char *section, const char *key, const char *value, int add_missing, int *changed) {
+    size_t size=strlen(text),value_length=strlen(value);
+    char *out=malloc(size+strlen(section)+strlen(key)+value_length*2+64);
+    if(!out)return NULL;
+    size_t used=0;
+    char current[64]="";
+    int matched=0,section_found=0,modified=0;
+    size_t insert_at=(size_t)-1;
+    const char *line=text;
+    while(*line){
+        const char *end=strchr(line,'\n');if(!end)end=line+strlen(line);
+        const char *vs=NULL,*ve=NULL;
+        int kind=halo_toml_string_line(line,end,current,section,key,&vs,&ve);
+        size_t length=(size_t)(end-line)+(*end?1:0);
+        if(kind==2){
+            matched=1;
+            size_t head=(size_t)(vs-line);
+            memcpy(out+used,line,head);used+=head;
+            out[used++]='"';memcpy(out+used,value,value_length);used+=value_length;out[used++]='"';
+            size_t tail=length-head-(size_t)(ve-vs);
+            memcpy(out+used,ve,tail);used+=tail;
+            if((size_t)(ve-vs)!=value_length+2 || strncmp(vs+1,value,value_length))modified=1;
+        } else {
+            memcpy(out+used,line,length);used+=length;
+            if(kind==1){
+                halo_toml_header_name(line,end,current,sizeof current);
+                if(!strcmp(current,section)){section_found=1;insert_at=used;}
+            }
+        }
+        line=*end?end+1:end;
+    }
+    out[used]=0;
+    if(!matched && add_missing){
+        char add[200];
+        int add_length;
+        char *grown;
+        if(section_found){
+            add_length=snprintf(add,sizeof add,"%s = \"%s\"\n",key,value);
+            if(insert_at>0 && out[insert_at-1]!='\n'){memmove(out+insert_at+1,out+insert_at,used-insert_at+1);out[insert_at++]='\n';used++;}
+            grown=realloc(out,used+(size_t)add_length+2);if(!grown){free(out);return NULL;}out=grown;
+            memmove(out+insert_at+add_length,out+insert_at,used-insert_at+1);
+            memcpy(out+insert_at,add,(size_t)add_length);used+=(size_t)add_length;
+        } else {
+            add_length=snprintf(add,sizeof add,"%s[%s]\n%s = \"%s\"\n",used&&out[used-1]!='\n'?"\n\n":"\n",section,key,value);
+            grown=realloc(out,used+(size_t)add_length+2);if(!grown){free(out);return NULL;}out=grown;
+            memcpy(out+used,add,(size_t)add_length+1);used+=(size_t)add_length;
+        }
+        modified=1;
+    }
+    if(changed)*changed=modified;
+    return out;
+}
 #endif

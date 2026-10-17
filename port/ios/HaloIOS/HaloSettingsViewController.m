@@ -718,6 +718,10 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUISliderRow(@"Dialogue",0,1,settings->dialogue_volume,@"%.2f",^(float v){[self update:^(HsSettings *s){s->dialogue_volume=v;}];}),
         HaloUISliderRow(@"Effects",0,1,settings->effects_volume,@"%.2f",^(float v){[self update:^(HsSettings *s){s->effects_volume=v;}];}),
         HaloUINote(@"Master, Music, Effects and Sound synchronize with the in-game audio menu. Dialogue and Ambient are additional iOS controls. Halo plays even when the ring/silent switch is on.")])];
+    [self add:HaloUICardView(@"Voice chat", @[
+        HaloUISegmentRow(@"Your microphone", @[@"Off", @"Open mic", @"Push to talk"], HaloVoiceChatMode(), ^(NSInteger i) {
+            if (!HaloVoiceChatSetMode(i)) halo_ios_toast("Could not save the voice chat setting"); }),
+        HaloUINote(@"Open mic sends your voice whenever you speak. Push to talk needs a keyboard or controller button (the phone has none yet). Off keeps your microphone closed; you still hear other players, and their volume is the in-game Voice volume. AirPods and other headsets with a microphone are used when connected. iOS asks for microphone access the first time. Takes effect the next time the game starts.")])];
     [self add:HaloUICardView(@"Ambient sound", @[
         HaloUISliderRow(@"Ambient volume", 0.0f, 1.0f, settings->ambient_volume, @"%.2f", ^(float v) { [self update:^(HsSettings *s) { s->ambient_volume = v; }]; }),
         HaloUINote(@"The environment: water, wind, machinery and computer hum, and the sounds of doors and devices. If a strange background noise bothers you, lower this to find out whether it is one of these.")])];
@@ -1261,6 +1265,10 @@ static UIColor *HaloColorFromRGB(unsigned rgb) {
     [self add:HaloUICardView(@"Heat and battery", @[
         HaloUISwitchRow(@"Lower the frame rate when the phone is hot", @"Smooth 60 and Uncapped drop to 45 when iOS reports serious heat or Low Power Mode, and to 30 when it is critical, and return when the phone cools. The original 30 FPS mode is never changed.", settings->thermal_cap, ^(BOOL on) { [self update:^(HsSettings *s) { s->thermal_cap = on; }]; }),
         HaloUISwitchRow(@"Performance overlay", @"Frame rate, frame interval, memory use, estimated available memory and thermal state. Position, size and opacity follow the FPS layout; available memory is not a crash threshold.", settings->perf_overlay, ^(BOOL on) { [self update:^(HsSettings *s) { s->perf_overlay = on; }]; })])];
+    [self add:HaloUICardView(@"Big multiplayer games", @[
+        HaloUISwitchRow(@"Original player animations", @"Off by default. The engine's extra animation work (legs keep moving while throwing, riders' hands) is skipped, which can save a little time when 20 or more players are in view. Takes effect the next time the game starts.", !HaloConfigBool("game", "enhanced_animations", YES), ^(BOOL on) {
+            if (!HaloConfigSetBool("game", "enhanced_animations", !on)) halo_ios_toast("Could not save the animation setting"); }),
+        HaloUINote(@"Games with 20 to 30 players are heavy for a phone: every player is simulated and drawn. Also try Player names > None above, lower resolution in Display, and keep the phone cool. If it still drops, share the log right after the match, before closing the app.")])];
     NSMutableArray<UIView *> *diag = [NSMutableArray array];
     [diag addObject:HaloUISwitchRow(@"Performance profiler", @"Samples the game thread so Diagnostics can show where the time goes. About 1% of one CPU core.", settings->profiler, ^(BOOL on) { [self update:^(HsSettings *s) { s->profiler = on; }]; })];
     [diag addObject:HaloUIButton(@"Share log files", 0, ^(UIButton *b) { if (self.onShareLogs) self.onShareLogs(b); })];
