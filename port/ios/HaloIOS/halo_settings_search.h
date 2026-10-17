@@ -78,8 +78,7 @@ static const HssEntry hss_entries[] = {
     { 5, "Choose a Halo player profile", "switch account", 0 },
     { 5, "Import / export Halo player profiles", "backup transfer", 0 },
     { 5, "Import / export campaign saves", "backup transfer progress", 0 },
-    { 5, "Export profile", "backup share settings", 0 },
-    { 5, "Import profile", "restore settings", 0 },
+    { 5, "Back up or move your profile", "export import restore backup share settings haloprofile halobackup player profile saves", 1 },
     { 5, "Reset all settings to defaults", "factory reset", 0 },
     /* Options */
     { 6, "Choose icon", "settings button gear emoji photo star favorite", 1 },

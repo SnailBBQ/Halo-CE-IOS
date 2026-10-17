@@ -12,7 +12,7 @@ int main(void)
     for (int i = 0; i < HSS_COUNT; i++)
         CHECK(hss_entries[i].category >= 0 && hss_entries[i].category < HSS_CATEGORY_COUNT && hss_entries[i].title[0], "every entry has a title and a real category");
     n = hss_suggestions(out, HSS_COUNT);
-    CHECK(n >= 8 && n <= 16, "a sensible number of suggestions");
+    CHECK(n >= 8 && n <= 20, "a sensible number of suggestions");
     CHECK(hss_search("", out, HSS_COUNT) == 0 && hss_search("   ", out, HSS_COUNT) == 0, "empty query matches nothing");
     n = hss_search("mic", out, HSS_COUNT);
     CHECK(n >= 1 && !strcmp(hss_entries[out[0]].title, "Your microphone"), "mic finds the microphone");

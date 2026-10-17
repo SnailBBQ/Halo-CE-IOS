@@ -112,7 +112,7 @@ Recipes are saved with the scheme and applied when you enter a solo campaign or 
 
 Three kinds of data are kept separate:
 
-- **App settings profile:** control schemes, layouts, cheat recipes, HUD, display, audio, shortcuts and colours. Exported as `.haloprofile`; active cheats and Halo saves are excluded.
+- **App settings:** control schemes, layouts, cheat recipes, HUD, display, audio, shortcuts and colours. Kept in the `.halobackup` as App preferences and Touch / HUD layouts; active cheats are never saved.
 - **Halo player profile:** in-game name, multiplayer armor color, controller preferences and campaign completion records. Create/select a named profile in-game, then edit it here. Built-in default profiles do not persist edits.
 - **Campaign save:** checkpoint progress for that player. Multiplayer uses player profiles and game variants, not campaign checkpoints.
 
@@ -121,7 +121,8 @@ Three kinds of data are kept separate:
 - **Halo controller settings** synchronize look sensitivity, look/flight inversion, auto-center, button/stick layouts, vibration and in-game help with the active player profile. Vibration requires compatible controller hardware.
 - **Network setup** shares Internet play, UPnP, clipboard joining and player-name visibility with the in-game menu. Reopen the network session after changing connection options. The desktop self-updater does not install iOS IPAs.
 - **Edit campaign checkpoint** edits validated finite health, shields, grenade counts and existing weapon ammo directly in a saved checkpoint. Changes apply on the next launch with recovery backups; see [Backups](BACKUPS.md#campaign-checkpoint-editor).
-- **Export profile…** saves a `.haloprofile` file for Files, AirDrop or sharing. **Import profile…** replaces your settings with a file's, so export first if you want to keep yours.
+- **Back up or move your profile** opens the backup screen with app settings, layouts, campaign saves and Halo player profiles ticked, so one `.halobackup` holds everything, including your in-game name and armor color (they belong to the Halo player profile). **Open an older .haloprofile file…** still imports a settings-only file from an earlier version; it replaces your app settings.
+- **Import / export Halo player profiles** sits above In-game name and Multiplayer armor color, because those two are stored in the profile it exports.
 - **Reset all settings to defaults** restores everything after a confirmation. Maps, saves and mods are not touched.
 
 ## Options

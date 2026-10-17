@@ -25,6 +25,13 @@ exactly those, so there is one list:
 Limits: mods are added as folders (unzip a zip in the Files app first). The game asks about mods that say they cannot be played together
 before it starts; iOS cannot show that question, so it plays them all and Settings > Mods shows the warning so you can turn one off.
 
+## Profiles, made consistent
+- Your in-game name and armor color belong to the **Halo player profile**; they were never in a `.haloprofile` (which held app settings only).
+  Settings > Profiles no longer has a separate Export / Import profile card. **Back up or move your profile** opens the backup screen with app
+  settings, layouts, campaign saves and Halo player profiles all ticked, so one `.halobackup` holds the whole profile. An **Open an older .haloprofile
+  file** button still imports old settings-only files.
+- **Import / export Halo player profiles** now sits above In-game name and Multiplayer armor color, and the "What a profile holds" text matches.
+
 ## Device checklist
 - Regular build first. Settings > Mods shows "Mods" above the Custom Edition maps.
 - Put a mod folder (with `mod.toml` and `tags`) in the Files app under Halo CE > Halo > mods, or use Add a mod folder.

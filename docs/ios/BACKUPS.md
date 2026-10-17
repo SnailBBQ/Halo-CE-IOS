@@ -43,7 +43,7 @@ A restore merges the chosen parts into the app: files with matching names are re
 
 ## Other ways to move your setup
 
-- **Settings → Profiles** exports and imports your settings (not saves) as a small `.haloprofile` file. See [Settings → Profiles](SETTINGS.md#profiles).
+- **Settings → Profiles → Back up or move your profile** opens this screen with app settings, layouts, campaign saves and Halo player profiles (your in-game name and armor color) ticked together, so one `.halobackup` file holds the whole profile. Older settings-only `.haloprofile` files can still be opened from there. See [Settings → Profiles](SETTINGS.md#profiles).
 - **Settings → Mods** manages Custom Edition content and user-supplied MP4 movies; include the Maps section when exporting a `.halobackup` if you want them preserved.
 - Removing the app deletes its data, so export a backup first.
 
