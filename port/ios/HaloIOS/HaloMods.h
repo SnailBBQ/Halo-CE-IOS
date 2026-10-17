@@ -34,9 +34,20 @@ BOOL HaloMapSharingEnabled(void);
 BOOL HaloMapSharingSet(BOOL on);
 /* Once per install: turns off sharing in a config.toml written by an earlier version, which wrote "true". */
 void HaloMapSharingMigrateDefaultOff(void);
-/* Voice chat mode in config.toml (audio.voice_chat): 0 off, 1 open mic, 2 push to talk (the default; needs a keyboard or controller button). */
-NSInteger HaloVoiceChatMode(void);
-BOOL HaloVoiceChatSetMode(NSInteger mode);
 /* Any true/false key of config.toml: the file's value, or fallback when the key is absent; the setter adds the key when needed. */
 BOOL HaloConfigBool(const char *section, const char *key, BOOL fallback);
 BOOL HaloConfigSetBool(const char *section, const char *key, BOOL value);
+
+/* OpenCE's Mods (build 220): folders of Halo PC tag files in Documents/Halo/mods, each with a mod.toml. The game's own Mods menu
+ * and Settings > Mods read and write the same things, mods/load_order.toml and the folders, so a change made in one shows in
+ * the other: Settings reads the files each time it shows the list, and after a change tells the running game to read them
+ * again. Entries come in load order (the first loads first; the game's menu and Settings show the last on top). Keys: folder,
+ * name, version, authors, description, maps, on (BOOL), note (what is wrong with it, or ""). */
+NSArray<NSDictionary *> *HaloModPackList(void);
+/* Keeps the load order (folder names, first loads first) and the folders turned off; the running game applies it at once. */
+void HaloModPackSave(NSArray<NSString *> *order, NSSet<NSString *> *off);
+void HaloModPackRemove(NSString *folder);
+/* Copies mod folders (each with a mod.toml) into the mods folder; throws with a message the person can read. */
+void HaloModPackImport(NSArray<NSURL *> *folders);
+/* Changes whenever a mod or load_order.toml changes, so a shown list can tell it is out of date. */
+NSString *HaloModPackFingerprint(void);

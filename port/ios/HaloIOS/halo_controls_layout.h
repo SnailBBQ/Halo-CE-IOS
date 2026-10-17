@@ -30,6 +30,7 @@ enum {
     HC_LT = 0, HC_RT, HC_BACK, HC_START, HC_LS, HC_RS,
     HC_A, HC_B, HC_X, HC_Y, HC_WHITE, HC_BLACK,
     HC_DPAD, HC_LSTICK, HC_RSTICK,
+    HC_VOICE,   /* voice chat: Push to talk, or Mute in open mic; shown only while the microphone is on */
     HC_COUNT
 };
 
@@ -95,12 +96,13 @@ static inline float hc_layout(float left, float top, float right, float bottom, 
     hc_set(&out[HC_RS], HC_KIND_PILL, hc_rect(cx_right - stick * 0.5f - 10.0f * s - small_w, cy + stick * 0.5f - small_h, small_w, small_h),
            HC_BTN_RSTICK, -1, HC_COLOR_GRAY, "RS", "ZOOM");
 
-    /* Back and Start low in the middle */
+    /* Back and Start low in the middle, the voice button between them */
     {
-        float w = 68.0f * s, h = 32.0f * s, gap = 12.0f * s;
+        float w = 68.0f * s, h = 32.0f * s, gap = 10.0f * s, vw = 52.0f * s;
         float y = bottom - m - h;
-        hc_set(&out[HC_BACK], HC_KIND_PILL, hc_rect(mid - gap * 0.5f - w, y, w, h), HC_BTN_BACK, -1, HC_COLOR_GRAY, "BACK", "");
-        hc_set(&out[HC_START], HC_KIND_PILL, hc_rect(mid + gap * 0.5f, y, w, h), HC_BTN_START, -1, HC_COLOR_GRAY, "START", "");
+        hc_set(&out[HC_BACK], HC_KIND_PILL, hc_rect(mid - vw * 0.5f - gap - w, y, w, h), HC_BTN_BACK, -1, HC_COLOR_GRAY, "BACK", "");
+        hc_set(&out[HC_VOICE], HC_KIND_PILL, hc_rect(mid - vw * 0.5f, y, vw, h), -1, -1, HC_COLOR_GRAY, "TALK", "");
+        hc_set(&out[HC_START], HC_KIND_PILL, hc_rect(mid + vw * 0.5f + gap, y, w, h), HC_BTN_START, -1, HC_COLOR_GRAY, "START", "");
     }
 
     /* A/B/X/Y diamond above the right stick, as on the Xbox S pad */

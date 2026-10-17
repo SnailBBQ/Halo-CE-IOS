@@ -825,6 +825,26 @@ static int physical_slot(uint32_t pad) {
     if(atomic_load(&g_local_coop))return atomic_load(pad==1?&g_coop_primary:&g_coop_secondary);
     return pad==1?(atomic_load(&g_phys_present[0])?0:atomic_load(&g_phys_present[1])?1:-1):-1;
 }
+/* Settings > Profiles: the Halo player profiles the game lists, and the one the player picked there (see menu_functions.c). */
+static pthread_mutex_t g_profile_lock2=PTHREAD_MUTEX_INITIALIZER;
+static HaloProfileEntry g_profile_staged[HALO_PROFILE_MAX],g_profile_list[HALO_PROFILE_MAX];
+static int g_profile_list_count;
+static uint32_t g_profile_request;
+static _Atomic(int) g_mods_changed;
+void halo_ios_mods_changed(void){atomic_store(&g_mods_changed,1);}
+static int g_profile_requested;
+int halo_ios_profile_list(HaloProfileEntry *out,int max) {
+    pthread_mutex_lock(&g_profile_lock2);
+    int n=g_profile_list_count<max?g_profile_list_count:max;
+    memcpy(out,g_profile_list,(size_t)n*sizeof(*out));
+    pthread_mutex_unlock(&g_profile_lock2);
+    return n;
+}
+void halo_ios_profile_select(uint32_t index) {
+    pthread_mutex_lock(&g_profile_lock2);
+    g_profile_request=index;g_profile_requested=1;
+    pthread_mutex_unlock(&g_profile_lock2);
+}
 static int ios_settings_value(uint32_t index,uint32_t address,uint32_t profile) {
     if(index==UINT32_MAX-1) {
         int coop=profile>=2;
@@ -861,6 +881,39 @@ static int ios_settings_value(uint32_t index,uint32_t address,uint32_t profile) 
             [HaloSettingsStore.shared update:^(HsSettings *s){s->game_profile_ready=0;}];
         });
         return 0;
+    }
+    if(index==UINT32_MAX-2)return halo_ios_ptt_held(); /* the touch Push to talk button (xinput_sdl.c halo_push_to_talk_held) */
+    if(index==UINT32_MAX-3) { /* -4: one profile of the list: "hex index|name|active", its number in `profile` */
+        char *guest=gp(address,64);if(!guest || !memchr(guest,0,64) || profile>=HALO_PROFILE_MAX)return 0;
+        char line[64];memcpy(line,guest,64);
+        char *bar1=strchr(line,'|'),*bar2=bar1?strchr(bar1+1,'|'):NULL;if(!bar2)return 0;
+        *bar1=0;*bar2=0;
+        pthread_mutex_lock(&g_profile_lock2);
+        HaloProfileEntry *entry=&g_profile_staged[profile];
+        entry->index=(uint32_t)strtoul(line,NULL,16);
+        snprintf(entry->name,sizeof entry->name,"%s",bar1+1);
+        entry->active=bar2[1]=='1';
+        pthread_mutex_unlock(&g_profile_lock2);
+        return 0;
+    }
+    if(index==UINT32_MAX-4) { /* -5: the list is complete; `profile` is how many */
+        pthread_mutex_lock(&g_profile_lock2);
+        g_profile_list_count=(int)(profile<HALO_PROFILE_MAX?profile:HALO_PROFILE_MAX);
+        memcpy(g_profile_list,g_profile_staged,sizeof g_profile_list);
+        pthread_mutex_unlock(&g_profile_lock2);
+        return 0;
+    }
+    if(index==UINT32_MAX-5) { /* -6: the profile picked in Settings, once, as hex text */
+        char *guest=gp(address,64);if(!guest)return 0;
+        pthread_mutex_lock(&g_profile_lock2);
+        int take=g_profile_requested;uint32_t wanted=g_profile_request;g_profile_requested=0;
+        pthread_mutex_unlock(&g_profile_lock2);
+        if(!take)return 0;
+        snprintf(guest,64,"%x",wanted);
+        return 1;
+    }
+    if(index==UINT32_MAX-6) { /* -7: Settings > Mods changed the mods folder or load_order.toml: the engine applies it, once */
+        return atomic_exchange(&g_mods_changed,0);
     }
     if(index>=HE_COUNT)return 0;
     /* Recovery launch overrides remain temporary, and must neither be undone
@@ -2548,6 +2601,16 @@ static int ios_sdl_show_simple_message_box(uint32_t flags, uint32_t title, uint3
     return 1;
 }
 
+/* A question with up to three buttons (the mods that cannot be played together, asked before the window opens). iOS does not
+ * stop the engine for it: -1 means "could not ask", and the engine then plays every mod as it is. Settings > Mods turns
+ * the conflicting ones off. */
+static int ios_sdl_show_message_box(uint32_t flags, uint32_t title, uint32_t message, int32_t default_index,
+                                    uint32_t button0, uint32_t button1, uint32_t button2)
+{
+    (void)flags; (void)title; (void)message; (void)default_index; (void)button0; (void)button1; (void)button2;
+    return -1;
+}
+
 static _Atomic(uint32_t) g_menu_held;
 static _Atomic(uint32_t) g_menu_pending;
 static _Atomic(int32_t) g_touch_axis[6];
@@ -3134,6 +3197,7 @@ static void *resolve_host_import(const char *name)
     MAP("host_sdl_scancode_from_name", ios_sdl_scancode_from_name);
     MAP("host_sdl_show_toast", ios_sdl_show_toast);
     MAP("host_sdl_show_simple_message_box", ios_sdl_show_simple_message_box);
+    MAP("host_sdl_show_message_box", ios_sdl_show_message_box);
     MAP("host_sdl_get_gamepads", ios_sdl_get_gamepads);
     MAP("host_sdl_open_gamepad", ios_sdl_open_gamepad);
     MAP("host_sdl_gamepad_from_id", ios_sdl_open_gamepad);

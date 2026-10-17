@@ -75,7 +75,9 @@ typedef struct
     int game_vsync, game_online, game_upnp, game_player_names;
     int game_controls[8]; /* sensitivity, invert, flight, autocenter, buttons, sticks, vibration, help */
     char game_name[24]; int game_color, game_profile_ready;
-    float gear_opacity; int gear_icon;
+    float gear_opacity; int gear_icon;   /* 0..3 symbols, 4 the older photo, 5 gear_token */
+    char gear_token[40];      /* "e:<emoji>" or "p:<8 hex>" when gear_icon is 5 */
+    char gear_favs[100];      /* favourite icons: tokens ("s0".."s3", "e:..", "p:..") separated by | */
     float gear_scale; int ui_theme; /* shared Options; theme indexes 0..4 */
     int gear_placed; float gear_x, gear_y; /* safe-area fractions */
     HsHud hud[HS_HUD_COUNT];
@@ -88,7 +90,9 @@ typedef struct
     int cheat_medusa, cheat_low_gravity, cheat_hijack_npc, cheat_vehicle_health;
     int cheat_jetpack, cheat_ai_ignore, cheat_slow;   /* session cheats; cheat_slow: 0 normal, 1..7 */
     int accent_mode; unsigned accent_rgb; float chroma_seconds; /* 0 preset colour, 1 chosen colour, 2 colour cycle */
-    int maps_show_files, maps_mp_alpha, maps_mp_only;          /* Mods: installed game files shown, multiplayer A-Z, campaign hidden */
+    int maps_show_files, maps_mp_alpha, maps_mp_only;          /* Mods: files shown; maps_mp_alpha is no longer used; maps_mp_only lists only multiplayer maps, A-Z */
+    int maps_campaign_only;   /* Mods: only the campaign maps */
+    int custom_hide, custom_filter; /* Custom Edition maps: list hidden; 0 all, 1 multiplayer A-Z, 2 campaign */
     float ambient_volume;     /* device and ambient sound classes */
     int perf_overlay, thermal_cap;
     int display_mode, render_quality; /* 0 4:3 / 1 16:9 / 2 screen aspect; 480 / 720 / 960 / 1080 lines */
@@ -118,6 +122,9 @@ typedef struct
     int hires_hud;            /* build 73: the HUD from the high-res assets; applies at launch */
     int hires_text;           /* build 73: menu and HUD text from the Overpass fonts at display resolution; applies at launch */
     int profiler;             /* sample the game thread for the log (about 1% of one core) */
+    int voice_mode;           /* voice chat microphone: 0 off, 1 open mic, 2 push to talk (audio.voice_chat; synced with the in-game menu) */
+    float voice_volume;       /* other players' voices, 0 ... 2 (audio.voice_volume) */
+    int reverb;               /* the maps' sound environments (audio.reverb) */
 } HsSettings;
 
 /* Only changes to the active touch scheme may cancel an owned touch. Engine
@@ -254,6 +261,7 @@ static inline void hs_defaults(HsSettings *s)
     s->volume = 1.0f;
     s->music_volume=s->dialogue_volume=s->effects_volume=1.f;
     s->ambient_volume=1.f;
+    s->voice_mode=0;s->voice_volume=1.f;s->reverb=1; /* the microphone starts off */
     s->accent_rgb=0x3385FAu;s->chroma_seconds=12.f;
     s->thermal_cap=1;
     s->pad_curve=1.f;
@@ -315,6 +323,22 @@ static inline void hs_sanitize_hud(HsHud *h) {
  h->x=hs_clampf(h->x,-0.45f,0.45f);h->y=hs_clampf(h->y,-0.45f,0.45f);
  h->scale=hs_clampf(h->scale,0.5f,1.5f);h->opacity=hs_clampf(h->opacity,0.f,1.f);h->hidden=!!h->hidden;
 }
+/* Keeps printable bytes only (UTF-8 emoji pass), always terminated; '|' separates favourites so only a list may hold it. */
+static inline void hs_clean_token(char *text, size_t size, int allow_bar)
+{
+    size_t out = 0;
+
+    text[size - 1] = 0;
+    for (size_t i = 0; text[i] && i < size; i++)
+    {
+        unsigned char c = (unsigned char)text[i];
+        if (c < 0x20 || c == 0x7f || (c == '|' && !allow_bar))
+            continue;
+        text[out++] = (char)c;
+    }
+    text[out] = 0;
+}
+
 static inline void hs_sanitize(HsSettings *s)
 {
     for (int i = 0; i < HS_PRESET_COUNT; i++) hs_sanitize_preset(&s->presets[i]);
@@ -334,7 +358,12 @@ static inline void hs_sanitize(HsSettings *s)
     s->join_from_clipboard = s->join_from_clipboard ? 1 : 0;
     s->show_fps = s->show_fps ? 1 : 0;
     s->profiler = s->profiler ? 1 : 0;
-    s->gear_opacity=hs_clampf(s->gear_opacity,.15f,1);s->gear_icon=hs_clampi(s->gear_icon,0,4);
+    s->voice_mode=hs_clampi(s->voice_mode,0,2);s->voice_volume=hs_clampf(s->voice_volume,0,2);s->reverb=!!s->reverb;
+    s->gear_opacity=hs_clampf(s->gear_opacity,.15f,1);s->gear_icon=hs_clampi(s->gear_icon,0,5);
+    hs_clean_token(s->gear_token,sizeof(s->gear_token),0);hs_clean_token(s->gear_favs,sizeof(s->gear_favs),1);
+    if(s->gear_icon==5&&!s->gear_token[0])s->gear_icon=0;
+    s->maps_campaign_only=!!s->maps_campaign_only;if(s->maps_mp_only)s->maps_campaign_only=0;
+    s->custom_hide=!!s->custom_hide;s->custom_filter=hs_clampi(s->custom_filter,0,2);
     s->game_vsync=!!s->game_vsync;s->game_online=!!s->game_online;s->game_upnp=!!s->game_upnp;
     s->game_controls[0]=hs_clampi(s->game_controls[0],1,10);
     for(int k=1;k<8;k++)s->game_controls[k]=hs_clampi(s->game_controls[k],0,k==4?4:k==5?3:1);
@@ -468,7 +497,7 @@ static inline void hs_apply_preset_cheats(HsSettings *s,int index) {
 /* ---------- saving and loading: one text blob of key=value lines */
 
 static const char *const hs_control_keys[HC_COUNT] = {
-    "lt", "rt", "back", "start", "ls", "rs", "a", "b", "x", "y", "white", "black", "dpad", "lstick", "rstick"
+    "lt", "rt", "back", "start", "ls", "rs", "a", "b", "x", "y", "white", "black", "dpad", "lstick", "rstick", "voice"
 };
 
 static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
@@ -480,6 +509,8 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
     EMIT("HALO1\n");
     EMIT("gamevsync=%d\ngameonline=%d\ngameupnp=%d\n",s->game_vsync,s->game_online,s->game_upnp);
     EMIT("gearopacity=%.3f\ngearicon=%d\n",s->gear_opacity,s->gear_icon);
+    EMIT("geartoken=%s\ngearfavs=%s\n",s->gear_token,s->gear_favs);
+    EMIT("mapscampaign=%d\ncustomhide=%d\ncustomfilter=%d\n",s->maps_campaign_only,s->custom_hide,s->custom_filter);
     EMIT("gamenames=%d\n",s->game_player_names);
     for(int k=0;k<4;k++) EMIT("shortcut%d=%s\nshortcutgap%d=%.3f\nshortcuttotal%d=%.3f\nshortcutaction%d=%d\n",k,s->shortcuts[k].sequence,k,s->shortcuts[k].gap,k,s->shortcuts[k].total,k,s->shortcuts[k].action);
     EMIT("gearscale=%.3f\nuitheme=%d\n",s->gear_scale,s->ui_theme);
@@ -491,6 +522,7 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
          s->join_from_clipboard, s->show_fps, s->profiler, s->fps_mode, s->hires_hud, s->hires_text, s->controls_mode,
          s->cheat_god, s->cheat_ammo, s->cheat_grenades, s->cheat_reload);
     EMIT("viewmodel=%d\n", s->viewmodel_mode);
+    EMIT("voicemode=%d\nvoicevol=%.3f\nreverb=%d\n", s->voice_mode, s->voice_volume, s->reverb);
     EMIT("accentmode=%d\naccentrgb=%u\nchroma=%.2f\n", s->accent_mode, s->accent_rgb, s->chroma_seconds);
     EMIT("mapsshow=%d\nmapsalpha=%d\nmapsmponly=%d\nambient=%.3f\nperf=%d\nthermal=%d\npaddead=%.3f\npadcurve=%.3f\n",
          s->maps_show_files, s->maps_mp_alpha, s->maps_mp_only, s->ambient_volume, s->perf_overlay, s->thermal_cap, s->pad_dead, s->pad_curve);
@@ -563,6 +595,9 @@ static inline int hs_parse(HsSettings *s, const char *text)
                 else if (!strcmp(key, "volume")) s->volume = (float)atof(value);
                 else if (!strcmp(key, "audio")) s->audio_enabled = atoi(value);
                 else if (!strcmp(key, "clipboard")) s->join_from_clipboard = atoi(value);
+                else if (!strcmp(key,"voicemode")) s->voice_mode=atoi(value);
+                else if (!strcmp(key,"voicevol")) s->voice_volume=(float)atof(value);
+                else if (!strcmp(key,"reverb")) s->reverb=atoi(value);
                 else if (!strcmp(key,"music")) s->music_volume=(float)atof(value);
                 else if (!strcmp(key,"dialogue")) s->dialogue_volume=(float)atof(value);
                 else if (!strcmp(key,"effects")) s->effects_volume=(float)atof(value);
@@ -579,6 +614,11 @@ static inline int hs_parse(HsSettings *s, const char *text)
                 else if (!strcmp(key,"gearopacity")) s->gear_opacity=(float)atof(value);
                 else if (!strcmp(key,"gamenames")) s->game_player_names=atoi(value);
                 else if (!strcmp(key,"gearicon")) s->gear_icon=atoi(value);
+                else if (!strcmp(key,"geartoken")) { strncpy(s->gear_token,value,sizeof(s->gear_token)-1); s->gear_token[sizeof(s->gear_token)-1]=0; }
+                else if (!strcmp(key,"gearfavs")) { strncpy(s->gear_favs,value,sizeof(s->gear_favs)-1); s->gear_favs[sizeof(s->gear_favs)-1]=0; }
+                else if (!strcmp(key,"mapscampaign")) s->maps_campaign_only=atoi(value);
+                else if (!strcmp(key,"customhide")) s->custom_hide=atoi(value);
+                else if (!strcmp(key,"customfilter")) s->custom_filter=atoi(value);
                 else if (!strncmp(key,"shortcut",8)) {int k=-1;
                     if(sscanf(key,"shortcutgap%d",&k)==1 && k>=0 && k<4)s->shortcuts[k].gap=(float)atof(value);
                     else if(sscanf(key,"shortcuttotal%d",&k)==1 && k>=0 && k<4)s->shortcuts[k].total=(float)atof(value);

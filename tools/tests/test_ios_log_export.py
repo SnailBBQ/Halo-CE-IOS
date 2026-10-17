@@ -70,10 +70,11 @@ files = method(app, "- (BOOL)hasLogFiles {\n")
 check('@"start-history.txt"' in files and '@"ios-boot.log"' in files, "hasLogFiles must know the start history and the boot log")
 
 # ---- the launch screen row
-check('[copyButton setTitle:@"Copy logs" forState:UIControlStateNormal];' in app, "the launch screen needs a Copy logs button")
-check("action:@selector(copyLogs:)" in app, "the Copy logs button must call copyLogs:")
-check("@[import, disc, start, share, copyButton, help]" in app, "the Copy logs button must be in the row of buttons")
-check("@[import,disc,start,share,copyButton,help]" in app, "the Copy logs button must be styled with the others")
+check('[logsButton setTitle:@"Logs" forState:UIControlStateNormal];' in app, "the launch screen needs one Logs button")
+check("action:@selector(logsMenu:)" in app and '@"Share logs"' in app and '@"Copy logs"' in app, "the Logs button must offer Share logs and Copy logs")
+check("@[import, disc, start, logsButton, help]" in app, "the Logs button must be in the row of buttons")
+check("@[import,disc,start,logsButton,help]" in app, "the Logs button must be styled with the others")
+check("UNIVERSAL" not in app, "the launch screen must not show the UNIVERSAL label")
 
 # ---- the Diagnostics and Settings screens
 check("log.onCopy = ^(UIView *source) { [weakSelf copyLogs:source]; };" in app, "Diagnostics must be wired to copyLogs:")

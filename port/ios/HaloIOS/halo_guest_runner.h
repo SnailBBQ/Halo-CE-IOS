@@ -55,6 +55,14 @@ void halo_ios_physical_pad_state_at(int slot,int connected,uint32_t buttons,cons
 void halo_ios_set_channel_gains(float music,float dialogue,float effects);
 /* Host-side copies only. Changes are applied on the guest game thread. */
 void halo_ios_engine_settings_changed(const void *before, const void *after);
+
+/* The Halo player profiles the game lists (refreshed every few seconds while the game runs) and the way to switch to one. */
+#define HALO_PROFILE_MAX 32
+typedef struct { uint32_t index; char name[16]; int active; } HaloProfileEntry;
+int halo_ios_profile_list(HaloProfileEntry *out, int max);
+void halo_ios_profile_select(uint32_t index);
+/* Settings > Mods wrote the mods folder or mods/load_order.toml: the engine reads them again (as the game's Mods menu's OK does) */
+void halo_ios_mods_changed(void);
 /* Environment sounds (the device and ambient sound classes); 0 ... 1. */
 void halo_ios_set_ambient_gain(float gain);
 #ifdef __OBJC__

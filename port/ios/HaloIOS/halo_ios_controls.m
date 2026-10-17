@@ -2,6 +2,7 @@
 #import "halo_guest_runner.h"
 #import "halo_controls_layout.h"
 #import "HaloSettingsStore.h"
+#import "halo_ios_audio.h"
 #import "HaloHudEditor.h"
 #include "halo_shortcut.h"
 #include <stdatomic.h>
@@ -151,7 +152,7 @@ enum { kRoleLeftZone = -2, kRoleLook = -3, kRoleEditDrag = 1000 /* + control */ 
 
 static const char *const kControlNames[HC_COUNT] = {
     "Left trigger", "Right trigger", "Back", "Start", "Left stick click", "Right stick click",
-    "A", "B", "X", "Y", "White", "Black", "D-pad", "Left stick", "Right stick"
+    "A", "B", "X", "Y", "White", "Black", "D-pad", "Left stick", "Right stick", "Voice chat"
 };
 
 @interface HaloControlsView ()
@@ -233,6 +234,7 @@ static const char *const kControlNames[HC_COUNT] = {
     HsSettings next = [[HaloSettingsStore shared] snapshot];
     BOOL changed = hs_touch_scheme_changed(&_settings, &next);
     _settings = next;
+    [self syncVoiceButton];
     if (!changed) return; /* synchronization must preserve fingers already held */
     [self releaseAll];
     _laidOutSize = CGSizeZero; /* force a relayout */
@@ -321,6 +323,7 @@ static const char *const kControlNames[HC_COUNT] = {
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
     for (int i = 0; i < HC_COUNT; i++) [self styleControl:i];
+    [self syncVoiceButton];
     self.alpha = self.editing ? 1.0 : [self preset]->opacity;
     [CATransaction commit];
     [self updateSelection];
@@ -549,8 +552,44 @@ static NSNumber *HaloTouchKey(UITouch *touch)
     if ([self preset]->haptics) { [self.haptic impactOccurred]; [self.haptic prepare]; }
 }
 
+/* The voice button follows Settings > Audio > Voice chat: hidden while the microphone is off, "TALK" (held to speak) for
+ * Push to talk, "MUTE" / "MUTED" (a toggle) for Open mic. */
+- (void)syncVoiceButton
+{
+    if (!_built) return;
+    int mode = [[HaloSettingsStore shared] snapshot].voice_mode;
+    HcControl *c = &_controls[HC_VOICE];
+    if (mode != 2 && halo_ios_ptt_held()) halo_ios_ptt_set_held(0);
+    const HsPlacement *placement = &[self preset]->place[HC_VOICE];
+    c->hidden = placement->hidden || (mode == 0 && !self.editing);
+    if (mode == 1) {
+        BOOL muted = halo_ios_mic_is_muted() != 0;
+        c->label = muted ? "MUTED" : "MUTE";
+        c->color = muted ? HC_COLOR_RED : HC_COLOR_GRAY;
+    } else if (mode == 2) {
+        c->label = "TALK";
+        c->color = halo_ios_ptt_held() ? HC_COLOR_GREEN : HC_COLOR_GRAY;
+    } else {
+        c->label = "MIC";
+        c->color = HC_COLOR_GRAY;
+    }
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    [self styleControl:HC_VOICE];
+    [CATransaction commit];
+}
+
 - (void)press:(int)index
 {
+    if (index == HC_VOICE) {
+        if (_holds[index]++ > 0) return;
+        int mode = [[HaloSettingsStore shared] snapshot].voice_mode;
+        if (mode == 2) halo_ios_ptt_set_held(1);
+        else if (mode == 1) halo_ios_mic_set_muted(!halo_ios_mic_is_muted());
+        [self buzz];
+        [self syncVoiceButton];
+        return;
+    }
     const HcControl *c = &_controls[index];
     if (!_holds[index]) halo_ios_shortcut_button(c->button >= 0 ? c->button : (index == HC_LT ? 15 : 16));
     if (_holds[index]++ > 0) return;
@@ -569,6 +608,13 @@ static NSNumber *HaloTouchKey(UITouch *touch)
 
 - (void)lift:(int)index
 {
+    if (index == HC_VOICE) {
+        if (_holds[index] <= 0) return;
+        if (--_holds[index] > 0) return;
+        halo_ios_ptt_set_held(0);
+        [self syncVoiceButton];
+        return;
+    }
     const HcControl *c = &_controls[index];
     if (_holds[index] <= 0) return;
     if (--_holds[index] > 0) return;
@@ -738,6 +784,7 @@ static NSNumber *HaloTouchKey(UITouch *touch)
     [self.lastTimes removeAllObjects];
     for (int i = 0; i < HC_COUNT; i++) _holds[i] = 0;
     _dpadMask = 0;
+    halo_ios_ptt_set_held(0);
     halo_ios_touch_reset();
     if (_built) {
         _stickBase[0] = _stickHome[0];

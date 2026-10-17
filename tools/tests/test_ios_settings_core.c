@@ -278,6 +278,23 @@ int main(void)
     CHECK(hs_serialize(&s,text,sizeof(text))>0 && hs_parse(&t,text),"serialize the new settings");
     CHECK(t.accent_mode==2 && t.accent_rgb==0xA1B2C3u && near(t.chroma_seconds,20.f),"accent persists");
     CHECK(t.maps_show_files && t.maps_mp_alpha && t.maps_mp_only,"installed-files options persist");
+    {
+        HsSettings u, v;
+        char tmp[8192];
+        hs_defaults(&u);
+        CHECK(!u.maps_campaign_only && !u.custom_hide && u.custom_filter==0 && !u.gear_token[0] && !u.gear_favs[0],"filter and icon defaults");
+        CHECK(u.voice_mode==0 && u.reverb==1 && near(u.voice_volume,1.f),"microphone off by default");
+        u.maps_campaign_only=1;u.maps_mp_only=1;u.custom_filter=9;u.gear_icon=5;
+        strcpy(u.gear_token,"e:\xF0\x9F\x8E\xAE\n|x");strcpy(u.gear_favs,"s1|e:\xF0\x9F\x8E\xAE|p:0a1b2c3d");
+        hs_sanitize(&u);
+        CHECK(u.maps_mp_only && !u.maps_campaign_only && u.custom_filter==2,"multiplayer-only and campaign-only never both on");
+        CHECK(!strcmp(u.gear_token,"e:\xF0\x9F\x8E\xAEx") && u.gear_icon==5,"icon token keeps emoji, drops control bytes and the list separator");
+        CHECK(hs_serialize(&u,tmp,sizeof(tmp))>0 && hs_parse(&v,tmp) && v.gear_icon==5 && !strcmp(v.gear_favs,"s1|e:\xF0\x9F\x8E\xAE|p:0a1b2c3d") && !strcmp(v.gear_token,u.gear_token),"icon and favourites round trip");
+        u.gear_token[0]=0;hs_sanitize(&u);
+        CHECK(u.gear_icon==0,"an empty custom icon falls back to the gear");
+        u.custom_hide=1;u.maps_mp_only=0;u.maps_campaign_only=1;u.custom_filter=1;
+        CHECK(hs_serialize(&u,tmp,sizeof(tmp))>0 && hs_parse(&v,tmp) && v.custom_hide && v.maps_campaign_only && v.custom_filter==1,"map filters round trip");
+    }
     CHECK(near(t.ambient_volume,.4f) && t.perf_overlay && !t.thermal_cap && near(t.pad_dead,.15f) && near(t.pad_curve,2.f),"ambient, overlay, thermal, controller shaping persist");
     CHECK(t.pad_map[0]==1 && t.pad_map[1]==0 && t.pad_map[2]==2 && t.pad_map[13]==6,"controller remap persists");
     CHECK(t.presets[3].mirror && t.presets[3].toggle_mask==((1u<<HC_LS)|(1u<<HC_RS)) && t.presets[3].gyro && near(t.presets[3].gyro_sens,1.75f) &&

@@ -9,7 +9,11 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 **Device result, 2026-10-08:** the M2.6.101 Non-Jailbreak build is confirmed playable on an iPhone 14 Plus (iOS 16.2, Sideloadly): a10 played, second map loaded, about 60 FPS, no crashes, no pointer faults. Documentation only; no code change after M2.6.101.
 
-**Latest:** [M2.6.111](../../port/ios/UPDATE_M2711.md) adds a Voice chat control (Off, Open mic, Push to talk) to Settings > Audio and an optional original-animations switch for big games.
+**Latest:** [M2.6.113](../../port/ios/UPDATE_M2713.md) moves to OpenCE **build 220** (same network version 29) and makes Settings > Mods the same list as the game's new Mods menu: mods turned on or off, reordered, removed or added in either place show in both.
+
+**Previous:** [M2.6.112](../../port/ios/UPDATE_M2712.md) adds Settings search, a Talk / Mute button on the touch controls, a microphone that is off by default and stays in sync with the game, a Halo player profile picker, emoji and photo Settings icons with favorites, and clearer Mods filters.
+
+**Previous:** [M2.6.111](../../port/ios/UPDATE_M2711.md) adds a Voice chat control (Off, Open mic, Push to talk) to Settings > Audio and an optional original-animations switch for big games.
 
 **Previous:** [M2.6.110](../../port/ios/UPDATE_M2710.md) integrates OpenCE build 211 (network 29 as before: no compatibility change from M2.6.109) and turns map sharing off by default, with a switch in Settings > Multiplayer.
 
@@ -88,6 +92,8 @@ No iOS release or downloadable release attachment has been published yet. A sour
 | Update | Highlights |
 | --- | --- |
 | M2.6.105 | OpenCE build 201 / network 28 integration: Custom Edition map sharing, shield glow and armor colors, first-person legs; no host import change. |
+| M2.6.113 | OpenCE build 220 integration (network 29): the new Mods system; Settings > Mods lists, orders, turns on and off, removes and adds mods in step with the game's Mods menu. |
+| M2.6.112 | Settings search; Talk / Mute touch button; microphone off by default and synced with the game; profile picker; emoji / photo Settings icons with favorites; Mods filters; title screen cleanup. |
 | M2.6.111 | Voice chat mode control in Settings > Audio; original-animations switch for 20+ player games. |
 | M2.6.110 | OpenCE build 211 integration (HUD button styles, vehicle and passenger meters, HUD upscaling, voice frame check); map sharing off by default on iOS with a Settings switch. |
 | M2.6.109 | OpenCE build 206 / network 29 integration: maps keep their names, safer map downloads, p2p address fix, stb_vorbis moved; no host import change. |

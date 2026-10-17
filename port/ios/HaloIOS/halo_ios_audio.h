@@ -35,6 +35,12 @@ uint32_t halo_ios_mic_available(void);
 /* Stops capture and puts the audio session back to playback only. */
 void halo_ios_mic_close(void);
 int halo_ios_mic_is_open(void);
+/* Open mic's Mute button: while muted the game hears silence. Not saved; every launch starts unmuted. */
+void halo_ios_mic_set_muted(int muted);
+int halo_ios_mic_is_muted(void);
+/* Push to talk's on-screen button: the game's own push-to-talk check reads this (with the keyboard key). */
+void halo_ios_ptt_set_held(int held);
+int halo_ios_ptt_held(void);
 /* Plain-language state for the log: why the microphone is or is not working. */
 const char *halo_ios_mic_status(void);
 

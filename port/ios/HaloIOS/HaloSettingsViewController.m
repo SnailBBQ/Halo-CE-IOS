@@ -14,8 +14,12 @@
 #import <CoreImage/CoreImage.h>
 #import <sys/utsname.h>
 
-static NSString *HaloAge(NSTimeInterval stamp);   /* defined further down; the Multiplayer screen uses it first */
+#import <ctype.h>
+static NSString *HaloAge(NSTimeInterval stamp);
+static NSString *HaloSaveGearPhoto(UIImage *image);   /* the Settings button pictures, defined at the end of this file */
+static void HaloApplyGearToken(NSString *token);   /* defined further down; the Multiplayer screen uses it first */
 #import "halo_guest_runner.h"
+#import "halo_settings_search.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 @interface HaloOptionPicker : UITableViewController
@@ -149,6 +153,25 @@ typedef NS_ENUM(NSInteger, HaloCategory) {
 - (UIView *)engineControllerCard:(const HsSettings *)settings;
 @end
 
+
+/* The search sheet behind the magnifier next to "Settings": suggestions first, matches as the person types. */
+@interface HaloSettingsSearch : UIViewController <UITableViewDataSource, UITableViewDelegate, UISearchBarDelegate>
+@property(nonatomic,copy) void (^pick)(int category, NSString *title);
+@property(nonatomic,strong) UISearchBar *bar;
+@property(nonatomic,strong) UITableView *table;
+@property(nonatomic) int *rows;
+@property(nonatomic) int rowCount;
+@property(nonatomic,copy) NSString *query;
+@end
+/* "Choose icon": built-in pictures, emoji, photos and favourites (a star on the right of each row). */
+@interface HaloIconPicker : UIViewController <UITableViewDataSource, UITableViewDelegate, UITextFieldDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate>
+@property(nonatomic,copy) void (^onFiles)(void);
+@property(nonatomic,strong) UITableView *table;
+@property(nonatomic,strong) UITextField *field;
+@property(nonatomic,strong) NSArray<NSArray<NSString *> *> *sections;
+@property(nonatomic,strong) NSArray<NSString *> *titles;
+@end
+
 @implementation HaloSettingsViewController
 
 static NSString *HaloCategoryTitle(HaloCategory c)
@@ -196,7 +219,17 @@ static NSString *HaloCategorySymbol(HaloCategory c)
     UIView *header = [[UIView alloc] init];
     header.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:header];
+    UIButton *search = [UIButton buttonWithType:UIButtonTypeSystem];
+    search.translatesAutoresizingMaskIntoConstraints = NO;
+    [search setImage:[UIImage systemImageNamed:@"magnifyingglass"] forState:UIControlStateNormal];
+    search.tintColor = UIColor.whiteColor;
+    search.accessibilityLabel = @"Search settings";
+    search.accessibilityIdentifier = @"HaloSidebarRow";
+    search.backgroundColor = HaloUICard();
+    search.layer.cornerRadius = 18;
+    [search addAction:[UIAction actionWithHandler:^(UIAction *action) { (void)action; [self openSearch]; }] forControlEvents:UIControlEventTouchUpInside];
     [header addSubview:title];
+    [header addSubview:search];
     [header addSubview:done];
     [title setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisVertical];
 
@@ -247,7 +280,11 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         [header.heightAnchor constraintEqualToConstant:48],
         [title.leadingAnchor constraintEqualToAnchor:header.leadingAnchor constant:4],
         [title.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
-        [title.trailingAnchor constraintLessThanOrEqualToAnchor:done.leadingAnchor constant:-12],
+        [search.leadingAnchor constraintEqualToAnchor:title.trailingAnchor constant:12],
+        [search.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
+        [search.widthAnchor constraintEqualToConstant:44],
+        [search.heightAnchor constraintEqualToConstant:36],
+        [search.trailingAnchor constraintLessThanOrEqualToAnchor:done.leadingAnchor constant:-12],
         [done.trailingAnchor constraintEqualToAnchor:header.trailingAnchor constant:-4],
         [done.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
         [done.heightAnchor constraintEqualToConstant:44],
@@ -277,6 +314,47 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUIApplyAccent(strong.view);[strong paintSidebar];}];
     self.selected = HaloCategoryMultiplayer;
     [self renderDetail];
+}
+
+/* The magnifier: pick a result and the Settings screen jumps to its category and flashes the row. */
+- (void)openSearch {
+    HaloSettingsSearch *sheet = [HaloSettingsSearch new];
+    __weak HaloSettingsViewController *weakSelf = self;
+    sheet.pick = ^(int category, NSString *title) { [weakSelf showSearchResult:(HaloCategory)category title:title]; };
+    sheet.modalPresentationStyle = UIModalPresentationFormSheet;
+    [self presentViewController:sheet animated:YES completion:nil];
+}
+
+static UIView *HaloFindLabel(UIView *root, NSString *title) {
+    NSString *wanted = [title.lowercaseString stringByReplacingOccurrencesOfString:@"…" withString:@""];
+    NSString *text = nil;
+    if ([root isKindOfClass:UILabel.class]) text = ((UILabel *)root).text;
+    else if ([root isKindOfClass:UIButton.class]) text = [(UIButton *)root titleForState:UIControlStateNormal];
+    if (text.length) {
+        NSString *have = [[text.lowercaseString stringByReplacingOccurrencesOfString:@"…" withString:@""] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+        if ([have isEqualToString:wanted] || [have hasPrefix:wanted]) return root;
+    }
+    for (UIView *child in root.subviews) { UIView *hit = HaloFindLabel(child, title); if (hit) return hit; }
+    return nil;
+}
+
+- (void)showSearchResult:(HaloCategory)category title:(NSString *)title {
+    if (category == HaloCategoryMods) { [self choose:category]; return; }
+    self.selected = category;
+    [self renderDetail];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIScrollView *scroll = (UIScrollView *)self.stack.superview;
+        [scroll layoutIfNeeded];
+        UIView *hit = HaloFindLabel(self.stack, title);
+        if (!hit) { [scroll setContentOffset:CGPointZero animated:NO]; return; }
+        UIView *row = hit;
+        while (row.superview && row.superview != self.stack) row = row.superview;   /* the card that holds it */
+        CGRect frame = [scroll convertRect:row.bounds fromView:row];
+        [scroll scrollRectToVisible:CGRectInset(frame, 0, -24) animated:YES];
+        UIColor *old = row.backgroundColor ?: UIColor.clearColor;
+        row.backgroundColor = [HaloUIAccent() colorWithAlphaComponent:0.45];
+        [UIView animateWithDuration:1.4 delay:0.5 options:UIViewAnimationOptionAllowUserInteraction animations:^{ row.backgroundColor = old; } completion:nil];
+    });
 }
 
 - (void)paintSidebar {
@@ -462,15 +540,9 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         if (access) [url stopAccessingSecurityScopedResource];
         UIImage *image = data ? [UIImage imageWithData:data] : nil;
         if (!image || !image.CGImage || CGImageGetWidth(image.CGImage) > 2048 || CGImageGetHeight(image.CGImage) > 2048) { halo_ios_toast("Choose an image up to 8 MB and 2048 pixels"); return; }
-        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(128,128)];
-        UIImage *icon = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
-            (void)context; CGFloat scale = MIN(128/image.size.width,128/image.size.height);
-            CGSize fitted=CGSizeMake(image.size.width*scale,image.size.height*scale);
-            [image drawInRect:CGRectMake((128-fitted.width)/2,(128-fitted.height)/2,fitted.width,fitted.height)];
-        }];
-        NSString *path = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Halo/settings-icon.png"];
-        if (![UIImagePNGRepresentation(icon) writeToFile:path atomically:YES]) { halo_ios_toast("Could not save the icon"); return; }
-        [self update:^(HsSettings *s) { s->gear_icon=4; }]; [self renderSoon]; return;
+        NSString *token = HaloSaveGearPhoto(image);
+        if (!token) { halo_ios_toast("Could not save the icon"); return; }
+        HaloApplyGearToken(token); [self renderSoon]; return;
     }
     if (self.pickerKind == 2) {   /* a profile file to import */
         self.pickerKind = 0;
@@ -717,14 +789,14 @@ static NSString *HaloCategorySymbol(HaloCategory c)
         HaloUISliderRow(@"Music",0,1,settings->music_volume,@"%.2f",^(float v){[self update:^(HsSettings *s){s->music_volume=v;}];}),
         HaloUISliderRow(@"Dialogue",0,1,settings->dialogue_volume,@"%.2f",^(float v){[self update:^(HsSettings *s){s->dialogue_volume=v;}];}),
         HaloUISliderRow(@"Effects",0,1,settings->effects_volume,@"%.2f",^(float v){[self update:^(HsSettings *s){s->effects_volume=v;}];}),
-        HaloUINote(@"Master, Music, Effects and Sound synchronize with the in-game audio menu. Dialogue and Ambient are additional iOS controls. Halo plays even when the ring/silent switch is on.")])];
+        HaloUISliderRow(@"Ambient",0,1,settings->ambient_volume,@"%.2f",^(float v){[self update:^(HsSettings *s){s->ambient_volume=v;}];}),
+        HaloUISwitchRow(@"Reverb",@"Echo and room sound from the places in each map, as on the original Xbox. Off keeps sounds dry.",settings->reverb,^(BOOL on){[self update:^(HsSettings *s){s->reverb=on;}];}),
+        HaloUINote(@"Master, Music, Effects, Reverb and Sound stay in step with the in-game audio menu. Dialogue and Ambient (water, wind, machinery, doors) are extra iOS controls: lower Ambient if a background noise bothers you. Halo plays even when the ring/silent switch is on.")])];
     [self add:HaloUICardView(@"Voice chat", @[
-        HaloUISegmentRow(@"Your microphone", @[@"Off", @"Open mic", @"Push to talk"], HaloVoiceChatMode(), ^(NSInteger i) {
-            if (!HaloVoiceChatSetMode(i)) halo_ios_toast("Could not save the voice chat setting"); }),
-        HaloUINote(@"Open mic sends your voice whenever you speak. Push to talk needs a keyboard or controller button (the phone has none yet). Off keeps your microphone closed; you still hear other players, and their volume is the in-game Voice volume. AirPods and other headsets with a microphone are used when connected. iOS asks for microphone access the first time. Takes effect the next time the game starts.")])];
-    [self add:HaloUICardView(@"Ambient sound", @[
-        HaloUISliderRow(@"Ambient volume", 0.0f, 1.0f, settings->ambient_volume, @"%.2f", ^(float v) { [self update:^(HsSettings *s) { s->ambient_volume = v; }]; }),
-        HaloUINote(@"The environment: water, wind, machinery and computer hum, and the sounds of doors and devices. If a strange background noise bothers you, lower this to find out whether it is one of these.")])];
+        HaloUISegmentRow(@"Your microphone", @[@"Off", @"Open mic", @"Push to talk"], settings->voice_mode, ^(NSInteger i) {
+            [self update:^(HsSettings *s) { s->voice_mode = (int)i; }]; }),
+        HaloUISliderRow(@"Voice volume",0,2,settings->voice_volume,@"%.2f",^(float v){[self update:^(HsSettings *s){s->voice_volume=v;}];}),
+        HaloUINote(@"The microphone is off by default. Open mic sends your voice whenever you speak, and a Mute button appears between Back and Start. Push to talk puts a Talk button there that you hold to speak. Off closes the microphone; you still hear other players. Voice volume is how loud they are. AirPods and other headsets with a microphone are used when connected. iOS asks for microphone access the first time. This matches the in-game Audio > Voice Chat setting.")])];
     [self add:HaloUICardView(@"If sound misbehaves", @[
         HaloUIButton(@"Restart audio output", 0, ^(UIButton *b) { (void)b; halo_ios_audio_restart(); halo_ios_toast("Audio output restarted"); }),
         HaloUINote(@"Stops and starts the phone's audio engine without touching the game. Try it if sound cuts out or crackles after a call, headphones or Bluetooth changes.")])];
@@ -895,11 +967,10 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
     [self addCheatSection:@"Teleport" summary:@"Crosshair and saved positions" views:cards];
 
     cards = [NSMutableArray array];
-    [cards addObject:HaloUICardView(@"Vehicle spawner", @[
-        HaloUINote(@"Pickups appear in front of you. Only assets already loaded by the current map are supported; unavailable assets report a message."),
-        HaloUIButton(@"Vehicle spawner", 0, ^(UIButton *b) { [self chooseCampaignAsset:@"Vehicle" names:@[@"Warthog", @"Ghost", @"Banshee", @"Scorpion"] base:200]; }),
-        HaloUINote(@"Only vehicles loaded by the current map can be spawned.")])];
-    [self addCheatSection:@"Spawn" summary:@"Vehicles" views:cards];
+    [cards addObject:HaloUICardView(nil, @[
+        HaloUIButton(@"Choose a vehicle", 0, ^(UIButton *b) { [self chooseCampaignAsset:@"Spawn a vehicle" names:@[@"Warthog", @"Ghost", @"Banshee", @"Scorpion"] base:200]; }),
+        HaloUINote(@"The vehicle appears in front of you. Only vehicles loaded by the current map can be spawned; others report a message.")])];
+    [self addCheatSection:@"Vehicle Spawner" summary:@"Warthog, Ghost, Banshee, Scorpion" views:cards];
 #undef CHEAT_SWITCH
     [self add:HaloUICardView(nil, @[HaloUINote(@"Changes apply within a moment, also in the middle of a mission.")])];
 }
@@ -1059,8 +1130,22 @@ static UIView *HaloProfileSummary(NSString *title,NSString *detail) {
     return row;
 }
 
+/* Lists the Halo player profiles the game has and switches to the one picked (the game does the switching, within a second). */
+- (void)chooseHaloProfile {
+    HaloProfileEntry list[HALO_PROFILE_MAX];
+    int count=halo_ios_profile_list(list,HALO_PROFILE_MAX);
+    if(count<=0){halo_ios_toast("No saved Halo player profiles yet. Make one in the game's Profiles menu first.");return;}
+    NSMutableArray *names=[NSMutableArray array],*indices=[NSMutableArray array];
+    for(int i=0;i<count;i++){[names addObject:[NSString stringWithFormat:@"%@%s",list[i].active?@"✓  ":@"",list[i].name]];[indices addObject:@(list[i].index)];}
+    [self presentChoices:@"Halo player profile" names:names from:self pick:^(NSUInteger choice){
+        if(choice>=indices.count)return;
+        halo_ios_profile_select([indices[choice] unsignedIntValue]);
+        halo_ios_toast("Switching profile");
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(1.2*NSEC_PER_SEC)),dispatch_get_main_queue(),^{[self renderDetail];});
+    }];
+}
 - (UIView *)engineControllerCard:(const HsSettings *)settings {
-    if(!settings->game_profile_ready)return HaloUICardView(@"Halo controller settings",@[HaloUINote(@"Select a Halo player profile in-game to edit its controller preferences here.")]);
+    if(!settings->game_profile_ready)return HaloUICardView(@"Halo controller settings",@[HaloUIButton(@"Choose a Halo player profile",1,^(UIButton *b){(void)b;[self chooseHaloProfile];}),HaloUINote(@"Pick the Halo player profile whose controller preferences you want to edit here.")]);
     NSMutableArray *rows=[NSMutableArray array];
     [rows addObject:HaloUISliderRow(@"Look sensitivity",1,10,settings->game_controls[0],@"%.0f",^(float value){[self update:^(HsSettings *s){s->game_controls[0]=(int)lroundf(value);}];})];
     NSArray *labels=@[@"Invert look",@"Invert flight",@"Auto-center look",@"Vibration",@"In-game help"];
@@ -1089,13 +1174,14 @@ static UIView *HaloProfileSummary(NSString *title,NSString *detail) {
         HaloUIButton(@"Edit campaign checkpoint",0,^(UIButton *b){(void)b;UIViewController *editor=HaloCheckpointEditorController();editor.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:editor animated:YES completion:nil];}),
         HaloUINote(@"Restore from a .halobackup archive on the next launch with a recovery backup. For a fresh installation, also restore its matching Halo player profile. Checkpoint edits cover health, shields, grenades and existing weapon ammo.")])];
     [self add:HaloUICardView(@"Halo player profiles", @[
-        HaloUIButton(@"In-game name",0,^(UIButton *b){(void)b;HsSettings current=[HaloSettingsStore.shared snapshot];if(!current.game_profile_ready){halo_ios_toast("Select a Halo player profile in-game first");return;}
+        HaloUIButton(settings->game_profile_ready?[NSString stringWithFormat:@"Active profile: %s",settings->game_name]:@"Choose a Halo player profile",1,^(UIButton *b){(void)b;[self chooseHaloProfile];}),
+        HaloUIButton(@"In-game name",0,^(UIButton *b){(void)b;HsSettings current=[HaloSettingsStore.shared snapshot];if(!current.game_profile_ready){[self chooseHaloProfile];return;}
             UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"In-game name" message:@"Up to 11 ASCII letters, numbers or supported punctuation. Saved to the active Halo profile; new games use the updated name." preferredStyle:UIAlertControllerStyleAlert];
             [alert addTextFieldWithConfigurationHandler:^(UITextField *f){f.text=[NSString stringWithUTF8String:current.game_name];f.autocorrectionType=UITextAutocorrectionTypeNo;}];
             [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
             [alert addAction:[UIAlertAction actionWithTitle:@"Save" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){(void)a;NSString *name=alert.textFields[0].text;NSData *ascii=[name dataUsingEncoding:NSASCIIStringEncoding allowLossyConversion:NO];if(!ascii.length || ascii.length>11){halo_ios_toast("Use 1–11 ASCII characters");return;}[self update:^(HsSettings *s){snprintf(s->game_name,24,"%s",name.UTF8String);}];}]];
             [self presentViewController:alert animated:YES completion:nil];}),
-        HaloUIButton(@"Multiplayer armor color",0,^(UIButton *b){(void)b;if(![HaloSettingsStore.shared snapshot].game_profile_ready){halo_ios_toast("Select a Halo player profile first");return;}
+        HaloUIButton(@"Multiplayer armor color",0,^(UIButton *b){(void)b;if(![HaloSettingsStore.shared snapshot].game_profile_ready){[self chooseHaloProfile];return;}
             [self presentChoices:@"Armor color" names:@[@"White",@"Black",@"Red",@"Blue",@"Gray",@"Yellow",@"Green",@"Pink",@"Purple",@"Cyan",@"Light blue",@"Orange",@"Teal",@"Dark green",@"Brown",@"Tan",@"Maroon",@"Salmon"] from:self pick:^(NSUInteger choice){[self update:^(HsSettings *s){s->game_color=(int)choice;}];}];}),
         HaloUIButton(@"Import / export Halo player profiles",1,^(UIButton *b){(void)b;UIViewController *c=HaloBackupsControllerForSections(32);c.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:c animated:YES completion:nil];})])];
     [self add:HaloUINote(@"Name and color edit the active Halo player profile. Rejoin a multiplayer session to publish changes to other players. Built-in default profiles are temporary; create a named profile in-game to keep changes after relaunch.")];
@@ -1199,10 +1285,11 @@ static UIColor *HaloColorFromRGB(unsigned rgb) {
         HaloUIButton(@"Hide / show shortcut",1,^(UIButton *button){(void)button;[self editShortcut:0];}),
         HaloUINote(@"Default: Up, Up, Down, Down, Left, Right, Left, Right, B, A. Works on touch controls or a controller. Three-finger double-tap always restores the icon; relaunch also restores it."),
         HaloUISliderRow(@"Opacity",.15f,1.f,settings->gear_opacity,@"%.2f",^(float value){[self update:^(HsSettings *s){s->gear_opacity=value;}];}),
-        HaloUIButton(@"Choose icon",0,^(UIButton *button){(void)button;[self presentChoices:@"Settings icon" names:@[@"Default gear",@"Sliders",@"Controller",@"Grid",@"Image from Files…"] from:self pick:^(NSUInteger choice){
-            if(choice<4){[self update:^(HsSettings *s){s->gear_icon=(int)choice;}];return;}
-            self.pickerKind=3;UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeImage] asCopy:YES];picker.delegate=self;[self presentViewController:picker animated:YES completion:nil];
-        }];}),
+        HaloUIButton(@"Choose icon",0,^(UIButton *button){(void)button;HaloIconPicker *picker=[HaloIconPicker new];
+            __weak HaloSettingsViewController *weakSelf=self;
+            picker.onFiles=^{HaloSettingsViewController *strong=weakSelf;if(!strong)return;strong.pickerKind=3;UIDocumentPickerViewController *files=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeImage] asCopy:YES];files.delegate=strong;[strong presentViewController:files animated:YES completion:nil];};
+            picker.modalPresentationStyle=UIModalPresentationFormSheet;[self presentViewController:picker animated:YES completion:^{}];}),
+        HaloUINote(@"Pick a built-in icon, an emoji, or a picture from Photos or Files. Tap the star to keep a favorite at the top of the list."),
         HaloUISliderRow(@"Size",.75f,1.75f,settings->gear_scale,@"%.2f×",^(float value){[self update:^(HsSettings *s){s->gear_scale=value;}];}),
         HaloUINote(@"Touch and hold the gear to move it. Its touch target remains at least 44 points."),
         HaloUIButton(@"Reset size and position",0,^(UIButton *button){(void)button;[self update:^(HsSettings *s){s->gear_scale=1;s->gear_placed=0;}];[self renderSoon];})])];
@@ -1357,4 +1444,322 @@ static UIColor *HaloColorFromRGB(unsigned rgb) {
     [self presentViewController:alert animated:YES completion:nil];
 }
 
+@end
+@implementation HaloSettingsSearch
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.view.backgroundColor=HaloUIBackground();
+    self.rows=calloc((size_t)HSS_COUNT,sizeof(int));self.query=@"";
+    UILabel *title=HaloUILabel(@"Search settings",20,UIFontWeightBold,nil);title.translatesAutoresizingMaskIntoConstraints=NO;
+    UIButton *close=HaloUIButton(@"Close",0,^(UIButton *b){(void)b;[self dismissViewControllerAnimated:YES completion:nil];});close.translatesAutoresizingMaskIntoConstraints=NO;
+    self.bar=[UISearchBar new];self.bar.translatesAutoresizingMaskIntoConstraints=NO;self.bar.delegate=self;self.bar.placeholder=@"Search options, e.g. “mic”, “FPS”, “vehicle”";
+    self.bar.searchBarStyle=UISearchBarStyleMinimal;self.bar.autocapitalizationType=UITextAutocapitalizationTypeNone;self.bar.autocorrectionType=UITextAutocorrectionTypeNo;self.bar.returnKeyType=UIReturnKeyDone;
+    self.table=[[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];self.table.translatesAutoresizingMaskIntoConstraints=NO;
+    self.table.dataSource=self;self.table.delegate=self;self.table.backgroundColor=UIColor.clearColor;self.table.keyboardDismissMode=UIScrollViewKeyboardDismissModeOnDrag;
+    [self.view addSubview:title];[self.view addSubview:close];[self.view addSubview:self.bar];[self.view addSubview:self.table];
+    UILayoutGuide *safe=self.view.safeAreaLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [title.topAnchor constraintEqualToAnchor:safe.topAnchor constant:14],[title.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:20],
+        [close.centerYAnchor constraintEqualToAnchor:title.centerYAnchor],[close.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],[close.heightAnchor constraintEqualToConstant:44],[close.widthAnchor constraintEqualToConstant:84],
+        [self.bar.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:8],[self.bar.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:10],[self.bar.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-10],
+        [self.table.topAnchor constraintEqualToAnchor:self.bar.bottomAnchor],[self.table.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor],[self.table.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor],[self.table.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor]]];
+    [self reload];
+}
+- (void)viewDidAppear:(BOOL)animated {[super viewDidAppear:animated];[self.bar becomeFirstResponder];}
+- (void)dealloc {free(self.rows);}
+- (void)reload {
+    NSString *q=[self.query stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+    self.rowCount=q.length?hss_search(q.UTF8String,self.rows,HSS_COUNT):hss_suggestions(self.rows,HSS_COUNT);
+    [self.table reloadData];
+}
+- (void)searchBar:(UISearchBar *)searchBar textDidChange:(NSString *)searchText {(void)searchBar;self.query=searchText?:@"";[self reload];}
+- (void)searchBarSearchButtonClicked:(UISearchBar *)searchBar {[searchBar resignFirstResponder];}
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {(void)tableView;return 1;}
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {(void)tableView;(void)section;return MAX(self.rowCount,1);}
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+    (void)tableView;(void)section;
+    if(!self.query.length)return @"Suggested";
+    return self.rowCount?[NSString stringWithFormat:@"%d result%@",self.rowCount,self.rowCount==1?@"":@"s"]:@"No results";
+}
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    UITableViewCell *cell=[tableView dequeueReusableCellWithIdentifier:@"hit"];
+    if(!cell)cell=[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"hit"];
+    cell.backgroundColor=HaloUICard();cell.textLabel.textColor=UIColor.whiteColor;cell.detailTextLabel.textColor=HaloUISecondaryText();cell.tintColor=HaloUIAccent();
+    if(!self.rowCount){cell.textLabel.text=@"Nothing matches";cell.detailTextLabel.text=@"Try a shorter word, like “sound”, “look” or “map”.";cell.imageView.image=nil;cell.accessoryType=UITableViewCellAccessoryNone;cell.selectionStyle=UITableViewCellSelectionStyleNone;return cell;}
+    const HssEntry *entry=&hss_entries[self.rows[indexPath.row]];
+    cell.textLabel.text=[NSString stringWithUTF8String:entry->title];
+    cell.detailTextLabel.text=[NSString stringWithUTF8String:hss_category_names[entry->category]];
+    cell.imageView.image=[[UIImage systemImageNamed:HaloCategorySymbol((HaloCategory)entry->category)] imageWithTintColor:HaloUIAccent() renderingMode:UIImageRenderingModeAlwaysOriginal];
+    cell.accessoryType=UITableViewCellAccessoryDisclosureIndicator;cell.selectionStyle=UITableViewCellSelectionStyleDefault;
+    return cell;
+}
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    if(!self.rowCount)return;
+    const HssEntry *entry=&hss_entries[self.rows[indexPath.row]];
+    int category=entry->category;NSString *title=[NSString stringWithUTF8String:entry->title];void (^pick)(int,NSString *)=self.pick;
+    [self dismissViewControllerAnimated:YES completion:^{if(pick)pick(category,title);}];
+}
+@end
+
+#pragma mark - Settings button pictures
+
+static NSString *HaloGearPhotoFolder(void) { return [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Halo/icons"]; }
+
+static UIImage *HaloEmojiImage(NSString *emoji) {
+    static NSMutableDictionary<NSString *, UIImage *> *cache;
+    if (!cache) cache = [NSMutableDictionary dictionary];
+    if (cache[emoji]) return cache[emoji];
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(128, 128)];
+    UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+        (void)context;
+        NSDictionary *attributes = @{ NSFontAttributeName: [UIFont systemFontOfSize:92] };
+        CGSize size = [emoji sizeWithAttributes:attributes];
+        [emoji drawAtPoint:CGPointMake((128 - size.width) / 2, (128 - size.height) / 2) withAttributes:attributes];
+    }];
+    cache[emoji] = image;
+    return image;
+}
+
+/* A token is "s0".."s3" (built-in), "e:<emoji>" or "p:<8 hex>" (a photo in Documents/Halo/icons). */
+static UIImage *HaloTokenImage(NSString *token, BOOL large) {
+    if ([token hasPrefix:@"e:"] && token.length > 2) return HaloEmojiImage([token substringFromIndex:2]);
+    if ([token hasPrefix:@"p:"] && token.length == 10) {
+        for (NSUInteger i = 2; i < token.length; i++) if (!isxdigit([token characterAtIndex:i])) return nil;
+        return [UIImage imageWithContentsOfFile:[HaloGearPhotoFolder() stringByAppendingPathComponent:[[token substringFromIndex:2] stringByAppendingString:@".png"]]];
+    }
+    if (token.length == 2 && [token hasPrefix:@"s"]) {
+        int n = [token characterAtIndex:1] - '0';
+        NSArray *names = @[@"gearshape.fill", @"slider.horizontal.3", @"gamecontroller.fill", @"circle.grid.2x2.fill"];
+        if (n >= 0 && n < 4) {
+            UIImageSymbolConfiguration *config = [UIImageSymbolConfiguration configurationWithPointSize:large ? 28 : 20 weight:UIImageSymbolWeightSemibold];
+            return [[UIImage systemImageNamed:names[(NSUInteger)n] withConfiguration:config] imageWithTintColor:UIColor.whiteColor renderingMode:UIImageRenderingModeAlwaysOriginal];
+        }
+    }
+    return nil;
+}
+
+UIImage *HaloGearCustomImage(const void *raw) {
+    const HsSettings *settings = raw;
+    UIImage *image = nil;
+    if (settings->gear_icon == 5) image = HaloTokenImage([NSString stringWithUTF8String:settings->gear_token], NO);
+    else if (settings->gear_icon == 4) image = [UIImage imageWithContentsOfFile:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Halo/settings-icon.png"]];
+    return image;
+}
+
+/* Saves a 128 point picture as a photo icon and returns its token ("p:xxxxxxxx"). */
+static NSString *HaloSaveGearPhoto(UIImage *image) {
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(128, 128)];
+    UIImage *icon = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+        (void)context;
+        CGFloat scale = MIN(128 / image.size.width, 128 / image.size.height);
+        CGSize fitted = CGSizeMake(image.size.width * scale, image.size.height * scale);
+        [image drawInRect:CGRectMake((128 - fitted.width) / 2, (128 - fitted.height) / 2, fitted.width, fitted.height)];
+    }];
+    NSFileManager *files = NSFileManager.defaultManager;
+    [files createDirectoryAtPath:HaloGearPhotoFolder() withIntermediateDirectories:YES attributes:nil error:nil];
+    NSString *name = [NSString stringWithFormat:@"%08x", arc4random()];
+    NSString *path = [HaloGearPhotoFolder() stringByAppendingPathComponent:[name stringByAppendingString:@".png"]];
+    if (![UIImagePNGRepresentation(icon) writeToFile:path atomically:YES]) return nil;
+    /* keep the folder small: the 24 newest pictures */
+    NSArray *names = [files contentsOfDirectoryAtPath:HaloGearPhotoFolder() error:nil];
+    if (names.count > 24) {
+        NSArray *sorted = [names sortedArrayUsingComparator:^NSComparisonResult(NSString *a, NSString *b) {
+            NSDate *da = [files attributesOfItemAtPath:[HaloGearPhotoFolder() stringByAppendingPathComponent:a] error:nil][NSFileModificationDate] ?: NSDate.distantPast;
+            NSDate *db = [files attributesOfItemAtPath:[HaloGearPhotoFolder() stringByAppendingPathComponent:b] error:nil][NSFileModificationDate] ?: NSDate.distantPast;
+            return [da compare:db];
+        }];
+        for (NSUInteger i = 0; i + 24 < sorted.count; i++) [files removeItemAtPath:[HaloGearPhotoFolder() stringByAppendingPathComponent:sorted[i]] error:nil];
+    }
+    return [@"p:" stringByAppendingString:name];
+}
+
+static NSString *HaloCurrentGearToken(const HsSettings *s) {
+    if (s->gear_icon == 5) return [NSString stringWithUTF8String:s->gear_token];
+    if (s->gear_icon >= 0 && s->gear_icon < 4) return [NSString stringWithFormat:@"s%d", s->gear_icon];
+    return @"";
+}
+
+static void HaloApplyGearToken(NSString *token) {
+    [HaloSettingsStore.shared update:^(HsSettings *s) {
+        if (token.length == 2 && [token hasPrefix:@"s"]) { s->gear_icon = [token characterAtIndex:1] - '0'; s->gear_token[0] = 0; }
+        else { s->gear_icon = 5; strncpy(s->gear_token, token.UTF8String, sizeof(s->gear_token) - 1); s->gear_token[sizeof(s->gear_token) - 1] = 0; }
+    }];
+}
+
+static NSArray<NSString *> *HaloFavoriteTokens(const HsSettings *s) {
+    NSString *all = [NSString stringWithUTF8String:s->gear_favs];
+    NSMutableArray *tokens = [NSMutableArray array];
+    for (NSString *part in [all componentsSeparatedByString:@"|"]) if (part.length) [tokens addObject:part];
+    return tokens;
+}
+
+static BOOL HaloToggleFavorite(NSString *token) {   /* NO when the list is full */
+    __block BOOL ok = YES;
+    [HaloSettingsStore.shared update:^(HsSettings *s) {
+        NSMutableArray *tokens = [HaloFavoriteTokens(s) mutableCopy];
+        if ([tokens containsObject:token]) [tokens removeObject:token];
+        else {
+            [tokens addObject:token];
+            if ([tokens componentsJoinedByString:@"|"].length >= sizeof(s->gear_favs)) { ok = NO; return; }
+        }
+        strncpy(s->gear_favs, [tokens componentsJoinedByString:@"|"].UTF8String, sizeof(s->gear_favs) - 1);
+        s->gear_favs[sizeof(s->gear_favs) - 1] = 0;
+    }];
+    return ok;
+}
+
+@implementation HaloIconPicker
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.view.backgroundColor = HaloUIBackground();
+    UILabel *title = HaloUILabel(@"Settings button icon", 20, UIFontWeightBold, nil);
+    title.translatesAutoresizingMaskIntoConstraints = NO;
+    UIButton *close = HaloUIButton(@"Done", 1, ^(UIButton *b) { (void)b; [self dismissViewControllerAnimated:YES completion:nil]; });
+    close.translatesAutoresizingMaskIntoConstraints = NO;
+    self.field = [UITextField new];
+    self.field.translatesAutoresizingMaskIntoConstraints = NO;
+    self.field.placeholder = @"Type or paste an emoji";
+    self.field.textColor = UIColor.whiteColor;
+    self.field.backgroundColor = HaloUICard();
+    self.field.layer.cornerRadius = 10;
+    self.field.leftView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 12, 10)];
+    self.field.leftViewMode = UITextFieldViewModeAlways;
+    self.field.delegate = self;
+    self.field.returnKeyType = UIReturnKeyDone;
+    self.field.autocorrectionType = UITextAutocorrectionTypeNo;
+    UIButton *use = HaloUIButton(@"Use emoji", 1, ^(UIButton *b) { (void)b; [self useTypedEmoji]; });
+    use.translatesAutoresizingMaskIntoConstraints = NO;
+    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
+    self.table.translatesAutoresizingMaskIntoConstraints = NO;
+    self.table.dataSource = self;
+    self.table.delegate = self;
+    self.table.backgroundColor = UIColor.clearColor;
+    self.table.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
+    for (UIView *view in @[title, close, self.field, use, self.table]) [self.view addSubview:view];
+    UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [title.topAnchor constraintEqualToAnchor:safe.topAnchor constant:14], [title.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:20],
+        [close.centerYAnchor constraintEqualToAnchor:title.centerYAnchor], [close.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
+        [close.heightAnchor constraintEqualToConstant:44], [close.widthAnchor constraintEqualToConstant:84],
+        [self.field.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:14], [self.field.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:20],
+        [self.field.heightAnchor constraintEqualToConstant:44],
+        [use.leadingAnchor constraintEqualToAnchor:self.field.trailingAnchor constant:10], [use.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
+        [use.centerYAnchor constraintEqualToAnchor:self.field.centerYAnchor], [use.widthAnchor constraintEqualToConstant:112], [use.heightAnchor constraintEqualToConstant:44],
+        [self.table.topAnchor constraintEqualToAnchor:self.field.bottomAnchor constant:8], [self.table.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor],
+        [self.table.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor], [self.table.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor]]];
+    [self reload];
+}
+- (void)reload {
+    HsSettings s = [HaloSettingsStore.shared snapshot];
+    NSMutableArray *sections = [NSMutableArray array], *titles = [NSMutableArray array];
+    NSArray *favorites = HaloFavoriteTokens(&s);
+    if (favorites.count) { [sections addObject:favorites]; [titles addObject:@"Favorites"]; }
+    [sections addObject:@[@"s0", @"s1", @"s2", @"s3"]]; [titles addObject:@"Built-in"];
+    NSMutableArray *emoji = [NSMutableArray array];
+    NSString *current = HaloCurrentGearToken(&s);
+    NSArray *quick = @[@"e:🎮", @"e:🪖", @"e:🛡️", @"e:🚀", @"e:⭐", @"e:💥", @"e:👾", @"e:🐗", @"e:⚙️", @"e:🔧"];
+    if ([current hasPrefix:@"e:"] && ![quick containsObject:current]) [emoji addObject:current];
+    [emoji addObjectsFromArray:quick];
+    [sections addObject:emoji]; [titles addObject:@"Emoji"];
+    NSMutableArray *photos = [NSMutableArray array];
+    NSArray *names = [[NSFileManager.defaultManager contentsOfDirectoryAtPath:HaloGearPhotoFolder() error:nil] sortedArrayUsingSelector:@selector(compare:)];
+    for (NSString *name in names) if ([name.pathExtension isEqual:@"png"] && name.stringByDeletingPathExtension.length == 8) [photos addObject:[@"p:" stringByAppendingString:name.stringByDeletingPathExtension]];
+    [sections addObject:photos]; [titles addObject:@"Your photos"];
+    self.sections = sections; self.titles = titles;
+    [self.table reloadData];
+}
+- (BOOL)textFieldShouldReturn:(UITextField *)field { [field resignFirstResponder]; [self useTypedEmoji]; return YES; }
+- (void)useTypedEmoji {
+    NSString *text = [self.field.text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    __block NSString *emoji = nil;
+    [text enumerateSubstringsInRange:NSMakeRange(0, text.length) options:NSStringEnumerationByComposedCharacterSequences usingBlock:^(NSString *piece, NSRange r, NSRange er, BOOL *stop) {
+        (void)r; (void)er; emoji = piece; *stop = YES;
+    }];
+    if (!emoji.length || [emoji lengthOfBytesUsingEncoding:NSUTF8StringEncoding] > 30 || [emoji stringByTrimmingCharactersInSet:NSCharacterSet.alphanumericCharacterSet].length == 0) {
+        halo_ios_toast("Type one emoji"); return;
+    }
+    emoji = [emoji stringByReplacingOccurrencesOfString:@"|" withString:@""];
+    HaloApplyGearToken([@"e:" stringByAppendingString:emoji]);
+    self.field.text = @""; [self.field resignFirstResponder]; [self reload];
+}
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { (void)tableView; return (NSInteger)self.sections.count + 1; }
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    (void)tableView;
+    if (section == (NSInteger)self.sections.count) return 2;   /* Photos, Files */
+    return (NSInteger)self.sections[(NSUInteger)section].count + (self.sections[(NSUInteger)section].count == 0 && [self.titles[(NSUInteger)section] isEqual:@"Your photos"] ? 1 : 0);
+}
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+    (void)tableView;
+    return section == (NSInteger)self.sections.count ? @"Add a picture" : self.titles[(NSUInteger)section];
+}
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil];
+    cell.backgroundColor = HaloUICard(); cell.textLabel.textColor = UIColor.whiteColor; cell.tintColor = HaloUIAccent();
+    if (indexPath.section == (NSInteger)self.sections.count) {
+        cell.textLabel.text = indexPath.row == 0 ? @"Choose from Photos…" : @"Choose from Files…";
+        cell.imageView.image = [[UIImage systemImageNamed:indexPath.row == 0 ? @"photo.on.rectangle" : @"folder"] imageWithTintColor:HaloUIAccent() renderingMode:UIImageRenderingModeAlwaysOriginal];
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        return cell;
+    }
+    NSArray *tokens = self.sections[(NSUInteger)indexPath.section];
+    if (!tokens.count) { cell.textLabel.text = @"Photos you pick appear here"; cell.textLabel.textColor = HaloUISecondaryText(); cell.selectionStyle = UITableViewCellSelectionStyleNone; return cell; }
+    NSString *token = tokens[(NSUInteger)indexPath.row];
+    HsSettings s = [HaloSettingsStore.shared snapshot];
+    BOOL selected = [HaloCurrentGearToken(&s) isEqualToString:token];
+    BOOL favorite = [HaloFavoriteTokens(&s) containsObject:token];
+    if ([token hasPrefix:@"e:"]) { cell.textLabel.text = [token substringFromIndex:2]; cell.textLabel.font = [UIFont systemFontOfSize:30]; }
+    else if ([token hasPrefix:@"p:"]) cell.textLabel.text = @"Photo";
+    else cell.textLabel.text = @[@"Default gear", @"Sliders", @"Controller", @"Grid"][(NSUInteger)MAX(0, MIN(3, [token characterAtIndex:1] - '0'))];
+    if (![token hasPrefix:@"e:"]) {
+        UIImage *picture = HaloTokenImage(token, YES);
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(36, 36)];
+        cell.imageView.image = picture ? [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) { (void)context; [picture drawInRect:CGRectMake(0, 0, 36, 36)]; }] : nil;
+    }
+    cell.backgroundColor = selected ? [HaloUIAccent() colorWithAlphaComponent:0.35] : HaloUICard();
+    UIButton *star = [UIButton buttonWithType:UIButtonTypeSystem];
+    star.frame = CGRectMake(0, 0, 44, 44);
+    [star setImage:[UIImage systemImageNamed:favorite ? @"star.fill" : @"star"] forState:UIControlStateNormal];
+    star.tintColor = favorite ? [UIColor colorWithRed:1 green:0.8 blue:0.2 alpha:1] : HaloUISecondaryText();
+    star.accessibilityLabel = favorite ? @"Remove from favorites" : @"Add to favorites";
+    __weak HaloIconPicker *weakSelf = self;
+    [star addAction:[UIAction actionWithHandler:^(UIAction *action) {
+        (void)action;
+        if (!HaloToggleFavorite(token)) halo_ios_toast("Favorites are full. Remove one first.");
+        [weakSelf reload];
+    }] forControlEvents:UIControlEventTouchUpInside];
+    cell.accessoryView = star;
+    return cell;
+}
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    if (indexPath.section == (NSInteger)self.sections.count) {
+        if (indexPath.row == 0) {
+            if (![UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypePhotoLibrary]) { halo_ios_toast("Photos are not available"); return; }
+            UIImagePickerController *picker = [UIImagePickerController new];
+            picker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
+            picker.allowsEditing = YES;   /* a square crop */
+            picker.delegate = self;
+            [self presentViewController:picker animated:YES completion:nil];
+        } else {
+            void (^files)(void) = self.onFiles;
+            [self dismissViewControllerAnimated:YES completion:^{ if (files) files(); }];
+        }
+        return;
+    }
+    NSArray *tokens = self.sections[(NSUInteger)indexPath.section];
+    if (indexPath.row >= (NSInteger)tokens.count) return;
+    HaloApplyGearToken(tokens[(NSUInteger)indexPath.row]);
+    [self reload];
+}
+- (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> *)info {
+    UIImage *image = info[UIImagePickerControllerEditedImage] ?: info[UIImagePickerControllerOriginalImage];
+    [picker dismissViewControllerAnimated:YES completion:nil];
+    if (!image || !image.CGImage) { halo_ios_toast("Could not read that picture"); return; }
+    NSString *token = HaloSaveGearPhoto(image);
+    if (!token) { halo_ios_toast("Could not save the icon"); return; }
+    HaloApplyGearToken(token);
+    [self reload];
+}
+- (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker { [picker dismissViewControllerAnimated:YES completion:nil]; }
 @end

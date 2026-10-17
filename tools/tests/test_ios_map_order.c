@@ -53,6 +53,8 @@ int main(void)
     int visible = 0;
     for (int i = 0; i < n; i++) visible += hm_visible(stock[i], 1);
     CHECK(visible == 14, "multiplayer only leaves 13 multiplayer maps and ui (%d)", visible);
+    CHECK(hm_visible_mode("a10", 2) == 1 && hm_visible_mode("longest", 2) == 0 && hm_visible_mode("custom", 2) == 0 && hm_visible_mode("longest", 1) == 1 && hm_visible_mode("d40", 1) == 0 && hm_visible_mode("d40", 0) == 1, "campaign-only and multiplayer-only are opposites");
+    CHECK(hm_custom_visible(0, 2) && !hm_custom_visible(1, 2) && !hm_custom_visible(0, 1) && hm_custom_visible(1, 1) && hm_custom_visible(2, 1) && hm_custom_visible(0, 0) && hm_custom_visible(1, 0), "custom map filters follow the scenario type");
     CHECK(hm_visible("a10", 1) == 0 && hm_visible("ui", 1) == 1 && hm_visible("longest", 1) == 1 && hm_visible("custom", 1) == 1 && hm_visible("a10", 0) == 1, "visibility rules");
 
     /* hostile input */

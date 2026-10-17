@@ -377,6 +377,19 @@ static NSString *HaloPerfLine(void)
     [presenter presentViewController:share animated:YES completion:nil];
 }
 
+/* One Logs button on the title screen: share the report or copy it. */
+- (void)logsMenu:(UIView *)sender {
+    UIViewController *presenter = [self topPresenter];
+    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Logs" message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+    __weak AppDelegate *weakSelf = self;
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Share logs" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) { (void)action; [weakSelf shareLogs:sender]; }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Copy logs" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) { (void)action; [weakSelf copyLogs:sender]; }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    sheet.popoverPresentationController.sourceView = sender ?: presenter.view;
+    sheet.popoverPresentationController.sourceRect = sender ? sender.bounds : CGRectMake(CGRectGetMidX(presenter.view.bounds), 40, 1, 1);
+    [presenter presentViewController:sheet animated:YES completion:nil];
+}
+
 /* Copy logs puts the same report, shortened to something that pastes into a message, on the clipboard. */
 - (void)copyLogs:(UIView *)sender {
     (void)sender;
@@ -437,9 +450,8 @@ static NSString *HaloPerfLine(void)
     HsSettings settings=[HaloSettingsStore.shared snapshot];
     self.settingsButton.alpha = settings.gear_opacity;
     NSArray *icons = @[@"gearshape.fill", @"slider.horizontal.3", @"gamecontroller.fill", @"circle.grid.2x2.fill"];
-    UIImage *icon = settings.gear_icon < 4 ? [UIImage systemImageNamed:icons[settings.gear_icon]] :
-        [UIImage imageWithContentsOfFile:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Halo/settings-icon.png"]];
-    if (settings.gear_icon==4) icon=[icon imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+    UIImage *icon = settings.gear_icon < 4 ? [UIImage systemImageNamed:icons[settings.gear_icon]] : HaloGearCustomImage(&settings);
+    if (settings.gear_icon>=4) icon=[icon imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
     [self.settingsButton setImage:icon ?: [UIImage systemImageNamed:@"gearshape.fill"] forState:UIControlStateNormal];
     self.settingsButton.imageView.contentMode = UIViewContentModeScaleAspectFit;
     CGFloat x=settings.gear_placed?CGRectGetMinX(safe)+settings.gear_x*safe.size.width:CGRectGetMidX(safe);
@@ -680,7 +692,8 @@ static NSString *HaloPerfLine(void)
 
     UILabel *notice = [UILabel new];
     notice.translatesAutoresizingMaskIntoConstraints = NO;
-    notice.text = [NSString stringWithFormat:@"UNIVERSAL · iOS %@",[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"]?:@""];
+    notice.text = @"";
+    notice.hidden = YES;   /* the old platform and version line is gone; the version is under Settings */
     notice.numberOfLines = 2;
     notice.font = [UIFont systemFontOfSize:11];
     notice.textColor = HaloUISecondaryText();
@@ -770,20 +783,17 @@ static NSString *HaloPerfLine(void)
     [start setTitle:@"Play Halo CE" forState:UIControlStateNormal];
     [start addTarget:self action:@selector(startHalo:) forControlEvents:UIControlEventTouchUpInside];
     self.startButton = start;
-    UIButton *share = [UIButton buttonWithType:UIButtonTypeSystem];
-    [share setTitle:@"Share logs" forState:UIControlStateNormal];
-    [share addTarget:self action:@selector(shareLogs:) forControlEvents:UIControlEventTouchUpInside];
-    UIButton *copyButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    [copyButton setTitle:@"Copy logs" forState:UIControlStateNormal];
-    [copyButton addTarget:self action:@selector(copyLogs:) forControlEvents:UIControlEventTouchUpInside];
+    UIButton *logsButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [logsButton setTitle:@"Logs" forState:UIControlStateNormal];
+    [logsButton addTarget:self action:@selector(logsMenu:) forControlEvents:UIControlEventTouchUpInside];
     UIButton *help=[UIButton buttonWithType:UIButtonTypeSystem];[help setTitle:@"Startup help" forState:UIControlStateNormal];
     [help addTarget:self action:@selector(startupHelp:) forControlEvents:UIControlEventTouchUpInside];help.hidden=YES;self.startupHelpButton=help;
-    UIStackView *actions = [[UIStackView alloc] initWithArrangedSubviews:@[import, disc, start, share, copyButton, help]];
+    UIStackView *actions = [[UIStackView alloc] initWithArrangedSubviews:@[import, disc, start, logsButton, help]];
     actions.translatesAutoresizingMaskIntoConstraints = NO;
     actions.axis = UILayoutConstraintAxisHorizontal;
     actions.spacing = 24;
     actions.distribution=UIStackViewDistributionFillEqually;actions.spacing=12;
-    for(UIButton *button in @[import,disc,start,share,copyButton,help]){button.backgroundColor=button==start?HaloUIAccent():HaloUICard();button.layer.cornerRadius=12;[button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];button.titleLabel.font=[UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];button.titleLabel.adjustsFontSizeToFitWidth=YES;button.titleLabel.minimumScaleFactor=0.75;}
+    for(UIButton *button in @[import,disc,start,logsButton,help]){button.backgroundColor=button==start?HaloUIAccent():HaloUICard();button.layer.cornerRadius=12;[button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];button.titleLabel.font=[UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];button.titleLabel.adjustsFontSizeToFitWidth=YES;button.titleLabel.minimumScaleFactor=0.75;}
     [bootOverlay addSubview:actions];
     UISegmentedControl *source = [[UISegmentedControl alloc] initWithItems:@[@"Boot log", @"Game log"]];
     source.translatesAutoresizingMaskIntoConstraints = NO;

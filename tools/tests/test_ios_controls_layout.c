@@ -45,10 +45,10 @@ static void check_screen(const char *name, float w, float h, float il, float it,
     for (int i = 0; i < HC_COUNT; i++)
         CHECK(hc_hit(c, hc_cx(c[i].r), hc_cy(c[i].r), s) == i, "%s: centre of control %d hits %d", name, i,
               hc_hit(c, hc_cx(c[i].r), hc_cy(c[i].r), s));
-    /* nothing in the middle third of the screen except Back/Start (keeps the view clear) */
+    /* nothing in the middle third of the screen except Back/Voice/Start (keeps the view clear) */
     float third = (w - il - ir) / 3.0f;
     for (int i = 0; i < HC_COUNT; i++) {
-        if (i == HC_BACK || i == HC_START) continue;
+        if (i == HC_BACK || i == HC_START || i == HC_VOICE) continue;
         HcRect r = c[i].r;
         CHECK(r.x + r.w <= il + third + 40.0f * s || r.x >= w - ir - third - 40.0f * s,
               "%s: control %d intrudes into the middle of the screen", name, i);

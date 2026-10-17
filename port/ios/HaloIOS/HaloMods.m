@@ -1,9 +1,11 @@
 #import "HaloMods.h"
 #import "HaloBackupArchive.h"
 #include "halo_toml_flags.h"
+#include "halo_mods_state.h"
 #ifndef HALO_BACKUP_TEST
 #import "HaloSettingsStore.h"
 #import "halo_ios_audio.h"
+#import "halo_guest_runner.h"
 #import <UIKit/UIKit.h>
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
@@ -152,16 +154,17 @@ static NSDictionary *CustomMapInfo(NSURL *url, BOOL enabled)
     NSFileHandle *handle = [NSFileHandle fileHandleForReadingFromURL:url error:nil];
     NSData *header = nil;
     @try { header = [handle readDataOfLength:2048]; } @finally { [handle closeFile]; }
-    uint32_t version = 0; BOOL valid = NO;
+    uint32_t version = 0, type = 1; BOOL valid = NO;
     if (header.length == 2048) {
         const unsigned char *bytes = header.bytes;
         version = Little32(bytes + 4);
+        type = (uint32_t)bytes[0x60] | ((uint32_t)bytes[0x61] << 8);   /* scenario type: 0 campaign, 1 multiplayer, 2 ui */
         valid = Little32(bytes) == UINT32_C(0x68656164) && version == 609 && Little32(bytes + 2044) == UINT32_C(0x666f6f74);
     }
     NSString *stem = url.lastPathComponent.stringByDeletingPathExtension;
     NSURL *folder = url.URLByDeletingLastPathComponent;
     return @{ @"file": url.lastPathComponent,
-              @"enabled": @(enabled), @"valid": @(valid), @"version": @(version),
+              @"enabled": @(enabled), @"valid": @(valid), @"version": @(version), @"type": @(type),
               @"size": attrs[NSFileSize] ?: @0,
               @"picture": @([NSFileManager.defaultManager fileExistsAtPath:[[folder URLByAppendingPathComponent:[stem stringByAppendingPathExtension:@"bmp"]] path]]),
               @"description": @([NSFileManager.defaultManager fileExistsAtPath:[[folder URLByAppendingPathComponent:[stem stringByAppendingPathExtension:@"txt"]] path]]) };
@@ -224,7 +227,7 @@ static void ValidateCEMap(NSURL *url)
     NSDictionary *info = CustomMapInfo(url, YES);
     uint32_t version = [info[@"version"] unsignedIntValue];
     if (version == 5) HaloBackupRequire(NO, @"That is an Xbox version 5 map. Use Import maps for original/Xbox maps; Custom Edition Maps requires version 609.");
-    HaloBackupRequire([info[@"valid"] boolValue], @"Custom Edition map header is invalid or unsupported. OpenCE build 211 supports standard version 609 CE maps; OpenSauce maps are not supported.");
+    HaloBackupRequire([info[@"valid"] boolValue], @"Custom Edition map header is invalid or unsupported. OpenCE build 220 supports standard version 609 CE maps; OpenSauce maps are not supported.");
 }
 
 void HaloCustomContentImport(NSArray<NSURL *> *files)
@@ -506,33 +509,6 @@ void HaloMapSharingMigrateDefaultOff(void)
     if (HaloMapSharingWrite(NO, 0)) [defaults setBool:YES forKey:key];
 }
 
-/* ---------- voice chat mode (config.toml) ---------- */
-
-static const char *const kVoiceChatNames[3] = { "off", "open_mic", "push_to_talk" };
-
-NSInteger HaloVoiceChatMode(void)
-{
-    NSString *text = [NSString stringWithContentsOfFile:HaloConfigTomlPath() encoding:NSUTF8StringEncoding error:nil];
-    char word[32];
-    if (!text || !halo_toml_get_string(text.UTF8String, "audio", "voice_chat", word, sizeof word)) return 2; /* the engine's default */
-    for (NSInteger i = 0; i < 3; i++) if (!strcmp(word, kVoiceChatNames[i])) return i;
-    return 2;
-}
-
-BOOL HaloVoiceChatSetMode(NSInteger mode)
-{
-    if (mode < 0 || mode > 2) return NO;
-    NSString *path = HaloConfigTomlPath();
-    NSString *text = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil] ?: @"";
-    int changed = 0;
-    char *updated = halo_toml_set_string(text.UTF8String, "audio", "voice_chat", kVoiceChatNames[mode], 1, &changed);
-    if (!updated) return NO;
-    BOOL ok = YES;
-    if (changed) ok = [[NSString stringWithUTF8String:updated] writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
-    free(updated);
-    return ok;
-}
-
 BOOL HaloConfigBool(const char *section, const char *key, BOOL fallback)
 {
     NSString *text = [NSString stringWithContentsOfFile:HaloConfigTomlPath() encoding:NSUTF8StringEncoding error:nil];
@@ -551,4 +527,188 @@ BOOL HaloConfigSetBool(const char *section, const char *key, BOOL value)
     if (changed) ok = [[NSString stringWithUTF8String:updated] writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
     free(updated);
     return ok;
+}
+
+
+#pragma mark - OpenCE mods (build 220)
+
+static NSString *ModPackRoot(void) { return [HaloBackupRoot() stringByAppendingPathComponent:@"mods"]; }
+static NSString *ModPackOrderPath(void) { return [ModPackRoot() stringByAppendingPathComponent:@"load_order.toml"]; }
+
+static NSString *ModPackText(NSString *path, NSUInteger limit)
+{
+    NSFileHandle *handle = [NSFileHandle fileHandleForReadingAtPath:path];
+    if (!handle) return nil;
+    NSData *data = nil;
+    @try { data = [handle readDataOfLength:limit]; } @catch (NSException *e) { (void)e; } @finally { [handle closeFile]; }
+    return data.length ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : nil;
+}
+
+static NSArray<NSString *> *ModPackStrings(NSString *text, const char *key)
+{
+    if (!text) return @[];
+    static char list[64][HMS_TEXT];
+    int n = hms_strings(text.UTF8String, key, list, 64);
+    NSMutableArray *result = [NSMutableArray array];
+    for (int i = 0; i < n; i++) {
+        NSString *s = [NSString stringWithUTF8String:list[i]];
+        if (s) [result addObject:s];
+    }
+    return result;
+}
+
+static NSString *ModPackOne(NSString *text, const char *key)
+{
+    return ModPackStrings(text, key).firstObject ?: @"";
+}
+
+static BOOL ModPackNamed(NSString *name, NSDictionary *info)
+{
+    return [name caseInsensitiveCompare:info[@"folder"]] == NSOrderedSame || [name caseInsensitiveCompare:info[@"id"]] == NSOrderedSame;
+}
+
+NSArray<NSDictionary *> *HaloModPackList(void)
+{
+    @synchronized (NSFileManager.defaultManager) {
+        NSFileManager *fm = NSFileManager.defaultManager;
+        NSMutableArray<NSDictionary *> *found = [NSMutableArray array];
+        for (NSString *name in [fm contentsOfDirectoryAtPath:ModPackRoot() error:nil]) {
+            if (!hms_folder_ok(name.UTF8String) || [name hasPrefix:@"."] || found.count >= HMS_MAX_MODS) continue;
+            NSString *folder = [ModPackRoot() stringByAppendingPathComponent:name];
+            BOOL directory = NO;
+            if (![fm fileExistsAtPath:folder isDirectory:&directory] || !directory) continue;
+            if (!HaloBackupRegular([NSURL fileURLWithPath:[folder stringByAppendingPathComponent:@"mod.toml"]])) continue;   /* no mod.toml: not a mod */
+            NSString *toml = ModPackText([folder stringByAppendingPathComponent:@"mod.toml"], 65536) ?: @"";
+            NSString *modName = ModPackOne(toml, "name");
+            NSString *identifier = ModPackOne(toml, "id");
+            [found addObject:@{ @"folder": name, @"id": identifier.length ? identifier : name, @"name": modName.length ? modName : name,
+                                @"version": ModPackOne(toml, "version"),
+                                @"authors": [ModPackStrings(toml, "authors") componentsJoinedByString:@", "],
+                                @"description": ModPackOne(toml, "description"),
+                                @"maps": [ModPackStrings(toml, "maps") componentsJoinedByString:@", "],
+                                @"incompatible": ModPackStrings(toml, "incompatible"),
+                                @"format": @([ModPackOne(toml, "format") integerValue]) }];
+        }
+        static char folders[HMS_MAX_MODS][HMS_NAME];
+        static char kept[HMS_MAX_MODS][HMS_TEXT];
+        int order[HMS_MAX_MODS];
+        for (NSUInteger i = 0; i < found.count; i++) snprintf(folders[i], HMS_NAME, "%s", [found[i][@"folder"] UTF8String]);
+        NSString *orderText = ModPackText(ModPackOrderPath(), 262144);
+        int keptCount = orderText ? hms_strings(orderText.UTF8String, "order", kept, HMS_MAX_MODS) : 0;
+        NSArray<NSString *> *disabledNames = ModPackStrings(orderText, "disabled");
+        int n = hms_order(folders, (int)found.count, kept, keptCount, order);
+        NSMutableArray<NSMutableDictionary *> *result = [NSMutableArray array];
+        for (int i = 0; i < n; i++) {
+            NSMutableDictionary *mod = [found[(NSUInteger)order[i]] mutableCopy];
+            BOOL off = NO;
+            for (NSString *d in disabledNames) if ([d caseInsensitiveCompare:mod[@"folder"]] == NSOrderedSame) off = YES;
+            mod[@"on"] = @(!off);
+            [result addObject:mod];
+        }
+        /* what is wrong with each: made for a later format than this build's (1), or a mod that is on names it as incompatible */
+        for (NSMutableDictionary *mod in result) {
+            NSMutableArray *notes = [NSMutableArray array];
+            if ([mod[@"format"] integerValue] > 1) [notes addObject:@"Made for a later version of the game's mods. It stays off."];
+            for (NSDictionary *other in result) {
+                if (other == mod || ![other[@"on"] boolValue]) continue;
+                for (NSString *name in other[@"incompatible"])
+                    if (ModPackNamed(name, mod)) [notes addObject:[NSString stringWithFormat:@"%@ says it cannot be played with this mod.", other[@"name"]]];
+                if ([mod[@"on"] boolValue])
+                    for (NSString *name in mod[@"incompatible"])
+                        if (ModPackNamed(name, other)) [notes addObject:[NSString stringWithFormat:@"This mod says it cannot be played with %@.", other[@"name"]]];
+            }
+            mod[@"note"] = [notes componentsJoinedByString:@" "];
+            [mod removeObjectForKey:@"incompatible"];
+            [mod removeObjectForKey:@"format"];
+        }
+        return result;
+    }
+}
+
+static void ModPackSignal(void)
+{
+#ifndef HALO_BACKUP_TEST
+    halo_ios_mods_changed();
+#endif
+}
+
+void HaloModPackSave(NSArray<NSString *> *order, NSSet<NSString *> *off)
+{
+    HaloBackupRequire(order.count <= HMS_MAX_MODS, @"Too many mods.");
+    static char names[HMS_MAX_MODS][HMS_NAME];
+    int flags[HMS_MAX_MODS];
+    for (NSUInteger i = 0; i < order.count; i++) {
+        HaloBackupRequire(hms_folder_ok(order[i].UTF8String), @"A mod folder has a name the game cannot use.");
+        snprintf(names[i], HMS_NAME, "%s", order[i].UTF8String);
+        flags[i] = [off containsObject:order[i]] ? 1 : 0;
+    }
+    size_t size = 512 + order.count * 2 * (HMS_NAME * 6 + 8);
+    char *text = malloc(size);
+    HaloBackupRequire(text != NULL, @"Out of memory.");
+    size_t length = hms_serialize(text, size, names, flags, (int)order.count);
+    NSData *data = length ? [NSData dataWithBytes:text length:length] : nil;
+    free(text);
+    HaloBackupRequire(data != nil, @"Cannot write the load order.");
+    HaloBackupRequire([NSFileManager.defaultManager createDirectoryAtPath:ModPackRoot() withIntermediateDirectories:YES attributes:nil error:nil], @"Cannot create the mods folder.");
+    HaloBackupRequire([data writeToFile:ModPackOrderPath() atomically:YES], @"Cannot write mods/load_order.toml.");
+    ModPackSignal();
+}
+
+void HaloModPackRemove(NSString *folder)
+{
+    HaloBackupRequire(hms_folder_ok(folder.UTF8String) && ![folder hasPrefix:@"."], @"That is not a mod folder.");
+    NSString *path = [ModPackRoot() stringByAppendingPathComponent:folder];
+    HaloBackupRequire([NSFileManager.defaultManager removeItemAtPath:path error:nil], @"Cannot remove that mod.");
+    /* load_order.toml may still name it: the game leaves out a mod that is gone, so nothing else needs changing */
+    ModPackSignal();
+}
+
+void HaloModPackImport(NSArray<NSURL *> *folders)
+{
+    HaloBackupRequire(folders.count > 0 && folders.count <= 32, @"Choose up to 32 mod folders at once.");
+    NSFileManager *fm = NSFileManager.defaultManager;
+    HaloBackupRequire([fm createDirectoryAtPath:ModPackRoot() withIntermediateDirectories:YES attributes:nil error:nil], @"Cannot create the mods folder.");
+    for (NSURL *source in folders) {
+        BOOL access = [source startAccessingSecurityScopedResource];
+        @try {
+            NSString *name = source.lastPathComponent;
+            HaloBackupRequire(hms_folder_ok(name.UTF8String) && ![name hasPrefix:@"."], ([NSString stringWithFormat:@"“%@” cannot be a mod folder name (up to 63 bytes, no slash).", name]));
+            BOOL directory = NO;
+            HaloBackupRequire([fm fileExistsAtPath:source.path isDirectory:&directory] && directory, ([NSString stringWithFormat:@"“%@” is not a folder. Choose the mod's folder, the one with mod.toml in it.", name]));
+            HaloBackupRequire(HaloBackupRegular([source URLByAppendingPathComponent:@"mod.toml"]), ([NSString stringWithFormat:@"“%@” has no mod.toml, so it is not a mod. Choose the folder that has mod.toml and a tags folder.", name]));
+            NSString *target = [ModPackRoot() stringByAppendingPathComponent:name];
+            HaloBackupRequire(![fm fileExistsAtPath:target], ([NSString stringWithFormat:@"A mod named “%@” is already installed. Remove it first to replace it.", name]));
+            /* count first: the game reads 262144 files at most, and links would point outside the mod */
+            NSUInteger count = 0;
+            NSDirectoryEnumerator *walk = [fm enumeratorAtURL:source includingPropertiesForKeys:@[NSURLIsSymbolicLinkKey, NSURLIsRegularFileKey] options:0 errorHandler:nil];
+            for (NSURL *item in walk) {
+                NSNumber *link = nil;
+                [item getResourceValue:&link forKey:NSURLIsSymbolicLinkKey error:nil];
+                HaloBackupRequire(!link.boolValue, @"A mod cannot contain links.");
+                HaloBackupRequire(++count <= 262144, @"That mod has too many files (262144 at most).");
+            }
+            NSString *temp = [ModPackRoot() stringByAppendingPathComponent:[@".import-" stringByAppendingString:NSUUID.UUID.UUIDString]];
+            NSError *error = nil;
+            if (![fm copyItemAtURL:source toURL:[NSURL fileURLWithPath:temp] error:&error] || ![fm moveItemAtPath:temp toPath:target error:&error]) {
+                [fm removeItemAtPath:temp error:nil];
+                HaloBackupRequire(NO, ([NSString stringWithFormat:@"Cannot copy “%@”: %@", name, error.localizedDescription ?: @"check free space."]));
+            }
+        } @finally {
+            if (access) [source stopAccessingSecurityScopedResource];
+        }
+    }
+    ModPackSignal();
+}
+
+NSString *HaloModPackFingerprint(void)
+{
+    NSFileManager *fm = NSFileManager.defaultManager;
+    NSMutableString *text = [NSMutableString string];
+    NSDate *order = [fm attributesOfItemAtPath:ModPackOrderPath() error:nil][NSFileModificationDate];
+    [text appendFormat:@"%.3f", order.timeIntervalSince1970];
+    for (NSString *name in [[fm contentsOfDirectoryAtPath:ModPackRoot() error:nil] sortedArrayUsingSelector:@selector(compare:)]) {
+        NSDate *date = [fm attributesOfItemAtPath:[[ModPackRoot() stringByAppendingPathComponent:name] stringByAppendingPathComponent:@"mod.toml"] error:nil][NSFileModificationDate];
+        [text appendFormat:@"|%@:%.3f", name, date.timeIntervalSince1970];
+    }
+    return text;
 }

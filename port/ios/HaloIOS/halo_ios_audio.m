@@ -162,6 +162,7 @@ const char *halo_ios_audio_status(void)
 #define HALO_MIC_RING 96000u /* two seconds at 48 kHz */
 static float g_mic_ring[HALO_MIC_RING];
 static _Atomic uint64_t g_mic_write, g_mic_read;
+static _Atomic int g_mic_muted, g_ptt_held;
 static AVAudioEngine *g_mic_engine;
 static BOOL g_mic_open;
 static uint32_t g_mic_rate = 48000;
@@ -318,7 +319,10 @@ uint32_t halo_ios_mic_read(float *out, uint32_t max_frames)
     uint64_t read = atomic_load_explicit(&g_mic_read, memory_order_relaxed);
     uint32_t count = halo_ios_mic_available();
     if (count > max_frames) count = max_frames;
-    for (uint32_t i = 0; i < count; i++) out[i] = g_mic_ring[(read + i) % HALO_MIC_RING];
+    if (atomic_load_explicit(&g_mic_muted, memory_order_relaxed))
+        for (uint32_t i = 0; i < count; i++) out[i] = 0.0f;
+    else
+        for (uint32_t i = 0; i < count; i++) out[i] = g_mic_ring[(read + i) % HALO_MIC_RING];
     atomic_store_explicit(&g_mic_read, read + count, memory_order_release);
     return count;
 }
@@ -341,6 +345,11 @@ void halo_ios_mic_close(void)
     if (NSThread.isMainThread) stop();
     else dispatch_async(dispatch_get_main_queue(), stop);
 }
+
+void halo_ios_mic_set_muted(int muted) { atomic_store(&g_mic_muted, muted ? 1 : 0); }
+int halo_ios_mic_is_muted(void) { return atomic_load(&g_mic_muted); }
+void halo_ios_ptt_set_held(int held) { atomic_store(&g_ptt_held, held ? 1 : 0); }
+int halo_ios_ptt_held(void) { return atomic_load(&g_ptt_held); }
 
 int halo_ios_mic_is_open(void)
 {

@@ -28,7 +28,9 @@ This is one device and one session. Other devices, longer play, vehicles and mul
 
 **Fix:** [M2.6.107](port/ios/UPDATE_M2707.md) repairs M2.6.104-106: a startup failure (guest ABI mismatch, fixed in M2.6.106) and a freeze when joining an internet game. Do not use those builds.
 
-**Update:** [M2.6.111](port/ios/UPDATE_M2711.md) adds a **Voice chat** control (Off, Open mic, Push to talk) to Settings > Audio and an optional original-animations switch for big games.
+**Update:** [M2.6.113](port/ios/UPDATE_M2713.md) moves to OpenCE **build 220** (same network version 29) and makes Settings > Mods the same list as the game's new Mods menu: mods turned on or off, reordered, removed or added in either place show in both.
+
+**Previous:** [M2.6.112](port/ios/UPDATE_M2712.md) adds Settings search, a Talk / Mute button on the touch controls, the voice chat microphone off by default and in sync with the game, a profile picker, emoji and photo Settings icons with favorites, and clearer Mods filters.
 
 **Update:** [M2.6.110](port/ios/UPDATE_M2710.md) moves to OpenCE **build 211** (same network version 29) and turns **map sharing off by default** on iOS, with a switch in Settings > Multiplayer. Not yet run on a device.
 

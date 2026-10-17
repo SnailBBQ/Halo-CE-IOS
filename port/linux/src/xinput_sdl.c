@@ -598,6 +598,15 @@ int halo_push_to_talk_held(void)
 {
 	struct platform_input_state input;
 	int slot;
+#ifdef HALO_IOS_GUEST
+	{
+		/* the touch screen's Push to talk button: the host answers the special index -3 */
+		extern int host_settings_value(unsigned index, char text[64], long profile_index);
+		char text[64] = "";
+		if (host_settings_value((unsigned)-3, text, 0))
+			return 1;
+	}
+#endif
 
 	/* (the window losing the focus lets every key go: sdl_platform.c) */
 	bindings_read();

@@ -6,7 +6,8 @@
  * tools/tests/test_ios_map_order.c can check it. Campaign maps come first in mission order; the multiplayer maps
  * follow in the order the game's own menu lists them (or alphabetically if the player prefers); maps this table
  * does not know (mods and custom maps) come after the stock multiplayer maps, alphabetically; ui.map is last.
- * "Multiplayer only" hides the campaign maps and nothing else.
+ * "Multiplayer only" lists the multiplayer maps (and ui.map) alphabetically; "Campaign only" lists the campaign maps
+ * in mission order. Custom Edition maps use the scenario type in their header (0 campaign, 1 multiplayer, 2 ui).
  */
 
 #include <string.h>
@@ -76,9 +77,29 @@ static inline int hm_group(const char *base)
     return hm_stock[i].campaign ? 0 : 1;
 }
 
+/* mode: 0 everything, 1 multiplayer only (no campaign maps), 2 campaign only */
+static inline int hm_visible_mode(const char *base, int mode)
+{
+    if (mode == 1)
+        return !hm_is_campaign(base);
+    if (mode == 2)
+        return hm_is_campaign(base);
+    return 1;
+}
+
 static inline int hm_visible(const char *base, int multiplayer_only)
 {
-    return !(multiplayer_only && hm_is_campaign(base));
+    return hm_visible_mode(base, multiplayer_only ? 1 : 0);
+}
+
+/* Custom Edition scenario type from the map header: 0 campaign, 1 multiplayer, 2 ui; other values count as multiplayer */
+static inline int hm_custom_visible(int scenario_type, int mode)
+{
+    if (mode == 2)
+        return scenario_type == 0;
+    if (mode == 1)
+        return scenario_type != 0;
+    return 1;
 }
 
 static inline int hm_ci_compare(const char *a, const char *b)

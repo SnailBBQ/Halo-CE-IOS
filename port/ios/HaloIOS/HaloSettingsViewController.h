@@ -15,3 +15,6 @@
  * running cheats), and the end of each log with the history of runs that ended badly first. `compact` keeps it short enough to paste
  * into a message. */
 NSString *HaloProblemReportText(BOOL compact);
+
+/* The custom Settings button picture (an emoji or a photo) for gear_icon 4 and 5; nil when it cannot be made. */
+UIImage *HaloGearCustomImage(const void *settings);   /* settings is a const HsSettings * */

@@ -35,7 +35,7 @@ if not re.search(r"finishLaunch:[^{]*\{\s*HaloMapSharingMigrateDefaultOff\(\);",
 mods = (ROOT / "port/ios/HaloIOS/HaloMods.m").read_text(encoding="utf-8")
 if "HaloMapSharingDefaultOffV1" not in mods or "HaloMapSharingWrite(NO, 0)" not in mods:
     problems.append("migration missing")
-if "HaloVoiceChatSetMode(i)" not in settings or "HaloVoiceChatMode()" not in settings:
+if "settings->voice_mode" not in settings or '@"Push to talk"' not in settings:
     problems.append("Settings has no voice chat control")
 if '"enhanced_animations"' not in settings:
     problems.append("Settings has no original animations switch")
