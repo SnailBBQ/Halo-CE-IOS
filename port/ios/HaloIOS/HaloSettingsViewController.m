@@ -1175,7 +1175,7 @@ static UIView *HaloProfileSummary(NSString *title,NSString *detail) {
         HaloUINote(@"Restore from a .halobackup archive on the next launch with a recovery backup. For a fresh installation, also restore its matching Halo player profile. Checkpoint edits cover health, shields, grenades and existing weapon ammo.")])];
     [self add:HaloUICardView(@"Halo player profiles", @[
         HaloUIButton(settings->game_profile_ready?[NSString stringWithFormat:@"Active profile: %s",settings->game_name]:@"Choose a Halo player profile",1,^(UIButton *b){(void)b;[self chooseHaloProfile];}),
-        HaloUIButton(@"Import / export Halo player profiles",1,^(UIButton *b){(void)b;UIViewController *c=HaloBackupsControllerForSections(32);c.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:c animated:YES completion:nil];})),
+        HaloUIButton(@"Import / export Halo player profiles",1,^(UIButton *b){(void)b;UIViewController *c=HaloBackupsControllerForSections(32);c.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:c animated:YES completion:nil];}),
         HaloUIButton(@"In-game name",0,^(UIButton *b){(void)b;HsSettings current=[HaloSettingsStore.shared snapshot];if(!current.game_profile_ready){[self chooseHaloProfile];return;}
             UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"In-game name" message:@"Up to 11 ASCII letters, numbers or supported punctuation. Saved to the active Halo profile; new games use the updated name." preferredStyle:UIAlertControllerStyleAlert];
             [alert addTextFieldWithConfigurationHandler:^(UITextField *f){f.text=[NSString stringWithUTF8String:current.game_name];f.autocorrectionType=UITextAutocorrectionTypeNo;}];
