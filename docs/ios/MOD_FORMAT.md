@@ -1,11 +1,30 @@
-# Making a mod for Halo CE for iOS
+# Mods for Halo CE for iOS
 
 A mod is a folder of Halo PC tag files that the game plays **over a map's own tags, on your
 iPhone only**. Nothing is sent to other players, so you can play online with players who have
 other mods or none. The rules come from OpenCE's Mods system (`docs/mods.md` in the OpenCE
-sources); this page is the short, iPhone-side version.
+sources).
 
-## The folder
+## Will this download work? (start here)
+
+Open the download and look inside for files ending in `.gbxmodel`, `.model`, `.bitmap`, `.sound`,
+`.unicode_string_list` or `.string_list`.
+
+| What you find | Result |
+| --- | --- |
+| Only `.biped`, `.weapon`, `.vehicle`, `.scenario`, `.globals`, `.projectile`, `.effect` | **Does nothing.** These are never read, and a mod cannot add new characters, weapons or maps. |
+| Textures, sounds or text that **replace** the game's own (same name as a stock tag) | **Works** once it has a `mod.toml`. |
+| A model that replaces a stock one, with the same skeleton and markers | **Works.** If the skeleton differs, the game leaves the model out and the stock one plays. |
+| A model for a **new** character or weapon (own skeleton, own animations) | **Does nothing as it is.** It has to be converted onto a stock model first (the Lucario and Hayabusa mods in this project were done that way). |
+
+Quick test: a file only matters if the **same path exists in the game**, e.g.
+`tags/characters/cyborg/cyborg.gbxmodel`. A new name (`characters/lucario/...`) is ignored.
+
+## Making your own
+
+Only read this part if you want to build a mod yourself. Most people just add a finished mod folder.
+
+### The folder
 
 ```
 MyMod/                       <- the folder you add in Settings > Mods > Add a mod folder
@@ -25,7 +44,7 @@ MyMod/                       <- the folder you add in Settings > Mods > Add a mo
 - The folder name is the mod's name in the list: up to 63 bytes, no slash, no links inside.
   Add up to 32 folders at once; 256 mods and 262,144 files in all.
 
-## What a mod can change
+### What a mod can change
 
 | Kind | Extension | Typical use |
 | --- | --- | --- |
@@ -39,7 +58,7 @@ is **never read**. Those decide what every player's game must agree on, so a mod
 them. That is also why a mod cannot add a new character or weapon: a file only replaces a tag the
 map already has.
 
-## Rules that decide whether a file is accepted
+### Rules that decide whether a file is accepted
 
 - **Bitmaps** need at least as many bitmaps, of the same types, and as many sequences as the
   map's tag of that name. Larger is fine. Format DXT1/DXT3/DXT5 or uncompressed; keep one bitmap's
@@ -53,7 +72,7 @@ map already has.
   the map's bitmaps (a bitmap mod) and point your part at that shader.
 - A file that fails is **left out and the map's own plays**. The rest of the mod still works.
 
-## When something does not change
+### When something does not change
 
 1. Open Settings > Logs and share the logs, or open `debug.txt`. Each file the game left out has
    a line starting `mods:` with the reason.
@@ -62,7 +81,7 @@ map already has.
 4. On a model, the usual reasons are a different skeleton, missing markers, or a shader the map
    does not have.
 
-## Worked example: Lucario in place of the Spartan
+### Worked example: Lucario in place of the Spartan
 
 The community "LucarioBiped" download is a new biped. A mod cannot add a biped, so nothing
 changed. The working version replaces the Spartan's own model instead:
