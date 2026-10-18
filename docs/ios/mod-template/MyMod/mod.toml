@@ -1,0 +1,10 @@
+# Every line is optional, but the file itself must exist: a folder without mod.toml is not a mod.
+name = "My mod"                 # what Settings > Mods and the game's Mods menu show
+id = "my_mod"                   # what other mods name this one by (else the folder's name)
+version = "1.0"
+authors = ["Your name"]
+description = "One sentence about what it changes."
+format = 1                      # keep 1
+# maps = ["bloodgulch", "a10"]  # only these maps (file names without .map). Leave out for every map.
+# load_after = ["other_mod_id"]       # play over that mod
+# incompatible = ["other_mod_id"]     # cannot be on at the same time
