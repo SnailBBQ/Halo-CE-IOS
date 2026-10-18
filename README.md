@@ -6,13 +6,13 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is playable on a stock, sideloaded iPhone 14 Plus (see [Device test results](#device-test-results)). The current source update is **M2.6.110**, on OpenCE **build 211** (network version 29) with Custom Edition maps and the MP4 movie fallback. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
+> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is **in beta**: it boots and plays on a stock, sideloaded iPhone 14 Plus but has glitches, bugs and crashes (see [Device test results](#device-test-results)). The current source update is **M2.6.110**, on OpenCE **build 211** (network version 29) with Custom Edition maps and the MP4 movie fallback. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
 > **Jailbroken devices:** the regular app is confirmed working on jailbroken iOS devices.
 >
-> **Non-jailbroken devices:** the **Non-Jailbreak Version** (a separate option in **Actions → Halo CE iOS — Build IPA**) is confirmed working on one stock iPhone, an iPhone 14 Plus on iOS 16.2, sideloaded with Sideloadly using a normal account and no memory entitlements. It has been tested on that one device only, so it is playable but not yet broadly tested or officially supported.
+> **Non-jailbroken devices:** the **Non-Jailbreak Version (Beta)** (a separate option in **Actions → Halo CE iOS — Build IPA**) is confirmed working on one stock iPhone, an iPhone 14 Plus on iOS 16.2, sideloaded with Sideloadly using a normal account and no memory entitlements. It has been tested on that one device only and is a **beta**: expect glitches, bugs and occasional crashes. It is not yet broadly tested or officially supported.
 >
 > **Free-account sideloading (Sideloadly, AltStore, SideStore):** works on the tested device with the Non-Jailbreak Version. It needs the phone to be able to reserve one contiguous 4 GiB span of address space, and an iPhone 14 Plus on iOS 16.2 can do that only at a non-4-GiB-aligned address, which this build handles. An older iPad cannot reserve 4 GiB contiguously at all and is outside this design. Other iPhones are untested. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 >

@@ -9,7 +9,7 @@ on:
         type: boolean
         default: false
       non_jailbreak:
-        description: 'Non-Jailbreak Version: the official app plus address-space and JIT diagnostics and a fallback memory window, for installs not signed by TrollStore or a jailbreak. Same bundle ID. Manual builds only.'
+        description: 'BETA - Non-Jailbreak Version: the official app plus address-space and JIT diagnostics and a fallback memory window, for installs not signed by TrollStore or a jailbreak. Same bundle ID. Manual builds only.'
         type: boolean
         default: false
       arena_fastpath:

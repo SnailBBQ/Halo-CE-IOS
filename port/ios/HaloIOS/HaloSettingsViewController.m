@@ -1393,6 +1393,9 @@ static UIColor *HaloColorFromRGB(unsigned rgb) {
         HaloUIValueRow(@"Engine", engine, nil),
         HaloUIValueRow(@"Network version", network, nil),
         HaloUIValueRow(@"Build flavor", buildInfo[@"HaloBuildFlavor"]?:@"Development", nil),
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+        HaloUIValueRow(@"Release status", @"Beta: may have glitches, bugs and crashes", nil),
+#endif
         HaloUIValueRow(@"Guest architecture", buildInfo[@"HaloGuestArchitecture"]?:@"?", nil),
         HaloUIValueRow(@"Guest adaptation", buildInfo[@"HaloGuestAdaptation"]?:@"?", nil),
         HaloUIValueRow(@"Guest SHA-256", guest, nil),
