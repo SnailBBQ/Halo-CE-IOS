@@ -62,6 +62,20 @@ Headphones with a microphone (AirPods and other Bluetooth or wired headsets) are
 
 The host decides who can hear whom.
 
+## Text chat
+
+In a network game, press **D-pad Up** on the touch controls (or on a controller) and the iPhone keyboard comes up. Type a line and press **Send**:
+the host passes it to the other players, and it shows at the top left with your name in your team's colour. Closing the keyboard lets the line go.
+While the keyboard is up you do not move or look. A line holds 63 characters, and one is allowed every second or two, with a few at once.
+
+- The host sets the chat in the game's **Server Setup > Teamplay Options**: on, links allowed, or off. It is always off in a game listed in the server
+  browser. Where it is off, D-pad Up says so.
+- **Settings > Network Setup > Multiplayer HUD** turns the lines on or off and picks their colours. **Streamer Mode** hides offensive words, as stars,
+  in other players' names and text, maps and mods.
+- The host can type `/mute <player> [minutes]` and `/unmute <player>`. The scoreboard's Mute for everyone is the same mute, and a mute you set yourself
+  hides that player's lines for you alone.
+- A line to the team or the vehicle cannot be started on the iPhone yet; D-pad Up sends to everyone.
+
 ## Map sharing and data use
 
 OpenCE can send Custom Edition maps, and the resource maps they need, between players: a host sends a map to a player who joins without it, and other players in the game help (`network.map_share`, `network.map_seed`). **On iPhone both are off by default** (from M2.6.110, including installs that already had a config.toml from an earlier version). Your phone then only receives: if a game needs a map you lack, it still downloads it from the host and other players (`network.map_download`, on).

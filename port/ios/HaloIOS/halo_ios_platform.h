@@ -15,6 +15,11 @@ void halo_ios_set_hosted_invite(const char *text);
  * "Join invites on the clipboard" is on. Writes an empty string if none. */
 void halo_ios_clipboard_get(char *buffer, size_t size);
 void halo_ios_toast(const char *text);
+/* The text chat's line, typed on the phone's own keyboard (called from the guest thread through host_settings_value's index -8).
+ * mode 1 and up: a line is being typed, in `text` (64 bytes, ended), and the keyboard comes up if it is not. The line is the
+ * keyboard's: `text` is replaced by what the field holds. The answer is 0 while typing, 1 when the player pressed Send (the line is
+ * in `text`), 2 when the keyboard was closed without sending. mode 100: the guest ended the line; the keyboard goes. */
+int halo_ios_chat_input(int mode, char text[64]);
 
 #ifdef __cplusplus
 }

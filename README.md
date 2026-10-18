@@ -6,7 +6,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is **in beta**: it boots and plays on a stock, sideloaded iPhone 14 Plus but has glitches, bugs and crashes (see [Device test results](docs/ios/DEVICE_TESTS.md)). The current source update is **M2.6.113**, on OpenCE **build 220** (network version 29) with Custom Edition maps, the MP4 movie fallback and Mods. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
+> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is **in beta**: it boots and plays on a stock, sideloaded iPhone 14 Plus but has glitches, bugs and crashes (see [Device test results](docs/ios/DEVICE_TESTS.md)). The current source update is **M2.6.114**, on OpenCE **build 232** (network version 29) with Custom Edition maps, the MP4 movie fallback and Mods. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
@@ -24,9 +24,11 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 **Fix:** [M2.6.107](port/ios/UPDATE_M2707.md) repairs M2.6.104-106: a startup failure (guest ABI mismatch, fixed in M2.6.106) and a freeze when joining an internet game. Do not use those builds.
 
-**Update:** [M2.6.113](port/ios/UPDATE_M2713.md) moves to OpenCE **build 220** (same network version 29) and makes Settings > Mods the same list as the game's new Mods menu: mods turned on or off, reordered, removed or added in either place show in both.
+**Update:** [M2.6.114](port/ios/UPDATE_M2714.md) moves to OpenCE **build 232** (same network version 29) and brings the game's new **text chat**: in a network game, D-pad Up (on the touch controls or a controller) opens the iPhone keyboard to type a line to everyone. It also has streamer mode and the multiplayer HUD options.
 
-**Previous:** [M2.6.112](port/ios/UPDATE_M2712.md) adds Settings search, a Talk / Mute button on the touch controls, the voice chat microphone off by default and in sync with the game, a profile picker, emoji and photo Settings icons with favorites, and clearer Mods filters.
+**Previous:** [M2.6.113](port/ios/UPDATE_M2713.md) moves to OpenCE **build 220** (same network version 29) and makes Settings > Mods the same list as the game's new Mods menu: mods turned on or off, reordered, removed or added in either place show in both.
+
+**Earlier:** [M2.6.112](port/ios/UPDATE_M2712.md) adds Settings search, a Talk / Mute button on the touch controls, the voice chat microphone off by default and in sync with the game, a profile picker, emoji and photo Settings icons with favorites, and clearer Mods filters.
 
 **Update:** [M2.6.110](port/ios/UPDATE_M2710.md) moves to OpenCE **build 211** (same network version 29) and turns **map sharing off by default** on iOS, with a switch in Settings > Multiplayer. Not yet run on a device.
 

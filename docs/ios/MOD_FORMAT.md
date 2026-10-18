@@ -15,7 +15,7 @@ Open the download and look inside for files ending in `.gbxmodel`, `.model`, `.b
 | Only `.biped`, `.weapon`, `.vehicle`, `.scenario`, `.globals`, `.projectile`, `.effect` | **Does nothing.** These are never read, and a mod cannot add new characters, weapons or maps. |
 | Textures, sounds or text that **replace** the game's own (same name as a stock tag) | **Works** once it has a `mod.toml`. |
 | A model that replaces a stock one, with the same skeleton and markers | **Works.** If the skeleton differs, the game leaves the model out and the stock one plays. |
-| A model for a **new** character or weapon (own skeleton, own animations) | **Does nothing as it is.** It has to be converted onto a stock model first (the Lucario and Hayabusa mods in this project were done that way). |
+| A model for a **new** character or weapon (own skeleton, own animations) | **Does nothing as it is.** It has to be converted onto a stock model first. |
 
 Quick test: a file only matters if the **same path exists in the game**, e.g.
 `tags/characters/cyborg/cyborg.gbxmodel`. A new name (`characters/lucario/...`) is ignored.

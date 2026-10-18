@@ -9,9 +9,11 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 **Device result, 2026-10-08:** the M2.6.101 Non-Jailbreak build is confirmed playable on an iPhone 14 Plus (iOS 16.2, Sideloadly): a10 played, second map loaded, about 60 FPS, no crashes, no pointer faults. Documentation only; no code change after M2.6.101.
 
-**Latest:** [M2.6.113](../../port/ios/UPDATE_M2713.md) moves to OpenCE **build 220** (same network version 29) and makes Settings > Mods the same list as the game's new Mods menu: mods turned on or off, reordered, removed or added in either place show in both.
+**Latest:** [M2.6.114](../../port/ios/UPDATE_M2714.md) moves to OpenCE **build 232** (same network version 29) and brings the game's text chat: in a network game, D-pad Up (touch controls or a controller) opens the iPhone keyboard.
 
-**Previous:** [M2.6.112](../../port/ios/UPDATE_M2712.md) adds Settings search, a Talk / Mute button on the touch controls, a microphone that is off by default and stays in sync with the game, a Halo player profile picker, emoji and photo Settings icons with favorites, and clearer Mods filters.
+**Previous:** [M2.6.113](../../port/ios/UPDATE_M2713.md) moves to OpenCE **build 220** (same network version 29) and makes Settings > Mods the same list as the game's new Mods menu: mods turned on or off, reordered, removed or added in either place show in both.
+
+**Earlier:** [M2.6.112](../../port/ios/UPDATE_M2712.md) adds Settings search, a Talk / Mute button on the touch controls, a microphone that is off by default and stays in sync with the game, a Halo player profile picker, emoji and photo Settings icons with favorites, and clearer Mods filters.
 
 **Previous:** [M2.6.111](../../port/ios/UPDATE_M2711.md) adds a Voice chat control (Off, Open mic, Push to talk) to Settings > Audio and an optional original-animations switch for big games.
 

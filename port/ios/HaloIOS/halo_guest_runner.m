@@ -915,6 +915,13 @@ static int ios_settings_value(uint32_t index,uint32_t address,uint32_t profile) 
     if(index==UINT32_MAX-6) { /* -7: Settings > Mods changed the mods folder or load_order.toml: the engine applies it, once */
         return atomic_exchange(&g_mods_changed,0);
     }
+    if(index==UINT32_MAX-7) { /* -8: the text chat's line, typed on the phone's keyboard (halo_ios_chat_input); `profile` is 1 and up while typing, 100 when the game ended the line */
+        char *guest=gp(address,64);if(!guest || !memchr(guest,0,64))return 0;
+        char line[64];memcpy(line,guest,64);
+        int answer=halo_ios_chat_input((int)profile,line);
+        if(profile!=100)memcpy(guest,line,64);
+        return answer;
+    }
     if(index>=HE_COUNT)return 0;
     /* Recovery launch overrides remain temporary, and must neither be undone
      * by synchronization nor written back as the player's normal preference. */

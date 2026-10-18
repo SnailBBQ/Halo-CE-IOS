@@ -186,7 +186,7 @@ static NSURL *HaloExportExternalSaves(void) {
     NSString *resourceSummary=[NSString stringWithFormat:@"bitmaps.map %@  ·  sounds.map %@  ·  loc.map %@",
         [resources[@"bitmaps.map"] boolValue]?@"✓":@"—",[resources[@"sounds.map"] boolValue]?@"✓":@"—",[resources[@"loc.map"] boolValue]?@"✓":@"—"];
     [self.rows addArrangedSubview:HaloUICardView(@"Custom Edition Maps",@[
-        HaloUINote(@"OpenCE build 220 loads standard Halo Custom Edition version 609 maps beside the original Xbox maps. Nothing here replaces Documents/Halo/maps. Import CE .map files plus bitmaps.map, sounds.map and loc.map when a map needs the shared resource caches. Optional <map>.bmp and <map>.txt files provide the in-game picture and description. OpenSauce maps are intentionally unsupported upstream."),
+        HaloUINote(@"OpenCE build 232 loads standard Halo Custom Edition version 609 maps beside the original Xbox maps. Nothing here replaces Documents/Halo/maps. Import CE .map files plus bitmaps.map, sounds.map and loc.map when a map needs the shared resource caches. Optional <map>.bmp and <map>.txt files provide the in-game picture and description. OpenSauce maps are intentionally unsupported upstream."),
         HaloUIValueRow(@"Shared resources",resourceSummary,nil),
         HaloUIButton(@"Import Custom Edition content",1,^(UIButton *b){(void)b;weakSelf.pickerKind=7;UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:YES];picker.allowsMultipleSelection=YES;picker.delegate=weakSelf;[weakSelf presentViewController:picker animated:YES completion:nil];}),
         HaloUIButton(@"Refresh Custom Edition library",0,^(UIButton *b){(void)b;[weakSelf render];}),

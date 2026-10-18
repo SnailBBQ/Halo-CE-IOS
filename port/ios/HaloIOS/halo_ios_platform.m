@@ -4,6 +4,7 @@
 #include "halo_invite_file_policy.h"
 
 #import <UIKit/UIKit.h>
+#include <pthread.h>
 
 /* ---------- invites: halo://join/<64 hex digits> (build 73 public-key hash + token) */
 
@@ -366,3 +367,131 @@ void halo_ios_toast(const char *text)
         }];
     });
 }
+
+/* ---------- the text chat's keyboard
+ *
+ * A line of the game's text chat is typed on the system keyboard, with or without a controller. The guest asks for it while a line is
+ * begun (halo_ios_chat_input, from the game's thread); the keyboard belongs to an almost invisible text field in the game's window. What
+ * is typed shows in the game's chat line as it does on PC, and the game gets none of the controller or the touch controls' stick and
+ * look while the line is open. Send sends the line, closing the keyboard lets it go. */
+
+#define HALO_CHAT_TEXT_SIZE 64
+
+static pthread_mutex_t g_chat_lock = PTHREAD_MUTEX_INITIALIZER;
+static char g_chat_text[HALO_CHAT_TEXT_SIZE];
+static int g_chat_wanted;      /* the guest has a line open */
+static int g_chat_answer;      /* 0 typing, 1 send, 2 let go */
+static int g_chat_showing;     /* the field is first responder (main queue) */
+
+@interface HaloChatField : UITextField <UITextFieldDelegate>
+@end
+
+static HaloChatField *g_chat_field;
+
+static void HaloChatFinish(int answer)
+{
+    pthread_mutex_lock(&g_chat_lock);
+    if (g_chat_wanted && !g_chat_answer) g_chat_answer = answer;
+    pthread_mutex_unlock(&g_chat_lock);
+}
+
+@implementation HaloChatField
+- (instancetype)initWithFrame:(CGRect)frame
+{
+    if ((self = [super initWithFrame:frame])) {
+        self.delegate = self;
+        self.alpha = 0.02;
+        self.autocorrectionType = UITextAutocorrectionTypeNo;
+        self.autocapitalizationType = UITextAutocapitalizationTypeNone;
+        self.spellCheckingType = UITextSpellCheckingTypeNo;
+        self.smartQuotesType = UITextSmartQuotesTypeNo;
+        self.smartDashesType = UITextSmartDashesTypeNo;
+        self.smartInsertDeleteType = UITextSmartInsertDeleteTypeNo;
+        self.keyboardType = UIKeyboardTypeASCIICapable;
+        self.returnKeyType = UIReturnKeySend;
+        self.enablesReturnKeyAutomatically = NO;
+        [self addTarget:self action:@selector(edited) forControlEvents:UIControlEventEditingChanged];
+        [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardHidden:) name:UIKeyboardDidHideNotification object:nil];
+    }
+    return self;
+}
+- (void)edited
+{
+    pthread_mutex_lock(&g_chat_lock);
+    snprintf(g_chat_text, sizeof g_chat_text, "%s", self.text.UTF8String ?: "");
+    pthread_mutex_unlock(&g_chat_lock);
+}
+- (BOOL)textField:(UITextField *)field shouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string
+{
+    NSString *result = [field.text stringByReplacingCharactersInRange:range withString:string];
+    return result.length < HALO_CHAT_TEXT_SIZE;   /* the game's line holds 63 characters */
+}
+- (BOOL)textFieldShouldReturn:(UITextField *)field
+{
+    [self edited];
+    HaloChatFinish(1);
+    return NO;
+}
+- (void)keyboardHidden:(NSNotification *)note
+{
+    (void)note;
+    /* (a keyboard going that a line before it had, while this line's field holds the focus again, is not this line's) */
+    if (g_chat_showing && !self.isFirstResponder) {
+        g_chat_showing = 0;
+        HaloChatFinish(2);   /* closed by hand (or by iOS): the line is let go */
+    }
+}
+@end
+
+static void HaloChatShow(NSString *start)
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIWindow *window = UIApplication.sharedApplication.delegate.window;
+        if (!window) { HaloChatFinish(2); return; }
+        if (!g_chat_field) g_chat_field = [[HaloChatField alloc] initWithFrame:CGRectMake(0, 0, 2, 2)];
+        if (g_chat_field.superview != window.rootViewController.view) [window.rootViewController.view addSubview:g_chat_field];
+        g_chat_field.text = start;
+        g_chat_showing = 1;
+        if (![g_chat_field becomeFirstResponder]) { g_chat_showing = 0; HaloChatFinish(2); }
+    });
+}
+
+static void HaloChatHide(void)
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        g_chat_showing = 0;   /* (so the keyboard going is not a line let go) */
+        [g_chat_field resignFirstResponder];
+        [g_chat_field removeFromSuperview];
+    });
+}
+
+int halo_ios_chat_input(int mode, char text[64])
+{
+    int answer = 0;
+
+    if (mode == 100) {
+        pthread_mutex_lock(&g_chat_lock);
+        int was = g_chat_wanted;
+        g_chat_wanted = 0;
+        g_chat_answer = 0;
+        pthread_mutex_unlock(&g_chat_lock);
+        if (was) HaloChatHide();
+        return 0;
+    }
+    pthread_mutex_lock(&g_chat_lock);
+    if (!g_chat_wanted) {
+        g_chat_wanted = 1;
+        g_chat_answer = 0;
+        snprintf(g_chat_text, sizeof g_chat_text, "%s", text);
+        NSString *start = [NSString stringWithUTF8String:g_chat_text] ?: @"";
+        pthread_mutex_unlock(&g_chat_lock);
+        HaloChatShow(start);
+        return 0;
+    }
+    memcpy(text, g_chat_text, HALO_CHAT_TEXT_SIZE);
+    text[HALO_CHAT_TEXT_SIZE - 1] = 0;
+    answer = g_chat_answer;
+    pthread_mutex_unlock(&g_chat_lock);
+    return answer;
+}
+
