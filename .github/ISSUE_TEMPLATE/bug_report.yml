@@ -1,0 +1,58 @@
+name: Report a problem
+description: Something crashed, froze or did not work in Halo CE for iOS
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping. **Issues are public.** Anyone can read what you post here, including logs and screenshots. Do not post Apple credentials, pairing files or anything private. The Halo CE problem report does not contain Apple credentials, but read it before you post.
+
+        The easiest way to get the logs: on the Halo CE title screen tap **Logs**, then share or copy the problem report.
+  - type: dropdown
+    id: build
+    attributes:
+      label: Which app are you using?
+      options:
+        - Regular (jailbroken or TrollStore)
+        - Non-Jailbreak (Beta)
+        - Mod Test
+    validations:
+      required: true
+  - type: input
+    id: app_version
+    attributes:
+      label: App version
+      description: Settings > About > App version, for example 0.2.113
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: iPhone or iPad model and iOS version
+      description: For example iPhone 14 Plus, iOS 16.2
+    validations:
+      required: true
+  - type: input
+    id: signing
+    attributes:
+      label: How was it installed?
+      description: For example Sideloadly with a free account, SideStore, TrollStore, jailbreak
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What were you doing (single player, multiplayer, Settings, loading a map)? Which map? Did it crash, freeze or look wrong? How long into the session?
+    validations:
+      required: true
+  - type: textarea
+    id: repeat
+    attributes:
+      label: Does it happen every time?
+      description: Steps to make it happen again, if you know them.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Paste the problem report from the Logs button here, or drag the files into this box (`last-crash.txt`, `crash.txt`, `ios-boot.log`, `start-history.txt`, `debug.txt`, `launch-phase.txt`). If Settings crashes before you can export, say so.
+      render: text

@@ -83,6 +83,12 @@ The three apps share the same features and are kept up to date together. The reg
 install one or the other. Mod Test installs side by side with either and keeps separate data. See [Mod Test](docs/ios/MOD_TEST.md) for what
 makes the third app different, and [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts) for the Non-Jailbreak app.
 
+## Reporting a problem
+
+Open an [issue](https://github.com/SnailBBQ/Halo-CE-IOS/issues/new/choose) and fill in the form. On the title screen tap **Logs** to get the
+problem report, and paste it or attach it. Please include your iPhone model, iOS version, the app version (Settings > About) and which app you
+use. Issues are public, so do not post anything private. The Non-Jailbreak build is a beta, so crash reports from it are especially useful.
+
 ## Documentation
 
 | Guide | What it covers |
