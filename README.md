@@ -6,7 +6,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is **in beta**: it boots and plays on a stock, sideloaded iPhone 14 Plus but has glitches, bugs and crashes (see [Device test results](#device-test-results)). The current source update is **M2.6.110**, on OpenCE **build 211** (network version 29) with Custom Edition maps and the MP4 movie fallback. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
+> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is **in beta**: it boots and plays on a stock, sideloaded iPhone 14 Plus but has glitches, bugs and crashes (see [Device test results](docs/ios/DEVICE_TESTS.md)). The current source update is **M2.6.113**, on OpenCE **build 220** (network version 29) with Custom Edition maps, the MP4 movie fallback and Mods. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
@@ -18,11 +18,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 >
 > **Paid Apple Developer accounts:** people who have one may be able to sign the regular app with the `extended-virtual-addressing` and `increased-memory-limit` capabilities and get it to start on a non-jailbroken device. We have not tested this, and the project does not require or build around paid accounts. See [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts).
 
-## Device test results
-
-**2026-10-08, iPhone 14 Plus, iOS 16.2, M2.6.101 Non-Jailbreak Version, sideloaded with Sideloadly (no memory entitlements).** The game booted, the a10 campaign level was played and a second map loaded, in a session of roughly ten minutes at about 60 FPS with no crashes and no pointer faults. The same-day Regular-app log on the same phone held about 60 FPS in gameplay after M2.6.100.
-
-This is one device and one session. Other devices, longer play, vehicles and multiplayer are untested. Details are in the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
+## Recent updates
 
 **New:** [M2.6.108](port/ios/UPDATE_M2708.md) adds the voice chat microphone (Settings > Audio > Voice Chat > OPEN MIC) and works with AirPods and other headsets with a microphone.
 
@@ -73,18 +69,19 @@ This is one device and one session. Other devices, longer play, vehicles and mul
    including `ui.map`. [Game data guide](docs/ios/GAME_DATA.md)
 4. **Play.** Open Halo CE, import your maps and start the game. Open the gear button at any time for Settings.
 
-## Two apps from one project
+## Three apps from one project
 
-| | **Halo CE** (regular) | **Halo CE Mod Test** |
-| --- | --- | --- |
-| Purpose | The regular app | A separate experiment that loads very large converted campaign maps |
-| How to build | Actions → Build IPA, options off | Same workflow, tick **Mod Test** |
-| Output | `HaloCE.ipa` (artifact `HaloCE-iOS`) | `HaloCE.ipa` (artifact `HaloCE-iOS-ModTest`) |
-| Bundle ID | `com.haloceuniversal.ios.m0` | `com.haloceuniversal.ios.modtest` |
-| Invite scheme | `halo://` | `halomodtest://` |
+| | **Halo CE** (regular) | **Halo CE Non-Jailbreak** (Beta) | **Halo CE Mod Test** |
+| --- | --- | --- | --- |
+| Purpose | The regular app, for jailbroken devices and TrollStore | For stock, sideloaded iPhones that are not jailbroken. **Beta: expect glitches, bugs and crashes** | A separate experiment that loads very large converted campaign maps |
+| How to build | Actions → Build IPA, options off | Same workflow, tick **Non-Jailbreak** | Same workflow, tick **Mod Test** |
+| Output | `HaloCE.ipa` (artifact `HaloCE-iOS`) | `HaloCE-NonJailbreak.ipa` (artifact `HaloCE-iOS-NonJailbreak`) | `HaloCE.ipa` (artifact `HaloCE-iOS-ModTest`) |
+| Bundle ID | `com.haloceuniversal.ios.m0` | `com.haloceuniversal.ios.m0` (same as the regular app) | `com.haloceuniversal.ios.modtest` |
+| Invite scheme | `halo://` | `halo://` | `halomodtest://` |
 
-Both apps share the same features and are kept up to date together. They install side by side and keep separate data. See
-[Mod Test](docs/ios/MOD_TEST.md) for what makes the second app different.
+The three apps share the same features and are kept up to date together. The regular and Non-Jailbreak apps use the same bundle ID, so
+install one or the other. Mod Test installs side by side with either and keeps separate data. See [Mod Test](docs/ios/MOD_TEST.md) for what
+makes the third app different, and [Install](docs/ios/INSTALL.md#sideloading-with-free-and-paid-accounts) for the Non-Jailbreak app.
 
 ## Documentation
 
@@ -100,6 +97,7 @@ Both apps share the same features and are kept up to date together. They install
 | [Display / AirPlay](docs/ios/DISPLAY_AIRPLAY.md) | Frame rate, picture shape and detail, the HUD editor, first-person view, heat and battery, menus, and showing the game on a TV |
 | [Troubleshooting](docs/ios/TROUBLESHOOTING.md) | Safe Start, logs, problem reports, common problems |
 | [Mod Test](docs/ios/MOD_TEST.md) | The separate Mod Test app |
+| [Device test results](docs/ios/DEVICE_TESTS.md) | What has been tested on real devices |
 | [Release notes](docs/ios/RELEASE_NOTES.md) | Every update, with its device checklist |
 | [Official project and other platforms](docs/UPSTREAM.md) | OpenCE, its downloads and credits |
 
