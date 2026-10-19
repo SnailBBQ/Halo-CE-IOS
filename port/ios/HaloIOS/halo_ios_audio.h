@@ -24,6 +24,8 @@ uint32_t halo_ios_audio_underruns(void);
 int halo_ios_audio_is_open(void);
 /* Plain-language state for the log: why sound is or is not playing. */
 const char *halo_ios_audio_status(void);
+/* The last change of the audio route (a headset connected or removed), "" if none: for the periodic log line. */
+const char *halo_ios_audio_route_note(void);
 
 /* Voice chat's microphone. Open asks for the microphone permission the first time (and waits for the answer),
  * switches the audio session to play-and-record with Bluetooth headsets allowed (AirPods and other headphones with a

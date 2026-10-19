@@ -838,14 +838,6 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
 
 - (void)buildCheats:(const HsSettings *)settings
 {
-    NSMutableArray *bindings = [NSMutableArray array];
-    for (int k=1;k<4;k++) {
-        int slot=k;
-        NSString *action=HaloShortcutActions()[settings->shortcuts[k].action];
-        [bindings addObject:HaloUIButton([NSString stringWithFormat:@"Shortcut %d · %@",k,action],0,^(UIButton *button){(void)button;[self editShortcut:slot];})];
-    }
-    [bindings addObject:HaloUINote(@"Three independent input sequences toggle modifiers or run one-time actions in campaign. Multiplayer disables them; active modifier states are never saved.")];
-    [self add:HaloUICardView(@"Cheat shortcuts",bindings)];
     [self add:HaloUINote(@"The selected control preset activates its saved cheat recipe automatically in solo campaign. Multiplayer disables all cheats.")];
     [self add:HaloUINote(@"Tap a section to open it. Everything here works only in the solo campaign and switches itself off in multiplayer and network games.")];
 #define CHEAT_SWITCH(title, sub, field) HaloUISwitchRow(title, sub, settings->field, ^(BOOL on) { [self update:^(HsSettings *s) { s->field = on; }]; })
@@ -854,17 +846,18 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
     cards = [NSMutableArray array];
     [cards addObject:HaloUICardView(nil, @[
         CHEAT_SWITCH(@"God mode", @"You cannot die.", cheat_god),
+        CHEAT_SWITCH(@"Infinite ammo", @"Weapons never run out; plasma weapons never need a new battery.", cheat_ammo),
         CHEAT_SWITCH(@"One-hit kills", @"Hostile units only; friendly units are protected.", cheat_one_hit),
+        CHEAT_SWITCH(@"Unlimited flashlight", @"Keeps its battery full; you still toggle the light.", cheat_flashlight),
         CHEAT_SWITCH(@"No fall damage", @"The local player takes no falling or collision damage.", cheat_no_fall),
         HaloUIButton(@"Restore health and shield", 0, ^(UIButton *b) { (void)b; [self queueCampaignAction:10]; }),
         HaloUINote(@"Restore fills health and the normal shield once; an over-charged shield is never lowered. Ammo is covered by Infinite ammo.")])];
-    [self addCheatSection:@"Survival" summary:HaloActiveNames(@[(settings->cheat_god)?@"God mode":@"",(settings->cheat_one_hit)?@"One-hit kills":@"",(settings->cheat_no_fall)?@"No fall damage":@""]) views:cards];
+    [self addCheatSection:@"Survival" summary:HaloActiveNames(@[(settings->cheat_god)?@"God mode":@"",(settings->cheat_ammo)?@"Infinite ammo":@"",(settings->cheat_one_hit)?@"One-hit kills":@"",(settings->cheat_flashlight)?@"Unlimited flashlight":@"",(settings->cheat_no_fall)?@"No fall damage":@""]) views:cards];
 
     cards = [NSMutableArray array];
     [cards addObject:HaloUICardView(nil, @[
-        CHEAT_SWITCH(@"Infinite ammo", @"Weapons never run out; plasma weapons never need a new battery.", cheat_ammo),
-        CHEAT_SWITCH(@"Infinite grenades", @"Throw as many as you like.", cheat_grenades),
         CHEAT_SWITCH(@"Bottomless clip", @"A magazine never empties.", cheat_reload),
+        CHEAT_SWITCH(@"Infinite grenades", @"Throw as many as you like.", cheat_grenades),
         CHEAT_SWITCH(@"Rapid fire", @"Removes shot-rate and trigger-latch delays; charging and overheating remain.", cheat_rapid),
         CHEAT_SWITCH(@"No recoil", @"Removes the weapon kick; projectile spread is unchanged.", cheat_no_recoil)])];
     [cards addObject:HaloUICardView(@"Weapon giver",@[
@@ -879,7 +872,7 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
                 [self update:^(HsSettings *s){s->cheat_projectile=(int)choice;}];[button setTitle:projectileChoices[choice] forState:UIControlStateNormal];}];}),
         HaloUINote(@"Local player weapon fire only. The chosen projectile must already be loaded by the map. Missing assets keep the original shot; weapon tags are not modified.")])];
     [cards addObject:HaloUICardView(nil,@[HaloUIButton(@"Drop Weapon Ring Around Player",0,^(UIButton *b){(void)b;[self queueCampaignAction:11];}),HaloUINote(@"Runs cheat_all_weapons using this map’s weapon collection.")])];
-    [self addCheatSection:@"Weapons" summary:HaloActiveNames(@[(settings->cheat_ammo)?@"Infinite ammo":@"",(settings->cheat_grenades)?@"Infinite grenades":@"",(settings->cheat_reload)?@"Bottomless clip":@"",(settings->cheat_rapid)?@"Rapid fire":@"",(settings->cheat_no_recoil)?@"No recoil":@"",(settings->cheat_projectile)?@"Projectile Swapping":@""]) views:cards];
+    [self addCheatSection:@"Weapons" summary:HaloActiveNames(@[(settings->cheat_reload)?@"Bottomless clip":@"",(settings->cheat_grenades)?@"Infinite grenades":@"",(settings->cheat_rapid)?@"Rapid fire":@"",(settings->cheat_no_recoil)?@"No recoil":@"",(settings->cheat_projectile)?@"Projectile Swapping":@""]) views:cards];
 
     cards = [NSMutableArray array];
     [cards addObject:HaloUICardView(@"Active Camo",@[
@@ -906,7 +899,8 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
     cards = [NSMutableArray array];
     [cards addObject:HaloUICardView(@"AI Alliance",@[
         HaloUISegmentRow(nil,@[@"Original",@"Human",@"Covenant",@"Flood",@"Sentinel"],settings->cheat_alliance,^(NSInteger choice){[self update:^(HsSettings *s){s->cheat_alliance=(int)choice;}];}),
-        HaloUINote(@"Changes the player's faction; AI use the map's normal team relationships. Original restores the previous team. Existing battles and scripts may not change immediately.")])];
+        HaloUINote(@"Changes the player's faction; AI use the map's normal team relationships. Original restores the previous team. Existing battles and scripts may not change immediately."),
+        CHEAT_SWITCH(@"AI ignores you", @"Hostile units no longer notice the local player. They still fight each other and react to what they already know.", cheat_ai_ignore)])];
     NSArray<NSString *> *timeChoices=@[@"Normal (100%)",@"75%",@"50%",@"25%",@"10%",@"150%",@"200%",@"300%"];
     [cards addObject:HaloUICardView(@"Time scale",@[
         HaloUIButton(timeChoices[(NSUInteger)hs_clampi(settings->cheat_slow,0,7)],0,^(UIButton *button){
@@ -916,11 +910,7 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
     [cards addObject:HaloUICardView(nil, @[
         CHEAT_SWITCH(@"Medusa Mode", @"Uses Halo’s Medusa behavior: hostile AI that detect the player are killed.", cheat_medusa),
         CHEAT_SWITCH(@"Bumper Cars", @"Touch an AI-driven vehicle to take its driver seat. NPC bodies and other players are excluded.", cheat_hijack_vehicle),
-        CHEAT_SWITCH(@"Hijack NPCs", @"Touch a living non-player biped to possess it. Vehicles are excluded. Changing bodies may affect campaign scripts.", cheat_hijack_npc),
-        CHEAT_SWITCH(@"Infinite Vehicle Health", @"Restores the occupied vehicle’s body and shields while it is alive. Cannot revive destroyed vehicles.", cheat_vehicle_health),
-        CHEAT_SWITCH(@"AI ignores you", @"Hostile units no longer notice the local player. They still fight each other and react to what they already know.", cheat_ai_ignore),
-        CHEAT_SWITCH(@"Third person", @"Follow the player with the existing third-person camera.", cheat_third_person),
-        CHEAT_SWITCH(@"Unlimited flashlight", @"Keeps its battery full; you still toggle the light.", cheat_flashlight)])];
+        CHEAT_SWITCH(@"Hijack NPCs", @"Touch a living non-player biped to possess it. Vehicles are excluded. Changing bodies may affect campaign scripts.", cheat_hijack_npc)])];
 
     [cards addObject:HaloUICardView(nil,@[
         HaloUIButton(@"Erase All AI",2,^(UIButton *b){(void)b;
@@ -928,12 +918,14 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
             [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
             [alert addAction:[UIAlertAction actionWithTitle:@"Erase AI" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a){(void)a;[self queueCampaignAction:14];}]];
             [self presentViewController:alert animated:YES completion:nil];})])];
-    [self addCheatSection:@"World" summary:HaloActiveNames(@[(settings->cheat_slow)?@"Time scale":@"",(settings->cheat_ai_ignore)?@"AI ignores you":@"",(settings->cheat_third_person)?@"Third person":@"",(settings->cheat_flashlight)?@"Unlimited flashlight":@"",(settings->cheat_medusa)?@"Medusa Mode":@"",(settings->cheat_hijack_npc)?@"Hijack NPCs":@"",(settings->cheat_hijack_vehicle)?@"Bumper Cars":@"",(settings->cheat_vehicle_health)?@"Infinite Vehicle Health":@"",(settings->cheat_alliance)?@"AI Alliance":@""]) views:cards];
+    [self addCheatSection:@"World" summary:HaloActiveNames(@[(settings->cheat_slow)?@"Time scale":@"",(settings->cheat_ai_ignore)?@"AI ignores you":@"",(settings->cheat_medusa)?@"Medusa Mode":@"",(settings->cheat_hijack_npc)?@"Hijack NPCs":@"",(settings->cheat_hijack_vehicle)?@"Bumper Cars":@"",(settings->cheat_alliance)?@"AI Alliance":@""]) views:cards];
     cards=[NSMutableArray array];
     [cards addObject:HaloUICardView(@"Vertical FOV (0 = default)", @[HaloUISliderRow(@"Value", 0, 90, settings->cheat_fov, @"%.1f", ^(float value) { [self update:^(HsSettings *s) { s->cheat_fov = value; }]; }), HaloUIButton(@"Enter value", 0, ^(UIButton *b) { HsSettings current = [[HaloSettingsStore shared] snapshot]; [self enterCampaignValue:@"Vertical FOV (0 = default)" value:current.cheat_fov minimum:0 maximum:90 apply:^(float value) { [self update:^(HsSettings *s) { s->cheat_fov = value; }]; }]; })])];
     [cards addObject:HaloUICardView(nil,@[CHEAT_SWITCH(@"Detach Camera from Player", @"On foot: fly with the sticks, R2/RT rises and L2/LT descends. Your body stays in place. Disable to return; the world continues running.", cheat_detach_camera)])];
+    [cards addObject:HaloUICardView(nil,@[
+        CHEAT_SWITCH(@"Third person", @"Follow the player with the existing third-person camera.", cheat_third_person)])];
     [cards addObject:HaloUICardView(nil,@[CHEAT_SWITCH(@"Wireframe Render", @"Diagnostic triangle-edge view. Can reduce performance and expose hidden geometry; campaign only.", cheat_wireframe)])];
-    [self addCheatSection:@"Visuals" summary:HaloActiveNames(@[(settings->cheat_fov > 0.5f)?@"FOV":@"",(settings->cheat_wireframe)?@"Wireframe Render":@"",(settings->cheat_detach_camera)?@"Detach Camera":@""]) views:cards];
+    [self addCheatSection:@"Visuals" summary:HaloActiveNames(@[(settings->cheat_fov > 0.5f)?@"FOV":@"",(settings->cheat_wireframe)?@"Wireframe Render":@"",(settings->cheat_detach_camera)?@"Detach Camera":@"",(settings->cheat_third_person)?@"Third person":@""]) views:cards];
 
 
     cards = [NSMutableArray array];
@@ -970,8 +962,18 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
     [cards addObject:HaloUICardView(nil, @[
         HaloUIButton(@"Choose a vehicle", 0, ^(UIButton *b) { [self chooseCampaignAsset:@"Spawn a vehicle" names:@[@"Warthog", @"Ghost", @"Banshee", @"Scorpion"] base:200]; }),
         HaloUINote(@"The vehicle appears in front of you. Only vehicles loaded by the current map can be spawned; others report a message.")])];
-    [self addCheatSection:@"Vehicle Spawner" summary:@"Warthog, Ghost, Banshee, Scorpion" views:cards];
+    [cards addObject:HaloUICardView(nil, @[
+        CHEAT_SWITCH(@"Infinite Vehicle Health", @"Restores the occupied vehicle’s body and shields while it is alive. Cannot revive destroyed vehicles.", cheat_vehicle_health)])];
+    [self addCheatSection:@"Vehicle Spawner" summary:(settings->cheat_vehicle_health?@"Infinite Vehicle Health":@"Warthog, Ghost, Banshee, Scorpion") views:cards];
 #undef CHEAT_SWITCH
+    NSMutableArray *bindings = [NSMutableArray array];
+    for (int k=1;k<4;k++) {
+        int slot=k;
+        NSString *action=HaloShortcutActions()[settings->shortcuts[k].action];
+        [bindings addObject:HaloUIButton([NSString stringWithFormat:@"Shortcut %d · %@",k,action],0,^(UIButton *button){(void)button;[self editShortcut:slot];})];
+    }
+    [bindings addObject:HaloUINote(@"Three independent input sequences toggle modifiers or run one-time actions in campaign. Multiplayer disables them; active modifier states are never saved.")];
+    [self add:HaloUICardView(@"Cheat shortcuts",bindings)];
     [self add:HaloUICardView(nil, @[HaloUINote(@"Changes apply within a moment, also in the middle of a mission.")])];
 }
 
@@ -1244,7 +1246,7 @@ static NSString *HaloLogTail(NSString *name, NSUInteger limit)
     return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] ?: [[NSString alloc] initWithData:data encoding:NSISOLatin1StringEncoding];
 }
 
-NSString *HaloProblemReportText(BOOL compact)
+static NSString *HaloProblemReportWithItems(NSArray *items)
 {
     struct utsname system;
     uname(&system);
@@ -1257,9 +1259,6 @@ NSString *HaloProblemReportText(BOOL compact)
     char *text = malloc(32768);
     if (text && hs_serialize(&snapshot, text, 32768) > 0) [report appendFormat:@"\n--- settings (running cheats are not included) ---\n%s\n", text];
     free(text);
-    NSArray *items = compact
-        ? @[@[@"start-history.txt", @4000], @[@"ios-boot.log", @60000], @[@"debug.txt", @20000], @[@"crash.txt", @4000], @[@"last-crash.txt", @4000], @[@"launch-phase.txt", @1000]]
-        : @[@[@"start-history.txt", @4000], @[@"ios-boot.log", @200000], @[@"debug.txt", @100000], @[@"crash.txt", @4000], @[@"last-crash.txt", @4000], @[@"launch-phase.txt", @1000]];
     for (NSArray *item in items) {
         NSString *body = HaloLogTail(item[0], [item[1] unsignedIntegerValue]);
         if (body.length) [report appendFormat:@"\n--- %@ (the end of it) ---\n%@\n", item[0], body];
@@ -1267,7 +1266,66 @@ NSString *HaloProblemReportText(BOOL compact)
     return report;
 }
 
+NSString *HaloProblemReportText(BOOL compact)
+{
+    return HaloProblemReportWithItems(compact
+        ? @[@[@"start-history.txt", @4000], @[@"ios-boot.log", @60000], @[@"debug.txt", @20000], @[@"crash.txt", @4000], @[@"last-crash.txt", @4000], @[@"launch-phase.txt", @1000]]
+        : @[@[@"start-history.txt", @4000], @[@"ios-boot.log", @200000], @[@"debug.txt", @100000], @[@"crash.txt", @4000], @[@"last-crash.txt", @4000], @[@"launch-phase.txt", @1000]]);
+}
+
+/* The same report, kept under GitHub's 65,536 characters for one text box (the device and settings come first, then the ends of the logs). */
+static NSString *HaloProblemReportForGitHub(void)
+{
+    return HaloProblemReportWithItems(@[@[@"start-history.txt", @3000], @[@"last-crash.txt", @4000], @[@"crash.txt", @4000], @[@"launch-phase.txt", @1000], @[@"ios-boot.log", @22000], @[@"debug.txt", @12000]]);
+}
+
+static NSString *HaloQueryValue(NSString *text)
+{
+    NSMutableCharacterSet *allowed = [NSCharacterSet.URLQueryAllowedCharacterSet mutableCopy];
+    [allowed removeCharactersInString:@"&=+#?"];
+    return [text stringByAddingPercentEncodingWithAllowedCharacters:allowed] ?: @"";
+}
+
+/* The GitHub problem form, with the app, its version and the device filled in. */
+static NSURL *HaloProblemFormURL(void)
+{
+    struct utsname system;
+    uname(&system);
+    NSString *version = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"";
+    NSString *app = @"Regular (jailbroken or TrollStore)";
+#if defined(HALO_NON_JAILBREAK) && HALO_NON_JAILBREAK
+    app = @"Non-Jailbreak (Beta)";
+#endif
+    if ([NSBundle.mainBundle.bundleIdentifier hasSuffix:@".modtest"]) app = @"Mod Test";
+    NSString *device = [NSString stringWithFormat:@"%s, iOS %@", system.machine, UIDevice.currentDevice.systemVersion];
+    NSString *address = [NSString stringWithFormat:@"https://github.com/SnailBBQ/Halo-CE-IOS/issues/new?template=bug_report.yml&build=%@&app_version=%@&device=%@",
+        HaloQueryValue(app), HaloQueryValue(version), HaloQueryValue(device)];
+    return [NSURL URLWithString:address];
+}
+
+/* Report a problem: the report is copied, the GitHub form opens, and the report is pasted into its Logs box. The old way (a text file
+ * and the share sheet) stays as the second choice. */
 - (void)reportProblem:(UIView *)source
+{
+    NSString *copied = HaloProblemReportForGitHub();
+    UIPasteboard.generalPasteboard.string = copied;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Report a problem"
+        message:@"Your problem report (device, settings and the end of the logs) is copied. The form opens on GitHub: fill it in and paste the report into the Logs box. Reports are public, so look it over first."
+        preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Open the GitHub form" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        (void)action;
+        NSURL *form = HaloProblemFormURL();
+        if (form) [UIApplication.sharedApplication openURL:form options:@{} completionHandler:nil];
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Share the report as a file" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        (void)action;
+        [self shareProblemReport:source];
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)shareProblemReport:(UIView *)source
 {
     NSString *report = HaloProblemReportText(NO);
     NSDateFormatter *format = [NSDateFormatter new];
@@ -1365,7 +1423,7 @@ static UIColor *HaloColorFromRGB(unsigned rgb) {
     [diag addObject:HaloUIButton(@"Share log files", 0, ^(UIButton *b) { if (self.onShareLogs) self.onShareLogs(b); })];
     [diag addObject:HaloUIButton(@"Copy logs as text", 0, ^(UIButton *b) { if (self.onCopyLogs) self.onCopyLogs(b); })];
     [diag addObject:HaloUIButton(@"Report a problem…", 0, ^(UIButton *b) { [self reportProblem:b]; })];
-    [diag addObject:HaloUINote(@"Makes one text file with your device, your settings (never active cheats) and the end of the logs, and opens the share sheet. Look it over before posting it publicly.")];
+    [diag addObject:HaloUINote(@"Copies a report (your device, your settings, never active cheats, and the end of the logs) and opens the problem form on GitHub, where you paste it. Look it over before posting: reports are public.")];
     [self add:HaloUICardView(@"Diagnostics", diag)];
 
     if (halo_ios_safe_level()) {

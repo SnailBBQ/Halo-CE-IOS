@@ -76,6 +76,14 @@ While the keyboard is up you do not move or look. A line holds 63 characters, an
   hides that player's lines for you alone.
 - A line to the team or the vehicle cannot be started on the iPhone yet; D-pad Up sends to everyone.
 
+## Typing in the menus
+
+When a menu asks for text, the iPhone keyboard comes up in a small prompt, with or without a controller, and what you type shows in it:
+
+- **Server Setup**: tap **Game Name** or **Password** (a public internet game's) and type. **OK** keeps it, **Cancel** leaves it as it was. A password shows as dots.
+- **Joining a game with a password**: the password screen opens the prompt by itself; **OK** joins.
+- **Direct Link**: tap **Paste Link**. The prompt starts with the invite link on the clipboard, if there is one; type or paste the link (or its code) and press **Join**.
+
 ## Map sharing and data use
 
 OpenCE can send Custom Edition maps, and the resource maps they need, between players: a host sends a map to a player who joins without it, and other players in the game help (`network.map_share`, `network.map_seed`). **On iPhone both are off by default** (from M2.6.110, including installs that already had a config.toml from an earlier version). Your phone then only receives: if a game needs a map you lack, it still downloads it from the host and other players (`network.map_download`, on).

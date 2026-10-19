@@ -10,6 +10,7 @@ static AVAudioSourceNode *g_source;
 static BOOL g_opened;
 static dispatch_once_t g_observers_once;
 static char g_status[200] = "the game has not asked for sound yet";
+static char g_route_note[240] = "";   /* the last route change, for the periodic log line */
 
 static void HaloSetStatus(NSString *text, NSError *error)
 {
@@ -23,8 +24,23 @@ static void HaloStartEngine(void)
         return;
     NSError *error = nil;
     [[AVAudioSession sharedInstance] setActive:YES error:&error];
-    if (![g_engine startAndReturnError:&error])
-        NSLog(@"[HaloIOS-Audio] engine start failed: %@", error);
+    /* (an engine whose route just changed can throw as well as fail: a headset connected or removed must never end the app) */
+    @try {
+        if (![g_engine startAndReturnError:&error])
+            NSLog(@"[HaloIOS-Audio] engine start failed: %@", error);
+    } @catch (NSException *exception) {
+        NSLog(@"[HaloIOS-Audio] engine start threw: %@", exception);
+        HaloSetStatus([NSString stringWithFormat:@"audio engine start threw (%@)", exception.reason ?: exception.name], nil);
+    }
+}
+
+/* What the audio route is now, in a line for the status lines of the logs (the output and the input in use). */
+static NSString *HaloRouteText(void)
+{
+    AVAudioSessionRouteDescription *route = [AVAudioSession sharedInstance].currentRoute;
+    NSString *out = route.outputs.firstObject.portName ?: @"none";
+    NSString *in = route.inputs.firstObject.portName ?: @"none";
+    return [NSString stringWithFormat:@"output %@, input %@", out, in];
 }
 
 int halo_ios_audio_open(uint32_t sample_rate, uint32_t channels)
@@ -94,6 +110,13 @@ int halo_ios_audio_open(uint32_t sample_rate, uint32_t channels)
                 (void)note;
                 HaloStartEngine();
             }];
+            /* a headset connected or removed: noted in the logs (the status line below), the engine restarted if it stopped */
+            [center addObserverForName:AVAudioSessionRouteChangeNotification object:nil
+                                 queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+                NSNumber *reason = note.userInfo[AVAudioSessionRouteChangeReasonKey];
+                snprintf(g_route_note, sizeof(g_route_note), "route changed (reason %lu): %s", (unsigned long)reason.unsignedIntegerValue, HaloRouteText().UTF8String);
+                HaloStartEngine();
+            }];
         });
         HaloSetStatus(@"playing through the speaker", nil);
         ok = 1;
@@ -156,6 +179,11 @@ const char *halo_ios_audio_status(void)
     return g_status;
 }
 
+const char *halo_ios_audio_route_note(void)
+{
+    return g_route_note;
+}
+
 
 /* ---------- voice chat microphone ---------- */
 
@@ -186,42 +214,83 @@ static void HaloMicPush(const float *samples, uint32_t count)
 }
 
 /* (main thread) the tap that converts whatever the current input is (built-in microphone, AirPods, a wired headset)
- * to 48 kHz mono float. Called again when the route changes. */
+ * to 48 kHz mono float. The tap takes the node's own format and the converter is made from the format of the buffers
+ * that arrive, so an input that changes its rate or channels (a Bluetooth headset connecting or going: 48 kHz stereo
+ * to 16 kHz mono, say) can never meet a converter, or a tap, made for the format before. Called again when the route
+ * changes; the graph calls are guarded, as a mismatch there throws. */
 static BOOL HaloMicInstallTap(NSError **error)
 {
-    AVAudioInputNode *input = g_mic_engine.inputNode;
-    AVAudioFormat *inFormat = [input outputFormatForBus:0];
-    if (inFormat.sampleRate < 8000 || inFormat.channelCount < 1) {
-        HaloMicStatus(@"no usable microphone input is available", nil);
-        return NO;
-    }
+    (void)error;
+    if (!g_mic_engine) return NO;
     AVAudioFormat *outFormat = [[AVAudioFormat alloc] initWithCommonFormat:AVAudioPCMFormatFloat32
                                                                 sampleRate:g_mic_rate channels:1 interleaved:NO];
-    AVAudioConverter *converter = [[AVAudioConverter alloc] initFromFormat:inFormat toFormat:outFormat];
-    if (!converter) {
-        HaloMicStatus(@"cannot convert the microphone's format", nil);
+    @try {
+        AVAudioInputNode *input = g_mic_engine.inputNode;
+        AVAudioFormat *inFormat = [input outputFormatForBus:0];
+        if (inFormat.sampleRate < 8000 || inFormat.channelCount < 1) {
+            HaloMicStatus(@"no usable microphone input is available", nil);
+            return NO;
+        }
+        [input removeTapOnBus:0];
+        __block AVAudioConverter *converter = nil;
+        __block AVAudioFormat *converterFormat = nil;
+        [input installTapOnBus:0 bufferSize:1024 format:nil
+                         block:^(AVAudioPCMBuffer *buffer, AVAudioTime *when) {
+            (void)when;
+            AVAudioFormat *bufferFormat = buffer.format;
+            if (buffer.frameLength == 0 || bufferFormat.sampleRate < 8000 || bufferFormat.channelCount < 1) return;
+            if (!converter || ![converterFormat isEqual:bufferFormat]) {
+                converter = [[AVAudioConverter alloc] initFromFormat:bufferFormat toFormat:outFormat];
+                converterFormat = bufferFormat;
+            }
+            if (!converter) return;
+            AVAudioFrameCount capacity = (AVAudioFrameCount)(buffer.frameLength * (g_mic_rate / bufferFormat.sampleRate)) + 64;
+            AVAudioPCMBuffer *out = [[AVAudioPCMBuffer alloc] initWithPCMFormat:outFormat frameCapacity:capacity];
+            if (!out) return;
+            __block BOOL supplied = NO;
+            NSError *convertError = nil;
+            [converter convertToBuffer:out error:&convertError
+                    withInputFromBlock:^AVAudioBuffer *(AVAudioPacketCount count, AVAudioConverterInputStatus *status) {
+                (void)count;
+                if (supplied) { *status = AVAudioConverterInputStatus_NoDataNow; return nil; }
+                supplied = YES;
+                *status = AVAudioConverterInputStatus_HaveData;
+                return buffer;
+            }];
+            if (!convertError && out.frameLength > 0 && out.floatChannelData)
+                HaloMicPush(out.floatChannelData[0], out.frameLength);
+        }];
+    } @catch (NSException *exception) {
+        HaloMicStatus([NSString stringWithFormat:@"the microphone input could not be set up (%@)", exception.reason ?: exception.name], nil);
         return NO;
     }
-    [input removeTapOnBus:0];
-    [input installTapOnBus:0 bufferSize:1024 format:inFormat
-                     block:^(AVAudioPCMBuffer *buffer, AVAudioTime *when) {
-        (void)when;
-        AVAudioFrameCount capacity = (AVAudioFrameCount)(buffer.frameLength * (g_mic_rate / inFormat.sampleRate)) + 64;
-        AVAudioPCMBuffer *out = [[AVAudioPCMBuffer alloc] initWithPCMFormat:outFormat frameCapacity:capacity];
-        __block BOOL supplied = NO;
-        NSError *convertError = nil;
-        [converter convertToBuffer:out error:&convertError
-                withInputFromBlock:^AVAudioBuffer *(AVAudioPacketCount count, AVAudioConverterInputStatus *status) {
-            (void)count;
-            if (supplied) { *status = AVAudioConverterInputStatus_NoDataNow; return nil; }
-            supplied = YES;
-            *status = AVAudioConverterInputStatus_HaveData;
-            return buffer;
-        }];
-        if (!convertError && out.frameLength > 0 && out.floatChannelData)
-            HaloMicPush(out.floatChannelData[0], out.frameLength);
-    }];
     return YES;
+}
+
+/* (main thread) the microphone's engine started again after its input changed; tried once more a moment later if the
+ * route had not settled (a headset takes a moment to take over). */
+static void HaloMicRecover(int attempt)
+{
+    if (!g_mic_open || !g_mic_engine) return;
+    NSError *again = nil;
+    BOOL ok = NO;
+    @try {
+        ok = HaloMicInstallTap(&again);
+        if (ok && !g_mic_engine.isRunning) {
+            [g_mic_engine prepare];
+            ok = [g_mic_engine startAndReturnError:&again];
+        }
+    } @catch (NSException *exception) {
+        HaloMicStatus([NSString stringWithFormat:@"the microphone would not restart (%@)", exception.reason ?: exception.name], nil);
+        ok = NO;
+    }
+    if (ok) {
+        HaloMicStatus([NSString stringWithFormat:@"microphone open (%@)", HaloRouteText()], nil);
+    } else if (attempt < 3) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            HaloMicRecover(attempt + 1);
+        });
+    }
 }
 
 static BOOL HaloMicStart(void)
@@ -242,10 +311,16 @@ static BOOL HaloMicStart(void)
         g_mic_engine = nil;
         return NO;
     }
-    [g_mic_engine prepare];
-    if (![g_mic_engine startAndReturnError:&error]) {
-        HaloMicStatus(@"the microphone would not start", error);
-        [g_mic_engine.inputNode removeTapOnBus:0];
+    @try {
+        [g_mic_engine prepare];
+        if (![g_mic_engine startAndReturnError:&error]) {
+            HaloMicStatus(@"the microphone would not start", error);
+            [g_mic_engine.inputNode removeTapOnBus:0];
+            g_mic_engine = nil;
+            return NO;
+        }
+    } @catch (NSException *exception) {
+        HaloMicStatus([NSString stringWithFormat:@"the microphone would not start (%@)", exception.reason ?: exception.name], nil);
         g_mic_engine = nil;
         return NO;
     }
@@ -255,16 +330,20 @@ static BOOL HaloMicStart(void)
         [center addObserverForName:AVAudioEngineConfigurationChangeNotification object:nil
                              queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
             if (!g_mic_open || note.object != g_mic_engine) return;
-            NSError *again = nil;
-            if (HaloMicInstallTap(&again) && !g_mic_engine.isRunning) [g_mic_engine startAndReturnError:&again];
+            HaloMicRecover(0);
+        }];
+        [center addObserverForName:AVAudioSessionRouteChangeNotification object:nil
+                             queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+            if (!g_mic_open) return;
+            NSNumber *reason = note.userInfo[AVAudioSessionRouteChangeReasonKey];
+            HaloMicStatus([NSString stringWithFormat:@"microphone route changed (reason %lu): %@", (unsigned long)reason.unsignedIntegerValue, HaloRouteText()], nil);
         }];
         [center addObserverForName:AVAudioSessionInterruptionNotification object:nil
                              queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
             NSNumber *type = note.userInfo[AVAudioSessionInterruptionTypeKey];
             if (g_mic_open && g_mic_engine && type.unsignedIntegerValue == AVAudioSessionInterruptionTypeEnded) {
-                NSError *again = nil;
                 [[AVAudioSession sharedInstance] setActive:YES error:nil];
-                if (!g_mic_engine.isRunning) [g_mic_engine startAndReturnError:&again];
+                if (!g_mic_engine.isRunning) HaloMicRecover(0);
             }
         }];
     });
@@ -332,8 +411,12 @@ void halo_ios_mic_close(void)
     if (!g_mic_open) return;
     g_mic_open = NO;
     void (^stop)(void) = ^{
-        [g_mic_engine.inputNode removeTapOnBus:0];
-        [g_mic_engine stop];
+        @try {
+            [g_mic_engine.inputNode removeTapOnBus:0];
+            [g_mic_engine stop];
+        } @catch (NSException *exception) {
+            (void)exception;
+        }
         g_mic_engine = nil;
         NSError *error = nil;
         /* back to playback only: the game's sound keeps its usual route and quality */

@@ -227,7 +227,7 @@ static void ValidateCEMap(NSURL *url)
     NSDictionary *info = CustomMapInfo(url, YES);
     uint32_t version = [info[@"version"] unsignedIntValue];
     if (version == 5) HaloBackupRequire(NO, @"That is an Xbox version 5 map. Use Import maps for original/Xbox maps; Custom Edition Maps requires version 609.");
-    HaloBackupRequire([info[@"valid"] boolValue], @"Custom Edition map header is invalid or unsupported. OpenCE build 232 supports standard version 609 CE maps; OpenSauce maps are not supported.");
+    HaloBackupRequire([info[@"valid"] boolValue], @"Custom Edition map header is invalid or unsupported. OpenCE build 235 supports standard version 609 CE maps; OpenSauce maps are not supported.");
 }
 
 void HaloCustomContentImport(NSArray<NSURL *> *files)

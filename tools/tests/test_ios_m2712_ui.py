@@ -49,7 +49,7 @@ check('names:@[@"Default gear"' not in settings, "the old four-item icon list mu
 
 # Mods filters
 check("Sort multiplayer maps" not in library and "maps_mp_alpha" not in library, "Sort multiplayer maps A-Z must be gone from Mods")
-check(library.count('Multiplayer only (A–Z)') == 2 and library.count('HaloUISwitchRow(@"Campaign only"') == 2, "Installed and Custom Edition maps both need the two filters")
+check(library.count('HaloUISegmentRow(@"Show in list"') == 2 and library.count('@[@"Hide",@"All",@"Multiplayer",@"Campaign"]') == 1 and "s2->custom_filter=" in library and "s2->maps_mp_only=" in library and "s2->maps_campaign_only=" in library, "Installed and Custom Edition maps both need the Hide / All / Multiplayer / Campaign choice")
 check("hm_visible_mode" in library and "hm_custom_visible" in library and "custom_hide" in library, "filters must drive both lists")
 check("0x60" in read("HaloMods.m"), "custom maps need their scenario type read from the header")
 

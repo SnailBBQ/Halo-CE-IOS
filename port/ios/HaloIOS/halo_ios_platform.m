@@ -495,3 +495,110 @@ int halo_ios_chat_input(int mode, char text[64])
     return answer;
 }
 
+/* ---- the menus' text fields: Server Setup's game name and password, the join password, Direct Link's invite link. The game's
+ * field asks (halo_ios_text_prompt, from its thread) and the phone shows a prompt with a text field, and its keyboard, over the game:
+ * what is typed shows in it as it is typed (a password as dots), and OK or Cancel answers. */
+
+#define HALO_PROMPT_TEXT_SIZE 160
+
+static pthread_mutex_t g_prompt_lock = PTHREAD_MUTEX_INITIALIZER;
+static char g_prompt_text[HALO_PROMPT_TEXT_SIZE];
+static int g_prompt_wanted;     /* the game has a prompt open */
+static int g_prompt_answer;     /* 0 open, 1 OK, 2 cancelled */
+static int g_prompt_serial;     /* each prompt's own, so a late answer of one the game let go of is not the next one's */
+static __weak UIAlertController *g_prompt_alert;   /* (main queue) */
+
+static void HaloPromptFinish(int serial, int answer, NSString *text)
+{
+    pthread_mutex_lock(&g_prompt_lock);
+    if (g_prompt_wanted && serial == g_prompt_serial && !g_prompt_answer) {
+        snprintf(g_prompt_text, sizeof g_prompt_text, "%s", text.UTF8String ?: "");
+        g_prompt_answer = answer;
+    }
+    pthread_mutex_unlock(&g_prompt_lock);
+}
+
+static UIViewController *HaloPromptPresenter(void)
+{
+    UIViewController *top = UIApplication.sharedApplication.delegate.window.rootViewController;
+    while (top.presentedViewController && !top.presentedViewController.isBeingDismissed) top = top.presentedViewController;
+    return top;
+}
+
+static void HaloPromptShow(int kind, NSString *start, int serial)
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIViewController *presenter = HaloPromptPresenter();
+        if (!presenter) { HaloPromptFinish(serial, 2, @""); return; }
+        BOOL password = kind == 3, link = kind == 4;
+        NSString *title = link ? @"Join with an invite link" : password ? @"Password" : @"Game name";
+        NSString *message = link ? @"Type or paste the host's invite link (halo://join/...)." :
+            password ? @"Type the password." : nil;
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
+        [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
+            field.text = start;
+            field.placeholder = link ? @"halo://join/..." : password ? @"Password" : @"Game name";
+            field.secureTextEntry = password;
+            field.autocorrectionType = UITextAutocorrectionTypeNo;
+            field.autocapitalizationType = UITextAutocapitalizationTypeNone;
+            field.spellCheckingType = UITextSpellCheckingTypeNo;
+            field.smartQuotesType = UITextSmartQuotesTypeNo;
+            field.smartDashesType = UITextSmartDashesTypeNo;
+            field.keyboardType = link ? UIKeyboardTypeURL : UIKeyboardTypeASCIICapable;
+            field.returnKeyType = UIReturnKeyDone;
+            field.clearButtonMode = UITextFieldViewModeWhileEditing;
+        }];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction *action) {
+            (void)action;
+            HaloPromptFinish(serial, 2, @"");
+        }]];
+        __weak UIAlertController *weak = alert;
+        [alert addAction:[UIAlertAction actionWithTitle:link ? @"Join" : @"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+            (void)action;
+            HaloPromptFinish(serial, 1, weak.textFields.firstObject.text ?: @"");
+        }]];
+        g_prompt_alert = alert;
+        [presenter presentViewController:alert animated:YES completion:nil];
+    });
+}
+
+static void HaloPromptHide(void)
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIAlertController *alert = g_prompt_alert;
+        g_prompt_alert = nil;
+        if (alert.presentingViewController) [alert dismissViewControllerAnimated:NO completion:nil];
+    });
+}
+
+int halo_ios_text_prompt(int kind, char text[HALO_PROMPT_TEXT_SIZE])
+{
+    int answer = 0;
+
+    if (kind == 100) {
+        pthread_mutex_lock(&g_prompt_lock);
+        int was = g_prompt_wanted;
+        g_prompt_wanted = 0;
+        g_prompt_answer = 0;
+        pthread_mutex_unlock(&g_prompt_lock);
+        if (was) HaloPromptHide();
+        return 0;
+    }
+    pthread_mutex_lock(&g_prompt_lock);
+    if (!g_prompt_wanted) {
+        g_prompt_wanted = 1;
+        g_prompt_answer = 0;
+        int serial = ++g_prompt_serial;
+        text[HALO_PROMPT_TEXT_SIZE - 1] = 0;
+        NSString *start = [NSString stringWithUTF8String:text] ?: @"";
+        pthread_mutex_unlock(&g_prompt_lock);
+        HaloPromptShow(kind, start, serial);
+        return 0;
+    }
+    memcpy(text, g_prompt_text, HALO_PROMPT_TEXT_SIZE);
+    text[HALO_PROMPT_TEXT_SIZE - 1] = 0;
+    answer = g_prompt_answer;
+    pthread_mutex_unlock(&g_prompt_lock);
+    return answer;
+}
+

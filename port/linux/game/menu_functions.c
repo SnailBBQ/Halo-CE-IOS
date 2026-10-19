@@ -2984,6 +2984,78 @@ static struct
 of: its screen has gone) */
 static unsigned long text_field_shown_time;
 
+#ifdef HALO_IOS_GUEST
+/* On the iPhone a field is typed in a prompt the app shows, on the system keyboard (host_settings_value's index -9, with
+a buffer of IOS_TEXT_SIZE bytes: 159 characters). The kind: a field, a password (shown as stars), the invite link, or END
+(the game is done with it). The first call shows the prompt, with the text it is given; each later one answers 0 while it is
+open, 1 once the player pressed its button (the text typed in the buffer), 2 if it was cancelled. */
+#define IOS_TEXT_INDEX ((unsigned)-9)
+#define IOS_TEXT_SIZE 160
+enum { IOS_TEXT_FIELD = 2, IOS_TEXT_PASSWORD = 3, IOS_TEXT_LINK = 4, IOS_TEXT_END = 100 };
+
+/* when the prompt's button was pressed and the row's A (which ends the field) posted for it; 0: not yet */
+static unsigned long ios_text_posted_time;
+
+static void text_field_end(boolean keep);
+
+static int ios_text_call(int kind, char *text, int size)
+{
+	char buffer[IOS_TEXT_SIZE];
+	int answer, index, length = 0;
+
+	memset(buffer, 0, sizeof(buffer));
+	snprintf(buffer, sizeof(buffer), "%s", text);
+	answer = host_settings_value(IOS_TEXT_INDEX, buffer, kind);
+	if (answer == 1)
+	{
+		for (index = 0; buffer[index] && index < IOS_TEXT_SIZE - 1 && length < size - 1; index++)
+		{
+			if ((unsigned char)buffer[index] >= ' ' && (unsigned char)buffer[index] <= '~')
+				text[length++] = buffer[index];
+		}
+		text[length] = 0;
+	}
+	return answer;
+}
+
+static void ios_text_end(void)
+{
+	char text[IOS_TEXT_SIZE] = "";
+
+	ios_text_call(IOS_TEXT_END, text, sizeof(text));
+	ios_text_posted_time = 0;
+}
+
+/* the field being edited: its prompt shown (the first time), and what it answered taken: OK ends the field as Enter does
+(its row's A, posted), cancel lets it go */
+static void ios_text_poll(void)
+{
+	char text[IOS_TEXT_SIZE];
+	unsigned long now = system_milliseconds();
+	int answer;
+
+	snprintf(text, sizeof(text), "%s", text_field.text);
+	answer = ios_text_call(text_field.masked ? IOS_TEXT_PASSWORD : IOS_TEXT_FIELD, text, sizeof(text));
+	if (answer == 1)
+	{
+		if (!ios_text_posted_time)
+		{
+			snprintf(text_field.text, sizeof(text_field.text), "%.*s", (int)text_field.maximum, text);
+			ios_text_posted_time = now ? now : 1;
+			ui_widget_port_post_button(0, BUTTON_A);
+		}
+		else if (now - ios_text_posted_time > 1000)
+		{
+			/* (the press found no row to take it: the field ends all the same) */
+			text_field_end(TRUE);
+		}
+	}
+	else if (answer == 2)
+	{
+		text_field_end(FALSE);
+	}
+}
+#endif
 static boolean text_field_editing(struct widget_instance *row)
 {
 	return text_field.row && (!row || text_field.row == row);
@@ -3004,6 +3076,9 @@ static void text_field_open(struct widget_instance *row, char const *text, short
 	while (input_get_key(&key))
 		;
 	platform_text_field(TRUE, masked);
+#ifdef HALO_IOS_GUEST
+	ios_text_end();
+#endif
 }
 
 static void text_field_begin(struct widget_instance *row, char const *text, short maximum,
@@ -3024,6 +3099,9 @@ static void text_field_end(boolean keep)
 	void (*done)(char const *text) = text_field.done;
 
 	platform_text_field(FALSE, FALSE);
+#ifdef HALO_IOS_GUEST
+	ios_text_end();
+#endif
 	text_field.row = NULL;
 	text_field.done = NULL;
 	if (!keep)
@@ -3080,6 +3158,9 @@ static void text_field_show(struct widget_instance *value, char const *text, boo
 				text_field_insert(character);
 			}
 		}
+#ifdef HALO_IOS_GUEST
+		ios_text_poll();
+#endif
 		text = text_field.text;
 	}
 	for (index = 0; text[index] && index < TEXT_FIELD_LENGTH; index++)
@@ -4497,12 +4578,18 @@ static boolean password_screen_edit(struct widget_instance *row, boolean *widget
 /* "gamespy screen update": the games' rows (name, map, gametype, players),
 the one chosen's line, the counts over the titles (the PC version's: its
 players, page, servers) */
+#ifdef HALO_IOS_GUEST
+static void ios_link_poll(void);
+#endif
 static void browser_update(struct widget_instance *list)
 {
 	struct widget_instance *row;
 	struct widget_instance *stats = list->parameters.list.extended_description;
 	short focused = browser_row_index(list->focused_child);
 
+#ifdef HALO_IOS_GUEST
+	ios_link_poll();
+#endif
 	if (multiplayer.mode == _multiplayer_mode_server_browser)
 	{
 		lobby_browser_update(list);
@@ -4580,6 +4667,51 @@ static void browser_update(struct widget_instance *list)
 	browser_focus(list);
 }
 
+#ifdef HALO_IOS_GUEST
+/* Direct Link's invite link, typed (or pasted) in the app's prompt, which starts with the clipboard's link if it holds one:
+begun by the button, answered by the screen's update */
+static boolean ios_link_open;
+
+static void ios_link_begin(void)
+{
+	char text[IOS_TEXT_SIZE] = "";
+	char clipboard[TEXT_FIELD_LENGTH];
+
+	if (platform_clipboard_get(clipboard, sizeof(clipboard)) && strlen(clipboard) < sizeof(text) &&
+		(strstr(clipboard, "halo://join/") || strstr(clipboard, "?join=")))
+		snprintf(text, sizeof(text), "%s", clipboard);
+	ios_text_end();
+	ios_link_open = TRUE;
+	ios_text_call(IOS_TEXT_LINK, text, sizeof(text));
+}
+
+static void ios_link_poll(void)
+{
+	char text[IOS_TEXT_SIZE] = "";
+	char *link = text;
+	size_t length;
+	int answer;
+
+	if (!ios_link_open)
+		return;
+	answer = ios_text_call(IOS_TEXT_LINK, text, sizeof(text));
+	if (!answer)
+		return;
+	ios_link_open = FALSE;
+	ios_text_end();
+	if (answer != 1)
+		return;
+	while (*link == ' ')
+		link++;
+	for (length = strlen(link); length && link[length - 1] == ' '; length--)
+		link[length - 1] = 0;
+	if (!*link || !p2p_join_invite(link))
+	{
+		platform_log("menus: the typed text is no invite link");
+		campaign_fail();
+	}
+}
+#endif
 /* "direct ip connect go" (Direct Link's PASTE LINK): the invite
 link on the clipboard reached, its game then in the list */
 static boolean direct_link_from_clipboard(void)
@@ -4587,6 +4719,10 @@ static boolean direct_link_from_clipboard(void)
 	char text[TEXT_FIELD_LENGTH];
 	char *link = text;
 	size_t length;
+#ifdef HALO_IOS_GUEST
+	ios_link_begin();
+	return TRUE;
+#endif
 
 	if (!platform_clipboard_get(text, sizeof(text)))
 		text[0] = 0;

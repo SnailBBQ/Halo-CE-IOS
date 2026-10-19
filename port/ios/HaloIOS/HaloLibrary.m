@@ -48,6 +48,17 @@ static NSURL *HaloExportExternalSaves(void) {
         if(access)[folder stopAccessingSecurityScopedResource];
     }
 }
+/* A section's title and one short line under it, outside the cards, so a long page reads in blocks. */
+static UIView *HaloLibrarySection(NSString *title, NSString *note) {
+    NSMutableArray<UIView *> *items=[NSMutableArray arrayWithObject:HaloUILabel(title,22,UIFontWeightBold,nil)];
+    if(note.length)[items addObject:HaloUINote(note)];
+    UIStackView *stack=[[UIStackView alloc] initWithArrangedSubviews:items];
+    stack.axis=UILayoutConstraintAxisVertical;stack.spacing=4;
+    stack.layoutMargins=UIEdgeInsetsMake(16,4,0,4);stack.layoutMarginsRelativeArrangement=YES;
+    return stack;
+}
+/* The list's choices in one row: Hide, All, Multiplayer, Campaign. */
+static NSArray<NSString *> *HaloLibraryShowChoices(void) { return @[@"Hide",@"All",@"Multiplayer",@"Campaign"]; }
 @interface HaloLibraryController:UIViewController<UIDocumentPickerDelegate>
 @property BOOL maps;
 @property unsigned mask;
@@ -64,7 +75,7 @@ static NSURL *HaloExportExternalSaves(void) {
 @property(nonatomic,strong) NSTimer *modsTimer;
 @end
 @implementation HaloLibraryController
-- (void)viewDidLoad { [super viewDidLoad];self.view.backgroundColor=HaloUIBackground();self.title=self.maps?@"Mods":@"Backups";self.navigationController.navigationBar.tintColor=HaloUIAccent();self.mask=self.initialMask?self.initialMask:54;self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(close)];self.rows=HaloUIScrollingStack(self.view,12);[self render]; }
+- (void)viewDidLoad { [super viewDidLoad];self.view.backgroundColor=HaloUIBackground();self.title=self.maps?@"Mods":@"Backups";self.navigationController.navigationBar.tintColor=HaloUIAccent();self.mask=self.initialMask?self.initialMask:54;self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(close)];if(self.maps)self.navigationItem.leftBarButtonItem=[[UIBarButtonItem alloc] initWithTitle:@"Refresh" style:UIBarButtonItemStylePlain target:self action:@selector(render)];self.rows=HaloUIScrollingStack(self.view,12);[self render]; }
 /* The game's own Mods menu and this list share mods/load_order.toml and the mod folders. While this screen is open, a change
  * made from the game (or from the Files app) shows here within a couple of seconds. */
 - (void)viewDidAppear:(BOOL)animated {
@@ -142,36 +153,42 @@ static NSURL *HaloExportExternalSaves(void) {
     void (^save)(NSArray<NSString *> *,NSSet<NSString *> *)=^(NSArray<NSString *> *newOrder,NSSet<NSString *> *newOff){
         @try{HaloModPackSave(newOrder,newOff);}@catch(NSException *e){[weakSelf message:e.reason];}
         [weakSelf render];};
-    [self.rows addArrangedSubview:HaloUICardView(@"Mods",@[
-        HaloUINote(@"Texture, sound, text and model packs that play over the game's maps on this device only, in any game. Each mod is a folder with a mod.toml and a tags folder in Documents/Halo/mods. This list and the game's own Mods menu (main menu > Mods) are the same list: turning a mod on or off or moving it here changes the game's menu, and the other way round. The mod at the top plays over the ones below it."),
+    [self.rows addArrangedSubview:HaloUICardView(@"Add",@[
         HaloUIButton(@"Add a mod folder…",1,^(UIButton *b){(void)b;weakSelf.pickerKind=9;UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeFolder] asCopy:NO];picker.allowsMultipleSelection=YES;picker.delegate=weakSelf;[weakSelf presentViewController:picker animated:YES completion:nil];}),
-        HaloUIButton(@"Refresh mods",0,^(UIButton *b){(void)b;[weakSelf render];}),
-        HaloUINote(@"Zip files are not opened here: unzip a mod in the Files app first, then add its folder. Changes apply at once in a running game; a map that is loading may take a moment.")])];
-    if(!mods.count){[self.rows addArrangedSubview:HaloUICardView(nil,@[HaloUINote(@"No mods installed yet.")])];return;}
+        HaloUINote(@"Textures, sounds, text and models that change how the game looks and sounds, on this iPhone only. Unzip the mod in the Files app first."),
+        HaloUIButton(@"Import Custom Edition maps…",1,^(UIButton *b){(void)b;weakSelf.pickerKind=7;UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:YES];picker.allowsMultipleSelection=YES;picker.delegate=weakSelf;[weakSelf presentViewController:picker animated:YES completion:nil];}),
+        HaloUINote(@"Extra multiplayer maps (.map files). Add bitmaps.map, sounds.map and loc.map too if a map needs them.")])];
+    [self.rows addArrangedSubview:HaloLibrarySection(@"Mods",@"The mod at the top plays over the ones below it. This is the same list as the game's Mods menu.")];
+    if(!mods.count){[self.rows addArrangedSubview:HaloUICardView(nil,@[HaloUINote(@"No mods yet. Tap “Add a mod folder…” above.")])];return;}
     NSInteger count=(NSInteger)mods.count;
     for(NSInteger shown=0;shown<count;shown++){
         NSInteger index=count-1-shown;   /* the game's menu shows the mod that loads last on top */
         NSDictionary *mod=mods[(NSUInteger)index];NSString *folder=mod[@"folder"];
         NSString *title=[mod[@"version"] length]?[NSString stringWithFormat:@"%@ %@",mod[@"name"],mod[@"version"]]:mod[@"name"];
-        NSMutableString *details=[NSMutableString stringWithFormat:@"Priority %ld of %ld  ·  Folder: %@",(long)(shown+1),(long)count,folder];
-        if([mod[@"authors"] length])[details appendFormat:@"\nBy %@",mod[@"authors"]];
-        if([mod[@"maps"] length])[details appendFormat:@"\nFor: %@",mod[@"maps"]];
+        NSMutableString *details=[NSMutableString stringWithFormat:@"Priority %ld of %ld",(long)(shown+1),(long)count];
+        if([mod[@"authors"] length])[details appendFormat:@"  ·  By %@",mod[@"authors"]];
+        if([mod[@"maps"] length])[details appendFormat:@"  ·  For: %@",mod[@"maps"]];
         if([mod[@"description"] length])[details appendFormat:@"\n%@",mod[@"description"]];
         NSMutableArray *rows=[NSMutableArray arrayWithObject:HaloUINote(details)];
         if([mod[@"note"] length])[rows addObject:HaloUINote([@"⚠︎ " stringByAppendingString:mod[@"note"]])];
         [rows addObject:HaloUISwitchRow(@"On",nil,[mod[@"on"] boolValue],^(BOOL on){
             NSMutableSet *next=[off mutableCopy];if(on)[next removeObject:folder];else [next addObject:folder];save(order,next);})];
-        if(shown>0)[rows addObject:HaloUIButton(@"Move up (plays over more mods)",0,^(UIButton *b){(void)b;
-            NSMutableArray *next=[order mutableCopy];[next exchangeObjectAtIndex:(NSUInteger)index withObjectAtIndex:(NSUInteger)index+1];save(next,off);})];
-        if(shown<count-1)[rows addObject:HaloUIButton(@"Move down",0,^(UIButton *b){(void)b;
-            NSMutableArray *next=[order mutableCopy];[next exchangeObjectAtIndex:(NSUInteger)index withObjectAtIndex:(NSUInteger)index-1];save(next,off);})];
-        [rows addObject:HaloUIButton(@"Remove mod",2,^(UIButton *b){(void)b;
+        UIButton *up=HaloUIButton(@"Move up",0,^(UIButton *b){(void)b;
+            NSMutableArray *next=[order mutableCopy];[next exchangeObjectAtIndex:(NSUInteger)index withObjectAtIndex:(NSUInteger)index+1];save(next,off);});
+        UIButton *down=HaloUIButton(@"Move down",0,^(UIButton *b){(void)b;
+            NSMutableArray *next=[order mutableCopy];[next exchangeObjectAtIndex:(NSUInteger)index withObjectAtIndex:(NSUInteger)index-1];save(next,off);});
+        UIButton *remove=HaloUIButton(@"Remove mod",2,^(UIButton *b){(void)b;
             UIAlertController *a=[UIAlertController alertControllerWithTitle:@"Remove this mod?" message:[NSString stringWithFormat:@"“%@” and its files will be deleted from this device.",folder] preferredStyle:UIAlertControllerStyleAlert];
             [a addAction:[UIAlertAction actionWithTitle:@"Remove" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action){(void)action;
                 @try{HaloModPackRemove(folder);}@catch(NSException *e){[weakSelf message:e.reason];}
                 [weakSelf render];}]];
             [a addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-            [weakSelf presentViewController:a animated:YES completion:nil];})];
+            [weakSelf presentViewController:a animated:YES completion:nil];});
+        up.enabled=shown>0;down.enabled=shown<count-1;   /* (the top mod cannot go higher, the bottom one lower) */
+        for(UIButton *button in @[up,down,remove]){button.titleLabel.adjustsFontSizeToFitWidth=YES;button.titleLabel.minimumScaleFactor=0.75;}
+        UIStackView *actions=[[UIStackView alloc] initWithArrangedSubviews:@[up,down,remove]];
+        actions.axis=UILayoutConstraintAxisHorizontal;actions.distribution=UIStackViewDistributionFillEqually;actions.spacing=8;
+        [rows addObject:actions];
         [self.rows addArrangedSubview:HaloUICardView(title,rows)];
     }
 }
@@ -185,14 +202,11 @@ static NSURL *HaloExportExternalSaves(void) {
     NSArray *custom=nil;@try{custom=HaloCustomMapsList();}@catch(NSException *exception){[self.rows addArrangedSubview:HaloUINote(exception.reason)];custom=@[];}
     NSString *resourceSummary=[NSString stringWithFormat:@"bitmaps.map %@  ·  sounds.map %@  ·  loc.map %@",
         [resources[@"bitmaps.map"] boolValue]?@"✓":@"—",[resources[@"sounds.map"] boolValue]?@"✓":@"—",[resources[@"loc.map"] boolValue]?@"✓":@"—"];
-    [self.rows addArrangedSubview:HaloUICardView(@"Custom Edition Maps",@[
-        HaloUINote(@"OpenCE build 232 loads standard Halo Custom Edition version 609 maps beside the original Xbox maps. Nothing here replaces Documents/Halo/maps. Import CE .map files plus bitmaps.map, sounds.map and loc.map when a map needs the shared resource caches. Optional <map>.bmp and <map>.txt files provide the in-game picture and description. OpenSauce maps are intentionally unsupported upstream."),
-        HaloUIValueRow(@"Shared resources",resourceSummary,nil),
-        HaloUIButton(@"Import Custom Edition content",1,^(UIButton *b){(void)b;weakSelf.pickerKind=7;UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:YES];picker.allowsMultipleSelection=YES;picker.delegate=weakSelf;[weakSelf presentViewController:picker animated:YES completion:nil];}),
-        HaloUIButton(@"Refresh Custom Edition library",0,^(UIButton *b){(void)b;[weakSelf render];}),
-        HaloUISwitchRow(@"Show installed maps",@"Lists every Custom Edition map in custom_maps with its header check. Turn off to keep the list short.",!opts.custom_hide,^(BOOL on){[HaloSettingsStore.shared update:^(HsSettings *s2){s2->custom_hide=!on;}];[weakSelf render];}),
-        HaloUISwitchRow(@"Multiplayer only (A–Z)",@"Lists only the multiplayer maps, alphabetically.",opts.custom_filter==1,^(BOOL on){[HaloSettingsStore.shared update:^(HsSettings *s2){s2->custom_filter=on?1:0;}];[weakSelf render];}),
-        HaloUISwitchRow(@"Campaign only",@"Lists only the campaign maps. Nothing is deleted or unloaded.",opts.custom_filter==2,^(BOOL on){[HaloSettingsStore.shared update:^(HsSettings *s2){s2->custom_filter=on?2:0;}];[weakSelf render];})])];
+    NSInteger customChoice=opts.custom_hide?0:opts.custom_filter==1?2:opts.custom_filter==2?3:1;
+    [self.rows addArrangedSubview:HaloLibrarySection(@"Custom Edition maps",@"Standard Custom Edition (version 609) maps. They never replace your Xbox maps. OpenSauce maps are not supported.")];
+    [self.rows addArrangedSubview:HaloUICardView(nil,@[
+        HaloUIValueRow(@"Shared files",resourceSummary,nil),
+        HaloUISegmentRow(@"Show in list",HaloLibraryShowChoices(),customChoice,^(NSInteger choice){[HaloSettingsStore.shared update:^(HsSettings *s2){s2->custom_hide=(choice==0);if(choice>0)s2->custom_filter=choice==2?1:choice==3?2:0;}];[weakSelf render];})])];
     NSArray *shownCustom=custom;
     if(opts.custom_hide)shownCustom=@[];
     else{
@@ -205,30 +219,19 @@ static NSURL *HaloExportExternalSaves(void) {
         NSString *file=map[@"file"];BOOL enabled=[map[@"enabled"] boolValue],valid=[map[@"valid"] boolValue];
         NSString *size=[NSByteCountFormatter stringFromByteCount:[map[@"size"] longLongValue] countStyle:NSByteCountFormatterCountStyleFile];
         NSMutableArray *items=[NSMutableArray arrayWithObject:HaloUINote([NSString stringWithFormat:@"%@ · %@\n%@%@%@",size,valid?@"Custom Edition v609 header verified":@"Invalid / unsupported CE header",[map[@"picture"] boolValue]?@"Picture ✓  ":@"",[map[@"description"] boolValue]?@"Description ✓  ":@"",enabled?@"Active in OpenCE custom_maps":@"Disabled (kept on device)"])];
-        [items addObject:HaloUISwitchRow(@"Enabled",@"Enabled maps are scanned by OpenCE the next time its map list opens. Disabling moves the map and its .bmp/.txt sidecars out of custom_maps without deleting them.",enabled,^(BOOL on){@try{HaloCustomMapSetEnabled(file,on);[weakSelf render];}@catch(NSException *e){[weakSelf message:e.reason];}})];
+        [items addObject:HaloUISwitchRow(@"Enabled",@"Off keeps the map on this iPhone but hides it from the game.",enabled,^(BOOL on){@try{HaloCustomMapSetEnabled(file,on);[weakSelf render];}@catch(NSException *e){[weakSelf message:e.reason];}})];
         [items addObject:HaloUIButton(@"Remove custom map",2,^(UIButton *b){(void)b;UIAlertController *a=[UIAlertController alertControllerWithTitle:@"Remove Custom Edition map?" message:[NSString stringWithFormat:@"%@ and its optional picture/description will be deleted from Halo. Shared resource maps are not touched.",file] preferredStyle:UIAlertControllerStyleAlert];[a addAction:[UIAlertAction actionWithTitle:@"Remove" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *x){(void)x;[weakSelf run:^NSURL *{HaloCustomMapRemove(file);return nil;} completion:^(NSURL *u){(void)u;[weakSelf render];}];}]];[a addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];[weakSelf presentViewController:a animated:YES completion:nil];})];
         [self.rows addArrangedSubview:HaloUICardView(file,items)];
     }
-    if(opts.custom_hide&&custom.count)[self.rows addArrangedSubview:HaloUINote([NSString stringWithFormat:@"%lu Custom Edition maps are hidden. Turn on “Show installed maps” above to list them.",(unsigned long)custom.count])];
+    if(opts.custom_hide&&custom.count)[self.rows addArrangedSubview:HaloUINote([NSString stringWithFormat:@"%lu Custom Edition maps are hidden. Choose All, Multiplayer or Campaign above to list them.",(unsigned long)custom.count])];
     else if(custom.count&&!shownCustom.count)[self.rows addArrangedSubview:HaloUINote(@"No Custom Edition maps match this filter.")];
-    if(!custom.count)[self.rows addArrangedSubview:HaloUICardView(nil,@[HaloUINote(@"No Custom Edition maps installed yet. Importing CE content writes directly to Documents/Halo/custom_maps, the folder OpenCE build 211 scans.")])];
+    if(!custom.count)[self.rows addArrangedSubview:HaloUICardView(nil,@[HaloUINote(@"No Custom Edition maps yet. Tap “Import Custom Edition maps…” above.")])];
 
-    NSArray *movies=HaloMoviesList();NSMutableDictionary *movieFiles=[NSMutableDictionary dictionary];for(NSDictionary *movie in movies)movieFiles[[movie[@"file"] lowercaseString]]=movie;
-    NSMutableArray *movieStatus=[NSMutableArray array];
-    for(NSArray *slot in @[@[@"Intro",@"intro.mp4"],@[@"Credits",@"credits.mp4"],@[@"Attract 1",@"attract1.mp4"],@[@"Attract 2",@"attract2.mp4"],@[@"Attract 3",@"attract3.mp4"]])
-        [movieStatus addObject:HaloUIValueRow(slot[0],movieFiles[slot[1]]?@"Installed":@"Missing",nil)];
-    NSMutableArray *movieCard=[NSMutableArray arrayWithObjects:HaloUINote(@"Optional movie support: provide your own MP4 with the same logical name as Halo's BIK movie. The iOS host plays it fullscreen with AVPlayer while Halo keeps its normal movie flow. Tap the movie or use Halo's normal controller skip input to skip. Missing MP4s are simply skipped, matching the native port's previous behavior."),HaloUIButton(@"Import MP4 movies",1,^(UIButton *b){(void)b;weakSelf.pickerKind=8;UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeMPEG4Movie] asCopy:YES];picker.allowsMultipleSelection=YES;picker.delegate=weakSelf;[weakSelf presentViewController:picker animated:YES completion:nil];}) ,nil];
-    [movieCard addObjectsFromArray:movieStatus];
-    [self.rows addArrangedSubview:HaloUICardView(@"Movies (MP4 fallback)",movieCard)];
-    for(NSDictionary *movie in movies){NSString *file=movie[@"file"];NSString *size=[NSByteCountFormatter stringFromByteCount:[movie[@"size"] longLongValue] countStyle:NSByteCountFormatterCountStyleFile];[self.rows addArrangedSubview:HaloUICardView(file,@[HaloUINote([NSString stringWithFormat:@"%@ · %@",size,[movie[@"recognized"] boolValue]?@"recognized Halo movie slot":@"not requested by Halo"]),HaloUIButton(@"Remove movie",2,^(UIButton *b){(void)b;@try{HaloMovieRemove(file);[weakSelf render];}@catch(NSException *e){[weakSelf message:e.reason];}})])];}
-
-    [self.rows addArrangedSubview:HaloUICardView(@"Installed Xbox game files",@[
-        HaloUINote(@"Original/Xbox maps remain in Documents/Halo/maps and are never replaced by Custom Edition maps. This list requires Xbox version 5 maps, including ui.map. Matching network builds are required for multiplayer. Menu pictures are read from ui.map where its layout is supported; custom pictures override them."),
+    NSInteger xboxChoice=!opts.maps_show_files?0:mapMode==1?2:mapMode==2?3:1;
+    [self.rows addArrangedSubview:HaloLibrarySection(@"Installed Xbox game files",@"Your original Halo maps (Xbox version 5, with ui.map). Custom Edition maps never replace them.")];
+    [self.rows addArrangedSubview:HaloUICardView(nil,@[
         HaloUIButton(@"Import Xbox maps",1,^(UIButton *b){(void)b;weakSelf.pickerKind=2;UIDocumentPickerViewController *p=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:YES];p.allowsMultipleSelection=YES;p.delegate=weakSelf;[weakSelf presentViewController:p animated:YES completion:nil];}),
-        HaloUIButton(@"Refresh installed maps",0,^(UIButton *b){(void)b;[weakSelf render];}),
-        HaloUISwitchRow(@"Show installed game files",@"Lists every map in Documents/Halo/maps with its picture and header check. Hidden by default because the list is long.",opts.maps_show_files,^(BOOL on){[HaloSettingsStore.shared update:^(HsSettings *s2){s2->maps_show_files=on;}];[weakSelf render];}),
-        HaloUISwitchRow(@"Multiplayer only (A–Z)",@"Lists only the multiplayer maps, alphabetically. Campaign maps are hidden, not deleted.",mapMode==1,^(BOOL on){[HaloSettingsStore.shared update:^(HsSettings *s2){s2->maps_mp_only=on;if(on)s2->maps_campaign_only=0;}];[weakSelf render];}),
-        HaloUISwitchRow(@"Campaign only",@"Lists only the campaign maps, in mission order.",mapMode==2,^(BOOL on){[HaloSettingsStore.shared update:^(HsSettings *s2){s2->maps_campaign_only=on;if(on)s2->maps_mp_only=0;}];[weakSelf render];})])];
+        HaloUISegmentRow(@"Show in list",HaloLibraryShowChoices(),xboxChoice,^(NSInteger choice){[HaloSettingsStore.shared update:^(HsSettings *s2){s2->maps_show_files=(choice!=0);if(choice>0){s2->maps_mp_only=(choice==2);s2->maps_campaign_only=(choice==3);}}];[weakSelf render];})])];
     NSString *folder=[HaloBackupRoot() stringByAppendingPathComponent:@"maps"];NSArray *names=[[NSFileManager.defaultManager contentsOfDirectoryAtPath:folder error:nil] sortedArrayUsingComparator:^NSComparisonResult(NSString *a,NSString *b){int c=hm_compare(a.stringByDeletingPathExtension.lowercaseString.UTF8String,b.stringByDeletingPathExtension.lowercaseString.UTF8String,sortAlpha);return c<0?NSOrderedAscending:c>0?NSOrderedDescending:[a localizedCaseInsensitiveCompare:b];}];BOOL ui=NO;NSUInteger count=0,hidden=0;
     for(NSString *name in names) {
         if(![name.pathExtension.lowercaseString isEqual:@"map"])continue;NSURL *url=[NSURL fileURLWithPath:[folder stringByAppendingPathComponent:name]];if(!HaloBackupRegular(url))continue;count++;if([name.lowercaseString isEqual:@"ui.map"])ui=YES;
@@ -242,10 +245,19 @@ static NSURL *HaloExportExternalSaves(void) {
         NSString *thumb=[[HaloBackupRoot() stringByAppendingPathComponent:@"map_thumbnails"] stringByAppendingPathComponent:[base stringByAppendingPathExtension:@"png"]];image.image=[UIImage imageWithContentsOfFile:thumb]?:self.mapPictures[base]?:[UIImage systemImageNamed:campaign?@"mountain.2.fill":@"map.fill"];image.tintColor=HaloUIAccent();
         [self.rows addArrangedSubview:HaloUICardView((hm_index(base.UTF8String)>=0||hm_is_ui(base.UTF8String))?[NSString stringWithUTF8String:hm_title(base.UTF8String)]:name,@[image,HaloUINote([NSString stringWithFormat:@"%@ · %@ · %@\n%@",name,kind,size,valid?@"Version 5 header verified":@"Invalid / unsupported header: reimport a compatible map"]),HaloUIButton(@"Choose map picture",0,^(UIButton *b){(void)b;weakSelf.thumbnailName=base;weakSelf.pickerKind=3;UIDocumentPickerViewController *p=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeImage] asCopy:YES];p.delegate=weakSelf;[weakSelf presentViewController:p animated:YES completion:nil];})])];
     }
-    if(count&&!opts.maps_show_files)[self.rows addArrangedSubview:HaloUICardView(nil,@[HaloUINote([NSString stringWithFormat:@"%lu installed Xbox game files are hidden. Turn on “Show installed game files” above to list them, choose map pictures or read their header checks.",(unsigned long)count])])];
+    if(count&&!opts.maps_show_files)[self.rows addArrangedSubview:HaloUICardView(nil,@[HaloUINote([NSString stringWithFormat:@"%lu installed Xbox game files are hidden. Choose All, Multiplayer or Campaign above to list them, change map pictures or read their header checks.",(unsigned long)count])])];
     else if(opts.maps_show_files&&mapMode&&hidden)[self.rows addArrangedSubview:HaloUINote([NSString stringWithFormat:@"%lu maps are hidden by the %@ filter.",(unsigned long)hidden,mapMode==1?@"Multiplayer only":@"Campaign only"])];
     if(!count)[self.rows addArrangedSubview:HaloUINote(@"No Xbox maps installed. Import your compatible version 5 map files above.")];
     if(!ui)[self.rows addArrangedSubview:HaloUINote(@"ui.map is missing. Halo needs it to start.")];
+    NSArray *movies=HaloMoviesList();NSMutableDictionary *movieFiles=[NSMutableDictionary dictionary];for(NSDictionary *movie in movies)movieFiles[[movie[@"file"] lowercaseString]]=movie;
+    NSMutableArray *movieStatus=[NSMutableArray array];
+    for(NSArray *slot in @[@[@"Intro",@"intro.mp4"],@[@"Credits",@"credits.mp4"],@[@"Attract 1",@"attract1.mp4"],@[@"Attract 2",@"attract2.mp4"],@[@"Attract 3",@"attract3.mp4"]])
+        [movieStatus addObject:[NSString stringWithFormat:@"%@ %@",slot[0],movieFiles[slot[1]]?@"✓":@"—"]];
+    [self.rows addArrangedSubview:HaloLibrarySection(@"Movies (MP4)",@"Optional. Your own MP4 files play in place of Halo's intro, credits and attract movies. Tap a movie to skip it.")];
+    [self.rows addArrangedSubview:HaloUICardView(nil,@[
+        HaloUIButton(@"Import MP4 movies",1,^(UIButton *b){(void)b;weakSelf.pickerKind=8;UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeMPEG4Movie] asCopy:YES];picker.allowsMultipleSelection=YES;picker.delegate=weakSelf;[weakSelf presentViewController:picker animated:YES completion:nil];}),
+        HaloUINote([movieStatus componentsJoinedByString:@"  ·  "])])];
+    for(NSDictionary *movie in movies){NSString *file=movie[@"file"];NSString *size=[NSByteCountFormatter stringFromByteCount:[movie[@"size"] longLongValue] countStyle:NSByteCountFormatterCountStyleFile];[self.rows addArrangedSubview:HaloUICardView(file,@[HaloUINote([NSString stringWithFormat:@"%@ · %@",size,[movie[@"recognized"] boolValue]?@"recognized Halo movie slot":@"not requested by Halo"]),HaloUIButton(@"Remove movie",2,^(UIButton *b){(void)b;@try{HaloMovieRemove(file);[weakSelf render];}@catch(NSException *e){[weakSelf message:e.reason];}})])];}
 }
 - (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     __weak typeof(self) weakSelf=self;

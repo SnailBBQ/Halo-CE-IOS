@@ -6,7 +6,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is **in beta**: it boots and plays on a stock, sideloaded iPhone 14 Plus but has glitches, bugs and crashes (see [Device test results](docs/ios/DEVICE_TESTS.md)). The current source update is **M2.6.114**, on OpenCE **build 232** (network version 29) with Custom Edition maps, the MP4 movie fallback and Mods. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
+> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is **in beta**: it boots and plays on a stock, sideloaded iPhone 14 Plus but has glitches, bugs and crashes (see [Device test results](docs/ios/DEVICE_TESTS.md)). The current source update is **M2.6.115**, on OpenCE **build 235** (network version 29) with Custom Edition maps, the MP4 movie fallback and Mods. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
@@ -24,7 +24,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 **Fix:** [M2.6.107](port/ios/UPDATE_M2707.md) repairs M2.6.104-106: a startup failure (guest ABI mismatch, fixed in M2.6.106) and a freeze when joining an internet game. Do not use those builds.
 
-**Update:** [M2.6.114](port/ios/UPDATE_M2714.md) moves to OpenCE **build 232** (same network version 29) and brings the game's new **text chat**: in a network game, D-pad Up (on the touch controls or a controller) opens the iPhone keyboard to type a line to everyone. It also has streamer mode and the multiplayer HUD options.
+**Update:** [M2.6.115](port/ios/UPDATE_M2715.md) moves to OpenCE **build 235** (same network version 29). Typing now uses the iPhone keyboard everywhere: Server Setup's game name and password, the join password, Direct Link's invite link, and the game's text chat (D-pad Up in a network game). [M2.6.114](port/ios/UPDATE_M2714.md) brought the text chat, streamer mode and the multiplayer HUD options (OpenCE build 232).
 
 **Previous:** [M2.6.113](port/ios/UPDATE_M2713.md) moves to OpenCE **build 220** (same network version 29) and makes Settings > Mods the same list as the game's new Mods menu: mods turned on or off, reordered, removed or added in either place show in both.
 
@@ -104,6 +104,7 @@ use. Issues are public, so do not post anything private. The Non-Jailbreak build
 | [Multiplayer](docs/ios/MULTIPLAYER.md) | Invites, iCloud Drive and folder invite files, LAN, cross-play |
 | [Display / AirPlay](docs/ios/DISPLAY_AIRPLAY.md) | Frame rate, picture shape and detail, the HUD editor, first-person view, heat and battery, menus, and showing the game on a TV |
 | [Troubleshooting](docs/ios/TROUBLESHOOTING.md) | Safe Start, logs, problem reports, common problems |
+| [Mods](docs/ios/MOD_FORMAT.md) | Adding mods to your iPhone, the load order, what a mod can replace, making your own |
 | [Mod Test](docs/ios/MOD_TEST.md) | The separate Mod Test app |
 | [Device test results](docs/ios/DEVICE_TESTS.md) | What has been tested on real devices |
 | [Release notes](docs/ios/RELEASE_NOTES.md) | Every update, with its device checklist |

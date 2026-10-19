@@ -922,6 +922,13 @@ static int ios_settings_value(uint32_t index,uint32_t address,uint32_t profile) 
         if(profile!=100)memcpy(guest,line,64);
         return answer;
     }
+    if(index==UINT32_MAX-8) { /* -9: a menu's text field, typed in the phone's prompt (halo_ios_text_prompt); `profile` is the kind, 100 when the game is done with it; the guest's buffer is 160 bytes */
+        char *guest=gp(address,160);if(!guest || !memchr(guest,0,160))return 0;
+        char line[160];memcpy(line,guest,160);
+        int answer=halo_ios_text_prompt((int)profile,line);
+        if(profile!=100)memcpy(guest,line,160);
+        return answer;
+    }
     if(index>=HE_COUNT)return 0;
     /* Recovery launch overrides remain temporary, and must neither be undone
      * by synchronization nor written back as the player's normal preference. */
@@ -4175,6 +4182,7 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                 report_profile();
                 say("audio: %s; %u buffer underruns so far (an underrun is a tiny gap in the sound)",
                     halo_ios_audio_is_open() ? "playing through the speaker" : halo_ios_audio_status(), halo_ios_audio_underruns());
+                if (halo_ios_audio_route_note()[0]) say("audio route: %s; %s", halo_ios_audio_route_note(), halo_ios_mic_status());
                 say("native bulk memory: %llu calls, %llu MiB total",
                     (unsigned long long)atomic_load(&g_bulk_calls),
                     (unsigned long long)(atomic_load(&g_bulk_bytes) / (1024 * 1024)));

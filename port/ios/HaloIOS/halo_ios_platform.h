@@ -20,6 +20,11 @@ void halo_ios_toast(const char *text);
  * keyboard's: `text` is replaced by what the field holds. The answer is 0 while typing, 1 when the player pressed Send (the line is
  * in `text`), 2 when the keyboard was closed without sending. mode 100: the guest ended the line; the keyboard goes. */
 int halo_ios_chat_input(int mode, char text[64]);
+/* A menu's text field (Server Setup's game name and password, the join password, Direct Link's invite link), typed in a prompt on the
+ * phone's own keyboard (from the guest thread through host_settings_value's index -9). kind 2: a field, 3: a password, 4: an invite
+ * link; the first call shows the prompt, with the text in `text` (160 bytes, ended); the later ones answer 0 while it is open, 1 when
+ * the player pressed OK (the text typed is in `text`), 2 when it was cancelled. kind 100: the guest is done with it; the prompt goes. */
+int halo_ios_text_prompt(int kind, char text[160]);
 
 #ifdef __cplusplus
 }

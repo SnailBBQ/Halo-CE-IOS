@@ -85,26 +85,31 @@ or join a game. Cheats that spawn things use only assets the current map has alr
 
 | Section | Contents |
 | --- | --- |
-| Survival | God mode; One-hit kills (hostile units only); No fall damage; **Restore health and shield** (a one-time refill; an over-charged shield is never lowered). |
-| Weapons | Infinite ammo; Infinite grenades; Bottomless clip (no reloading); Rapid fire; No recoil; Drop Weapon Ring Around Player (the map’s cheat weapon collection); Projectile Swapping (loaded tags only, local player only). |
+| Survival | God mode; Infinite ammo; One-hit kills (hostile units only); Unlimited flashlight; No fall damage; **Restore health and shield** (a one-time refill; an over-charged shield is never lowered). |
+| Weapons | Bottomless clip (no reloading); Infinite grenades; Rapid fire; No recoil; Drop Weapon Ring Around Player (the map’s cheat weapon collection); Projectile Swapping (loaded tags only, local player only). |
 | Power-ups | **Active Camo** and **Overshield**, each with *Infinite* (refreshes only the living local player and stops when switched off), *Spawn* and *Apply*. Applied camo uses the normal pickup timer. Applied overshield charges once and is consumed by damage; it has no universal expiry timer. |
 | Movement | Jetpack; Noclip (aim to move, jump rises, crouch descends); Super jump (1–10); Player speed (1–5); Low Gravity (25% of the current gravity, restored when switched off). |
-| World | Time scale (10%, 25%, 50%, 75%, 100%, 150%, 200% or 300%, including cutscenes); AI ignores you; Third person; Unlimited flashlight; Medusa Mode (hostile AI detecting you die); Bumper Cars (hijack an AI-driven vehicle on contact); Hijack NPCs (possess living non-player bipeds on contact); Infinite Vehicle Health (occupied vehicle only); AI Alliance (Human, Covenant, Flood or Sentinel); Erase All AI (encounter AI, with confirmation). |
-| Visuals | Vertical FOV (0 is the normal setting, otherwise 20–90 degrees); Wireframe Render (bounded triangle-edge visualization); Detach Camera from Player (flying camera; body frozen, world continues; on foot, outside scripted cameras). |
+| World | Time scale (10%, 25%, 50%, 75%, 100%, 150%, 200% or 300%, including cutscenes); Medusa Mode (hostile AI detecting you die); Bumper Cars (hijack an AI-driven vehicle on contact); Hijack NPCs (possess living non-player bipeds on contact); AI Alliance (Human, Covenant, Flood or Sentinel) with AI ignores you beneath it; Erase All AI (encounter AI, with confirmation). |
+| Visuals | Vertical FOV (0 is the normal setting, otherwise 20–90 degrees); Wireframe Render (bounded triangle-edge visualization); Detach Camera from Player (flying camera; body frozen, world continues; on foot, outside scripted cameras); Third person (the existing third-person camera). |
 | Checkpoints | **Save checkpoint (when safe)** waits up to eight seconds for a moment without combat; **Force checkpoint now** saves at once; **Revert to last checkpoint** asks first and needs a checkpoint to exist. These are the game's own checkpoints. |
 | Teleport | **Teleport To Camera** (engine validates destination); **Teleport me to crosshair**; **Teleport enemies to crosshair** (living hostile AI units not in vehicles, up to 24, placed in a ring); three **Saved positions** to save and return to (forgotten when the mission changes). |
-| Spawn | **Weapon giver** (pistol, assault rifle, shotgun, sniper rifle, rocket launcher, plasma pistol, plasma rifle, needler, flamethrower, gravity rifle) and **Vehicle spawner** (Warthog, Ghost, Banshee, Scorpion). Pickups appear in front of you. |
+| Spawn | **Weapon giver** (pistol, assault rifle, shotgun, sniper rifle, rocket launcher, plasma pistol, plasma rifle, needler, flamethrower, gravity rifle) and **Vehicle spawner** (Warthog, Ghost, Banshee, Scorpion, with Infinite Vehicle Health for the occupied vehicle). Pickups appear in front of you. |
+
+The **Cheat shortcuts** card sits at the bottom of the Cheats page.
 
 **Cheat recipes.** Each control scheme has a gear editor with its own recipe: the cheats to switch on, one-shot actions, numeric values, slow motion and a weapon.
 Recipes are saved with the scheme and applied when you enter a solo campaign or choose another scheme during one; each one-shot action runs once.
 
 ## Mods
 
-**Mods** now manages content that can coexist with the original Xbox library. M2.6.88 retires the old replacement-map switch/reorder UI.
+**Mods** is one page, top to bottom:
 
-- **Custom Edition Maps.** Import standard Halo Custom Edition **version 609** `.map` files. They are stored in `Documents/Halo/custom_maps`, which OpenCE build 211 scans separately from `Documents/Halo/maps`. `bitmaps.map`, `sounds.map` and `loc.map` can be imported as shared resource caches. Optional `<map>.bmp` and `<map>.txt` sidecars provide OpenCE's custom picture/description. A custom map can be disabled without deletion; its sidecars move with it. OpenSauce maps remain unsupported upstream.
-- **Movies (MP4 fallback).** Import your own `intro.mp4`, `credits.mp4`, `attract1.mp4`, `attract2.mp4` or `attract3.mp4` (localized `_de`, `_fr`, `_es`, `_it` variants are also accepted). When Halo asks for the corresponding Bink movie, iOS plays the MP4 natively with AVPlayer and returns to the normal Halo flow when it finishes or is skipped. The project does not ship movie assets or a Bink decoder.
-- **Installed Xbox game files.** The original version-5 Xbox maps remain separate. The list can show header status and pictures and still supports importing/replacing Xbox files through the safe staged map/disc workflow. Custom Edition maps never overwrite these files.
+- **Add** (top). **Add a mod folder…** adds a mod (textures, sounds, text or models; unzip it in the Files app first). **Import Custom Edition maps…** adds extra multiplayer maps (`.map` files, plus `bitmaps.map`, `sounds.map` and `loc.map` if a map needs them). See [Mods](MOD_FORMAT.md).
+- **Mods.** Each installed mod is a small card with its priority, author and description, an **On** switch and **Move up / Move down / Remove mod**. The top mod plays over the ones below it. It is the same list as the game's Mods menu.
+- **Custom Edition maps.** Standard Halo Custom Edition **version 609** maps, stored in `Documents/Halo/custom_maps` (OpenCE scans it separately from `Documents/Halo/maps`). **Shared files** shows which of `bitmaps.map`, `sounds.map` and `loc.map` are installed. **Show in list** chooses Hide, All, Multiplayer or Campaign. Each map can be turned off without deleting it; its optional `<map>.bmp` and `<map>.txt` sidecars move with it. OpenSauce maps are not supported.
+- **Installed Xbox game files.** The original version-5 Xbox maps stay separate. **Import Xbox maps** adds or replaces them, and **Show in list** (Hide, All, Multiplayer, Campaign) controls the list of maps with their picture and header check.
+- **Movies (MP4)** (bottom). Import your own `intro.mp4`, `credits.mp4`, `attract1.mp4`, `attract2.mp4` or `attract3.mp4` (localized `_de`, `_fr`, `_es`, `_it` variants are also accepted). When Halo asks for the matching Bink movie, iOS plays the MP4 natively with AVPlayer and returns to the normal Halo flow when it finishes or is skipped. The project does not ship movie assets or a Bink decoder.
+- **Refresh** (top left) reads the folders again; changes made in the game or the Files app also show within a couple of seconds.
 - If an older installation still has replacement-map mods enabled, M2.6.88 restores the saved originals through the old recovery journal once before engine startup, then removes the retired private mod catalog.
 - Multiplayer players still need compatible OpenCE network versions and matching custom content.
 
@@ -144,7 +149,8 @@ Three kinds of data are kept separate:
 | Startup | **Start Halo CE iOS Title Screen** or **Boot Halo to Main Menu**, saved with the current control scheme. |
 | Heat and battery | **Lower the frame rate when the phone is hot**: Smooth 60 and Uncapped drop to 45 under serious heat or Low Power Mode and to 30 when critical, and return when the phone cools (30 · Original is never changed). **Performance overlay** adds frame time, memory in use, estimated memory headroom, and heat under the FPS counter. |
 | Diagnostics | **Performance profiler** adds timing diagnostics. |
-| Share log files / Copy logs as text / Report a problem… | Share the logs as one text file with your device, settings (never running cheats) and the end of the logs, or copy the same text to paste into a message. See [Troubleshooting](TROUBLESHOOTING.md). |
+| Share log files / Copy logs as text | Share the logs as one text file with your device, settings (never running cheats) and the end of the logs, or copy the same text to paste into a message. |
+| Report a problem… | Copies a report (device, settings, end of the logs) and opens the problem form on GitHub with the app, version and device filled in; paste the report into the Logs box. Reports are public, so look it over first. The report can also be shared as a file. See [Troubleshooting](TROUBLESHOOTING.md). |
 | Safe Start | Appears when the last start did not finish. Sound, internet play, smooth 60 FPS, hi-res HUD and text, the profiler, the PC menus and the picture options are disabled for that launch. Running for 15 seconds after the first frame marks the launch as successful; normal options return on the next launch. **Leave safe mode** makes the next start normal. |
 | Backups | **Manage backups**. See [Backups](BACKUPS.md). |
 | About | App version and the OpenCE build the game is based on. |

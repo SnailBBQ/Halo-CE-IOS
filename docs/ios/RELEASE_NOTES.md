@@ -9,7 +9,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 **Device result, 2026-10-08:** the M2.6.101 Non-Jailbreak build is confirmed playable on an iPhone 14 Plus (iOS 16.2, Sideloadly): a10 played, second map loaded, about 60 FPS, no crashes, no pointer faults. Documentation only; no code change after M2.6.101.
 
-**Latest:** [M2.6.114](../../port/ios/UPDATE_M2714.md) moves to OpenCE **build 232** (same network version 29) and brings the game's text chat: in a network game, D-pad Up (touch controls or a controller) opens the iPhone keyboard.
+**Latest:** [M2.6.115](../../port/ios/UPDATE_M2715.md) moves to OpenCE **build 235** (same network version 29). The iPhone keyboard now comes up for Server Setup's game name and password, the join password and Direct Link's invite link, as well as the text chat ([M2.6.114](../../port/ios/UPDATE_M2714.md): D-pad Up in a network game).
 
 **Previous:** [M2.6.113](../../port/ios/UPDATE_M2713.md) moves to OpenCE **build 220** (same network version 29) and makes Settings > Mods the same list as the game's new Mods menu: mods turned on or off, reordered, removed or added in either place show in both.
 
