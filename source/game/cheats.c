@@ -740,7 +740,6 @@ void cheat_all_vehicles(
 
 	return;
 }
-
 #ifdef HALO_IOS_GUEST
 /* ---- Settings > Cheats: jetpack, AI ignore, slow motion, checkpoints, teleports, restore. The helpers that need the
  * collision and unit code live in source/ai/ai_debug.c. */
