@@ -106,7 +106,7 @@ int main(void) {
     uint32_t custom_weapon = HALO_CAMPAIGN_ASSET_ACTION(42, 2);
     ios_campaign_action_targets(custom_weapon);
     CHECK(calls == 1 && recorded_actions[0] == custom_weapon && recorded_players[0] == 0);
-    clear_calls(); ios_options.target = 2;
+    clear_calls(); players[1].unit_index = 11; ios_options.target = 2;
     ios_campaign_action_targets(custom_weapon);
     CHECK(calls == 2 && recorded_actions[0] == custom_weapon && recorded_actions[1] == custom_weapon);
     CHECK(recorded_players[0] == 0 && recorded_players[1] == 1);
