@@ -168,6 +168,7 @@ def main() -> int:
 
     for name, script in (
         ("ios_guard_structure", "tools/tests/test_ios_source_structure.py"),
+        ("map_load_recovery", "tools/tests/test_ios_map_load_recovery.py"),
         ("host_import_coverage", "tools/tests/test_ios_import_coverage.py"),
         ("workflow_configuration", "tools/tests/test_ios_workflow_configuration.py"),
         ("header_declarations", "tools/tests/test_ios_header_declarations.py"),

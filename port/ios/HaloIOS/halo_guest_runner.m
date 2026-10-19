@@ -4237,7 +4237,7 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                 static const char *scene_names[]={"datum lookup/iteration","BSP index triangles","BSP bit triangles","material ranges","visibility surface lists","visibility leaf references","object list filter"};
                 for(unsigned kind=0;kind<7;kind++)say("native scene %s: %llu calls, %llu items, %.1f ms estimated (sampled); %llu timing samples",scene_names[kind],
                     (unsigned long long)atomic_load(&g_scene_calls[kind]),(unsigned long long)atomic_load(&g_scene_items[kind]),halo_timing_estimated_ms(atomic_load(&g_scene_calls[kind]),atomic_load(&g_scene_samples[kind]),atomic_load(&g_scene_ns[kind])),(unsigned long long)atomic_load(&g_scene_samples[kind]));
-                say("texture content checks: %llu calls, %llu exact reuse hits, %llu MiB compared, %llu MiB hashed; snapshot budget 8 MiB",
+                say("texture content checks: %llu calls, %llu exact reuse hits, %llu MiB compared, %llu MiB hashed; snapshot budget 48 MiB",
                     (unsigned long long)atomic_load(&g_texture_check_calls),(unsigned long long)atomic_load(&g_texture_check_hits),
                     (unsigned long long)(atomic_load(&g_texture_check_compared)>>20),(unsigned long long)(atomic_load(&g_texture_check_hashed)>>20));
                 say("geometry cache: %llu comparisons, %llu KiB checked, %llu changed pages (exact byte comparison)",
