@@ -16,6 +16,9 @@ code = r'''
 static struct { int has_token, token_listed, hosting, has_clipboard, reported_player_count; char invite[80], clipboard[80]; unsigned char token[16]; } p2p;
 static int made, shared, signalled;
 static char active[80];
+static const char *p2p_invite_log_text(const char *invite, char *text, int size) {
+ (void)text; (void)size; return invite;
+}
 static void make_invite(void) { made++; p2p.token_listed=0; strcpy(p2p.invite,"halo://join/new-private-code"); }
 static void platform_log(const char *format, ...) { (void)format; }
 static void p2p_signal_host(const unsigned char *token) { (void)token; signalled++; }
