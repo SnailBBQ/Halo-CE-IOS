@@ -13,7 +13,7 @@ features of the regular app and receives every update at the same time.
 | Bundle ID | `com.haloceuniversal.ios.m0` | `com.haloceuniversal.ios.modtest` |
 | Invite scheme | `halo://` | `halomodtest://` |
 | Version | 0.2.116 | 0.2.116.1 |
-| Build | Automatic IPA on `main` | Manual: tick **Mod Test app** |
+| Build | Manual: run the workflow with options off | Manual: tick **Mod Test app** |
 | Output | `HaloCE.ipa`, artifact `HaloCE-iOS` | `HaloCE.ipa`, artifact `HaloCE-iOS-ModTest` |
 | Data | Its own maps, saves and settings | Its own, completely separate |
 | Largest campaign map | The stock limit, about 278 MiB expanded | Up to 384 MiB expanded |

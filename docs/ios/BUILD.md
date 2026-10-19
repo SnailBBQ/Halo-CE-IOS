@@ -23,8 +23,7 @@ The result is an IPA that must be re-signed on install. The iOS Simulator is not
 5. Wait for diagnostics and both build jobs to succeed. Each job has a 40-minute timeout.
 6. Open the finished run and download the **HaloCE-iOS** artifact. Extract the ZIP to get **`HaloCE.ipa`**.
 
-Re-running an old run builds its original commit. To test newer changes, start a new run. Pushes that change the app, the engine
-sources or the workflow on `main` also start a build automatically. Other branches do not build. A newer run cancels unfinished older runs. Documentation-only updates do not trigger an IPA build.
+Pushing changes to `main` does not start an IPA build. Start one manually from **Actions → Halo CE iOS — Build IPA → Run workflow** when you are ready. Re-running an old run builds its original commit; to test newer changes, start a new run. A newer run cancels unfinished older runs.
 
 This repository does not build the Windows, Linux or Android ports. Those apps, and their updates, are the official project:
 [OpenCE releases](https://github.com/OpenCommunityEdition/OpenCE/releases).
