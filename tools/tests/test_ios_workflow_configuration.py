@@ -63,10 +63,9 @@ assert subprocess.run([sys.executable,'-c',body],cwd=scratch,
 assert subprocess.run([sys.executable,'-c',body],cwd=scratch,env=env,capture_output=True).returncode!=0
 print('PASS: real android_guest_cc command emitted by repository Ninja writer, LF/CRLF continuation matching and full workflow transformation (regular aligned and Non-JB flexible-base guest ABIs)')
 
-# Only regular-app main pushes may spend hosted build time. Keep expensive
-# jobs behind diagnostics and cancel obsolete builds on replacement pushes.
-assert "  push:\n    branches: [main]\n    paths:" in wf
-assert "      - 'port/ios/**'\n      - '!port/ios/*.md'" in wf, 'notes-only port/ios markdown must not trigger the automatic IPA build'
+# Keep IPA builds manual so pushes cannot spend hosted macOS minutes.
+assert "  workflow_dispatch:" in wf
+assert "\n  push:" not in wf, 'the iOS IPA workflow must not start automatically on pushes'
 assert "  group: halo-ios-${{ inputs.non_jailbreak && 'non-jailbreak' || inputs.compatibility_test && 'modtest' || 'main' }}\n  cancel-in-progress: true" in wf, 'official pushes must keep the halo-ios-main group; manual flavors get their own'
 assert "    needs: diagnostics" in wf
 assert "    uses: ./.github/workflows/ios-memory-tests.yml" in wf
