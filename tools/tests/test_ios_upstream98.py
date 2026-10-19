@@ -17,6 +17,7 @@ common=r'''
 #include <stdlib.h>
 #include <string.h>
 #include <setjmp.h>
+#define DEFAULT_BROKERS "opence.milenko.org:1883,broker.emqx.io:1883,broker.hivemq.com:1883,test.mosquitto.org:1883"
 static jmp_buf stopped;
 static int exited,pushed;
 void host_exit(int code) __attribute__((noreturn));
@@ -62,7 +63,7 @@ int main(void){
  assert(strstr(list,"first.example:1883") && strstr(list,"second.example:1883") && !strstr(list,"omitted") && !strstr(list,"note"));
  broker_name="/custom/network.txt";brokers_list(list,sizeof(list));assert(!strcmp(opened,broker_name));
  broker_name="C:\\custom\\network.txt";brokers_list(list,sizeof(list));assert(!strcmp(opened,broker_name));
- contents=NULL;brokers_list(list,sizeof(list));assert(!*list);
+ contents=NULL;brokers_list(list,sizeof(list));assert(!strcmp(list,DEFAULT_BROKERS));
  puts("PASS: real quit dispatch, shared split routing and broker file parsing");return 0;
 }
 '''
