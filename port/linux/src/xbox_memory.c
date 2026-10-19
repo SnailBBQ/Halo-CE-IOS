@@ -47,6 +47,26 @@ first page of a block also records the block length */
 static DWORD page_protection[CONTIGUOUS_PAGE_COUNT];
 static unsigned long block_page_count[CONTIGUOUS_PAGE_COUNT];
 static BOOL arena_reserved = FALSE;
+/* telemetry: pages in use, and the highest whole 8 MiB step of it that was logged */
+static unsigned long used_pages = 0;
+static unsigned long logged_step = 0;
+
+/* the caller holds arena_lock */
+static void log_window_failure(unsigned long wanted_pages)
+{
+	unsigned long page, run = 0, largest = 0;
+
+	for (page = 0; page < CONTIGUOUS_PAGE_COUNT; page++)
+	{
+		if (page_protection[page])
+			run = 0;
+		else if (++run > largest)
+			largest = run;
+	}
+	platform_log("contiguous window: no room for %lu KiB; %lu of %lu MiB in use, largest free block %lu KiB",
+		wanted_pages * PAGE_SIZE_BYTES / 1024, used_pages * PAGE_SIZE_BYTES / 1048576,
+		(unsigned long)(PLATFORM_CONTIGUOUS_SIZE / 1048576), largest * PAGE_SIZE_BYTES / 1024);
+}
 static pthread_mutex_t arena_lock = PTHREAD_MUTEX_INITIALIZER;
 static void *custom_edition_tag_cache = NULL;
 
@@ -199,6 +219,7 @@ void *platform_contiguous_alloc(unsigned long size, unsigned long alignment,
 	}
 	if (first == CONTIGUOUS_PAGE_COUNT)
 	{
+		log_window_failure(count);
 		pthread_mutex_unlock(&arena_lock);
 		return NULL;
 	}
@@ -219,6 +240,13 @@ void *platform_contiguous_alloc(unsigned long size, unsigned long alignment,
 	for (page = first; page < first + count; page++)
 		page_protection[page] = protect;
 	block_page_count[first] = count;
+	used_pages += count;
+	if (used_pages * PAGE_SIZE_BYTES / (8 * 1048576) > logged_step)
+	{
+		logged_step = used_pages * PAGE_SIZE_BYTES / (8 * 1048576);
+		platform_log("contiguous window: %lu MiB of %lu MiB in use",
+			used_pages * PAGE_SIZE_BYTES / 1048576, (unsigned long)(PLATFORM_CONTIGUOUS_SIZE / 1048576));
+	}
 	pthread_mutex_unlock(&arena_lock);
 	return address;
 }
@@ -242,6 +270,7 @@ void platform_contiguous_free(void *address)
 		for (page = first; page < first + count; page++)
 			page_protection[page] = 0;
 		block_page_count[first] = 0;
+		used_pages -= count;
 	}
 	pthread_mutex_unlock(&arena_lock);
 }

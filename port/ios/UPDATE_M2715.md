@@ -90,3 +90,7 @@ Nothing here has been compiled against the iOS SDK or run on a device.
 ## Texture check once per frame (follow-up)
 
 A Cursed Halo (hdmu) log showed `halo_hash_bytes` at 57% of the game thread's host samples: every draw that bound an uncompressed texture compared it with its snapshot in full, and textures over 1 MiB were hashed in full every time. `halo_texture_check.h` now keeps snapshots up to 4 MiB (48 MiB in total) and compares a texture that was unchanged at its last two checks once per presented frame instead of at every draw. A change is seen at the next frame's check at the latest. Nothing was compiled for the device or tested on one.
+
+## Contiguous window telemetry (follow-up)
+
+The log now says how full the 128 MiB Xbox window is (`contiguous window: N MiB of 128 MiB in use`, at each 8 MiB step), and when an allocation fails, how much was in use and the largest free block. This is for choosing the size of the texture cache for large Custom Edition maps: the 22 MiB cache draws the default texture ("YOU GOT STABBED") on maps with 800+ bitmaps, and 48 MiB left too little room for their vertex buffers (E_OUTOFMEMORY, blue screen). Moving the guest image above 0x88000000 to enlarge the window was considered and not done: the arena fast path and the Non-Jailbreak base model assume that address.
