@@ -1167,17 +1167,15 @@ static UIView *HaloProfileSummary(NSString *title,NSString *detail) {
         HaloProfileSummary(@"App settings", @"Controls, HUD, audio, display and shortcuts."),
         HaloProfileSummary(@"Halo player profile", @"Your in-game name, armor color, controller preferences and completed levels."),
         HaloProfileSummary(@"Campaign checkpoint", @"Progress inside a campaign level."),
-        HaloUINote(@"Your name and color live in the Halo player profile, not in the app settings. “Back up or move your profile” below puts all three in one .halobackup file. Active cheats are never saved."),
+        HaloUINote(@"Your name and color live in the Halo player profile, not in the app settings. “Back up and restore” below puts all three in one .halobackup file. Active cheats are never saved."),
         HaloUIValueRow(@"Control scheme in use", [NSString stringWithUTF8String:preset.name], nil),
         HaloUIValueRow(@"Game HUD", hud, nil),
         HaloUIValueRow(@"Cheat recipe in this scheme", recipeCount ? [NSString stringWithFormat:@"%u items", recipeCount] : @"None", nil)])];
     [self add:HaloUICardView(@"Campaign saves", @[
-        HaloUIButton(@"Import / export campaign saves",1,^(UIButton *b){(void)b;UIViewController *c=HaloBackupsControllerForSections(16);c.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:c animated:YES completion:nil];}),
         HaloUIButton(@"Edit campaign checkpoint",0,^(UIButton *b){(void)b;UIViewController *editor=HaloCheckpointEditorController();editor.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:editor animated:YES completion:nil];}),
-        HaloUINote(@"Restore from a .halobackup archive on the next launch with a recovery backup. For a fresh installation, also restore its matching Halo player profile. Checkpoint edits cover health, shields, grenades and existing weapon ammo.")])];
+        HaloUINote(@"Back up or restore saves under “Back up and restore” below. Checkpoint edits cover health, shields, grenades and existing weapon ammo.")])];
     [self add:HaloUICardView(@"Halo player profiles", @[
         HaloUIButton(settings->game_profile_ready?[NSString stringWithFormat:@"Active profile: %s",settings->game_name]:@"Choose a Halo player profile",1,^(UIButton *b){(void)b;[self chooseHaloProfile];}),
-        HaloUIButton(@"Import / export Halo player profiles",1,^(UIButton *b){(void)b;UIViewController *c=HaloBackupsControllerForSections(32);c.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:c animated:YES completion:nil];}),
         HaloUIButton(@"In-game name",0,^(UIButton *b){(void)b;HsSettings current=[HaloSettingsStore.shared snapshot];if(!current.game_profile_ready){[self chooseHaloProfile];return;}
             UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"In-game name" message:@"Up to 11 ASCII letters, numbers or supported punctuation. Saved to the active Halo profile; new games use the updated name." preferredStyle:UIAlertControllerStyleAlert];
             [alert addTextFieldWithConfigurationHandler:^(UITextField *f){f.text=[NSString stringWithUTF8String:current.game_name];f.autocorrectionType=UITextAutocorrectionTypeNo;}];
@@ -1196,17 +1194,12 @@ static UIView *HaloProfileSummary(NSString *title,NSString *detail) {
         HaloUISwitchRow(@"Share maps with other players",@"Off by default. When on, this iPhone sends Custom Edition maps (and the resource maps they need) to players who join without them, and helps others send them, using your upload and mobile data. Downloading a map a game needs is not affected. Takes effect the next time the game starts.",HaloMapSharingEnabled(),^(BOOL on){if(!HaloMapSharingSet(on))halo_ios_toast("Could not save the map sharing setting");}),
         HaloUISegmentRow(@"Player names",@[@"All",@"Allies",@"Enemies",@"None"],settings->game_player_names,^(NSInteger choice){[self update:^(HsSettings *s){s->game_player_names=(int)choice;}];}),
         HaloUINote(@"Shared with in-game Network Setup. Connection options may require leaving and reopening a network session. This does not change iOS Local Network permission or router settings directly.")])];
-    [self add:HaloUICardView(@"Back up or move your profile", @[
-        HaloUIButton(@"Export or restore everything…", 1, ^(UIButton *b) { (void)b;
+    [self add:HaloUICardView(@"Back up and restore", @[
+        HaloUIButton(@"Back up or restore…", 1, ^(UIButton *b) { (void)b;
             /* app settings (2), layouts (4), campaign saves (16) and Halo player profiles (32), ticked together */
             UIViewController *c = HaloBackupsControllerForSections(2 | 4 | 16 | 32);
             c.modalPresentationStyle = UIModalPresentationFullScreen; [self presentViewController:c animated:YES completion:nil]; }),
-        HaloUIButton(@"Open an older .haloprofile file…", 0, ^(UIButton *b) { (void)b;
-            self.pickerKind = 2;
-            UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:YES];
-            picker.delegate = self; picker.allowsMultipleSelection = NO;
-            [self presentViewController:picker animated:YES completion:nil]; }),
-        HaloUINote(@"One .halobackup file holds your app settings and layouts, your Halo player profiles (name, color, completed levels) and your campaign saves. Untick any of them on the next screen. Restoring applies the next time the game starts, after a recovery backup. Older .haloprofile files (settings only) can still be opened with the second button.")])];
+        HaloUINote(@"One .halobackup file holds your app settings and layouts, your Halo player profiles (name, color, completed levels) and your campaign saves. Untick any of them on the next screen. Restoring applies the next time the game starts, after a recovery backup. This is also where you restore: pick the .halobackup file and tick what to bring back.")])];
     [self add:HaloUICardView(@"Start over", @[
         HaloUIButton(@"Reset all settings to defaults", 2, ^(UIButton *b) { (void)b;
             UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Reset every setting?" message:@"Control schemes, HUD, display, audio and colors all return to their defaults. Maps, saves and mods are not touched. Export a profile first if you may want this back." preferredStyle:UIAlertControllerStyleAlert];

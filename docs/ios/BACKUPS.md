@@ -43,13 +43,13 @@ A restore merges the chosen parts into the app: files with matching names are re
 
 ## Other ways to move your setup
 
-- **Settings → Profiles → Back up or move your profile** opens this screen with app settings, layouts, campaign saves and Halo player profiles (your in-game name and armor color) ticked together, so one `.halobackup` file holds the whole profile. Older settings-only `.haloprofile` files can still be opened from there. See [Settings → Profiles](SETTINGS.md#profiles).
+- **Settings → Profiles → Back up and restore → Back up or restore…** opens this screen with app settings, layouts, campaign saves and Halo player profiles (your in-game name and armor color) ticked together, so one `.halobackup` file holds the whole profile. See [Settings → Profiles](SETTINGS.md#profiles).
 - **Settings → Mods** manages Custom Edition content and user-supplied MP4 movies; include the Maps section when exporting a `.halobackup` if you want them preserved.
 - Removing the app deletes its data, so export a backup first.
 
 ## Keep saves when deleting Halo
 
-iOS does not let Halo intercept app deletion or add a keep-saves prompt. Deleting the app removes its local container. To retain progress, use Advanced → Backups → Manage backups → Saves outside the app. Choose a folder in iCloud Drive or another location outside Halo, save in the game, and select **Back up saves and profiles now**. These are manual, versioned `.halobackup` files; maps and active invites are excluded. Confirm the file has uploaded before deleting the app. Previous backups are kept.
+iOS does not let Halo intercept app deletion or add a keep-saves prompt. Deleting the app removes its local container. To retain progress, use Advanced → Backups → Manage backups → Backup folder (optional). Choose a folder in iCloud Drive or another location outside Halo, save in the game, and select **Back up saves and profiles to this folder**. These are manual, versioned `.halobackup` files; maps and active invites are excluded. Confirm the file has uploaded before deleting the app. Previous backups are kept.
 
 After reinstalling, select the external folder again and choose **Restore external saves…**. Pick a backup, stage the restore, then close and reopen Halo. The existing validated restore flow places files back under `Documents/Halo/save` and creates a recovery backup before replacing matching files. With no backup, start normally.
 
@@ -57,7 +57,7 @@ Installing an update over the existing app keeps the same save path and app iden
 
 ## Separate saves and player profiles
 
-Campaign saves and Halo player profiles have separate export/restore switches. On a fresh installation, restore the matching player profile as well as its checkpoint so Halo can associate the saved progress with the correct profile. App settings profiles (`.haloprofile`) remain separate. The external-folder quick backup keeps both progress and Halo profiles.
+The Backups screen has three steps: tick what to include, then Export a backup file or Restore from a backup file (both use the same ticks), and optionally a backup folder outside the app. Campaign saves and Halo player profiles have separate switches. On a fresh installation, restore the matching player profile as well as its checkpoint so Halo can associate the saved progress with the correct profile. App settings profiles (`.haloprofile`) remain separate. The external-folder quick backup keeps both progress and Halo profiles.
 
 Older backups remain readable, but their temporary cache files are no longer restored. These caches are rebuilt by the engine; they previously made a save/profile backup hundreds of megabytes larger than necessary. Installed map files remain an explicit optional backup section.
 
