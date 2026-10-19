@@ -1,15 +1,15 @@
 # Release notes
 
-The current update is **M2.6.117**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.118**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
-No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
+No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test. M2.6.118 has not been built on a Mac or validated on a device; no IPA was generated as part of this update.
 
 **Device result, 2026-10-08:** the M2.6.101 Non-Jailbreak build is confirmed playable on an iPhone 14 Plus (iOS 16.2, Sideloadly): a10 played, second map loaded, about 60 FPS, no crashes, no pointer faults. Documentation only; no code change after M2.6.101.
 
-**Latest:** [M2.6.117](../../port/ios/UPDATE_M2717.md) builds the Weapon Giver and Vehicle Spawner pickers from the current map's loaded tags, including compatible Custom Edition assets. OpenCE remains on build 235 / network 29. Device validation is still required.
+**Latest:** [M2.6.118](../../port/ios/UPDATE_M2718.md) integrates OpenCE build 244 / network 32, including upstream networking, map, renderer and Custom Edition changes while preserving the iOS host/guest adaptation. Network-29 clients cannot cross-play with network 32. The source update passes strict upstream acceptance; a Mac build and device validation are still required.
 
 **Previous:** [M2.6.116](../../port/ios/UPDATE_M2716.md) recovers to the main menu after a rejected map load instead of leaving Halo on the blue fatal-error screen. It preserves map validation and corrects the texture snapshot budget diagnostic.
 
