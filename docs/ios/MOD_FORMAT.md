@@ -216,3 +216,7 @@ The engine's own guide, with the same rules for every platform, is
 [`docs/mods.md` in OpenCE](https://github.com/OpenCommunityEdition/OpenCE/blob/main/docs/mods.md). The code is in `port/linux/game/mods.c`,
 `mod_sounds.c`, `mod_bitmaps.c`, `mod_strings.c`, `mod_models.c` and `port/linux/src/port_mods.c`; the iPhone's Settings > Mods list is in
 `port/ios/HaloIOS/HaloMods.m`.
+
+## A halomaps.org map shows a blue screen
+
+Most maps from halomaps.org are Custom Edition maps that share the pictures and sounds of the Custom Edition game instead of carrying their own. Those files are `bitmaps.map`, `sounds.map` and `loc.map`, and they come from a Halo Custom Edition (PC) install. Add them with **Settings > Mods > Import Custom Edition maps…** (the "Shared files" row shows which of the three the app has). Until they are there, such a map cannot load and the game shows a blue screen; the log says "a map needs a resource map that was not supplied". A map that carries everything it needs loads without them.

@@ -206,6 +206,7 @@ static NSArray<NSString *> *HaloLibraryShowChoices(void) { return @[@"Hide",@"Al
     [self.rows addArrangedSubview:HaloLibrarySection(@"Custom Edition maps",@"Standard Custom Edition (version 609) maps. They never replace your Xbox maps. OpenSauce maps are not supported.")];
     [self.rows addArrangedSubview:HaloUICardView(nil,@[
         HaloUIValueRow(@"Shared files",resourceSummary,nil),
+        HaloUINote(([resources[@"bitmaps.map"] boolValue]&&[resources[@"sounds.map"] boolValue]&&[resources[@"loc.map"] boolValue])?@"Maps that need shared files can load.":@"Most maps from halomaps.org need bitmaps.map, sounds.map and loc.map from a Halo Custom Edition (PC) install. Without them such a map only shows a blue screen. Add the three files with “Import Custom Edition maps…” above."),
         HaloUISegmentRow(@"Show in list",HaloLibraryShowChoices(),customChoice,^(NSInteger choice){[HaloSettingsStore.shared update:^(HsSettings *s2){s2->custom_hide=(choice==0);if(choice>0)s2->custom_filter=choice==2?1:choice==3?2:0;}];[weakSelf render];})])];
     NSArray *shownCustom=custom;
     if(opts.custom_hide)shownCustom=@[];
