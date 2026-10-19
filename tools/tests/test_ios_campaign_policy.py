@@ -85,6 +85,7 @@ int main(void)
     host_wanted.asset_request = 1; ios_cheats_apply();
     CHECK(ios_campaign_asset_count == 1 && ios_campaign_asset_tags[0].tag == 5);
     CHECK(ios_campaign_asset_tags[0].kind == HALO_CAMPAIGN_ASSET_WEAPON);
+    CHECK(ios_campaign_asset_find(ios_campaign_asset_tags[0].token) == &ios_campaign_asset_tags[0]);
     host_wanted.asset_request = 0;
     ios_options.flags|=IOS_CHEAT_DETACH_CAMERA|(1u<<IOS_CHEAT_PROJECTILE_SHIFT);
     CHECK(ios_cheat_camera_detached(0) && ios_cheat_projectile(0,99)==5 && ios_cheat_projectile(1,99)==99);
@@ -130,5 +131,5 @@ else:
         path = Path(directory)
         (path / "test.c").write_text(harness, encoding="utf-8")
         exe = path / ("test.exe" if os.name == "nt" else "test")
-        subprocess.run([compiler, "-std=c11", "-Wall", "-Wextra", "-Werror", "-I" + str(ROOT / "port/include"), str(path / "test.c"), "-o", str(exe)], check=True)
+        subprocess.run([compiler, "-std=c11", "-Wall", "-Wextra", "-Werror", "-Wno-multichar", "-I" + str(ROOT / "port/include"), str(path / "test.c"), "-o", str(exe)], check=True)
         subprocess.run([str(exe)], check=True)
