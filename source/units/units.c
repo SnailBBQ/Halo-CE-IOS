@@ -5615,7 +5615,11 @@ boolean unit_update(
 		* Grenade throw button
 		* Primary weapon fire button
 		*/
+#ifdef HALO_IOS_GUEST
+		if (ios_cheat_applies(cheat.jetpack, unit_index) &&
+#else
 		if (cheat.jetpack &&
+#endif
 			TEST_FLAG(unit->unit.control_flags, _unit_control_weapon_primary_trigger_bit) &&
 			TEST_FLAG(unit->unit.control_flags, _unit_control_throw_grenade_bit))
 		{
@@ -5765,7 +5769,11 @@ boolean unit_update(
 				}
 			}
 
+#ifdef HALO_IOS_GUEST
+			if (ios_cheat_applies(cheat.infinite_ammo, unit_index) && unit->unit.player_index!=NONE)
+#else
 			if (cheat.infinite_ammo && unit->unit.player_index!=NONE)
+#endif
 			{
 				short grenade_index;
 
@@ -7915,7 +7923,7 @@ static void unit_throw_grenade_move_to_hand(
 	if ((
 		unit->unit.player_index==NONE ||
 #ifdef HALO_IOS_GUEST
-		!cheat.infinite_ammo && !ios_cheat_infinite_grenades && !game_engine_infinite_grenades(unit->unit.player_index)) &&
+		!ios_cheat_applies(cheat.infinite_ammo, unit_index) && !ios_cheat_applies(ios_cheat_infinite_grenades, unit_index) && !game_engine_infinite_grenades(unit->unit.player_index)) &&
 #else
 		!cheat.infinite_ammo && !game_engine_infinite_grenades(unit->unit.player_index)) &&
 #endif

@@ -226,7 +226,7 @@ extern boolean game_engine_running(void);
 extern boolean network_game_is_active(void);
 boolean ios_cheat_infinite_grenades;
 static unsigned int ios_cheats_set;
-static HaloCampaignOptions ios_options = { 0, 0, 1.f, 1.f, 0.f };
+static HaloCampaignOptions ios_options = { 0, 0, 1.f, 1.f, 0.f, 2 };
 extern void host_campaign_options(HaloCampaignOptions *options);
 extern int host_sdl_show_toast(const char *, int, int, int, int);
 static void host_toast(const char *message) { host_sdl_show_toast(message, 2500, 0, 0, 0); }
@@ -246,7 +246,32 @@ boolean ios_cheat_local_unit(long index)
     unit = unit_try_and_get(index);
     if (!unit || unit->unit.player_index == NONE) return FALSE;
     player = player_try_and_get(unit->unit.player_index);
-    return player && player->local_player_index != NONE && player->unit_index == index;
+    /* Settings > Cheats > "Cheats act on": player 1 (0), player 2 (1) or both (2) of a splitscreen campaign */
+    return player && player->local_player_index != NONE && player->unit_index == index &&
+        (ios_options.target >= 2 || player->local_player_index == (short)ios_options.target);
+}
+/* a game-wide cheat flag as it applies to this unit: the units of the local players the cheats act on, and everything that is not a local
+ * player's (the flags' own rule) */
+boolean ios_cheat_applies(boolean flag, long index)
+{
+    struct unit_datum *unit;
+    struct player_datum *player;
+    if (!flag || ios_options.target >= 2 || index == NONE) return flag;
+    unit = unit_try_and_get(index);
+    if (!unit || unit->unit.player_index == NONE) return flag;
+    player = player_try_and_get(unit->unit.player_index);
+    if (!player || player->local_player_index == NONE) return flag;
+    return player->local_player_index == (short)ios_options.target;
+}
+/* the player the one-time actions and held cheats act on: the chosen one when it is playing, else the first */
+static long ios_target_player_index(void)
+{
+    long player_index;
+    struct player_datum *player;
+    if (ios_options.target >= 2) return NONE;
+    player_index = local_player_get_player_index((short)ios_options.target);
+    player = player_index == NONE ? NULL : player_try_and_get(player_index);
+    return player && player->unit_index != NONE ? player_index : NONE;
 }
 boolean ios_cheat_enabled(long index, unsigned int flag)
 { return (ios_options.flags & flag) && ios_cheat_local_unit(index); }
@@ -352,6 +377,7 @@ static void ios_cheats_reset(void)
     ios_world_cheats_reset();
     memset(&ios_options, 0, sizeof(ios_options));
     ios_options.jump = ios_options.speed = 1.f;
+    ios_options.target = 2;
 }
 
 #endif
@@ -457,6 +483,10 @@ static long cheat_player_index(
 	struct player_datum *player;
 	long player_index = NONE;
 
+#ifdef HALO_IOS_GUEST
+	if ((player_index = ios_target_player_index()) != NONE)
+		return player_index;
+#endif
 	data_iterator_new(&iterator, player_data);
 	while ((player = (struct player_datum *)data_iterator_next(&iterator))!=NULL)
 	{

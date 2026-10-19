@@ -200,6 +200,48 @@ void pc_menu_ios_sync_settings(void)
         }
     }
     {
+        /* the video, first-person, names, scoreboard, chat and streamer options (slots 23 to 42, halo_engine_settings.h): config.toml's, as
+         * the in-game menus write them. Each is a boolean, a choice of named values (the slot is its number) or a number. */
+        static char const *const aa[]={"off","fxaa","smaa","ssaa2x","msaa2x","msaa4x","msaa8x"};
+        static char const *const shadows[]={"128","256","512","1024"};
+        static char const *const intensity[]={"default","light_show"};
+        static char const *const colors[]={"default","white","black","red","blue","gray","yellow","green","pink","purple","cyan","cobalt",
+            "orange","teal","sage","brown","tan","maroon","salmon"};
+        static char const *const layouts[]={"teams","score"};
+        static char const *const styles[]={"colors","white"};
+        static char const *const levels[]={"off","severe","strong","mild"};
+        static struct { unsigned slot; char const *name; char kind; char const *const *values; short count; } const table[]={
+            {23,"display.anti_aliasing",'e',aa,7},{24,"display.shadow_resolution",'e',shadows,4},
+            {25,"display.per_pixel_lighting",'b',NULL,0},{26,"display.shield_glow",'b',NULL,0},
+            {27,"display.shield_glow_intensity",'e',intensity,2},{28,"display.fov",'r',NULL,0},{29,"display.viewmodel_fov",'r',NULL,0},
+            {30,"display.viewmodel_visible",'b',NULL,0},{31,"display.viewmodel_shield",'b',NULL,0},{32,"display.first_person_legs",'b',NULL,0},
+            {33,"display.shield_color",'e',colors,19},{34,"display.player_name_scale",'r',NULL,0},
+            {35,"display.scoreboard_team_layout",'e',layouts,2},{36,"display.scoreboard_background",'b',NULL,0},
+            {37,"display.text_chat",'b',NULL,0},{38,"display.chat_style",'e',styles,2},{39,"streamer.enabled",'b',NULL,0},
+            {40,"streamer.slurs",'e',levels,4},{41,"streamer.swearing",'e',levels,4},{42,"streamer.insults",'e',levels,4}};
+        unsigned k;
+        for(k=0;k<NUMBEROF(table);k++) {
+            char text[64],original[64],value[64];
+            short j,choice=0;
+            if(!config_text(table[k].name,original,sizeof(original)))continue;
+            if(table[k].kind=='b')snprintf(text,sizeof(text),"%d",!strcmp(original,"true")?1:0);
+            else if(table[k].kind=='e') {
+                for(j=0;j<table[k].count;j++)if(!strcmp(table[k].values[j],original))choice=j;
+                snprintf(text,sizeof(text),"%d",choice);
+            }
+            else snprintf(text,sizeof(text),"%.4f",atof(original));
+            if(!host_settings_value(table[k].slot,text,NONE))continue;
+            if(table[k].kind=='b')snprintf(value,sizeof(value),"%s",atof(text)!=0?"true":"false");
+            else if(table[k].kind=='e') {
+                choice=(short)PIN(atol(text),0,table[k].count-1);
+                snprintf(value,sizeof(value),"%s",table[k].values[choice]);
+            }
+            else snprintf(value,sizeof(value),"%.2f",atof(text));
+            if(table[k].kind=='r'?(atof(value)>atof(original)?atof(value)-atof(original):atof(original)-atof(value))>0.001:strcmp(original,value))
+                config_write(table[k].name,value);
+        }
+    }
+    {
         /* Settings > Mods changed the mods or their load order (-7): play them as the game's own Mods menu's OK does */
         char text[64];
         void mods_apply(void);
@@ -221,6 +263,32 @@ void pc_menu_ios_sync_settings(void)
                 profile_index=wanted;
                 next_list=now;
             }
+        }
+        text[0]=0;
+        if(host_settings_value((unsigned)-10,text,0)) {
+            /* Settings > Profiles > New profile (-10): "color|name" asks for a Halo player profile; the answer goes back as "ok" (1) or
+             * "fail" (2), and a new one is the active profile at once */
+            struct player_profile fresh;
+            wchar_t wide[MAXIMUM_PLAYER_PROFILE_NAME_LENGTH];
+            char *name=strchr(text,'|');
+            long color=atol(text),created=NONE;
+            unsigned j;
+            memset(wide,0,sizeof(wide));
+            if(name) {
+                for(j=0,name++;j<11 && name[j];j++)wide[j]=(unsigned char)name[j];
+                if(player_name_clean(wide,NUMBEROF(wide)) && player_name_valid(wide,NUMBEROF(wide)))
+                    created=player_profile_new(0,wide);
+            }
+            if(created!=NONE && player_profile_get(created,&fresh)) {
+                fresh.primary_color_index=(short)PIN(color,0,(long)player_profile_number_of_available_primary_colors()-1);
+                player_profile_save(created,&fresh);
+                player_ui_set_active_player_profile(0,created,&fresh);
+                profile_index=created;
+                next_list=now;
+            }
+            else created=NONE;
+            snprintf(text,sizeof(text),"%s",created!=NONE?"ok":"fail");
+            host_settings_value((unsigned)-10,text,created!=NONE?1:2);
         }
         if((long)(now-next_list)>=0) {
             word count=32;

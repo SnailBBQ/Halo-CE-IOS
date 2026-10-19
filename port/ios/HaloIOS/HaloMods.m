@@ -230,6 +230,37 @@ static void ValidateCEMap(NSURL *url)
     HaloBackupRequire([info[@"valid"] boolValue], @"Custom Edition map header is invalid or unsupported. OpenCE build 235 supports standard version 609 CE maps; OpenSauce maps are not supported.");
 }
 
+NSArray<NSURL *> *HaloImportSharedAndMovies(NSArray<NSURL *> *urls, NSString **summary, NSMutableArray<NSString *> *errors)
+{
+    NSMutableArray<NSURL *> *rest = [NSMutableArray array];
+    NSMutableArray<NSString *> *done = [NSMutableArray array];
+    for (NSURL *url in urls) {
+        NSString *name = url.lastPathComponent, *ext = name.pathExtension.lowercaseString;
+        BOOL shared = [ext isEqual:@"map"] && IsCEResource(name), movie = [ext isEqual:@"mp4"];
+        if (!shared && !movie) { [rest addObject:url]; continue; }
+        @try {
+            if (shared) {
+                /* the first word of a resource map is its kind: 1 bitmaps, 2 sounds, 3 loc */
+                NSFileHandle *in = [NSFileHandle fileHandleForReadingFromURL:url error:nil];
+                NSData *head = in ? [in readDataOfLength:4] : nil;
+                [in closeFile];
+                uint32_t kind = 0;
+                if (head.length == 4) memcpy(&kind, head.bytes, 4);
+                kind = CFSwapInt32LittleToHost(kind);
+                HaloBackupRequire(kind >= 1 && kind <= 3, @"does not look like a Custom Edition shared resource file");
+                HaloCustomContentImport(@[url]);
+            } else {
+                HaloMoviesImport(@[url]);
+            }
+            [done addObject:name.lowercaseString];
+        } @catch (NSException *e) {
+            [errors addObject:[NSString stringWithFormat:@"%@: %@", name, e.reason ?: @"could not be imported"]];
+        }
+    }
+    if (summary) *summary = done.count ? [NSString stringWithFormat:@"Installed now: %@ (optional extras for Custom Edition maps and movies).", [done componentsJoinedByString:@", "]] : nil;
+    return rest;
+}
+
 void HaloCustomContentImport(NSArray<NSURL *> *files)
 {
     HaloBackupRequire(files.count > 0 && files.count <= 256, @"Choose up to 256 Custom Edition files at once.");

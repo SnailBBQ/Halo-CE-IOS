@@ -60,7 +60,7 @@ static NSString *HaloPerfLine(void)
     if (task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&info, &count) == KERN_SUCCESS)
         used = (unsigned long long)info.phys_footprint >> 20;
     if (thermal < 0 || thermal > 3) thermal = 0;
-    return [NSString stringWithFormat:@"%llu MB · %llu free · %@", used, left, heat[thermal]];
+    return [NSString stringWithFormat:@"Mem %llu MB · free %llu MB · %@", used, left, heat[thermal]];
 }
 
 @interface AppDelegate () <UIDocumentPickerDelegate>
@@ -225,10 +225,13 @@ static NSString *HaloPerfLine(void)
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         NSUInteger imported = 0, kept = 0;
         NSMutableArray<NSString *> *errors = [NSMutableArray array];
-        for (NSURL *url in urls) {
+        /* bitmaps.map, sounds.map, loc.map and MP4 movies can come in the same pick; they are optional and install on their own */
+        NSString *extras = nil;
+        NSArray<NSURL *> *mapFiles = HaloImportSharedAndMovies(urls, &extras, errors);
+        for (NSURL *url in mapFiles) {
             NSString *name = url.lastPathComponent;
             if ([name.pathExtension caseInsensitiveCompare:@"map"] != NSOrderedSame) {
-                [errors addObject:[NSString stringWithFormat:@"%@: choose a .map file", name]];
+                [errors addObject:[NSString stringWithFormat:@"%@: choose a .map file (or an MP4 movie)", name]];
                 continue;
             }
             NSString *target = [destination stringByAppendingPathComponent:name];
@@ -259,8 +262,9 @@ static NSString *HaloPerfLine(void)
             HsSettings settings=[HaloSettingsStore.shared snapshot];
             BOOL automatic=settings.presets[settings.active].startup_auto && !halo_ios_safe_level() && [self hasStartupMap];
             [self refreshSetup];
-            if(automatic && !errors.count)return;
+            if(automatic && !errors.count && !extras.length)return;
             NSString *message = [NSString stringWithFormat:@"Imported %lu maps. Kept %lu existing files.", (unsigned long)imported, (unsigned long)kept];
+            if (extras.length) message = [message stringByAppendingFormat:@"\n\n%@", extras];
             if (errors.count) message = [message stringByAppendingFormat:@"\n\n%@", [errors componentsJoinedByString:@"\n"]];
             UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Map import" message:message preferredStyle:UIAlertControllerStyleAlert];
             [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
@@ -570,13 +574,17 @@ static NSString *HaloPerfLine(void)
     if (self.fpsLastTime > 0 && now > self.fpsLastTime)
     {
         double fps = (double)(frames - self.fpsLastFrames) / (now - self.fpsLastTime);
-        self.fpsLabel.numberOfLines = settings.perf_overlay ? 2 : 1;
+        self.fpsLabel.numberOfLines = 0;   /* never truncate: the overlay is sized to its text below */
+        self.fpsLabel.lineBreakMode = NSLineBreakByClipping;
         self.fpsLabel.textAlignment = NSTextAlignmentCenter;
         self.fpsLabel.text = settings.perf_overlay && fps > 0.5
             ? [NSString stringWithFormat:@" %.0f FPS · %.1f ms \n %@ ", fps, 1000.0 / fps, HaloPerfLine()]
             : [NSString stringWithFormat:@" %.0f FPS ", fps];
     }
-    [self.fpsLabel sizeToFit];
+    {   /* measure with no width limit: sizeToFit kept the previous, narrower width and cut the second line to "· 16.7…" */
+        CGSize fit = [self.fpsLabel sizeThatFits:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX)];
+        self.fpsLabel.bounds = CGRectMake(0, 0, ceil(fit.width), ceil(fit.height));
+    }
     CGRect safe=UIEdgeInsetsInsetRect(self.fpsLabel.superview.bounds,self.fpsLabel.superview.safeAreaInsets);
     CGPoint center=CGPointMake(CGRectGetMinX(safe)+safe.size.width*(.5+h.x),CGRectGetMinY(safe)+safe.size.height*(.14+h.y));
     center.x=MAX(CGRectGetMinX(safe)+self.fpsLabel.bounds.size.width/2,MIN(CGRectGetMaxX(safe)-self.fpsLabel.bounds.size.width/2,center.x));

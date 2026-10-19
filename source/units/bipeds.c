@@ -836,7 +836,11 @@ static void biped_falling_damage(
 #ifdef HALO_IOS_GUEST
 	if (ios_cheat_enabled(biped_index, IOS_CHEAT_NO_FALL | IOS_CHEAT_NOCLIP)) return;
 #endif
+#ifdef HALO_IOS_GUEST
+	if (!ios_cheat_applies(cheat.jetpack, biped_index) || biped->unit.player_index == NONE)
+#else
 	if (!cheat.jetpack || biped->unit.player_index == NONE)
+#endif
 	{
 		if (collision_velocity > falling_damage->runtime_minimum_damage_velocity)
 		{
@@ -2252,7 +2256,11 @@ static void biped_update_jumping(
         SET_FLAG(biped->biped.flags, _biped_airborne_bit, TRUE);
     }
 #endif
+#ifdef HALO_IOS_GUEST
+	if (ios_cheat_applies(cheat.jetpack, biped_index) && biped->unit.player_index != NONE)
+#else
 	if (cheat.jetpack && biped->unit.player_index != NONE)
+#endif
 	{
 		struct player_datum *player = player_get(biped->unit.player_index);
 		/* inferred, descriptive names (not recovered Bungie identifiers): no PDB records the locals of this block */

@@ -44,19 +44,21 @@ boolean network_game_is_active(void) { return network; }
 struct unit_datum *unit_try_and_get(long i) { return i >= 0 && i < 3 ? &units[i] : NULL; }
 struct unit_datum *unit_get(long i) { return unit_try_and_get(i); }
 struct player_datum *player_try_and_get(long i) { return i >= 0 && i < 3 ? &players[i] : NULL; }
+static long local_player_get_player_index(short i) { return i < 2 ? i : NONE; }
 void host_campaign_options(HaloCampaignOptions *out) { *out = host_wanted; host_wanted.action = 0; }
 int host_sdl_show_toast(const char *s, int a, int b, int c, int d)
 { (void)s; (void)a; (void)b; (void)c; (void)d; ++toasts; return 1; }
 """ + body + r"""
 static void ios_campaign_action(unsigned int action) { actions += (action != 0); }
 static long cheat_player_index(void) { return 0; }
+static long (*ios_target_ref)(void) __attribute__((unused)) = ios_target_player_index;
 static void ios_powerups_tick(void) { /* Power-up behavior is covered by the separate runtime harness. */ }
 static void ios_world_cheats_tick(void) { /* covered by the world-cheat harness */ }
 static void ios_world_cheats_reset(void) { }
 #define CHECK(x) do { if (!(x)) { printf("FAIL line %d: %s\n", __LINE__, #x); return 1; } } while (0)
 int main(void)
 {
-    CHECK(sizeof(HaloCampaignOptions) == 20);
+    CHECK(sizeof(HaloCampaignOptions) == 24);
     units[0].unit.player_index = 0; players[0].unit_index = 0; players[0].local_player_index = 0;
     units[1].unit.player_index = NONE;
     units[2].unit.player_index = 2; players[2].unit_index = 2; players[2].local_player_index = NONE;

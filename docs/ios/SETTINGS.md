@@ -21,7 +21,8 @@ See the [Multiplayer guide](MULTIPLAYER.md) for how each part works.
 | Join this invite / Join the invite on the clipboard | Join a `halo://join/` link, or the bare 64-character hexadecimal code. |
 | Alternate way of using invite codes: iCloud Drive | Choose an iCloud Drive folder for `game_invite.txt`, paste a compatible invite shared by any player, and press **Join from game_invite.txt**. |
 | Host a game | Shows your current invite, which is also written to the invite file, and lets you share it or show a QR code. |
-| Join links on the clipboard automatically | Off by default, because iOS may request permission when the clipboard is read. Opening a `halo://` link joins without it. |
+| Options | In this order: **Join links on the clipboard automatically** (off by default, because iOS may request permission when the clipboard is read; opening a `halo://` link joins without it), **Internet play**, **UPnP port forwarding** and **Share maps with other players**. Internet play and UPnP are shared with the in-game Network Setup. |
+| Streamer mode | **Streamer mode** with **Slurs**, **Swearing** and **Insults** levels (Off, Severe, Strong, Mild), shared with the in-game streamer settings. |
 | Finding games on your Wi-Fi | Help for LAN discovery and the Local Network permission. |
 | Invite QR code | Appears while you host. |
 | Recent games | The last eight games you hosted or joined, with **Join again**, a QR code, and **Clear recent games**. |
@@ -53,8 +54,11 @@ Each option is explained, with a screenshot, in [Display / AirPlay](DISPLAY_AIRP
 | Frame rate | **30 · Original**, **60 · Smooth** (targets a maximum of 60 FPS when the device keeps up) or **Uncapped**. **Show FPS** shows a counter. Moving between 30 and the others applies *next launch*; between 60 and Uncapped, immediately. |
 | Game picture | **Aspect ratio**: Default · 4:3, Widescreen · 16:9 or Fullscreen (the device's own shape). **Render resolution**: 480p, 720p, 960p or 1080p. Both apply *next launch*. Default stays 640×480, and Safe Start always uses it. Higher detail uses more GPU and memory. |
 | Game HUD | Choose the default HUD or a saved recipe for the current scheme. **Edit game HUD** opens a live editor over the game for the FPS counter, weapon HUD, health/shields/radar, navigation and damage indicators. Position, scale, opacity and visibility can be changed per group or all together. Three named recipes can be saved. |
+| Video options | **Anti-aliasing** (Off, FXAA, MSAA 2x, MSAA 4x), **Shadow resolution**, **Per-pixel lighting**, **Shield glow** and **Glow intensity**, **Shield color**, **Field of view** and **Weapon and hands field of view** (the game's own, or 80° to 150°), **Arm shields**, **Legs**, and the **High-res HUD** / **High-res text** switches (*next launch*). All of them are shared with the in-game Video Setup. The field of view here is the display setting; the Cheats field of view is separate. |
+| Player names | Whose names show (All, Allies, Enemies, None) and the **Name size**. Shared with the in-game Network Setup and Video Setup. |
 | First-person view | **Both**, **Weapon**, **Hands** or **Hidden**: which first-person models are drawn. Applies at once and does not affect the HUD, attacks or other players. |
-| HUD and text | **High-res HUD** and **High-res text**, the upstream options for crisper HUD and menu text. *Next launch*. |
+| Scoreboard | **Layout** (By team or By score) and **Panel behind the scoreboard**. |
+| Text chat | **Show text chat** and **Chat text** (Colored names or All white). |
 | Menus | **PC menus (new)**: the Halo Custom Edition menus from OpenCE, with Join Game (LAN and Direct Link), Create Game (Internet or LAN) and redrawn screens. **Xbox menus**: the original menus, including System Link. *Next launch*; Safe Start uses the Xbox menus. |
 | AirPlay and external screens | How to show the game on a TV. See [Display / AirPlay](DISPLAY_AIRPLAY.md#airplay-and-external-displays). |
 
@@ -77,6 +81,8 @@ Bink videos are skipped. Engine-rendered cinematics play normally.
 **Cheats work in the solo campaign only.** They switch off by themselves in multiplayer and network games. You can open the sections at any time to read
 them, but their controls are disabled outside a solo campaign. **Running cheats are never saved:** they clear when you relaunch, leave the campaign, or host
 or join a game. Cheats that spawn things use only assets the current map has already loaded; if one is missing, the app says so.
+
+**Splitscreen campaign:** the **Cheats act on** control (Player 1, Player 2 or Both players, default Both) picks which local player the cheats such as god mode, ammo, jetpack, noclip, speed and jump affect. Game-wide cheats like wireframe rendering and the enemy-AI ones always stay global. One-time actions (restore health, give a weapon) go to the chosen player, or Player 1 when Both is selected.
 
 <p align="center">
   <img src="images/cheats-menu.png" alt="Settings → Cheats: collapsible sections" width="720"><br>
@@ -105,8 +111,8 @@ Recipes are saved with the scheme and applied when you enter a solo campaign or 
 **Mods** is one page, top to bottom:
 
 - **Add** (top). **Add a mod folder…** adds a mod (textures, sounds, text or models; unzip it in the Files app first). **Import Custom Edition maps…** adds extra multiplayer maps (`.map` files, plus `bitmaps.map`, `sounds.map` and `loc.map` if a map needs them). See [Mods](MOD_FORMAT.md).
-- **Mods.** Each installed mod is a small card with its priority, author and description, an **On** switch and **Move up / Move down / Remove mod**. The top mod plays over the ones below it. It is the same list as the game's Mods menu.
-- **Custom Edition maps.** Standard Halo Custom Edition **version 609** maps, stored in `Documents/Halo/custom_maps` (OpenCE scans it separately from `Documents/Halo/maps`). **Shared files** shows which of `bitmaps.map`, `sounds.map` and `loc.map` are installed. **Show in list** chooses Hide, All, Multiplayer or Campaign. Each map can be turned off without deleting it; its optional `<map>.bmp` and `<map>.txt` sidecars move with it. OpenSauce maps are not supported.
+- **Mod order.** Each installed mod is one compact row: its name, whether it is On or Off, priority, author and description, an on/off switch and small up, down and remove buttons. The top mod plays over the ones below it. It is the same list as the game's Mods menu. The page opens straight in Settings like the other sections.
+- **Custom Edition maps** (tap to open; the three modules below are collapsed so Mod order has the room). Standard Halo Custom Edition **version 609** maps, stored in `Documents/Halo/custom_maps` (OpenCE scans it separately from `Documents/Halo/maps`). **Shared files** shows which of `bitmaps.map`, `sounds.map` and `loc.map` are installed. **Show in list** chooses Hide, All, Multiplayer or Campaign. Each map can be turned off without deleting it; its optional `<map>.bmp` and `<map>.txt` sidecars move with it. OpenSauce maps are not supported.
 - **Installed Xbox game files.** The original version-5 Xbox maps stay separate. **Import Xbox maps** adds or replaces them, and **Show in list** (Hide, All, Multiplayer, Campaign) controls the list of maps with their picture and header check.
 - **Movies (MP4)** (bottom). Import your own `intro.mp4`, `credits.mp4`, `attract1.mp4`, `attract2.mp4` or `attract3.mp4` (localized `_de`, `_fr`, `_es`, `_it` variants are also accepted). When Halo asks for the matching Bink movie, iOS plays the MP4 natively with AVPlayer and returns to the normal Halo flow when it finishes or is skipped. The project does not ship movie assets or a Bink decoder.
 - **Refresh** (top left) reads the folders again; changes made in the game or the Files app also show within a couple of seconds.
@@ -124,7 +130,8 @@ Three kinds of data are kept separate:
 - **What a profile holds** shows a summary.
 - Saves and profiles are backed up and restored from one place, **Back up and restore** at the bottom of this page. Restore creates a recovery backup first and takes effect next launch. See [Backups](BACKUPS.md).
 - **Halo controller settings** synchronize look sensitivity, look/flight inversion, auto-center, button/stick layouts, vibration and in-game help with the active player profile. Vibration requires compatible controller hardware.
-- **Network setup** shares Internet play, UPnP, clipboard joining and player-name visibility with the in-game menu. Reopen the network session after changing connection options. The desktop self-updater does not install iOS IPAs.
+- **New profile…** makes a Halo player profile (a name of up to 11 ASCII characters, then an armor color) and makes it the active one. The game must be running (the title screen is enough). **Multiplayer armor color** shows a check mark on the color saved in the profile.
+- Internet play, UPnP, clipboard joining and Share maps moved to Multiplayer > Options; Player names moved to Display. The second copy of Halo controller settings that lived on this page is gone; the one under Controls is the only one.
 - **Edit campaign checkpoint** edits validated finite health, shields, grenade counts and existing weapon ammo directly in a saved checkpoint. Changes apply on the next launch with recovery backups; see [Backups](BACKUPS.md#campaign-checkpoint-editor).
 - **Back up and restore** opens the backup screen with app settings, layouts, campaign saves and Halo player profiles ticked, so one `.halobackup` holds everything, including your in-game name and armor color (they belong to the Halo player profile). The screen has Export and Restore buttons that use the same ticked sections.
 - In-game name and Multiplayer armor color are stored in the active Halo player profile, so they come along in a backup that includes player profiles.
@@ -146,8 +153,8 @@ Three kinds of data are kept separate:
 | Item | What it does |
 | --- | --- |
 | Quit Game | Closes the app after a confirmation. iOS cannot reopen an app by itself, so tap its icon to start again. |
-| Startup | **Start Halo CE iOS Title Screen** or **Boot Halo to Main Menu**, saved with the current control scheme. |
-| Heat and battery | **Lower the frame rate when the phone is hot**: Smooth 60 and Uncapped drop to 45 under serious heat or Low Power Mode and to 30 when critical, and return when the phone cools (30 · Original is never changed). **Performance overlay** adds frame time, memory in use, estimated memory headroom, and heat under the FPS counter. |
+| Game and startup | **Start Halo CE iOS Title Screen** or **Boot Halo to Main Menu**, saved with the current control scheme. |
+| Heat and battery | **Lower the frame rate when the phone is hot**: Smooth 60 and Uncapped drop to 45 under serious heat or Low Power Mode and to 30 when critical, and return when the phone cools (30 · Original is never changed). **Performance overlay** shows two lines under the FPS counter: frames per second with milliseconds per frame, and memory in use, memory still free and the heat state. |
 | Diagnostics | **Performance profiler** adds timing diagnostics. |
 | Share log files / Copy logs as text | Share the logs as one text file with your device, settings (never running cheats) and the end of the logs, or copy the same text to paste into a message. |
 | Report a problem… | Copies a report (device, settings, end of the logs) and opens the problem form on GitHub with the app, version and device filled in; paste the report into the Logs box. Reports are public, so look it over first. The report can also be shared as a file. See [Troubleshooting](TROUBLESHOOTING.md). |

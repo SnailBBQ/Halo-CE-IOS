@@ -66,6 +66,8 @@ long ios_cheat_projectile(long unit_index,long original);
 boolean ios_cheat_camera_detached(long unit_index);
 boolean ios_cheat_local_unit(long unit_index);
 boolean ios_cheat_enabled(long unit_index, unsigned int flag);
+/* a game-wide cheat flag (god mode, infinite ammo, bottomless clip), as it applies to this unit: Settings > Cheats can aim them at one local player */
+boolean ios_cheat_applies(boolean flag, long unit_index);
 real ios_cheat_jump_multiplier(long unit_index);
 real ios_cheat_speed_multiplier(long unit_index);
 real ios_cheat_field_of_view(long unit_index);

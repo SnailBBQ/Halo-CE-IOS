@@ -125,6 +125,19 @@ typedef struct
     int voice_mode;           /* voice chat microphone: 0 off, 1 open mic, 2 push to talk (audio.voice_chat; synced with the in-game menu) */
     float voice_volume;       /* other players' voices, 0 ... 2 (audio.voice_volume) */
     int reverb;               /* the maps' sound environments (audio.reverb) */
+    /* Video and multiplayer options shared with the in-game menus (config.toml's display.*, network.* and streamer.*); the slot
+     * numbers and the values the engine takes are in halo_engine_settings.h */
+    int aa_mode;              /* display.anti_aliasing: 0 off, 1 fxaa, 2 smaa, 3 ssaa2x, 4 msaa2x, 5 msaa4x, 6 msaa8x */
+    int shadow_res;           /* display.shadow_resolution: 0 128, 1 256, 2 512, 3 1024 */
+    int per_pixel, shield_glow, glow_light_show; /* per-pixel lighting; shield glow on; glow intensity 0 default, 1 light show */
+    float fov, viewmodel_fov; /* display.fov and display.viewmodel_fov: 0 for the game's own, else 80 ... 150 */
+    int vm_shield, legs;      /* the shield's flare on the arms; your legs in first person */
+    int shield_color;         /* display.shield_color: 0 the shield's own, 1 ... 18 the multiplayer armor colors */
+    float name_scale;         /* display.player_name_scale: 0.5 ... 2 */
+    int sb_layout, sb_panel;  /* scoreboard: 0 by team, 1 by score; the panel behind it */
+    int text_chat, chat_style;/* the text chat shown; 0 colored names, 1 all white */
+    int streamer, streamer_slurs, streamer_swearing, streamer_insults; /* streamer.*: on; each filter 0 off, 1 severe, 2 strong, 3 mild */
+    int cheat_target;         /* splitscreen campaign: the local player the cheats act on: 0 player 1, 1 player 2, 2 both */
 } HsSettings;
 
 /* Only changes to the active touch scheme may cancel an owned touch. Engine
@@ -281,6 +294,10 @@ static inline void hs_defaults(HsSettings *s)
     s->fps_mode = 1;
     s->hires_hud = 0; /* off until the new code has run on a device; switches in Settings */
     s->hires_text = 0;
+    /* the in-game defaults (config.toml's), so that a first start never changes what the game shows */
+    s->name_scale = 1.f;s->sb_panel = 1;s->text_chat = 1;
+    s->streamer_slurs = 3;s->streamer_swearing = 2;
+    s->cheat_target = 2;
 }
 
 static inline void hs_sanitize_preset(HsPreset *p)
@@ -393,6 +410,16 @@ static inline void hs_sanitize(HsSettings *s)
     s->viewmodel_mode = hs_clampi(s->viewmodel_mode, 0, 3);
     s->hires_hud = s->hires_hud ? 1 : 0;
     s->hires_text = s->hires_text ? 1 : 0;
+    s->aa_mode = hs_clampi(s->aa_mode, 0, 6);s->shadow_res = hs_clampi(s->shadow_res, 0, 3);
+    s->per_pixel = !!s->per_pixel;s->shield_glow = !!s->shield_glow;s->glow_light_show = !!s->glow_light_show;
+    s->fov = s->fov < 1 ? 0 : hs_clampf(s->fov, 20, 150);s->viewmodel_fov = s->viewmodel_fov < 1 ? 0 : hs_clampf(s->viewmodel_fov, 20, 150);
+    s->vm_shield = !!s->vm_shield;s->legs = !!s->legs;s->shield_color = hs_clampi(s->shield_color, 0, 18);
+    s->name_scale = hs_clampf(s->name_scale, 0.25f, 4);
+    s->sb_layout = hs_clampi(s->sb_layout, 0, 1);s->sb_panel = !!s->sb_panel;
+    s->text_chat = !!s->text_chat;s->chat_style = hs_clampi(s->chat_style, 0, 1);
+    s->streamer = !!s->streamer;s->streamer_slurs = hs_clampi(s->streamer_slurs, 0, 3);
+    s->streamer_swearing = hs_clampi(s->streamer_swearing, 0, 3);s->streamer_insults = hs_clampi(s->streamer_insults, 0, 3);
+    s->cheat_target = hs_clampi(s->cheat_target, 0, 2);
 }
 
 /* ---------- layout: where the player's presets put the controls on this screen */
@@ -522,6 +549,10 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
          s->join_from_clipboard, s->show_fps, s->profiler, s->fps_mode, s->hires_hud, s->hires_text, s->controls_mode,
          s->cheat_god, s->cheat_ammo, s->cheat_grenades, s->cheat_reload);
     EMIT("viewmodel=%d\n", s->viewmodel_mode);
+    EMIT("aamode=%d\nshadowres=%d\nperpixel=%d\nshieldglow=%d\nglowshow=%d\n", s->aa_mode, s->shadow_res, s->per_pixel, s->shield_glow, s->glow_light_show);
+    EMIT("fov=%.1f\nvmfov=%.1f\nvmshield=%d\nlegs=%d\nshieldcolor=%d\n", s->fov, s->viewmodel_fov, s->vm_shield, s->legs, s->shield_color);
+    EMIT("namescale=%.3f\nsblayout=%d\nsbpanel=%d\ntextchat=%d\nchatstyle=%d\n", s->name_scale, s->sb_layout, s->sb_panel, s->text_chat, s->chat_style);
+    EMIT("streamer=%d\nstreamslurs=%d\nstreamswear=%d\nstreaminsults=%d\ncheattarget=%d\n", s->streamer, s->streamer_slurs, s->streamer_swearing, s->streamer_insults, s->cheat_target);
     EMIT("voicemode=%d\nvoicevol=%.3f\nreverb=%d\n", s->voice_mode, s->voice_volume, s->reverb);
     EMIT("accentmode=%d\naccentrgb=%u\nchroma=%.2f\n", s->accent_mode, s->accent_rgb, s->chroma_seconds);
     EMIT("mapsshow=%d\nmapsalpha=%d\nmapsmponly=%d\nambient=%.3f\nperf=%d\nthermal=%d\npaddead=%.3f\npadcurve=%.3f\n",
@@ -649,6 +680,26 @@ static inline int hs_parse(HsSettings *s, const char *text)
                 else if (!strcmp(key, "cheatfov")) s->cheat_fov = (float)atof(value);
 
                 else if (!strcmp(key, "viewmodel")) s->viewmodel_mode = atoi(value);
+                else if (!strcmp(key, "aamode")) s->aa_mode = atoi(value);
+                else if (!strcmp(key, "shadowres")) s->shadow_res = atoi(value);
+                else if (!strcmp(key, "perpixel")) s->per_pixel = atoi(value);
+                else if (!strcmp(key, "shieldglow")) s->shield_glow = atoi(value);
+                else if (!strcmp(key, "glowshow")) s->glow_light_show = atoi(value);
+                else if (!strcmp(key, "fov")) s->fov = (float)atof(value);
+                else if (!strcmp(key, "vmfov")) s->viewmodel_fov = (float)atof(value);
+                else if (!strcmp(key, "vmshield")) s->vm_shield = atoi(value);
+                else if (!strcmp(key, "legs")) s->legs = atoi(value);
+                else if (!strcmp(key, "shieldcolor")) s->shield_color = atoi(value);
+                else if (!strcmp(key, "namescale")) s->name_scale = (float)atof(value);
+                else if (!strcmp(key, "sblayout")) s->sb_layout = atoi(value);
+                else if (!strcmp(key, "sbpanel")) s->sb_panel = atoi(value);
+                else if (!strcmp(key, "textchat")) s->text_chat = atoi(value);
+                else if (!strcmp(key, "chatstyle")) s->chat_style = atoi(value);
+                else if (!strcmp(key, "streamer")) s->streamer = atoi(value);
+                else if (!strcmp(key, "streamslurs")) s->streamer_slurs = atoi(value);
+                else if (!strcmp(key, "streamswear")) s->streamer_swearing = atoi(value);
+                else if (!strcmp(key, "streaminsults")) s->streamer_insults = atoi(value);
+                else if (!strcmp(key, "cheattarget")) s->cheat_target = atoi(value);
                 else if (!strcmp(key, "hireshud")) s->hires_hud = atoi(value);
                 else if (!strcmp(key, "hirestext")) s->hires_text = atoi(value);
                 else if (!strcmp(key, "accentmode")) s->accent_mode = atoi(value);

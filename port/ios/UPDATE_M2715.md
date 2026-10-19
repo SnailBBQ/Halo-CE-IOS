@@ -67,3 +67,15 @@ after OK is taken by the field's row on every screen needs a device.
 - **Cheats page**: Cheat shortcuts moved to the bottom. Infinite ammo and Unlimited flashlight are in Survival (ammo above One-hit kills, flashlight above No fall damage); Bottomless clip is first in Weapons; Third person is under Detach Camera in Visuals; Infinite Vehicle Health is in Vehicle Spawner; AI ignores you sits with AI Alliance. Only the layout moved; nothing behaves differently.
 - **AirPods connect/disconnect crashes**: the cause is not confirmed. Audio route changes and the voice-chat microphone now recover instead of failing (guarded engine start, tap rebuilt on route changes, retries), and the log gets an "audio route:" line. Not verified on a device. If it still happens, turn Voice chat off in Settings > Audio and test again, then send last-crash.txt, ios-boot.log and start-history.txt right after.
 - **Backups, simpler**: the Profiles page has one "Back up and restore" button (the separate saves and profiles buttons and the old .haloprofile button are gone). The Backups screen is now three steps: 1. Choose what to include, 2. Export a backup file / Restore from a backup file (same ticks), 3. optional backup folder outside the app.
+
+## Settings overhaul (same build)
+
+Nothing here has been compiled against the iOS SDK or run on a device.
+
+- **Import maps** (start screen and Settings > Mods): bitmaps.map, sounds.map, loc.map and MP4 fallback movies can be picked together with the base maps. The shared files and movies install at once (optional; the game boots without them), the Xbox maps go through the usual staged import. The shared files are checked by header before they are accepted.
+- **Cheats**: "Cheats act on" (Player 1 / Player 2 / Both) for splitscreen campaigns. Saved in the settings, so it is in the .halobackup. Global cheats stay global.
+- **Display**: new Video options (anti-aliasing, shadow resolution, per-pixel lighting, shield glow and intensity, shield color, field of view, weapon and hands field of view, arm shields, legs, high-res HUD/text), Player names (with name size), Scoreboard and Text chat modules. Each is shared with config.toml, so the in-game menus and Settings show the same values (slots 23 to 42).
+- **Multiplayer**: Options now holds Join links on the clipboard, Internet play, UPnP and Share maps, in that order; new Streamer mode module below it.
+- **Profiles**: New profile (name and armor color), a check mark on the saved armor color, and the duplicate Halo controller settings and the Network setup card are gone.
+- **Advanced**: Game and Startup are one module; the Performance overlay is measured to its text so the second line is no longer cut off, and reads "Mem X MB · free Y MB · heat".
+- **Mods**: opens directly inside Settings, "Mod order" with compact rows (the On/Off text now follows the switch), and Custom Edition maps, Installed Xbox game files and Movies (MP4) are collapsed modules.

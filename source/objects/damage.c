@@ -585,7 +585,11 @@ void object_deplete_body(
 
 				unit = (struct unit_datum *)object_get(unit_index);
 				if (unit->object.type == _object_type_biped &&
+#ifdef HALO_IOS_GUEST
+					(unit->unit.player_index == NONE || !ios_cheat_applies(cheat.deathless_player, unit_index)) &&
+#else
 					(unit->unit.player_index == NONE || !cheat.deathless_player) &&
+#endif
 					unit->unit.parent_seat_index != NONE)
 				{
 					unit_kill(unit_index);
@@ -1299,7 +1303,11 @@ static void object_damage_body(
 	if (object->object.recent_body_damage > 1.f)
 		object->object.recent_body_damage = 1.f;
 
+#ifdef HALO_IOS_GUEST
+	if (ios_cheat_applies(cheat.deathless_player, object_index) && object->object.body_vitality < 0.f)
+#else
 	if (cheat.deathless_player && object->object.body_vitality < 0.f)
+#endif
 	{
 		if (TEST_FLAG(_object_mask_unit, object->object.type))
 		{

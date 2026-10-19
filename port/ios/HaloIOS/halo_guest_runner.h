@@ -61,6 +61,9 @@ void halo_ios_engine_settings_changed(const void *before, const void *after);
 typedef struct { uint32_t index; char name[16]; int active; } HaloProfileEntry;
 int halo_ios_profile_list(HaloProfileEntry *out, int max);
 void halo_ios_profile_select(uint32_t index);
+/* Settings > Profiles > New profile: asks the game for a Halo player profile of this name (up to 11 ASCII characters) and armor color; the result is 0 while waiting, 1 made, 2 not made */
+void halo_ios_profile_create(const char *name, int color);
+int halo_ios_profile_create_result(void);
 /* Settings > Mods wrote the mods folder or mods/load_order.toml: the engine reads them again (as the game's Mods menu's OK does) */
 void halo_ios_mods_changed(void);
 /* Environment sounds (the device and ambient sound classes); 0 ... 1. */

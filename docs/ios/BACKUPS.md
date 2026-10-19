@@ -68,3 +68,6 @@ Settings → Profiles → Edit campaign checkpoint validates the Xbox 2342 heade
 The editor identifies the selected filename, folder and campaign map. Health accepts 1–999%, shields 0–999%, and each grenade type 0–127 (the signed-byte storage limit). Current Magazine and Reserve Ammo each accept 0–999 per ammo pool. Pool 2 is a second weapon-defined magazine, not a second weapon; most weapons use only Pool 1. These values are finite and gameplay can consume or clamp them.
 
 Unlock/completion data belongs to Halo player profiles, not this checkpoint editor. Runtime invincibility, gravity, time, HUD colors, projectile swaps and camera modes are not exposed as fictitious save fields. Skulls and a consumable vehicle-boost system are not established in this recovered build.
+
+
+The Display, Multiplayer streamer and splitscreen cheat-target choices are part of the app settings, so **App preferences** carries them in a `.halobackup`. The in-game copies live in `config.toml`; Settings keeps the two in step while the game runs.

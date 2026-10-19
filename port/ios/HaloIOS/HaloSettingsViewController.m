@@ -143,6 +143,7 @@ typedef NS_ENUM(NSInteger, HaloCategory) {
 @property(nonatomic, strong) UIStackView *stack;
 @property(nonatomic, strong) NSArray<UIButton *> *sidebar;
 @property(nonatomic) HaloCategory selected;
+@property(nonatomic,strong) UIViewController *modsPage;
 @property(nonatomic,strong) id campaignObserver;
 @property(nonatomic,strong) NSTimer *connectionTimer;
 @property(nonatomic,strong) NSTimer *chromaTimer;
@@ -339,7 +340,6 @@ static UIView *HaloFindLabel(UIView *root, NSString *title) {
 }
 
 - (void)showSearchResult:(HaloCategory)category title:(NSString *)title {
-    if (category == HaloCategoryMods) { [self choose:category]; return; }
     self.selected = category;
     [self renderDetail];
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -368,7 +368,6 @@ static UIView *HaloFindLabel(UIView *root, NSString *title) {
 
 - (void)choose:(HaloCategory)category
 {
-    if(category==HaloCategoryMods) { UIViewController *c=HaloMapsController();c.modalPresentationStyle=UIModalPresentationFullScreen;[self presentViewController:c animated:YES completion:nil];return; }
     if (category == HaloCategoryLogs) {
         void (^go)(void) = self.onShowLog;
         [self dismissViewControllerAnimated:YES completion:^{ if (go) go(); }];
@@ -392,6 +391,26 @@ static UIView *HaloFindLabel(UIView *root, NSString *title) {
         BOOL on = i == (NSInteger)self.selected;
         self.sidebar[i].backgroundColor = on ? HaloUIAccent() : (i == HaloCategoryLogs ? [UIColor colorWithWhite:0.14 alpha:1] : UIColor.clearColor);
     }
+    if (self.selected == HaloCategoryMods) {   /* the Mods page lives right here, like the other sections, and keeps its own refresh */
+        self.stack.superview.hidden = YES;
+        if (!self.modsPage) {
+            UIViewController *page = HaloModsPageController();
+            [self addChildViewController:page];
+            page.view.translatesAutoresizingMaskIntoConstraints = NO;
+            [self.detail addSubview:page.view];
+            [NSLayoutConstraint activateConstraints:@[
+                [page.view.topAnchor constraintEqualToAnchor:self.detail.topAnchor],
+                [page.view.bottomAnchor constraintEqualToAnchor:self.detail.bottomAnchor],
+                [page.view.leadingAnchor constraintEqualToAnchor:self.detail.leadingAnchor],
+                [page.view.trailingAnchor constraintEqualToAnchor:self.detail.trailingAnchor]]];
+            [page didMoveToParentViewController:self];
+            self.modsPage = page;
+        }
+        self.modsPage.view.hidden = NO;
+        return;
+    }
+    self.stack.superview.hidden = NO;
+    self.modsPage.view.hidden = YES;
     for (UIView *view in self.stack.arrangedSubviews) { [self.stack removeArrangedSubview:view]; [view removeFromSuperview]; }
     self.stack.userInteractionEnabled = YES;   /* the Cheats sections can always be opened; their controls are disabled outside a solo campaign */
     HsSettings settings = [[HaloSettingsStore shared] snapshot];
@@ -495,7 +514,18 @@ static UIView *HaloFindLabel(UIView *root, NSString *title) {
 
     [self add:HaloUICardView(@"Options", @[
         HaloUISwitchRow(@"Join links on the clipboard automatically", @"Off by default: reading the clipboard makes iOS ask for permission each time. Opening a halo:// link joins without it.",
-                        settings->join_from_clipboard, ^(BOOL on) { [self update:^(HsSettings *s) { s->join_from_clipboard = on; }]; })])];
+                        settings->join_from_clipboard, ^(BOOL on) { [self update:^(HsSettings *s) { s->join_from_clipboard = on; }]; }),
+        HaloUISwitchRow(@"Internet play", nil, settings->game_online, ^(BOOL on) { [self update:^(HsSettings *s) { s->game_online = on; }]; }),
+        HaloUISwitchRow(@"UPnP port forwarding", @"Allow the engine to ask your router for a port mapping. Router support is required.", settings->game_upnp, ^(BOOL on) { [self update:^(HsSettings *s) { s->game_upnp = on; }]; }),
+        HaloUISwitchRow(@"Share maps with other players", @"Off by default. When on, this iPhone sends Custom Edition maps (and the resource maps they need) to players who join without them, and helps others send them, using your upload and mobile data. Downloading a map a game needs is not affected. Takes effect the next time the game starts.", HaloMapSharingEnabled(), ^(BOOL on) { if (!HaloMapSharingSet(on)) halo_ios_toast("Could not save the map sharing setting"); }),
+        HaloUINote(@"Internet play and UPnP are shared with the in-game Network Setup. Connection options may require leaving and reopening a network session. This does not change iOS Local Network permission or router settings directly.")])];
+    NSArray<NSString *> *levels=@[@"Off",@"Severe",@"Strong",@"Mild"];
+    [self add:HaloUICardView(@"Streamer mode", @[
+        HaloUISwitchRow(@"Streamer mode", @"Hides offensive words from other players' names and chat so a stream or recording stays clean.", settings->streamer, ^(BOOL on) { [self update:^(HsSettings *s) { s->streamer = on; }]; }),
+        HaloUISegmentRow(@"Slurs", levels, settings->streamer_slurs, ^(NSInteger i) { [self update:^(HsSettings *s) { s->streamer_slurs = (int)i; }]; }),
+        HaloUISegmentRow(@"Swearing", levels, settings->streamer_swearing, ^(NSInteger i) { [self update:^(HsSettings *s) { s->streamer_swearing = (int)i; }]; }),
+        HaloUISegmentRow(@"Insults", levels, settings->streamer_insults, ^(NSInteger i) { [self update:^(HsSettings *s) { s->streamer_insults = (int)i; }]; }),
+        HaloUINote(@"Shared with the in-game streamer settings. Off hides nothing in that group; Severe hides the worst words only; Mild hides the most.")])];
     [self add:HaloUICardView(@"Finding games on your Wi-Fi", @[
         (self.localNetworkStatus=HaloUILabel(@"Permission has not been checked. A missing Settings entry does not mean access is granted.",14,UIFontWeightRegular,HaloUISecondaryText())),
         HaloUIButton(@"Check Local Network access",0,^(UIButton *b){(void)b;[self requestLocalNetworkAccess];}),
@@ -730,6 +760,36 @@ static UIView *HaloFindLabel(UIView *root, NSString *title) {
             [b setTitle:choices[choice] forState:UIControlStateNormal];}];});
     return button;
 }
+static NSArray<NSString *> *HaloArmorColorNames(void) {
+    return @[@"White",@"Black",@"Red",@"Blue",@"Gray",@"Yellow",@"Green",@"Pink",@"Purple",@"Cyan",@"Cobalt",@"Orange",@"Teal",@"Sage",@"Brown",@"Tan",@"Maroon",@"Salmon"];
+}
+static NSArray<NSString *> *HaloShieldColorNames(void) {
+    return [@[@"Default"] arrayByAddingObjectsFromArray:HaloArmorColorNames()];
+}
+/* field of view choices: the game's own (0), then 80 ... 150 in steps of 5 */
+static NSArray<NSString *> *HaloFovNames(void) {
+    NSMutableArray *names=[NSMutableArray arrayWithObject:@"Default"];
+    for(int degrees=80;degrees<=150;degrees+=5)[names addObject:[NSString stringWithFormat:@"%d°",degrees]];
+    return names;
+}
+static NSInteger HaloFovIndex(float fov) { return fov<1.f ? 0 : (NSInteger)lroundf((hs_clampf(fov,80.f,150.f)-80.f)/5.f)+1; }
+static float HaloFovValue(NSInteger index) { return index<=0 ? 0.f : 80.f+5.f*(float)(index-1); }
+static NSInteger HaloIndexOf(int value,const int *values,int count) { for(int i=0;i<count;i++)if(values[i]==value)return i; return -1; }
+static NSInteger HaloNameScaleIndex(float scale) {
+    const float scales[6]={0.5f,0.75f,1.f,1.25f,1.5f,2.f};NSInteger best=2;float distance=99.f;
+    for(int i=0;i<6;i++){float d=fabsf(scales[i]-scale);if(d<distance){distance=d;best=i;}}
+    return best;
+}
+
+/* A button that shows the current choice and opens a list with a check mark on it. */
+- (UIView *)choiceButton:(NSString *)title names:(NSArray<NSString *> *)names current:(NSInteger)current pick:(void (^)(NSInteger))pick {
+    NSString *now=current>=0&&current<(NSInteger)names.count?names[(NSUInteger)current]:@"Custom";
+    return HaloUIButton([NSString stringWithFormat:@"%@ · %@",title,now],0,^(UIButton *b){(void)b;
+        NSMutableArray *marked=[NSMutableArray array];
+        for(NSUInteger i=0;i<names.count;i++)[marked addObject:[NSString stringWithFormat:@"%@%@",(NSInteger)i==current?@"✓  ":@"",names[i]]];
+        [self presentChoices:title names:marked from:self pick:^(NSUInteger choice){pick((NSInteger)choice);[self renderSoon];}];});
+}
+
 - (void)buildDisplay:(const HsSettings *)settings
 {
     NSString *note = settings->fps_mode == 0 ? @"The original game's 30 frames a second."
@@ -756,17 +816,38 @@ static UIView *HaloFindLabel(UIView *root, NSString *title) {
         [self hudChoiceRow:settings->active],
         HaloUINote(@"Separate controls for the game’s meters and FPS counter."),
         HaloUIButton(@"Edit game HUD",1,^(UIButton *b){(void)b;UIViewController *root=self.presentingViewController;[self dismissViewControllerAnimated:YES completion:^{UIViewController *editor=[HaloHudEditor new];editor.modalPresentationStyle=UIModalPresentationOverFullScreen;[root presentViewController:editor animated:YES completion:nil];}];})])];
+    [self add:HaloUICardView(@"Video options", @[
+        [self choiceButton:@"Anti-aliasing" names:@[@"Off",@"FXAA",@"MSAA 2x",@"MSAA 4x"] current:HaloIndexOf(settings->aa_mode,(const int[]){0,1,4,5},4) pick:^(NSInteger i){
+            const int modes[4]={0,1,4,5};[self update:^(HsSettings *s){s->aa_mode=modes[i];}];}],
+        HaloUISegmentRow(@"Shadow resolution", @[@"128",@"256",@"512",@"1024"], settings->shadow_res, ^(NSInteger i) { [self update:^(HsSettings *s) { s->shadow_res = (int)i; }]; }),
+        HaloUISwitchRow(@"Per-pixel lighting", @"Smoother lighting on objects, at a cost in speed.", settings->per_pixel, ^(BOOL on) { [self update:^(HsSettings *s) { s->per_pixel = on; }]; }),
+        HaloUISwitchRow(@"Shield glow", @"The glow around a shielded character.", settings->shield_glow, ^(BOOL on) { [self update:^(HsSettings *s) { s->shield_glow = on; }]; }),
+        HaloUISegmentRow(@"Glow intensity", @[@"Default",@"Light show"], settings->glow_light_show, ^(NSInteger i) { [self update:^(HsSettings *s) { s->glow_light_show = (int)i; }]; }),
+        [self choiceButton:@"Shield color" names:HaloShieldColorNames() current:settings->shield_color pick:^(NSInteger i){[self update:^(HsSettings *s){s->shield_color=(int)i;}];}],
+        [self choiceButton:@"Field of view" names:HaloFovNames() current:HaloFovIndex(settings->fov) pick:^(NSInteger i){[self update:^(HsSettings *s){s->fov=HaloFovValue(i);}];}],
+        [self choiceButton:@"Weapon and hands field of view" names:HaloFovNames() current:HaloFovIndex(settings->viewmodel_fov) pick:^(NSInteger i){[self update:^(HsSettings *s){s->viewmodel_fov=HaloFovValue(i);}];}],
+        HaloUISwitchRow(@"Arm shields", @"Shows the shield's flare on your arms.", settings->vm_shield, ^(BOOL on) { [self update:^(HsSettings *s) { s->vm_shield = on; }]; }),
+        HaloUISwitchRow(@"Legs", @"Shows your legs when you look down in first person.", settings->legs, ^(BOOL on) { [self update:^(HsSettings *s) { s->legs = on; }]; }),
+        HaloUISwitchRow(@"High-res HUD", @"Sharper meters, radar and reticles.", settings->hires_hud, ^(BOOL on) { [self update:^(HsSettings *s) { s->hires_hud = on; }]; }),
+        HaloUISwitchRow(@"High-res text", @"Menus and HUD text at the screen's resolution.", settings->hires_text, ^(BOOL on) { [self update:^(HsSettings *s) { s->hires_text = on; }]; }),
+        HaloUINote(@"Shared with the in-game Video Setup, so a change in either place shows up in the other. Default field of view is the game's own; this one is the display setting and is separate from the Cheats field of view. High-res HUD and text apply the next time you open the app; turn them off again if menus or the HUD stutter.")])];
+
+    [self add:HaloUICardView(@"Player names", @[
+        HaloUISegmentRow(@"Show names of", @[@"All",@"Allies",@"Enemies",@"None"], settings->game_player_names, ^(NSInteger choice) { [self update:^(HsSettings *s) { s->game_player_names = (int)choice; }]; }),
+        HaloUISegmentRow(@"Name size", @[@"50%",@"75%",@"100%",@"125%",@"150%",@"200%"], HaloNameScaleIndex(settings->name_scale), ^(NSInteger i) {
+            const float scales[6]={0.5f,0.75f,1.f,1.25f,1.5f,2.f};[self update:^(HsSettings *s){s->name_scale=scales[i];}];}),
+        HaloUINote(@"Shared with the in-game Network Setup and Video Setup.")])];
     [self add:HaloUICardView(@"First-person view", @[
         HaloUISegmentRow(nil, @[@"Both", @"Weapon", @"Hands", @"Hidden"], settings->viewmodel_mode, ^(NSInteger i) {
             [self update:^(HsSettings *s) { s->viewmodel_mode = (int)i; }];
         }),
         HaloUINote(@"Choose which first-person models are visible. Changes apply immediately and do not affect your HUD, attacks or other players.")])];
-
-    [self add:HaloUICardView(@"HUD and text", @[
-        HaloUISwitchRow(@"High-res HUD", @"Sharper meters, radar and reticles.", settings->hires_hud, ^(BOOL on) { [self update:^(HsSettings *s) { s->hires_hud = on; }]; }),
-        HaloUISwitchRow(@"High-res text", @"Menus and HUD text at the screen's resolution.", settings->hires_text, ^(BOOL on) { [self update:^(HsSettings *s) { s->hires_text = on; }]; }),
-        HaloUINote(@"New in Halo CE Universal build 73 and off until you try them. They apply the next time you open the app; turn them off again if menus or the HUD stutter.")])];
-
+    [self add:HaloUICardView(@"Scoreboard", @[
+        HaloUISegmentRow(@"Layout", @[@"By team",@"By score"], settings->sb_layout, ^(NSInteger i) { [self update:^(HsSettings *s) { s->sb_layout = (int)i; }]; }),
+        HaloUISwitchRow(@"Panel behind the scoreboard", @"A dark panel that makes the scoreboard easier to read.", settings->sb_panel, ^(BOOL on) { [self update:^(HsSettings *s) { s->sb_panel = on; }]; })])];
+    [self add:HaloUICardView(@"Text chat", @[
+        HaloUISwitchRow(@"Show text chat", nil, settings->text_chat, ^(BOOL on) { [self update:^(HsSettings *s) { s->text_chat = on; }]; }),
+        HaloUISegmentRow(@"Chat text", @[@"Colored names",@"All white"], settings->chat_style, ^(NSInteger i) { [self update:^(HsSettings *s) { s->chat_style = (int)i; }]; })])];
 
     [self add:HaloUICardView(@"Menus", @[
         HaloUISegmentRow(nil, @[@"PC menus (new)", @"Xbox menus"], settings->menu_style, ^(NSInteger index) {
@@ -840,6 +921,9 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
 {
     [self add:HaloUINote(@"The selected control preset activates its saved cheat recipe automatically in solo campaign. Multiplayer disables all cheats.")];
     [self add:HaloUINote(@"Tap a section to open it. Everything here works only in the solo campaign and switches itself off in multiplayer and network games.")];
+    [self add:HaloUICardView(@"Splitscreen campaign", @[
+        HaloUISegmentRow(@"Cheats act on", @[@"Player 1",@"Player 2",@"Both players"], settings->cheat_target, ^(NSInteger i) { [self update:^(HsSettings *s) { s->cheat_target = (int)i; }]; }),
+        HaloUINote(@"In a two-player campaign, cheats such as god mode, ammo, jetpack, noclip and speed apply only to the player you choose. Game-wide cheats, like wireframe rendering and the enemy-AI ones, always stay global. One-time actions, such as restoring health or giving a weapon, go to the chosen player (Player 1 when Both is selected).")])];
 #define CHEAT_SWITCH(title, sub, field) HaloUISwitchRow(title, sub, settings->field, ^(BOOL on) { [self update:^(HsSettings *s) { s->field = on; }]; })
     NSMutableArray<UIView *> *cards;
 
@@ -1146,6 +1230,32 @@ static UIView *HaloProfileSummary(NSString *title,NSString *detail) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(1.2*NSEC_PER_SEC)),dispatch_get_main_queue(),^{[self renderDetail];});
     }];
 }
+/* Makes a new Halo player profile in the game: a name (up to 11 ASCII characters), then an armor color. */
+- (void)newHaloProfile {
+    UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"New profile" message:@"Choose a name: up to 11 ASCII letters, numbers or supported punctuation. You pick the armor color next." preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *f){f.placeholder=@"Name";f.autocorrectionType=UITextAutocorrectionTypeNo;}];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Next" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){(void)a;
+        NSString *name=[alert.textFields[0].text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+        NSData *ascii=[name dataUsingEncoding:NSASCIIStringEncoding allowLossyConversion:NO];
+        if(!ascii.length||ascii.length>11||[name containsString:@"|"]){halo_ios_toast("Use 1–11 ASCII characters");return;}
+        [self presentChoices:@"Armor color" names:HaloArmorColorNames() from:self pick:^(NSUInteger choice){
+            (void)halo_ios_profile_create_result();
+            halo_ios_profile_create(name.UTF8String,(int)choice);
+            __block int tries=0;
+            __block void (^check)(void)=nil;
+            check=^{
+                int result=halo_ios_profile_create_result();
+                if(result==1){halo_ios_toast("Profile made");[self renderDetail];check=nil;return;}
+                if(result==2){halo_ios_toast("The game could not make that profile. The name may be taken or invalid.");check=nil;return;}
+                if(++tries>12){halo_ios_toast("Start a game or open the game's menu so it can make the profile");check=nil;return;}
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.5*NSEC_PER_SEC)),dispatch_get_main_queue(),check);
+            };
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.5*NSEC_PER_SEC)),dispatch_get_main_queue(),check);
+        }];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
 - (UIView *)engineControllerCard:(const HsSettings *)settings {
     if(!settings->game_profile_ready)return HaloUICardView(@"Halo controller settings",@[HaloUIButton(@"Choose a Halo player profile",1,^(UIButton *b){(void)b;[self chooseHaloProfile];}),HaloUINote(@"Pick the Halo player profile whose controller preferences you want to edit here.")]);
     NSMutableArray *rows=[NSMutableArray array];
@@ -1176,24 +1286,18 @@ static UIView *HaloProfileSummary(NSString *title,NSString *detail) {
         HaloUINote(@"Back up or restore saves under “Back up and restore” below. Checkpoint edits cover health, shields, grenades and existing weapon ammo.")])];
     [self add:HaloUICardView(@"Halo player profiles", @[
         HaloUIButton(settings->game_profile_ready?[NSString stringWithFormat:@"Active profile: %s",settings->game_name]:@"Choose a Halo player profile",1,^(UIButton *b){(void)b;[self chooseHaloProfile];}),
+        HaloUIButton(@"New profile…",0,^(UIButton *b){(void)b;[self newHaloProfile];}),
         HaloUIButton(@"In-game name",0,^(UIButton *b){(void)b;HsSettings current=[HaloSettingsStore.shared snapshot];if(!current.game_profile_ready){[self chooseHaloProfile];return;}
             UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"In-game name" message:@"Up to 11 ASCII letters, numbers or supported punctuation. Saved to the active Halo profile; new games use the updated name." preferredStyle:UIAlertControllerStyleAlert];
             [alert addTextFieldWithConfigurationHandler:^(UITextField *f){f.text=[NSString stringWithUTF8String:current.game_name];f.autocorrectionType=UITextAutocorrectionTypeNo;}];
             [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
             [alert addAction:[UIAlertAction actionWithTitle:@"Save" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a){(void)a;NSString *name=alert.textFields[0].text;NSData *ascii=[name dataUsingEncoding:NSASCIIStringEncoding allowLossyConversion:NO];if(!ascii.length || ascii.length>11){halo_ios_toast("Use 1–11 ASCII characters");return;}[self update:^(HsSettings *s){snprintf(s->game_name,24,"%s",name.UTF8String);}];}]];
             [self presentViewController:alert animated:YES completion:nil];}),
-        HaloUIButton(@"Multiplayer armor color",0,^(UIButton *b){(void)b;if(![HaloSettingsStore.shared snapshot].game_profile_ready){[self chooseHaloProfile];return;}
-            [self presentChoices:@"Armor color" names:@[@"White",@"Black",@"Red",@"Blue",@"Gray",@"Yellow",@"Green",@"Pink",@"Purple",@"Cyan",@"Light blue",@"Orange",@"Teal",@"Dark green",@"Brown",@"Tan",@"Maroon",@"Salmon"] from:self pick:^(NSUInteger choice){[self update:^(HsSettings *s){s->game_color=(int)choice;}];}];}),
-        HaloUINote(@"In-game name and armor color edit the active Halo player profile, and travel with it when you export it above.")])];
-    [self add:HaloUINote(@"Name and color edit the active Halo player profile. Rejoin a multiplayer session to publish changes to other players. Built-in default profiles are temporary; create a named profile in-game to keep changes after relaunch.")];
-    [self add:[self engineControllerCard:settings]];
-    [self add:HaloUICardView(@"Network setup",@[
-        HaloUISwitchRow(@"Internet play",nil,settings->game_online,^(BOOL on){[self update:^(HsSettings *s){s->game_online=on;}];}),
-        HaloUISwitchRow(@"UPnP port forwarding",@"Allow the engine to ask your router for a port mapping. Router support is required.",settings->game_upnp,^(BOOL on){[self update:^(HsSettings *s){s->game_upnp=on;}];}),
-        HaloUISwitchRow(@"Join from clipboard",nil,settings->join_from_clipboard,^(BOOL on){[self update:^(HsSettings *s){s->join_from_clipboard=on;}];}),
-        HaloUISwitchRow(@"Share maps with other players",@"Off by default. When on, this iPhone sends Custom Edition maps (and the resource maps they need) to players who join without them, and helps others send them, using your upload and mobile data. Downloading a map a game needs is not affected. Takes effect the next time the game starts.",HaloMapSharingEnabled(),^(BOOL on){if(!HaloMapSharingSet(on))halo_ios_toast("Could not save the map sharing setting");}),
-        HaloUISegmentRow(@"Player names",@[@"All",@"Allies",@"Enemies",@"None"],settings->game_player_names,^(NSInteger choice){[self update:^(HsSettings *s){s->game_player_names=(int)choice;}];}),
-        HaloUINote(@"Shared with in-game Network Setup. Connection options may require leaving and reopening a network session. This does not change iOS Local Network permission or router settings directly.")])];
+        [self choiceButton:@"Multiplayer armor color" names:HaloArmorColorNames() current:settings->game_profile_ready?settings->game_color:-1 pick:^(NSInteger choice){
+            if(![HaloSettingsStore.shared snapshot].game_profile_ready){[self chooseHaloProfile];return;}
+            [self update:^(HsSettings *s){s->game_color=(int)choice;}];}],
+        HaloUINote(@"In-game name and armor color edit the active Halo player profile, and travel with it when you export it above. The armor color list shows a check mark on the color saved in the profile.")])];
+    [self add:HaloUINote(@"Name and color edit the active Halo player profile. Rejoin a multiplayer session to publish changes to other players. Built-in default profiles are temporary; make a new profile above to keep changes after relaunch.")];
     [self add:HaloUICardView(@"Back up and restore", @[
         HaloUIButton(@"Back up or restore…", 1, ^(UIButton *b) { (void)b;
             /* app settings (2), layouts (4), campaign saves (16) and Halo player profiles (32), ticked together */
@@ -1401,12 +1505,13 @@ static UIColor *HaloColorFromRGB(unsigned rgb) {
 
 - (void)buildAdvanced:(const HsSettings *)settings
 {
-    [self add:HaloUICardView(@"Game",@[
-        HaloUIButton(@"Quit Game",2,^(UIButton *b) { [self confirmAppQuit]; })])];
-    [self add:HaloUICardView(@"Startup",@[[self startupRow:settings->active],HaloUINote(@"Saved with the current control profile. A recovery start always uses the Start Halo CE iOS Title Screen.")])];
+    [self add:HaloUICardView(@"Game and startup",@[
+        [self startupRow:settings->active],
+        HaloUINote(@"Saved with the current control profile. A recovery start always uses the Start Halo CE iOS Title Screen."),
+        HaloUIButton(@"Quit Game",2,^(UIButton *b) { (void)b; [self confirmAppQuit]; })])];
     [self add:HaloUICardView(@"Heat and battery", @[
         HaloUISwitchRow(@"Lower the frame rate when the phone is hot", @"Smooth 60 and Uncapped drop to 45 when iOS reports serious heat or Low Power Mode, and to 30 when it is critical, and return when the phone cools. The original 30 FPS mode is never changed.", settings->thermal_cap, ^(BOOL on) { [self update:^(HsSettings *s) { s->thermal_cap = on; }]; }),
-        HaloUISwitchRow(@"Performance overlay", @"Frame rate, frame interval, memory use, estimated available memory and thermal state. Position, size and opacity follow the FPS layout; available memory is not a crash threshold.", settings->perf_overlay, ^(BOOL on) { [self update:^(HsSettings *s) { s->perf_overlay = on; }]; })])];
+        HaloUISwitchRow(@"Performance overlay", @"A small box on the game screen. Line 1: frames per second and milliseconds per frame. Line 2: memory the game is using, memory iOS says is still free, and the heat state (cool, warm, hot, critical). Position, size and opacity follow the FPS layout; free memory is not a crash threshold.", settings->perf_overlay, ^(BOOL on) { [self update:^(HsSettings *s) { s->perf_overlay = on; }]; })])];
     [self add:HaloUICardView(@"Big multiplayer games", @[
         HaloUISwitchRow(@"Original player animations", @"Off by default. The engine's extra animation work (legs keep moving while throwing, riders' hands) is skipped, which can save a little time when 20 or more players are in view. Takes effect the next time the game starts.", !HaloConfigBool("game", "enhanced_animations", YES), ^(BOOL on) {
             if (!HaloConfigSetBool("game", "enhanced_animations", !on)) halo_ios_toast("Could not save the animation setting"); }),

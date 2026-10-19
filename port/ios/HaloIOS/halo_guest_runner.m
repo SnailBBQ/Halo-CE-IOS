@@ -797,7 +797,7 @@ void halo_ios_set_channel_gains(float music,float dialogue,float effects) {
  atomic_store(&g_music_gain,music);atomic_store(&g_dialogue_gain,dialogue);atomic_store(&g_effects_gain,effects);
 }
 static pthread_mutex_t g_settings_sync_lock = PTHREAD_MUTEX_INITIALIZER;
-static unsigned g_settings_pending;
+static uint64_t g_settings_pending;
 static unsigned g_settings_generation[HE_COUNT];
 static uint32_t g_settings_profile=UINT32_MAX;
 static HsSettings g_settings_wanted;
@@ -808,7 +808,7 @@ void halo_ios_engine_settings_changed(const void *before, const void *after) {
     for(int i=0;i<HE_COUNT;i++) {
         if(he_is_profile(i) && (!old || !next->game_profile_ready))continue;
         char a[64],b[64];he_text(next,i,b);if(old)he_text(old,i,a);
-        if(!old || strcmp(a,b)){g_settings_pending|=1u<<i;g_settings_generation[i]++;}
+        if(!old || strcmp(a,b)){g_settings_pending|=1ull<<i;g_settings_generation[i]++;}
     }
     g_settings_wanted=*next;
     pthread_mutex_unlock(&g_settings_sync_lock);
@@ -845,7 +845,32 @@ void halo_ios_profile_select(uint32_t index) {
     g_profile_request=index;g_profile_requested=1;
     pthread_mutex_unlock(&g_profile_lock2);
 }
+/* Settings > Profiles > New profile: the request waits here for the game thread (-10), which answers "ok" or "fail" */
+static char g_profile_create[64];
+static int g_profile_create_result;   /* 0 none yet, 1 made, 2 not made */
+void halo_ios_profile_create(const char *name, int color) {
+    pthread_mutex_lock(&g_profile_lock2);
+    snprintf(g_profile_create,sizeof(g_profile_create),"%d|%s",color,name?name:"");
+    g_profile_create_result=0;
+    pthread_mutex_unlock(&g_profile_lock2);
+}
+int halo_ios_profile_create_result(void) {
+    pthread_mutex_lock(&g_profile_lock2);
+    int result=g_profile_create_result;g_profile_create_result=0;
+    pthread_mutex_unlock(&g_profile_lock2);
+    return result;
+}
 static int ios_settings_value(uint32_t index,uint32_t address,uint32_t profile) {
+    if(index==UINT32_MAX-9) { /* -10: a new Halo player profile; profile 0 asks for the request, 1 and 2 report it made or not */
+        pthread_mutex_lock(&g_profile_lock2);
+        int answer=0;
+        if(profile==0) {
+            char *guest=gp(address,64);
+            if(guest && memchr(guest,0,64) && g_profile_create[0]) {memcpy(guest,g_profile_create,64);g_profile_create[0]=0;answer=1;}
+        } else g_profile_create_result=(int)profile;
+        pthread_mutex_unlock(&g_profile_lock2);
+        return answer;
+    }
     if(index==UINT32_MAX-1) {
         int coop=profile>=2;
         if(coop!=atomic_load(&g_local_coop)) {
@@ -939,9 +964,9 @@ static int ios_settings_value(uint32_t index,uint32_t address,uint32_t profile) 
     if(he_is_profile((int)index) && (profile==UINT32_MAX || profile!=g_settings_profile)) {
         pthread_mutex_unlock(&g_settings_sync_lock);return 0;
     }
-    if(g_settings_pending & (1u<<index)) {
+    if(g_settings_pending & (1ull<<index)) {
         he_text(&g_settings_wanted,(int)index,guest);
-        g_settings_pending &= ~(1u<<index);
+        g_settings_pending &= ~(1ull<<index);
         pthread_mutex_unlock(&g_settings_sync_lock);return 1;
     }
     unsigned generation=g_settings_generation[index];
@@ -1080,7 +1105,7 @@ static void ios_campaign_options(uint32_t packet)
     HaloCampaignOptions *out = (packet & 3u) ? NULL : gp(packet, sizeof(*out));
     if (!out) return;
     HsSettings s = [[HaloSettingsStore shared] snapshot];
-    HaloCampaignOptions result = { hs_cheat_mask(&s), 0, s.cheat_jump, s.cheat_speed, s.cheat_fov };
+    HaloCampaignOptions result = { hs_cheat_mask(&s), 0, s.cheat_jump, s.cheat_speed, s.cheat_fov, (uint32_t)s.cheat_target };
     if (s.cheat_one_hit) result.flags |= IOS_CHEAT_ONE_HIT;
     if (s.cheat_flashlight) result.flags |= IOS_CHEAT_FLASHLIGHT;
     if (s.cheat_no_fall) result.flags |= IOS_CHEAT_NO_FALL;

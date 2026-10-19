@@ -12,6 +12,10 @@ BOOL HaloModsRetireLegacy(NSError **error);
 NSArray<NSDictionary *> *HaloCustomMapsList(void);
 NSDictionary<NSString *, NSNumber *> *HaloCustomResourcesStatus(void);
 void HaloCustomContentImport(NSArray<NSURL *> *files);
+/* "Import maps" accepts more than Xbox maps in one pick: bitmaps.map, sounds.map and loc.map (the Custom Edition shared files) go to
+ * custom_maps, and MP4 fallback movies go to the videos folder. Both are optional; the game boots without them. The return value is
+ * the rest of the pick (the Xbox .map files); `summary` says what was installed and `errors` collects what was refused. */
+NSArray<NSURL *> *HaloImportSharedAndMovies(NSArray<NSURL *> *urls, NSString **summary, NSMutableArray<NSString *> *errors);
 void HaloCustomMapSetEnabled(NSString *file, BOOL enabled);
 void HaloCustomMapRemove(NSString *file);
 
