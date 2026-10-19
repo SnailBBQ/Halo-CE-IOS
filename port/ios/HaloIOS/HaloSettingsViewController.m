@@ -818,7 +818,7 @@ static NSInteger HaloNameScaleIndex(float scale) {
         HaloUIButton(@"Edit game HUD",1,^(UIButton *b){(void)b;UIViewController *root=self.presentingViewController;[self dismissViewControllerAnimated:YES completion:^{UIViewController *editor=[HaloHudEditor new];editor.modalPresentationStyle=UIModalPresentationOverFullScreen;[root presentViewController:editor animated:YES completion:nil];}];})])];
     [self add:HaloUICardView(@"Video options", @[
         [self choiceButton:@"Anti-aliasing" names:@[@"Off",@"FXAA",@"MSAA 2x",@"MSAA 4x"] current:HaloIndexOf(settings->aa_mode,(const int[]){0,1,4,5},4) pick:^(NSInteger i){
-            const int modes[4]={0,1,4,5};[self update:^(HsSettings *s){s->aa_mode=modes[i];}];}],
+            static const int modes[4]={0,1,4,5};[self update:^(HsSettings *s){s->aa_mode=modes[i];}];}],
         HaloUISegmentRow(@"Shadow resolution", @[@"128",@"256",@"512",@"1024"], settings->shadow_res, ^(NSInteger i) { [self update:^(HsSettings *s) { s->shadow_res = (int)i; }]; }),
         HaloUISwitchRow(@"Per-pixel lighting", @"Smoother lighting on objects, at a cost in speed.", settings->per_pixel, ^(BOOL on) { [self update:^(HsSettings *s) { s->per_pixel = on; }]; }),
         HaloUISwitchRow(@"Shield glow", @"The glow around a shielded character.", settings->shield_glow, ^(BOOL on) { [self update:^(HsSettings *s) { s->shield_glow = on; }]; }),
@@ -835,7 +835,7 @@ static NSInteger HaloNameScaleIndex(float scale) {
     [self add:HaloUICardView(@"Player names", @[
         HaloUISegmentRow(@"Show names of", @[@"All",@"Allies",@"Enemies",@"None"], settings->game_player_names, ^(NSInteger choice) { [self update:^(HsSettings *s) { s->game_player_names = (int)choice; }]; }),
         HaloUISegmentRow(@"Name size", @[@"50%",@"75%",@"100%",@"125%",@"150%",@"200%"], HaloNameScaleIndex(settings->name_scale), ^(NSInteger i) {
-            const float scales[6]={0.5f,0.75f,1.f,1.25f,1.5f,2.f};[self update:^(HsSettings *s){s->name_scale=scales[i];}];}),
+            static const float scales[6]={0.5f,0.75f,1.f,1.25f,1.5f,2.f};[self update:^(HsSettings *s){s->name_scale=scales[i];}];}),
         HaloUINote(@"Shared with the in-game Network Setup and Video Setup.")])];
     [self add:HaloUICardView(@"First-person view", @[
         HaloUISegmentRow(nil, @[@"Both", @"Weapon", @"Hands", @"Hidden"], settings->viewmodel_mode, ^(NSInteger i) {
