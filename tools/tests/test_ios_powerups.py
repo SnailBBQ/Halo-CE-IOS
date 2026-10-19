@@ -15,6 +15,8 @@ struct unit_datum {struct {unsigned damage_flags;float shield_vitality;} object;
 static struct player_datum player={4};static struct unit_datum unit;
 static HaloCampaignOptions ios_options;static int solo=1,camo_calls,charge_calls,last_duration;
 static long cheat_player_index(void){return 0;}
+#define MAXIMUM_LOCAL_PLAYERS 4
+static short ios_target_players(long *out){long i=cheat_player_index();if(i==NONE)return 0;out[0]=i;return 1;}
 static struct player_datum *player_try_and_get(long i){return i==0?&player:0;}
 static int ios_cheat_local_unit(long i){return solo&&i==4;}
 static struct unit_datum *unit_get(long i){(void)i;return &unit;}

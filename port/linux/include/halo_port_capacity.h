@@ -51,6 +51,13 @@ Android's window is 128 MB, as the web build's, and its cache the Xbox's. */
 #else
 #define HALO_PORT_TEXTURE_CACHE_PAGE_COUNT 0x4000 /* (0x580) */
 #endif
+#ifdef HALO_IOS_GUEST
+/* iOS: 48 MB. Custom Edition maps with 800+ bitmaps drew the default texture
+and swapped colors in the Xbox's 22 MB; the 128 MB window has about 86 MB
+above the game state, and the sound cache takes 4 MB of it. */
+#undef HALO_PORT_TEXTURE_CACHE_PAGE_COUNT
+#define HALO_PORT_TEXTURE_CACHE_PAGE_COUNT 0xC00
+#endif
 #define HALO_PORT_TEXTURE_CACHE_SIZE (HALO_PORT_TEXTURE_CACHE_PAGE_COUNT*0x4000) /* (0x1600000) */
 
 /* ---------- sounds

@@ -79,3 +79,10 @@ Nothing here has been compiled against the iOS SDK or run on a device.
 - **Profiles**: New profile (name and armor color), a check mark on the saved armor color, and the duplicate Halo controller settings and the Network setup card are gone.
 - **Advanced**: Game and Startup are one module; the Performance overlay is measured to its text so the second line is no longer cut off, and reads "Mem X MB · free Y MB · heat".
 - **Mods**: opens directly inside Settings, "Mod order" with compact rows (the On/Off text now follows the switch), and Custom Edition maps, Installed Xbox game files and Movies (MP4) are collapsed modules.
+
+## Follow-up: Both players, weapon giver, Local Network check
+
+- **Both players** now repeats one-time actions (restore health, grenades, weapon giver, power-ups, vehicles, weapon ring) for each local player, and Infinite Active Camo/Overshield and Infinite Vehicle Health cover both.
+- **Weapon giver**: tap a weapon directly; a switch picks Drop in front, Add to my weapons, or Replace the one in hand (the weapon in hand is dropped and the new one put in its place). Action IDs 120-129 add, 130-139 replace, 402 gives both grenade types.
+- Cheats order: Movement, Visuals, World; Projectile Swapping and Weapon giver first in Weapons; grenades under Restore health and shield; Infinite Vehicle Health above Choose a vehicle. Multiplayer Options: Internet play first.
+- **Check Local Network access** now looks for its own test service and says whether it was seen.

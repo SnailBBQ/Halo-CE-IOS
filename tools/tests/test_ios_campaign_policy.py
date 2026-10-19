@@ -49,7 +49,11 @@ void host_campaign_options(HaloCampaignOptions *out) { *out = host_wanted; host_
 int host_sdl_show_toast(const char *s, int a, int b, int c, int d)
 { (void)s; (void)a; (void)b; (void)c; (void)d; ++toasts; return 1; }
 """ + body + r"""
-static void ios_campaign_action(unsigned int action) { actions += (action != 0); }
+static void ios_campaign_action(unsigned int action) __attribute__((unused));
+static void ios_campaign_action(unsigned int action) { (void)action; }
+static void ios_campaign_action_targets(unsigned int action) { actions += (action != 0); }
+static short ios_target_players(long *out) __attribute__((unused));
+static short ios_target_players(long *out) { (void)out; return 0; }
 static long cheat_player_index(void) { return 0; }
 static long (*ios_target_ref)(void) __attribute__((unused)) = ios_target_player_index;
 static void ios_powerups_tick(void) { /* Power-up behavior is covered by the separate runtime harness. */ }

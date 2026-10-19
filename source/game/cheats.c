@@ -231,6 +231,8 @@ extern void host_campaign_options(HaloCampaignOptions *options);
 extern int host_sdl_show_toast(const char *, int, int, int, int);
 static void host_toast(const char *message) { host_sdl_show_toast(message, 2500, 0, 0, 0); }
 static void ios_campaign_action(unsigned int action);
+static void ios_campaign_action_targets(unsigned int action);
+static short ios_target_players(long *out);
 static long cheat_player_index(void);
 static unsigned int ios_recipe_actions[16],ios_recipe_head,ios_recipe_count;
 static void ios_powerups_tick(void);
@@ -264,10 +266,12 @@ boolean ios_cheat_applies(boolean flag, long index)
     return player->local_player_index == (short)ios_options.target;
 }
 /* the player the one-time actions and held cheats act on: the chosen one when it is playing, else the first */
+static long ios_action_override = NONE; /* the player one run of a one-time action is for (set while "Both players" repeats it) */
 static long ios_target_player_index(void)
 {
     long player_index;
     struct player_datum *player;
+    if (ios_action_override != NONE) return ios_action_override;
     if (ios_options.target >= 2) return NONE;
     player_index = local_player_get_player_index((short)ios_options.target);
     player = player_index == NONE ? NULL : player_try_and_get(player_index);
@@ -332,7 +336,7 @@ static void ios_cheats_apply(void)
 				unsigned int action = ios_recipe_actions[ios_recipe_head];
 				ios_recipe_head = (ios_recipe_head + 1) % NUMBEROF(ios_recipe_actions);
 				ios_recipe_count--;
-				ios_campaign_action(action);
+				ios_campaign_action_targets(action);
 			}
 		}
 	} else {
@@ -731,12 +735,15 @@ static void ios_world_cheats_tick(void)
         if(ios_options.flags & IOS_CHEAT_MEDUSA)want|=8u;
         if(ios_options.flags & IOS_CHEAT_LOW_GRAVITY)want|=16u;
         if(ios_options.flags & IOS_CHEAT_VEHICLE_HEALTH) {
-            long index=cheat_player_index();
-            struct player_datum *player=index==NONE?NULL:player_try_and_get(index);
-            struct unit_datum *unit=player?unit_try_and_get(player->unit_index):NULL;
-            struct unit_datum *vehicle=unit?unit_try_and_get(unit->object.parent_object_index):NULL;
-            if(vehicle && vehicle->object.type==_object_type_vehicle && !TEST_FLAG(vehicle->object.damage_flags,_object_dead_bit))
-                ios_restore_health_shield(unit->object.parent_object_index);
+            long players[MAXIMUM_LOCAL_PLAYERS];
+            short count=ios_target_players(players),n;
+            for(n=0;n<count;n++) {
+                struct player_datum *player=player_try_and_get(players[n]);
+                struct unit_datum *unit=player?unit_try_and_get(player->unit_index):NULL;
+                struct unit_datum *vehicle=unit?unit_try_and_get(unit->object.parent_object_index):NULL;
+                if(vehicle && vehicle->object.type==_object_type_vehicle && !TEST_FLAG(vehicle->object.damage_flags,_object_dead_bit))
+                    ios_restore_health_shield(unit->object.parent_object_index);
+            }
         }
     }
     if (want & 1u) cheat.jetpack = TRUE; else if (ios_world_set & 1u) cheat.jetpack = FALSE;
@@ -851,15 +858,19 @@ void ios_cheats_before_checkpoint_load(void) { ios_world_cheats_reset(); }
  * stops refreshing its timer; an existing normal pickup can still run its course.
  * Overshield remains a normal damage-consumable reserve after disabling. */
 static void ios_powerups_tick(void) {
-    long index=cheat_player_index();
-    struct player_datum *p=index==NONE?NULL:player_try_and_get(index);
-    struct unit_datum *u;
-    if(!p || !ios_cheat_local_unit(p->unit_index))return;
-    u=unit_get(p->unit_index);if(TEST_FLAG(u->object.damage_flags,_object_dead_bit))return;
-    if(ios_options.flags&IOS_CHEAT_CAMO)player_handle_powerup_minor(index,_player_powerup_active_camouflage,2);
-    if(ios_options.flags&IOS_CHEAT_OVERSHIELD) {
-        if(u->object.shield_vitality<=1.f)object_double_charge_shield(p->unit_index);
-        else if(!TEST_FLAG(u->object.damage_flags,_object_shield_over_charging_bit))u->object.shield_vitality=3.f;
+    long players[MAXIMUM_LOCAL_PLAYERS];
+    short count=ios_target_players(players),n;
+    for(n=0;n<count;n++) {
+        long index=players[n];
+        struct player_datum *p=index==NONE?NULL:player_try_and_get(index);
+        struct unit_datum *u;
+        if(!p || !ios_cheat_local_unit(p->unit_index))continue;
+        u=unit_get(p->unit_index);if(TEST_FLAG(u->object.damage_flags,_object_dead_bit))continue;
+        if(ios_options.flags&IOS_CHEAT_CAMO)player_handle_powerup_minor(index,_player_powerup_active_camouflage,2);
+        if(ios_options.flags&IOS_CHEAT_OVERSHIELD) {
+            if(u->object.shield_vitality<=1.f)object_double_charge_shield(p->unit_index);
+            else if(!TEST_FLAG(u->object.damage_flags,_object_shield_over_charging_bit))u->object.shield_vitality=3.f;
+        }
     }
 }
 /* UI request IDs are fixed; matching only loaded assets keeps map ownership intact. */
@@ -879,6 +890,7 @@ static void ios_campaign_action(unsigned int action)
             host_toast("A living campaign player is required"); return;
         }
     }
+    if (action == 402) { ios_campaign_action(400); ios_campaign_action(401); return; }   /* both grenade types */
     if (action == 400 || action == 401) {
         /* One-shot inventory refill, using the current map's normal capacity. */
         short type = (short)(action - 400);
@@ -920,7 +932,9 @@ static void ios_campaign_action(unsigned int action)
         player_handle_powerup_minor(index,_player_powerup_active_camouflage,ticks);
         host_toast("Active Camo applied for the normal pickup duration");return;
     }
-    if (action >= 100 && action < 100 + NUMBEROF(weapons)) wanted = weapons[action - 100];
+    boolean give = FALSE, replace = FALSE;
+    if (action >= 120 && action < 140 && (action % 10) < NUMBEROF(weapons)) { wanted = weapons[action % 10]; give = TRUE; replace = action >= 130; }
+    else if (action >= 100 && action < 100 + NUMBEROF(weapons)) wanted = weapons[action - 100];
     else if (action >= 200 && action < 200 + NUMBEROF(vehicles)) { wanted = vehicles[action - 200]; group = 'vehi'; }
     else if (action == 2 || action == 3) { wanted = action == 2 ? "over shield" : "active camouflage"; group = 'eqip'; }
     if (!wanted) return;
@@ -946,11 +960,74 @@ static void ios_campaign_action(unsigned int action)
                 placement.position.y = origin.y + forward.j * (group == 'vehi' ? 4.f : 1.5f);
                 placement.position.z = origin.z + 0.8f;
                 placement.forward = forward; placement.up = up;
+                if (give) {
+                    /* straight into the player's hands: 120-129 into a free slot, 130-139 in place of the weapon in hand */
+                    long weapon_index;
+                    placement.position.x = origin.x;
+                    placement.position.y = origin.y;
+                    placement.position.z = origin.z + 0.5f;
+                    weapon_index = object_new(&placement);
+                    if (weapon_index == NONE) host_toast("Could not make this weapon here");
+                    else {
+                        long unit_index = player->unit_index;
+                        struct unit_datum *holder = unit_get(unit_index);
+                        long held = unit_inventory_get_weapon(unit_index, holder->unit.current_weapon_index);
+                        if (replace && held != NONE && !unit_drop_current_weapon(unit_index, TRUE)) {
+                            object_delete(weapon_index);
+                            host_toast("Could not replace the weapon in hand right now");
+                        } else if (unit_add_weapon_to_inventory(unit_index, weapon_index, _unit_add_weapon_normal))
+                            host_toast(replace ? "Replaced the weapon in hand" : "Weapon added");
+                        else {
+                            object_delete(weapon_index);
+                            host_toast("Both weapon slots are full. Use Replace the weapon in hand.");
+                        }
+                    }
+                } else
                 host_toast(object_new(&placement) == NONE ? "Could not spawn this asset here" : "Spawned in front of the player");
             }
             return;
         }
     }
     host_toast("This asset is not available in the current map");
+}
+
+/* The actions that work on the player (health, grenades, powerups, weapons, vehicles): with "Both players" they run once for each local
+ * player that is playing. Positions, checkpoints, teleports and the world actions run once. */
+static boolean ios_action_is_per_player(unsigned int action)
+{
+    return (action >= 1 && action <= 4) || action == 10 || action == 11 || (action >= 100 && action < 110) || (action >= 120 && action < 140) ||
+        (action >= 200 && action < 204) || (action >= 400 && action <= 402);
+}
+/* the living local players the cheats act on now: one, or both with "Both players" */
+static short ios_target_players(long *out)
+{
+    short count = 0, i;
+    long first = ios_target_player_index();
+    if (first != NONE) { out[count++] = first; return count; }
+    if (ios_options.target >= 2) {
+        for (i = 0; i < MAXIMUM_LOCAL_PLAYERS; i++) {
+            long player_index = local_player_get_player_index(i);
+            struct player_datum *player = player_index == NONE ? NULL : player_try_and_get(player_index);
+            if (player && player->unit_index != NONE) out[count++] = player_index;
+        }
+    }
+    if (!count && (first = cheat_player_index()) != NONE) out[count++] = first;
+    return count;
+}
+static void ios_campaign_action_targets(unsigned int action)
+{
+    if (ios_options.target >= 2 && ios_action_is_per_player(action)) {
+        long players[MAXIMUM_LOCAL_PLAYERS];
+        short count, i;
+        ios_action_override = NONE;
+        count = ios_target_players(players);
+        for (i = 0; i < count; i++) {
+            ios_action_override = players[i];
+            ios_campaign_action(action);
+        }
+        ios_action_override = NONE;
+        if (!count) ios_campaign_action(action);
+    } else
+        ios_campaign_action(action);
 }
 #endif

@@ -42,6 +42,8 @@ static int campaign, player_exists = 1, failures;
 static char last_toast[128]; static int toasts;
 static boolean ios_campaign_active(void) { return campaign; }
 static long cheat_player_index(void) { return player_exists ? 0 : NONE; }
+#define MAXIMUM_LOCAL_PLAYERS 4
+static short ios_target_players(long *out){long i=cheat_player_index();if(i==NONE)return 0;out[0]=i;return 1;}
 static struct player_datum the_player = { 7,1 };
 static boolean ios_cheat_camera_detached(long i){return campaign && i==7 && body_unit.object.parent_object_index==NONE && (ios_options.flags&IOS_CHEAT_DETACH_CAMERA);}
 static struct player_datum *player_try_and_get(long i) { return i == 0 ? &the_player : NULL; }
