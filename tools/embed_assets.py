@@ -170,7 +170,8 @@ def main() -> None:
             sys.exit(f"{name}: sprite sequences must be 0 to 31 (hud_hires.h: sprites)")
         sprites = sum(1 << sequence for sequence in sequences)
         table.append(f'\t{{ "{tag}", {asset["bitmap"]}, {width}, {height}, 0x{asset["crc"]:08x}u, {coverage}, '
-                     f'{point_threshold}, {int(title)}, 0x{sprites:x}u, asset{index}, {len(data)} }},')
+                     f'{point_threshold}, {int(title)}, 0x{sprites:x}u, {int(asset.get("custom_edition", False))}, '
+                     f'asset{index}, {len(data)} }},')
     lines.append("const struct hud_hires_embedded hud_hires_embedded[] =")
     lines.append("{")
     lines.extend(table)
