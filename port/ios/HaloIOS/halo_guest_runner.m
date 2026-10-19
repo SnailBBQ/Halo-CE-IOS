@@ -63,7 +63,8 @@
 #include <time.h>
 #include <unistd.h>
 
-#define HALO_GUEST_IMAGE_BASE UINT32_C(0x88000000)
+/* the guest is linked at 0x90000000 on iOS (.github/workflows/ios.yml), above a 256 MiB Xbox memory window */
+#define HALO_GUEST_IMAGE_BASE UINT32_C(0x90000000)
 #define HALO_GUEST_MAGIC UINT32_C(0x4F4C4148)
 #define HALO_GUEST_ABI_VERSION 2
 #define FOUR_GB UINT64_C(0x100000000)

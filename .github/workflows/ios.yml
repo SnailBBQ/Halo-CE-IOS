@@ -310,6 +310,15 @@ jobs:
           if linker not in s:
               raise SystemExit("guest link rule not found in build.ninja")
           s = s.replace(linker, linker + " --wrap=memcpy --wrap=memmove --wrap=memset")
+          # iOS links the guest image at 0x90000000, not Android's 0x88000000, so that the Xbox memory window below it can be
+          # 256 MiB (port/linux/src/platform.h, halo_port_capacity.h). The loader reads every address from the ELF file.
+          original_script = Path("port/android/guest/guest.ld")
+          if "port/android/guest/guest.ld" not in s or "0x88000000" not in original_script.read_text():
+              raise SystemExit("guest linker script path or base address not found")
+          ios_script = Path("build/ios_guest.ld")
+          ios_script.parent.mkdir(parents=True, exist_ok=True)
+          ios_script.write_text(original_script.read_text().replace("0x88000000", "0x90000000"))
+          s = s.replace("port/android/guest/guest.ld", "build/ios_guest.ld")
           p.write_text(s.replace("tools/android_gl_stubs.py", "tools/ios_gl_stubs.py"))
           PY
           ninja --version

@@ -17,15 +17,19 @@ body=wf.split("python3 - <<'PY'\n",1)[1].split('\n          PY',1)[0]
 body='\n'.join(line[10:] for line in body.splitlines())
 temporary=tempfile.TemporaryDirectory();scratch=Path(temporary.name)
 import os
+(scratch/'port/android/guest').mkdir(parents=True)
+(scratch/'port/android/guest/guest.ld').write_text((r/'port/android/guest/guest.ld').read_text())
 for text in [generated,generated.replace('\n','\r\n')]:
     for mode in ['true','false']:
-        (scratch/'build.ninja').write_bytes((text+'\n-DHALO_ANDROID=1\n--target=arm64_32-apple-watchos\nld.lld -m aarch64linux -static\ntools/android_gl_stubs.py\n').encode())
+        (scratch/'build.ninja').write_bytes((text+'\n-DHALO_ANDROID=1\n--target=arm64_32-apple-watchos\nld.lld -m aarch64linux -static -T port/android/guest/guest.ld\ntools/android_gl_stubs.py\n').encode())
         subprocess.run([sys.executable,'-c',body],cwd=scratch,check=True,env={**os.environ,'ARENA_FASTPATH':mode,'NON_JAILBREAK':'false','COMPATIBILITY_TEST':'false'})
         patched=(scratch/'build.ninja').read_text()
         assert '--ios-pointer-fastpath' not in patched
         assert '--wrap=memcpy --wrap=memmove --wrap=memset' in patched
         assert '-DHALO_ANDROID=1 -DHALO_IOS_GUEST=1' in patched
         assert '$\n' not in patched
+        assert '-T build/ios_guest.ld' in patched and 'port/android/guest/guest.ld' not in patched
+        assert '. = 0x90000000;' in (scratch/'build/ios_guest.ld').read_text()
         if mode=='true':
             assert 'tools/android_asm_convert.py --ios-arena-fastpath $out.darwin.s $out.s' in patched
             assert '--target=arm64_32-apple-watchos -ffixed-x15' in patched
@@ -35,12 +39,12 @@ for text in [generated,generated.replace('\n','\r\n')]:
 # the default (variable unset) must also enable the rewrite
 env={k:v for k,v in os.environ.items() if k not in ('ARENA_FASTPATH','NON_JAILBREAK','COMPATIBILITY_TEST')}
 env.update({'NON_JAILBREAK':'false','COMPATIBILITY_TEST':'false'})
-(scratch/'build.ninja').write_bytes((generated+'\n-DHALO_ANDROID=1\n--target=arm64_32-apple-watchos\nld.lld -m aarch64linux -static\ntools/android_gl_stubs.py\n').encode())
+(scratch/'build.ninja').write_bytes((generated+'\n-DHALO_ANDROID=1\n--target=arm64_32-apple-watchos\nld.lld -m aarch64linux -static -T port/android/guest/guest.ld\ntools/android_gl_stubs.py\n').encode())
 subprocess.run([sys.executable,'-c',body],cwd=scratch,check=True,env=env)
 assert '--ios-arena-fastpath' in (scratch/'build.ninja').read_text()
 # Non-Jailbreak Stage 3 gets a distinct guest ABI: x15 scratch + x27 arena base,
 # flexible-base converter, and an explicit HALO_IOS_FLEX_BASE define.
-(scratch/'build.ninja').write_bytes((generated+'\n-DHALO_ANDROID=1\n--target=arm64_32-apple-watchos\nld.lld -m aarch64linux -static\ntools/android_gl_stubs.py\n').encode())
+(scratch/'build.ninja').write_bytes((generated+'\n-DHALO_ANDROID=1\n--target=arm64_32-apple-watchos\nld.lld -m aarch64linux -static -T port/android/guest/guest.ld\ntools/android_gl_stubs.py\n').encode())
 subprocess.run([sys.executable,'-c',body],cwd=scratch,check=True,
                env={**os.environ,'ARENA_FASTPATH':'true','NON_JAILBREAK':'true','COMPATIBILITY_TEST':'false'})
 nonjb=(scratch/'build.ninja').read_text()
@@ -50,12 +54,12 @@ assert '--target=arm64_32-apple-watchos -ffixed-x15 -ffixed-x27' in nonjb
 assert '-aarch64-enable-compress-jump-tables=false' in nonjb
 assert '--ios-arena-fastpath' not in nonjb
 # Stage 3 is correctness-critical and must not build with the rewrite disabled.
-(scratch/'build.ninja').write_bytes((generated+'\n-DHALO_ANDROID=1\n--target=arm64_32-apple-watchos\nld.lld -m aarch64linux -static\ntools/android_gl_stubs.py\n').encode())
+(scratch/'build.ninja').write_bytes((generated+'\n-DHALO_ANDROID=1\n--target=arm64_32-apple-watchos\nld.lld -m aarch64linux -static -T port/android/guest/guest.ld\ntools/android_gl_stubs.py\n').encode())
 assert subprocess.run([sys.executable,'-c',body],cwd=scratch,
     env={**os.environ,'ARENA_FASTPATH':'false','NON_JAILBREAK':'true','COMPATIBILITY_TEST':'false'},
     capture_output=True).returncode!=0
 # an unrecognised guest target must fail loudly instead of silently dropping -ffixed-x15
-(scratch/'build.ninja').write_bytes((generated+'\n-DHALO_ANDROID=1\nld.lld -m aarch64linux -static\ntools/android_gl_stubs.py\n').encode())
+(scratch/'build.ninja').write_bytes((generated+'\n-DHALO_ANDROID=1\nld.lld -m aarch64linux -static -T port/android/guest/guest.ld\ntools/android_gl_stubs.py\n').encode())
 assert subprocess.run([sys.executable,'-c',body],cwd=scratch,env=env,capture_output=True).returncode!=0
 print('PASS: real android_guest_cc command emitted by repository Ninja writer, LF/CRLF continuation matching and full workflow transformation (regular aligned and Non-JB flexible-base guest ABIs)')
 

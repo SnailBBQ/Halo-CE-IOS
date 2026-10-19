@@ -6,7 +6,7 @@
 /* Owned byte snapshots only, never live guest pointers. Logical 4 KiB blocks
    are comparisons, not VM protection pages; no 16 KiB protection changes. */
 #define HG_PAGE_SIZE 4096u
-#define HG_PAGE_COUNT (0x08000000u / HG_PAGE_SIZE)
+#define HG_PAGE_COUNT (0x10000000u / HG_PAGE_SIZE) /* the 256 MiB Xbox memory window of the iOS guest */
 typedef const void *(*HgResolve)(void *, uint32_t, size_t);
 typedef struct { unsigned char *page[HG_PAGE_COUNT]; uint64_t compared, changed; } HgCache;
 static inline void hg_reset(HgCache *c) {

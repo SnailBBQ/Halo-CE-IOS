@@ -51,6 +51,12 @@ Android's window is 128 MB, as the web build's, and its cache the Xbox's. */
 #else
 #define HALO_PORT_TEXTURE_CACHE_PAGE_COUNT 0x4000 /* (0x580) */
 #endif
+#ifdef HALO_IOS_GUEST
+/* iOS: 64 MiB, in its 256 MiB window. The Xbox's 22 MiB drew the default texture ("YOU GOT STABBED") on Custom
+Edition maps with 800+ bitmaps; the window was 72 MiB full at start and 104 to 111 MiB on the_cage. */
+#undef HALO_PORT_TEXTURE_CACHE_PAGE_COUNT
+#define HALO_PORT_TEXTURE_CACHE_PAGE_COUNT 0x1000
+#endif
 #define HALO_PORT_TEXTURE_CACHE_SIZE (HALO_PORT_TEXTURE_CACHE_PAGE_COUNT*0x4000) /* (0x1600000) */
 
 /* ---------- sounds

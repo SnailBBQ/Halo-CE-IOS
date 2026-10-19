@@ -123,7 +123,13 @@ physical/virtual arithmetic the game and Direct3D rely on keeps working. */
 /* 128 MB, a development kit's: Android's guest image is linked just above
 the window (port/android/include/halo_android_abi.h), and the web build's
 WebAssembly memory ends with it (tools/web_build.py) */
+#ifdef HALO_IOS_GUEST
+/* iOS: 256 MiB; its guest image is linked at 0x90000000 (.github/workflows/ios.yml), above the window, so that
+the texture cache can hold what Custom Edition maps with 800+ bitmaps draw (halo_port_capacity.h) */
+#define PLATFORM_CONTIGUOUS_SIZE 0x10000000UL
+#else
 #define PLATFORM_CONTIGUOUS_SIZE 0x08000000UL
+#endif
 #else
 /* 512 MB on the desktop builds, whose caches outgrow the Xbox's (Custom
 Edition maps' textures and geometry: halo_port_capacity.h). Its pages are
