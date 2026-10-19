@@ -86,3 +86,7 @@ Nothing here has been compiled against the iOS SDK or run on a device.
 - **Weapon giver**: tap a weapon directly; a switch picks Drop in front, Add to my weapons, or Replace the one in hand (the weapon in hand is dropped and the new one put in its place). Action IDs 120-129 add, 130-139 replace, 402 gives both grenade types.
 - Cheats order: Movement, Visuals, World; Projectile Swapping and Weapon giver first in Weapons; grenades under Restore health and shield; Infinite Vehicle Health above Choose a vehicle. Multiplayer Options: Internet play first.
 - **Check Local Network access** now looks for its own test service and says whether it was seen.
+
+## Texture check once per frame (follow-up)
+
+A Cursed Halo (hdmu) log showed `halo_hash_bytes` at 57% of the game thread's host samples: every draw that bound an uncompressed texture compared it with its snapshot in full, and textures over 1 MiB were hashed in full every time. `halo_texture_check.h` now keeps snapshots up to 4 MiB (48 MiB in total) and compares a texture that was unchanged at its last two checks once per presented frame instead of at every draw. A change is seen at the next frame's check at the latest. Nothing was compiled for the device or tested on one.

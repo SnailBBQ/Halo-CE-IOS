@@ -3,13 +3,17 @@
 #include "halo_hash_native.h"
 #include <stdlib.h>
 #define HT_SLOTS 32
-#define HT_BUDGET (8u*1024u*1024u)
-#define HT_MAX_ITEM (1024u*1024u)
-typedef struct { uint32_t address,hash; size_t size; unsigned char *snapshot; uint64_t used; } HtEntry;
-typedef struct { HtEntry entries[HT_SLOTS]; size_t allocated; uint64_t clock,calls,hits,compared,hashed; } HtCache;
+#define HT_BUDGET (48u*1024u*1024u)
+#define HT_MAX_ITEM (4u*1024u*1024u)
+#define HT_STABLE_CHECKS 2u
+typedef struct { uint32_t address,hash; size_t size; unsigned char *snapshot; uint64_t used,frame; unsigned stable; } HtEntry;
+typedef struct { HtEntry entries[HT_SLOTS]; size_t allocated; uint64_t clock,calls,hits,compared,hashed,frame,skipped; } HtCache;
 /* Caller resolves the full guest span and serializes access. Only owned byte
  * snapshots and scalar guest addresses survive calls. Every hit compares ALL
- * bytes; no frame-based assumptions, sampled hashes or write protection. */
+ * bytes, except that a texture whose last HT_STABLE_CHECKS checks (in earlier
+ * frames) found no change is compared once per frame, not at every draw: c->frame
+ * is set by the caller to the presented-frame count. Sampled hashes and write
+ * protection are not used. */
 static inline void ht_reset(HtCache *c) {
     for(unsigned i=0;i<HT_SLOTS;i++){free(c->entries[i].snapshot);memset(&c->entries[i],0,sizeof(HtEntry));}
     c->allocated=0;
@@ -33,8 +37,15 @@ static inline uint32_t ht_hash(HtCache *c,uint32_t address,const void *bytes,siz
         if(e->snapshot && e->address==address && e->size==size) {entry=e;break;}
     }
     if(entry) {
-        c->compared+=size;entry->used=++c->clock;
-        if(!memcmp(entry->snapshot,bytes,size)){++c->hits;return entry->hash;}
+        entry->used=++c->clock;
+        if(entry->stable>=HT_STABLE_CHECKS && entry->frame==c->frame){++c->hits;++c->skipped;return entry->hash;}
+        c->compared+=size;
+        if(!memcmp(entry->snapshot,bytes,size)){
+            ++c->hits;
+            if(entry->frame!=c->frame){entry->frame=c->frame;if(entry->stable<1000u)entry->stable++;}
+            return entry->hash;
+        }
+        entry->stable=0;
     }
     c->hashed+=size;
     if(!entry) {
@@ -51,13 +62,13 @@ static inline uint32_t ht_hash(HtCache *c,uint32_t address,const void *bytes,siz
         }
         entry->snapshot=malloc(size);
         if(!entry->snapshot)return halo_hash_bytes(bytes,size); /* Original full hash remains usable. */
-        entry->address=address;entry->size=size;c->allocated+=size;
+        entry->address=address;entry->size=size;c->allocated+=size;entry->stable=0;
     }
     /* Hash the owned snapshot, not a second read of live data. Even if a
      * worker writes during capture, the saved hash matches the saved bytes;
      * the next full comparison will detect the live data's new contents. */
     memcpy(entry->snapshot,bytes,size);
-    entry->hash=halo_hash_bytes(entry->snapshot,size);entry->used=++c->clock;
+    entry->hash=halo_hash_bytes(entry->snapshot,size);entry->used=++c->clock;entry->frame=c->frame;
     return entry->hash;
 }
 #endif

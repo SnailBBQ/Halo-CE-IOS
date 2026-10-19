@@ -1615,6 +1615,7 @@ static uint32_t ios_texture_hash(uint32_t source, uint32_t size)
     if (!bytes) return 1;
     pthread_mutex_lock(&g_texture_check_lock);
     uint64_t hits=g_texture_checks.hits,compared=g_texture_checks.compared,hashed=g_texture_checks.hashed;
+    g_texture_checks.frame=atomic_load_explicit(&g_presented_frames,memory_order_relaxed);
     uint32_t hash=ht_hash(&g_texture_checks,source,bytes,size);
     atomic_fetch_add_explicit(&g_texture_check_calls,1,memory_order_relaxed);
     atomic_fetch_add_explicit(&g_texture_check_hits,g_texture_checks.hits-hits,memory_order_relaxed);
