@@ -53,6 +53,8 @@ symbols in this file:
 #include "cheats.h"
 #ifdef HALO_IOS_GUEST
 #include "ai/ai.h"
+#include "../../port/include/halo_ios_campaign_assets.h"
+#include <stdio.h>
 #include "game/game.h"
 #include "physics/physics.h"
 #endif
@@ -226,8 +228,9 @@ extern boolean game_engine_running(void);
 extern boolean network_game_is_active(void);
 boolean ios_cheat_infinite_grenades;
 static unsigned int ios_cheats_set;
-static HaloCampaignOptions ios_options = { 0, 0, 1.f, 1.f, 0.f, 2 };
+static HaloCampaignOptions ios_options = { 0, 0, 1.f, 1.f, 0.f, 2, 0 };
 extern void host_campaign_options(HaloCampaignOptions *options);
+extern int host_settings_value(unsigned int index, unsigned int address, unsigned int profile);
 extern int host_sdl_show_toast(const char *, int, int, int, int);
 static void host_toast(const char *message) { host_sdl_show_toast(message, 2500, 0, 0, 0); }
 static void ios_campaign_action(unsigned int action);
@@ -238,6 +241,12 @@ static unsigned int ios_recipe_actions[16],ios_recipe_head,ios_recipe_count;
 static void ios_powerups_tick(void);
 static void ios_world_cheats_tick(void);
 static void ios_world_cheats_reset(void);
+struct ios_campaign_asset_tag { uint32_t token; long tag; uint32_t kind; };
+static struct ios_campaign_asset_tag ios_campaign_asset_tags[HALO_CAMPAIGN_ASSET_MAX];
+static unsigned int ios_campaign_asset_count;
+static uint32_t ios_campaign_asset_next_token=1;
+static void ios_campaign_assets_scan(void);
+static void ios_campaign_assets_reset(void);
 static boolean ios_campaign_active(void)
 { return game_in_progress() && !game_engine_running() && !network_game_is_active(); }
 boolean ios_cheat_local_unit(long index)
@@ -265,7 +274,7 @@ boolean ios_cheat_applies(boolean flag, long index)
     if (!player || player->local_player_index == NONE) return flag;
     return player->local_player_index == (short)ios_options.target;
 }
-/* the player the one-time actions and held cheats act on: the chosen one when it is playing, else the first */
+/* Return the selected player for Player 1/2. Both is enumerated by ios_target_players instead. */
 static long ios_action_override = NONE; /* the player one run of a one-time action is for (set while "Both players" repeats it) */
 static long ios_target_player_index(void)
 {
@@ -276,6 +285,53 @@ static long ios_target_player_index(void)
     player_index = local_player_get_player_index((short)ios_options.target);
     player = player_index == NONE ? NULL : player_try_and_get(player_index);
     return player && player->unit_index != NONE ? player_index : NONE;
+}
+/* port: invalidate map-local tag tokens at every cache boundary. */
+static void ios_campaign_assets_reset(void)
+{
+    ios_campaign_asset_count=0;
+    host_settings_value(UINT32_MAX-10u,0,3);
+}
+/* port: publish only exact weapon/vehicle tags from the active map's tag cache. */
+static void ios_campaign_assets_scan_group(long group,uint32_t kind)
+{
+    struct tag_iterator iterator;
+    long tag;
+    tag_iterator_new(&iterator,group);
+    while((tag=tag_iterator_next(&iterator))!=NONE && ios_campaign_asset_count<HALO_CAMPAIGN_ASSET_MAX) {
+        const char *name;
+        HaloCampaignAssetEntry entry;
+        if(tag_get_group_tag(tag)!=(unsigned long)group)continue;
+        name=tag_get_name(tag);
+        if(!name || !name[0])continue;
+        memset(&entry,0,sizeof(entry));
+        if(ios_campaign_asset_next_token==0 || ios_campaign_asset_next_token>HALO_CAMPAIGN_ASSET_ACTION_TOKEN_MASK)
+            ios_campaign_asset_next_token=1;
+        entry.token=ios_campaign_asset_next_token++;
+        entry.kind=kind;
+        snprintf(entry.name,sizeof(entry.name),"%s",name);
+        ios_campaign_asset_tags[ios_campaign_asset_count].token=entry.token;
+        ios_campaign_asset_tags[ios_campaign_asset_count].tag=tag;
+        ios_campaign_asset_tags[ios_campaign_asset_count].kind=kind;
+        ios_campaign_asset_count++;
+        host_settings_value(UINT32_MAX-10u,(uint32_t)(uintptr_t)&entry,1);
+    }
+}
+/* port: a one-shot host request builds the picker catalog on the game thread. */
+static void ios_campaign_assets_scan(void)
+{
+    ios_campaign_asset_count=0;
+    host_settings_value(UINT32_MAX-10u,0,4);
+    ios_campaign_assets_scan_group('weap',HALO_CAMPAIGN_ASSET_WEAPON);
+    ios_campaign_assets_scan_group('vehi',HALO_CAMPAIGN_ASSET_VEHICLE);
+    host_settings_value(UINT32_MAX-10u,0,2);
+}
+/* port: resolve a transient picker token only while its originating map is loaded. */
+static struct ios_campaign_asset_tag *ios_campaign_asset_find(uint32_t token)
+{
+    unsigned int i;
+    for(i=0;i<ios_campaign_asset_count;i++)if(ios_campaign_asset_tags[i].token==token)return &ios_campaign_asset_tags[i];
+    return NULL;
 }
 boolean ios_cheat_enabled(long index, unsigned int flag)
 { return (ios_options.flags & flag) && ios_cheat_local_unit(index); }
@@ -320,6 +376,7 @@ static void ios_cheats_apply(void)
 	/* Consume requests even outside campaign: they must never execute in a later mission. */
 	host_campaign_state(ios_campaign_active());
 	host_campaign_options(&ios_options);
+	if (ios_campaign_active() && ios_options.asset_request) ios_campaign_assets_scan();
 	if (ios_campaign_active()) {
 		wanted = ios_options.flags & 15u;
 		/* A recipe can activate before the intro has created a player. Keep
@@ -371,6 +428,7 @@ static void ios_cheats_reset(void)
 {
     HaloCampaignOptions discarded;
     ios_recipe_head = ios_recipe_count = 0;
+    ios_campaign_assets_reset();
     host_campaign_state(0);
     host_campaign_options(&discarded);
     if (ios_cheats_set & 1u) cheat.deathless_player = FALSE;
@@ -882,6 +940,8 @@ static void ios_campaign_action(unsigned int action)
     struct tag_reference reference;
     const char *wanted = NULL;
     long group = 'weap', tag;
+    long requested_tag=NONE;
+    boolean custom_asset=FALSE;
     {
         long index = cheat_player_index();
         struct player_datum *player = index == NONE ? NULL : player_try_and_get(index);
@@ -933,18 +993,35 @@ static void ios_campaign_action(unsigned int action)
         host_toast("Active Camo applied for the normal pickup duration");return;
     }
     boolean give = FALSE, replace = FALSE;
-    if (action >= 120 && action < 140 && (action % 10) < NUMBEROF(weapons)) { wanted = weapons[action % 10]; give = TRUE; replace = action >= 130; }
+    if(action & HALO_CAMPAIGN_ASSET_ACTION_FLAG) {
+        uint32_t token=action & HALO_CAMPAIGN_ASSET_ACTION_TOKEN_MASK;
+        uint32_t mode=(action>>HALO_CAMPAIGN_ASSET_ACTION_MODE_SHIFT)&3u;
+        struct ios_campaign_asset_tag *asset=ios_campaign_asset_find(token);
+        if(!asset) { host_toast("The map changed. Open the picker again."); return; }
+        custom_asset=TRUE;requested_tag=asset->tag;
+        group=asset->kind==HALO_CAMPAIGN_ASSET_WEAPON?'weap':'vehi';
+        give=asset->kind==HALO_CAMPAIGN_ASSET_WEAPON && mode!=0;
+        replace=give && mode==1;
+    }
+    else if (action >= 120 && action < 140 && (action % 10) < NUMBEROF(weapons)) { wanted = weapons[action % 10]; give = TRUE; replace = action >= 130; }
     else if (action >= 100 && action < 100 + NUMBEROF(weapons)) wanted = weapons[action - 100];
     else if (action >= 200 && action < 200 + NUMBEROF(vehicles)) { wanted = vehicles[action - 200]; group = 'vehi'; }
     else if (action == 2 || action == 3) { wanted = action == 2 ? "over shield" : "active camouflage"; group = 'eqip'; }
-    if (!wanted) return;
+    if (!wanted && !custom_asset) return;
     tag_iterator_new(&iterator, group);
     while ((tag = tag_iterator_next(&iterator)) != NONE) {
-        const char *name = tag_get_name(tag), *leaf;
-        if (!name) continue;
-        leaf = strrchr(name, '\\');
-        leaf = leaf ? leaf + 1 : name;
-        if (!strcmp(leaf, wanted)) {
+        const char *name;
+        if(custom_asset) {
+            if(tag!=requested_tag)continue;
+        } else {
+            const char *leaf;
+            name=tag_get_name(tag);
+            if(!name)continue;
+            leaf=strrchr(name,'\\');
+            leaf=leaf?leaf+1:name;
+            if(strcmp(leaf,wanted))continue;
+        }
+        {
             memset(&reference, 0, sizeof(reference));
             reference.index = tag;
             {
@@ -995,7 +1072,7 @@ static void ios_campaign_action(unsigned int action)
  * player that is playing. Positions, checkpoints, teleports and the world actions run once. */
 static boolean ios_action_is_per_player(unsigned int action)
 {
-    return (action >= 1 && action <= 4) || action == 10 || action == 11 || (action >= 100 && action < 110) || (action >= 120 && action < 140) ||
+    return (action & HALO_CAMPAIGN_ASSET_ACTION_FLAG) || (action >= 1 && action <= 4) || action == 10 || action == 11 || (action >= 100 && action < 110) || (action >= 120 && action < 140) ||
         (action >= 200 && action < 204) || (action >= 400 && action <= 402);
 }
 /* the living local players the cheats act on now: one, or both with "Both players" */

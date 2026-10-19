@@ -2,7 +2,7 @@
 CI uses cc. --emit FILE writes the same harness for a local Windows C compiler.
 """
 from pathlib import Path
-import argparse, os, subprocess, tempfile
+import argparse, os, shutil, subprocess, tempfile
 ROOT = Path(__file__).resolve().parents[2]
 source = (ROOT / "source/game/cheats.c").read_text(encoding="utf-8")
 start = source.index("extern unsigned int host_cheat_flags(void);")
@@ -13,6 +13,7 @@ harness = r"""
 #include <string.h>
 #include <stdint.h>
 #include "halo_ios_campaign_options.h"
+#include "halo_ios_campaign_assets.h"
 typedef int boolean;
 typedef float real;
 #define TRUE 1
@@ -31,6 +32,7 @@ struct tag_iterator{int next;};
 static void tag_iterator_new(struct tag_iterator *it,long group){(void)group;it->next=0;}
 static long tag_iterator_next(struct tag_iterator *it){return it->next++?NONE:5;}
 static const char *tag_get_name(long tag){(void)tag;return "weapons\\pistol\\bullet";}
+static unsigned long tag_get_group_tag(long tag){(void)tag;return 'weap';}
 static int in_progress, engine, network, actions, toasts;
 static HaloCampaignOptions host_wanted;
 static unsigned campaign_active;
@@ -46,6 +48,8 @@ struct unit_datum *unit_get(long i) { return unit_try_and_get(i); }
 struct player_datum *player_try_and_get(long i) { return i >= 0 && i < 3 ? &players[i] : NULL; }
 static long local_player_get_player_index(short i) { return i < 2 ? i : NONE; }
 void host_campaign_options(HaloCampaignOptions *out) { *out = host_wanted; host_wanted.action = 0; }
+int host_settings_value(unsigned int index, unsigned int address, unsigned int profile)
+{ (void)index; (void)address; (void)profile; return 0; }
 int host_sdl_show_toast(const char *s, int a, int b, int c, int d)
 { (void)s; (void)a; (void)b; (void)c; (void)d; ++toasts; return 1; }
 """ + body + r"""
@@ -62,7 +66,7 @@ static void ios_world_cheats_reset(void) { }
 #define CHECK(x) do { if (!(x)) { printf("FAIL line %d: %s\n", __LINE__, #x); return 1; } } while (0)
 int main(void)
 {
-    CHECK(sizeof(HaloCampaignOptions) == 24);
+    CHECK(sizeof(HaloCampaignOptions) == 28);
     units[0].unit.player_index = 0; players[0].unit_index = 0; players[0].local_player_index = 0;
     units[1].unit.player_index = NONE;
     units[2].unit.player_index = 2; players[2].unit_index = 2; players[2].local_player_index = NONE;
@@ -78,6 +82,10 @@ int main(void)
     CHECK(ios_cheat_jump_multiplier(0) == 2.5f && ios_cheat_speed_multiplier(1) == 1.f);
     CHECK(ios_cheat_field_of_view(0) == 80.f && ios_cheat_field_of_view(2) == 0.f);
     CHECK(actions == 1); ios_cheats_apply(); CHECK(actions == 1);
+    host_wanted.asset_request = 1; ios_cheats_apply();
+    CHECK(ios_campaign_asset_count == 1 && ios_campaign_asset_tags[0].tag == 5);
+    CHECK(ios_campaign_asset_tags[0].kind == HALO_CAMPAIGN_ASSET_WEAPON);
+    host_wanted.asset_request = 0;
     ios_options.flags|=IOS_CHEAT_DETACH_CAMERA|(1u<<IOS_CHEAT_PROJECTILE_SHIFT);
     CHECK(ios_cheat_camera_detached(0) && ios_cheat_projectile(0,99)==5 && ios_cheat_projectile(1,99)==99);
     cinematic=1;CHECK(!ios_cheat_camera_detached(0));cinematic=0;
@@ -114,9 +122,13 @@ args = parser.parse_args()
 if args.emit:
     args.emit.write_text(harness, encoding="utf-8")
 else:
-    with tempfile.TemporaryDirectory() as directory:
+    compiler = os.environ.get("CC", "cc")
+    if not shutil.which(compiler):
+        print(f"SKIP: {compiler} is not installed; source checks passed, C runtime harness needs a C compiler")
+        raise SystemExit(0)
+    with tempfile.TemporaryDirectory(dir=ROOT) as directory:
         path = Path(directory)
         (path / "test.c").write_text(harness, encoding="utf-8")
         exe = path / ("test.exe" if os.name == "nt" else "test")
-        subprocess.run([os.environ.get("CC", "cc"), "-std=c11", "-Wall", "-Wextra", "-Werror", "-I" + str(ROOT / "port/include"), str(path / "test.c"), "-o", str(exe)], check=True)
+        subprocess.run([compiler, "-std=c11", "-Wall", "-Wextra", "-Werror", "-I" + str(ROOT / "port/include"), str(path / "test.c"), "-o", str(exe)], check=True)
         subprocess.run([str(exe)], check=True)

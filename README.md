@@ -6,7 +6,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is **in beta**: it boots and plays on a stock, sideloaded iPhone 14 Plus but has glitches, bugs and crashes (see [Device test results](docs/ios/DEVICE_TESTS.md)). The current source update is **M2.6.116**, on OpenCE **build 235** (network version 29) with Custom Edition maps, the MP4 movie fallback and Mods. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
+> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is **in beta**: it boots and plays on a stock, sideloaded iPhone 14 Plus but has glitches, bugs and crashes (see [Device test results](docs/ios/DEVICE_TESTS.md)). The current source update is **M2.6.117**, on OpenCE **build 235** (network version 29) with Custom Edition maps, map-aware weapon and vehicle pickers, the MP4 movie fallback and Mods. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
@@ -24,7 +24,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 **Fix:** [M2.6.107](port/ios/UPDATE_M2707.md) repairs M2.6.104-106: a startup failure (guest ABI mismatch, fixed in M2.6.106) and a freeze when joining an internet game. Do not use those builds.
 
-**Update:** [M2.6.116](port/ios/UPDATE_M2716.md) returns to the main menu when a Custom Edition map fails validation, rather than leaving the game stuck on its blue fatal-error screen. Map checks remain strict; the texture snapshot budget diagnostic now reports the actual 48 MiB limit. OpenCE remains on **build 235** / network version 29. [M2.6.115](port/ios/UPDATE_M2715.md) brought the iPhone keyboard to the game's menus.
+**Update:** [M2.6.117](port/ios/UPDATE_M2717.md) populates the Weapon Giver and Vehicle Spawner from the current map's loaded tags, including compatible Custom Edition assets. OpenCE remains on **build 235** / network version 29. [M2.6.116](port/ios/UPDATE_M2716.md) returns to the main menu after a rejected map load and reports the correct texture snapshot budget.
 
 **Previous:** [M2.6.113](port/ios/UPDATE_M2713.md) moves to OpenCE **build 220** (same network version 29) and makes Settings > Mods the same list as the game's new Mods menu: mods turned on or off, reordered, removed or added in either place show in both.
 

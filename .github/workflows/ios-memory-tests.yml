@@ -29,6 +29,7 @@ jobs:
           python3 tools/tests/test_ios_grenade_giver.py
           python3 tools/tests/test_ios_powerups.py
           python3 tools/tests/test_ios_campaign_policy.py
+          python3 tools/tests/test_ios_campaign_target_routing.py
           python3 tools/tests/test_ios_store_build_modes.py
           python3 tools/tests/test_ios_header_declarations.py
           python3 tools/tests/test_ios_frameworks_linked.py
