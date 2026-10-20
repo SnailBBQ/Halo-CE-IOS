@@ -46,6 +46,11 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
   <em>Main menu on iPhone — Xbox UI controls</em>
 </p>
 
+<p align="center">
+  <img src="docs/ios/images/main-menu-playstation-ui.jpg" alt="The main menu on iPhone with the PlayStation UI controls" width="760"><br>
+  <em>Main menu on iPhone — PlayStation UI controls</em>
+</p>
+
 ## Highlights
 
 - **Native app.** An `arm64` iOS app hosts the recovered `arm64_32` engine and draws with OpenGL ES 3. iOS and iPadOS 15 or later.
@@ -64,8 +69,9 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 ## Quick start
 
-1. **Get the app.** Download `HaloCE.ipa` from a successful [Actions run](https://github.com/SnailBBQ/Halo-CE-IOS/actions), or
-   [build it yourself](docs/ios/BUILD.md). There is no published iOS release yet. GitHub Actions can build it without a local Mac when account usage allows.
+**Prefer a visual walkthrough?** [Watch the iPhone setup video](docs/ios/videos/ipa-install-mod-loading.mp4) to see the IPA installed, a backup restored and Custom Edition maps loaded.
+
+1. **Get the app.** Download `HaloCE.ipa` or `HaloCE-NonJailbreak.ipa` from the [M2.6.118 beta release](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta), or get an IPA from a successful [Actions run](https://github.com/SnailBBQ/Halo-CE-IOS/actions). You can also [build it yourself](docs/ios/BUILD.md).
 2. **Install it.** The IPA must be re-signed and sideloaded onto your device. [Install guide](docs/ios/INSTALL.md)
 3. **Add your game data.** The app does not include game maps. Import the Xbox `.map` files from your own copy of the game,
    including `ui.map`. [Game data guide](docs/ios/GAME_DATA.md)

@@ -1,14 +1,21 @@
 # Mods
 
-A mod is a folder of Halo PC tag files that the game plays over a map's own
-tags on your machine, as a resource pack does: sounds (a high-res audio
-pack), bitmaps (a texture pack, a HUD redraw), text (a translation) and
-models (higher-detail weapons, vehicles and scenery). Only the machine that
-has a mod plays it. Nothing of a mod is sent to another machine, and a mod
-changes nothing that the machines of a network game must agree on, so you
-can play with mods in any game, with players who have other mods or none. (A host's mod sounds of other lengths change how long
-the host's scripts and AI wait for dialogue to end; the host decides those
-for every machine, so they still agree.)
+Mods replace supported sounds, pictures, text and models with files on your device. They are local to your game and are not sent to other players.
+
+**New to mods on iPhone?** Start with the [iPhone Mods guide](ios/MOD_FORMAT.md). It explains what works and how to add a mod. To create one, jump to [Making a mod](ios/MOD_FORMAT.md#making-a-mod); the [starter folder](ios/mod-template/MyMod) is ready to copy.
+
+## Making a mod
+
+1. Start from the [MyMod template](ios/mod-template/MyMod).
+2. Choose an existing tag from a map and keep its name; mods replace resources but cannot add weapons, vehicles, characters or maps.
+3. Put the edited tag under `tags/` and describe the mod in `mod.toml`.
+4. Add the folder in **Settings > Mods** on iPhone, or in the platform's `mods/` folder on a computer.
+5. Load a map and check the game log if a file is skipped.
+
+The details below are the full engine reference for tag layout, load order, compatibility and implementation.
+
+<details>
+<summary>Advanced reference: folder layout, tag formats and engine behavior</summary>
 
 The game's code is `port/linux/game/mods.c` (with `mod_sounds.c`,
 `mod_bitmaps.c`, `mod_strings.c` and `mod_models.c`, one for each kind of
@@ -290,28 +297,6 @@ only their four-stage maps: see
 [custom_edition_caches.md](custom_edition_caches.md).) As for every
 shader, it must be one the map has.
 
-## Making a mod
-
-1. Get the tags you want to change as tag files. `invader-extract` extracts
-   them from a map, and the Halo Editing Kit's tags are Halo PC's own.
-2. Change them with the Halo Editing Kit or Invader (`invader-bitmap`,
-   `invader-sound` and `invader-model` build bitmaps, sounds and models from
-   images, audio files and JMS files). Keep each tag's name.
-3. Put them in `tags/` of a folder in `mods/`, with a `mod.toml`.
-4. Load a map (a new mod is on). `mods_reload` at the console reads the
-   files again as you change them, without loading the map again.
-
-`debug.txt` has a line for every file the game leaves out, and why, and a
-summary of what each kind of tag plays from the mods:
-
-```
-mods: 9 string lists from their files (9 new), 0 given back, 0 left out
-mods: 66 HUD placements scaled to draw larger bitmaps at the map's size
-mods: 354 bitmaps from their files (354 new), 0 given back, 6 left out
-mods: 313 sounds from their files (313 new), 0 given back, 2 left out
-mods: 4 models from their files (4 new), 0 given back, 1 left out
-```
-
 ## How it operates
 
 - When a map's tags load, at `mods_reload` and at the Mods menu's **OK**,
@@ -327,3 +312,5 @@ mods: 4 models from their files (4 new), 0 given back, 1 left out
   web): their files, their sounds' samples, their bitmaps' tags and their
   models' geometry.
 - A Custom Edition map takes mods as an Xbox map does.
+
+</details>
