@@ -1,5 +1,7 @@
 # Install
 
+**Watch the setup walkthrough:** [Install the IPA, restore a backup and load Custom Edition maps](videos/ipa-install-mod-loading.mp4).
+
 ## Requirements
 
 - An iPhone or iPad running **iOS or iPadOS 15.0 or later**. The app needs a physical device; the iOS Simulator does not run the engine.
@@ -14,7 +16,7 @@ Choose one:
 
 | Option | When to use it |
 | --- | --- |
-| **Published release** | No iOS release is published yet. When one is available, download its attached `HaloCE.ipa` from [Releases](https://github.com/SnailBBQ/Halo-CE-IOS/releases). |
+| **Published beta release** | Download `HaloCE.ipa` or `HaloCE-NonJailbreak.ipa` from the [M2.6.118 beta release](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta). The Non-Jailbreak IPA is a beta with limited device testing. |
 | **Actions artifact** | Successful packaging runs keep the IPA for 14 days. Open **Actions**, choose a successful run and download the **HaloCE-iOS** artifact. Extract its ZIP to get `HaloCE.ipa`. |
 | **Build it yourself** | Use your own GitHub account. See [Build the IPA](BUILD.md). |
 
