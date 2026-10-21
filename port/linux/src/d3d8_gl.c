@@ -203,13 +203,13 @@ static void screen_mode_choose(long *width, float scale[2])
 		*width = 1600;
 	*width &= ~1L;
 	scale[0] = scale[1] = 1.0f;
-	screen_supersampling = 1.0f;
 #ifdef HALO_IOS_GUEST
 	const char *detail = getenv("HALO_RENDER_SCALE");
 	float factor = detail ? (float)atof(detail) : 1.0f;
 	/* Whitelist scales so malformed settings cannot request an unbounded target. */
 	if (factor == 1.5f || factor == 2.0f || factor == 2.25f) scale[0] = scale[1] = factor;
 #endif
+	screen_supersampling = 1.0f;
 #else
 	long display_width, display_height;
 
@@ -4700,7 +4700,7 @@ static struct program_entry *prepare_draw(BOOL immediate)
 	uniform_vec4(entry->texture_lod_bias, entry->uniforms.texture_lod_bias, draw_uniforms.texture_lod_bias, 1);
 	uniform_vec4(entry->height_fade, entry->uniforms.height_fade, draw_uniforms.height_fade, 1);
 #ifdef HALO_IOS_GUEST
-	host_frame_phase(8,1);
+    host_frame_phase(8,1);
 #endif
 	return entry;
 }

@@ -12,7 +12,7 @@ enum { IOS_CHEAT_ONE_HIT=16, IOS_CHEAT_FLASHLIGHT=32, IOS_CHEAT_NO_FALL=64,
        IOS_CHEAT_MEDUSA=262144, IOS_CHEAT_LOW_GRAVITY=524288,
        IOS_CHEAT_HIJACK_NPC=1048576, IOS_CHEAT_VEHICLE_HEALTH=2097152,
        IOS_CHEAT_SLOW_SHIFT=15, IOS_CHEAT_SLOW_MASK=229376 /* 7 << 15: 0 off, 1..7 = 75, 50, 25, 10, 150, 200, 300 percent speed */ };
-/* Exactly 28 bytes on both sides of the arm64_32/native boundary. `target` is the splitscreen player the cheats act on: 0 player 1, 1 player 2, 2 both. */
-typedef struct { uint32_t flags, action; float jump, speed, fov; uint32_t target, asset_request; } HaloCampaignOptions;
-typedef char halo_campaign_options_size_check[sizeof(HaloCampaignOptions) == 28 ? 1 : -1];
+/* Exactly 24 bytes on both sides of the arm64_32/native boundary. `target` is the splitscreen player the cheats act on: 0 player 1, 1 player 2, 2 both. */
+typedef struct { uint32_t flags, action; float jump, speed, fov; uint32_t target; } HaloCampaignOptions;
+typedef char halo_campaign_options_size_check[sizeof(HaloCampaignOptions) == 24 ? 1 : -1];
 #endif

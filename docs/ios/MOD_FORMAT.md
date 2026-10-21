@@ -10,8 +10,8 @@ adapted for the iPhone. The rules are the engine's and are the same on every pla
 manage it. Mods work in the regular app, in Non-Jailbreak and in Mod Test.
 
 **Contents:** [Will this download work?](#will-this-download-work-start-here) · [Adding a mod](#adding-a-mod-to-your-iphone) ·
-[Making a mod](#making-a-mod) · [Advanced reference](#a-mods-folder) · [Load order](#the-load-order-and-the-mods-list) ·
-[What a mod can replace](#what-a-mod-can-replace) · [When something does not change](#when-something-does-not-change) · [Limits](#limits) ·
+[A mod's folder](#a-mods-folder) · [Load order](#the-load-order-and-the-mods-list) · [What a mod can replace](#what-a-mod-can-replace) ·
+[Making a mod](#making-a-mod) · [When something does not change](#when-something-does-not-change) · [Limits](#limits) ·
 [Worked example](#worked-example-a-new-look-for-the-spartan)
 
 ## Will this download work? (start here)
@@ -41,21 +41,6 @@ You can also copy a mod folder yourself, in the Files app, into **Halo CE > Halo
 The mod is **on** as soon as it is added. A map that is running picks it up when you press OK in the game's Mods screen, or after Settings
 changes it; otherwise it plays the next time a map loads. Settings > Mods and the game's own **Mods** screen (main menu) are one list: turning a
 mod on or off, moving it or removing it in either place shows in the other.
-
-## Making a mod
-
-Start with the [MyMod template](mod-template/MyMod), then make a replacement for a tag the map already has:
-
-1. Get the tag as a file with `invader-extract`, or start with the Halo Editing Kit's PC tags.
-2. Change a supported tag such as a `.bitmap`, `.sound`, `.unicode_string_list` or compatible `.gbxmodel`.
-3. Keep the tag's original name and put the file under `tags/` in your mod folder. Add a `mod.toml`.
-4. In Halo CE, open **Settings > Mods > Add a mod folder**, choose the folder, and load a map.
-5. If it does not appear, check the log and the [compatibility details](#what-a-mod-can-replace).
-
-A mod replaces supported resources that a map already uses. It cannot add a new weapon, vehicle, character or map. The technical reference below explains which replacements are compatible.
-
-<details>
-<summary>Advanced reference: folders, load order, file formats and limits</summary>
 
 ## A mod's folder
 
@@ -184,6 +169,15 @@ map already has (a mod cannot add tags); a bitmap mod can redraw the shader's pi
   may vanish at the screen's edges.
 - Do not use `shader_transparent_chicago_extended` (Gearbox added it for Halo PC; the Xbox game has none): use a `shader_transparent_chicago`.
 
+## Making a mod
+
+1. Get the tags you want to change as tag files. `invader-extract` extracts them from a map; the Halo Editing Kit's tags are Halo PC's own.
+2. Change them with the Halo Editing Kit or Invader (`invader-bitmap`, `invader-sound` and `invader-model` build bitmaps, sounds and models from
+   images, audio files and JMS files). **Keep each tag's name.**
+3. Put them under `tags/` in a folder with a `mod.toml` (copy `docs/ios/mod-template/MyMod`).
+4. Add the folder in Settings > Mods and start a map.
+5. Check the log (below) for any file the game left out.
+
 ## When something does not change
 
 1. Open **Settings > Logs** and share the logs, or open `debug.txt`. Every file the game left out has a line starting `mods:` with the reason, and
@@ -204,14 +198,7 @@ map already has (a mod cannot add tags); a bitmap mod can redraw the shader's pi
 once. The mods' tags keep at most **192 MB** in memory on the iPhone (their files, sounds' samples, bitmaps and models' geometry), so a very large
 pack may have files left out; the log says so. A Custom Edition map takes mods as an Xbox map does.
 
-</details>
-
 ## Worked example: a new look for the Spartan
-
-<p align="center">
-  <img src="images/lucario-custom-mod.jpg" alt="Lucario model replacement running in Halo CE with iPhone touch controls" width="760"><br>
-  <em>Example of a compatible Lucario model replacement running in-game. The mod files are not included.</em>
-</p>
 
 A community download of a "Lucario" biped is a new biped. A mod cannot add a biped, so nothing changed. The working version replaces the Spartan's
 own model instead:

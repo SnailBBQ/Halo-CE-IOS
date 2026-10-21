@@ -1481,9 +1481,6 @@ boolean main_menu_is_loaded(
 static void main_new_map(
 	struct game_options *options)
 {
-#ifdef HALO_IOS_GUEST
-	boolean loading_main_menu;
-#endif
 	input_flush();
 	if (game_load(options))
 	{
@@ -1491,47 +1488,7 @@ static void main_new_map(
 	}
 	else
 	{
-#ifdef HALO_IOS_GUEST
-		/* A rejected Custom Edition map can fail before game_globals->map_loaded
-		becomes true. Release its partial scenario/cache state before the next
-		map is opened, and discard delayed errors from the rejected map. */
-		loading_main_menu = main_globals.main_menu_scenario_loaded;
-		scenario_unload();
-		errors_handle();
-		error(_error_silent,
-			"game_load() failed for map '%s'; returning to the main menu.",
-			options->map_name);
-
-		/* There is no usable menu if the menu scenario itself cannot load. */
-		if (loading_main_menu)
-		{
-			error(_error_immediate, "main menu scenario failed to load.");
-			return;
-		}
-
-		main_globals.want_to_be_at_main_menu = TRUE;
-		main_globals.reset_map = FALSE;
-		main_globals.defer_map_change = FALSE;
-		main_globals.revert_map = FALSE;
-		main_globals.skip_cinematic = FALSE;
-		main_globals.saving_map = FALSE;
-		main_globals.save_map_safely = FALSE;
-		main_globals.save_map_timeout = FALSE;
-		main_globals.save_map_completed = FALSE;
-		main_globals.won_map = FALSE;
-		main_globals.lost_map = FALSE;
-		main_globals.respawn = FALSE;
-		main_globals.save_core = FALSE;
-		main_globals.load_core = FALSE;
-		main_globals.load_core_at_startup = FALSE;
-		main_globals.switch_to_structure_bsp_index = NONE;
-		main_globals.map_change_load_timer = 0;
-		ui_widgets_inhibit_processing(FALSE);
-		ui_widgets_set_fade_value(-1.0f);
-		return;
-#else
 		error(_error_immediate, "game_load() failed.");
-#endif
 	}
 
 	if (!errors_handle())
@@ -1643,13 +1600,6 @@ static void main_change_map_name(
 			game_precache_new_map(options.map_name, TRUE);
 			game_unload();
 			main_new_map(&options);
-#ifdef HALO_IOS_GUEST
-			if (!game_map_loaded())
-			{
-				main_globals.map_change_load_timer = 0;
-				return;
-			}
-#endif
 
 			for (local_player_index = 0;
 				local_player_index < player_spawn_count;
@@ -2005,10 +1955,6 @@ void main_load_ui_scenario(
 	game_set_game_variant(NULL);
 	main_globals.main_menu_scenario_loaded = TRUE;
 	main_new_map(&options);
-#ifdef HALO_IOS_GUEST
-	if (!game_map_loaded())
-		return;
-#endif
 	director_script_camera(TRUE);
 	scripted_camera_set(0, 0, NONE);
 	main_menu_active(TRUE);
