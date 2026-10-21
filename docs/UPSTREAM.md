@@ -63,6 +63,6 @@ This port would not exist without the people below.
 
 - **The iOS port** in this repository is maintained by [SnailBBQ](https://github.com/SnailBBQ).
 
-This project is free software under the GNU Affero General Public License, version 3 or later ([LICENSE](../LICENSE)), the license OpenCE moved to with build 246; the source of earlier OpenCE builds stays under [CC0 1.0](../LICENSES/CC0-1.0.txt). That gives you no rights in *Halo*. Third-party libraries and fonts, the app icon by ORION and the screenshots in the docs keep their own terms. Fonts include Overpass and OpenCE under the SIL Open Font License and Newtown under its documented public-domain terms; see [font credits and notices](../port/assets/fonts/README.md). Menu artwork is described in the [menu asset guide](../port/assets/menus/README.md).
+Code written by this project and its upstream contributors is offered under [CC0 1.0](../LICENSE.md), to the extent they own it. That gives you no rights in *Halo*. Third-party libraries and fonts, the app icon by ORION and the screenshots in the docs keep their own terms. Fonts include Overpass and OpenCE under the SIL Open Font License and Newtown under its documented public-domain terms; see [font credits and notices](../port/assets/fonts/README.md). Menu artwork is described in the [menu asset guide](../port/assets/menus/README.md).
 
 **No game maps or original engine executable are included.** Documentation includes gameplay screenshots. Supply maps from your own copy of the game.

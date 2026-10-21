@@ -1816,6 +1816,11 @@ static void exit_after_check(void)
 {
 	static Uint64 exit_ticks = (Uint64)-1;
 
+#ifdef HALO_IOS_GUEST
+	if (!platform_window || SDL_GetCurrentThreadID() != platform_event_thread)
+		return;
+	pc_menu_ios_sync_settings();
+#endif
 	if (exit_ticks == (Uint64)-1)
 	{
 		double seconds = config_real("debug.exit_after");
@@ -1879,9 +1884,6 @@ void platform_pump_events(void)
 	}
 	if (SDL_GetCurrentThreadID() != platform_event_thread)
 		return;
-#ifdef HALO_IOS_GUEST
-	pc_menu_ios_sync_settings();
-#endif
 	exit_after_check();
 	platform_show_pending_message();
 #ifndef HALO_ANDROID

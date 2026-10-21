@@ -622,9 +622,19 @@ void scenario_tags_unload(
 	(port/linux/game/custom_edition_cache.c) */
 	if (custom_edition_cache_tags_loaded())
 		custom_edition_cache_tags_unload();
+#ifdef HALO_IOS_GUEST
+	/* A rejected iOS map can reach this cleanup without ever installing a
+	valid tag header. Keep the non-iOS unload path unchanged. */
+	else if (cache_file_globals.tags_loaded && cache_file_globals.tag_header)
+		tags_header_deregister_vertex_and_index_buffers(cache_file_globals.tag_header);
+#else
 	else
 		tags_header_deregister_vertex_and_index_buffers(cache_file_globals.tag_header);
+#endif
 	cache_file_globals.tags_loaded = FALSE;
+#ifdef HALO_IOS_GUEST
+	cache_file_globals.tag_header = NULL;
+#endif
 	global_tag_instances = NULL;
 	global_tag_count = 0;
 

@@ -772,6 +772,11 @@ void halo_ios_quit_app(void) {
 static _Atomic int g_campaign_active;
 static pthread_mutex_t g_campaign_lock=PTHREAD_MUTEX_INITIALIZER;
 static uint32_t g_campaign_queue[16],g_campaign_head,g_campaign_count;
+static _Atomic int g_campaign_asset_request;
+static pthread_mutex_t g_campaign_assets_lock=PTHREAD_MUTEX_INITIALIZER;
+static HaloCampaignAssetEntry g_campaign_assets_staged[HALO_CAMPAIGN_ASSET_MAX];
+static HaloCampaignAssetEntry g_campaign_assets[HALO_CAMPAIGN_ASSET_MAX];
+static int g_campaign_assets_staged_count,g_campaign_assets_count,g_campaign_assets_ready=-1;
 void halo_ios_campaign_state(int active) {
     int previous=atomic_exchange(&g_campaign_active,!!active);
     if (!active) { pthread_mutex_lock(&g_campaign_lock);g_campaign_count=g_campaign_head=0;pthread_mutex_unlock(&g_campaign_lock); }
@@ -790,6 +795,16 @@ int halo_ios_queue_campaign_action(uint32_t action)
     int ok=action && atomic_load(&g_campaign_active) && g_campaign_count<16;
     if (ok) { g_campaign_queue[(g_campaign_head+g_campaign_count)%16]=action;++g_campaign_count; }
     pthread_mutex_unlock(&g_campaign_lock);return ok;
+}
+int halo_ios_campaign_assets_request(void)
+{
+    if (!atomic_load(&g_campaign_active)) return 0;
+    pthread_mutex_lock(&g_campaign_assets_lock);
+    g_campaign_assets_ready=0;
+    g_campaign_assets_staged_count=0;
+    pthread_mutex_unlock(&g_campaign_assets_lock);
+    atomic_store(&g_campaign_asset_request, 1);
+    return 1;
 }
 /* Scalar audio controls are atomic: no Objective-C lock on a mixing hot path. */
 static _Atomic float g_music_gain=1.f,g_dialogue_gain=1.f,g_effects_gain=1.f,g_ambient_gain=1.f;
@@ -834,6 +849,23 @@ static uint32_t g_profile_request;
 static _Atomic(int) g_mods_changed;
 void halo_ios_mods_changed(void){atomic_store(&g_mods_changed,1);}
 static int g_profile_requested;
+int halo_ios_campaign_assets_state(void)
+{
+    pthread_mutex_lock(&g_campaign_assets_lock);
+    int state=g_campaign_assets_ready;
+    pthread_mutex_unlock(&g_campaign_assets_lock);
+    return state;
+}
+int halo_ios_campaign_assets_list(uint32_t kind,HaloCampaignAssetEntry *out,int max)
+{
+    if(!out || max<=0)return 0;
+    pthread_mutex_lock(&g_campaign_assets_lock);
+    int count=0;
+    if(g_campaign_assets_ready==1)for(int i=0;i<g_campaign_assets_count && count<max;i++)
+        if(g_campaign_assets[i].kind==kind)out[count++]=g_campaign_assets[i];
+    pthread_mutex_unlock(&g_campaign_assets_lock);
+    return count;
+}
 int halo_ios_profile_list(HaloProfileEntry *out,int max) {
     pthread_mutex_lock(&g_profile_lock2);
     int n=g_profile_list_count<max?g_profile_list_count:max;
@@ -862,6 +894,28 @@ int halo_ios_profile_create_result(void) {
     return result;
 }
 static int ios_settings_value(uint32_t index,uint32_t address,uint32_t profile) {
+    if(index==UINT32_MAX-10) { /* -11: loaded campaign weapon/vehicle tags; 1 item, 2 complete, 3 invalidate, 4 begin */
+        pthread_mutex_lock(&g_campaign_assets_lock);
+        if(profile==1) {
+            HaloCampaignAssetEntry *entry=address?gp(address,sizeof(*entry)):NULL;
+            if(entry && memchr(entry->name,0,sizeof(entry->name)) &&
+                (entry->kind==HALO_CAMPAIGN_ASSET_WEAPON || entry->kind==HALO_CAMPAIGN_ASSET_VEHICLE) &&
+                g_campaign_assets_staged_count<HALO_CAMPAIGN_ASSET_MAX)
+                g_campaign_assets_staged[g_campaign_assets_staged_count++]=*entry;
+        } else if(profile==2) {
+            g_campaign_assets_count=g_campaign_assets_staged_count;
+            memcpy(g_campaign_assets,g_campaign_assets_staged,(size_t)g_campaign_assets_count*sizeof(g_campaign_assets[0]));
+            g_campaign_assets_ready=1;
+        } else if(profile==3) {
+            g_campaign_assets_staged_count=g_campaign_assets_count=0;
+            g_campaign_assets_ready=-1;
+        } else if(profile==4) {
+            g_campaign_assets_staged_count=0;
+            g_campaign_assets_ready=0;
+        }
+        pthread_mutex_unlock(&g_campaign_assets_lock);
+        return 1;
+    }
     if(index==UINT32_MAX-9) { /* -10: a new Halo player profile; profile 0 asks for the request, 1 and 2 report it made or not */
         pthread_mutex_lock(&g_profile_lock2);
         int answer=0;
@@ -1106,7 +1160,8 @@ static void ios_campaign_options(uint32_t packet)
     HaloCampaignOptions *out = (packet & 3u) ? NULL : gp(packet, sizeof(*out));
     if (!out) return;
     HsSettings s = [[HaloSettingsStore shared] snapshot];
-    HaloCampaignOptions result = { hs_cheat_mask(&s), 0, s.cheat_jump, s.cheat_speed, s.cheat_fov, (uint32_t)s.cheat_target };
+    HaloCampaignOptions result = { hs_cheat_mask(&s), 0, s.cheat_jump, s.cheat_speed, s.cheat_fov, (uint32_t)s.cheat_target,
+        (uint32_t)atomic_exchange(&g_campaign_asset_request,0) };
     if (s.cheat_one_hit) result.flags |= IOS_CHEAT_ONE_HIT;
     if (s.cheat_flashlight) result.flags |= IOS_CHEAT_FLASHLIGHT;
     if (s.cheat_no_fall) result.flags |= IOS_CHEAT_NO_FALL;
@@ -4237,7 +4292,7 @@ int halo_ios_run_full_guest(void (^line)(const char *text))
                 static const char *scene_names[]={"datum lookup/iteration","BSP index triangles","BSP bit triangles","material ranges","visibility surface lists","visibility leaf references","object list filter"};
                 for(unsigned kind=0;kind<7;kind++)say("native scene %s: %llu calls, %llu items, %.1f ms estimated (sampled); %llu timing samples",scene_names[kind],
                     (unsigned long long)atomic_load(&g_scene_calls[kind]),(unsigned long long)atomic_load(&g_scene_items[kind]),halo_timing_estimated_ms(atomic_load(&g_scene_calls[kind]),atomic_load(&g_scene_samples[kind]),atomic_load(&g_scene_ns[kind])),(unsigned long long)atomic_load(&g_scene_samples[kind]));
-                say("texture content checks: %llu calls, %llu exact reuse hits, %llu MiB compared, %llu MiB hashed; snapshot budget 8 MiB",
+                say("texture content checks: %llu calls, %llu exact reuse hits, %llu MiB compared, %llu MiB hashed; snapshot budget 48 MiB",
                     (unsigned long long)atomic_load(&g_texture_check_calls),(unsigned long long)atomic_load(&g_texture_check_hits),
                     (unsigned long long)(atomic_load(&g_texture_check_compared)>>20),(unsigned long long)(atomic_load(&g_texture_check_hashed)>>20));
                 say("geometry cache: %llu comparisons, %llu KiB checked, %llu changed pages (exact byte comparison)",

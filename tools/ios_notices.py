@@ -6,8 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = [
-    ("Halo CE for iOS / OpenCE (project license, GNU AGPL 3.0)", "LICENSE"),
-    ("OpenCE and its decompilation before the change of license (CC0 1.0)", "LICENSES/CC0-1.0.txt"),
+    ("Halo CE for iOS / OpenCE (project license)", "LICENSE.md"),
     ("Overpass font (SIL Open Font License)", "port/assets/fonts/Overpass-OFL.txt"),
     ("OpenCE font (SIL Open Font License)", "port/assets/fonts/OpenCE-OFL.txt"),
 ]

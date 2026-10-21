@@ -153,6 +153,7 @@ typedef NS_ENUM(NSInteger, HaloCategory) {
 @property(nonatomic) NSInteger pickerKind; /* 0 invite folder, 2 profile import */
 @property(nonatomic,strong) UILabel *connectionLabel;
 - (void)editShortcut:(int)slot;
+- (void)chooseCampaignAssetKind:(uint32_t)kind;
 - (UIView *)engineControllerCard:(const HsSettings *)settings;
 @end
 
@@ -925,7 +926,7 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
     [self add:HaloUINote(@"Tap a section to open it. Everything here works only in the solo campaign and switches itself off in multiplayer and network games.")];
     [self add:HaloUICardView(@"Splitscreen campaign", @[
         HaloUISegmentRow(@"Cheats act on", @[@"Player 1",@"Player 2",@"Both players"], settings->cheat_target, ^(NSInteger i) { [self update:^(HsSettings *s) { s->cheat_target = (int)i; }]; }),
-        HaloUINote(@"In a two-player campaign, cheats such as god mode, ammo, jetpack, noclip and speed apply only to the player you choose. Game-wide cheats, like wireframe rendering and the enemy-AI ones, always stay global. One-time actions, such as restoring health or giving a weapon, go to the chosen player (Player 1 when Both is selected).")])];
+        HaloUINote(@"Player-specific cheats affect Player 1 or Player 2 when selected; Both players applies them to each active local player. One-time player actions, such as restoring health or giving a weapon, also run once for each active player when Both is selected. Global effects such as wireframe, jetpack, AI behavior, time scale and gravity affect the whole game and ignore this selector.")])];
 #define CHEAT_SWITCH(title, sub, field) HaloUISwitchRow(title, sub, settings->field, ^(BOOL on) { [self update:^(HsSettings *s) { s->field = on; }]; })
     NSMutableArray<UIView *> *cards;
 
@@ -949,22 +950,10 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
                 [self update:^(HsSettings *s){s->cheat_projectile=(int)choice;}];[button setTitle:projectileChoices[choice] forState:UIControlStateNormal];}];}),
         HaloUINote(@"Local player weapon fire only. The chosen projectile must already be loaded by the map. Missing assets keep the original shot; weapon tags are not modified.")])];
     {   /* the weapon giver: pick what a tap does, then tap a weapon. No list pops up. */
-        NSArray<NSString *> *weaponNames=@[@"Pistol",@"Assault rifle",@"Shotgun",@"Sniper rifle",@"Rocket launcher",@"Plasma pistol",@"Plasma rifle",@"Needler",@"Flamethrower",@"Gravity rifle"];
         NSMutableArray<UIView *> *giver=[NSMutableArray array];
-        [giver addObject:HaloUISegmentRow(@"A tap will", @[@"Drop in front",@"Add to my weapons",@"Replace the one in hand"], self.giverMode, ^(NSInteger i) { self.giverMode = i; })];
-        for(NSUInteger i=0;i<weaponNames.count;i+=2) {
-            NSMutableArray<UIView *> *pair=[NSMutableArray array];
-            for(NSUInteger j=i;j<i+2&&j<weaponNames.count;j++) {
-                UIButton *weapon=HaloUIButton(weaponNames[j],0,^(UIButton *b){(void)b;
-                    uint32_t base=self.giverMode==0?100u:self.giverMode==1?120u:130u;
-                    [self queueCampaignAction:base+(uint32_t)j];});
-                [pair addObject:weapon];
-            }
-            UIStackView *line=[[UIStackView alloc] initWithArrangedSubviews:pair];
-            line.axis=UILayoutConstraintAxisHorizontal;line.distribution=UIStackViewDistributionFillEqually;line.spacing=8;
-            [giver addObject:line];
-        }
-        [giver addObject:HaloUINote(@"Drop in front puts the weapon on the ground. Add to my weapons puts it in an empty slot. Replace the one in hand drops the weapon you are holding (primary or secondary, whichever is in your hands) and puts the new one in its place. Only weapons the map has loaded can be used. With Both players selected, both players get it.")];
+        [giver addObject:HaloUISegmentRow(nil, @[@"Drop in front",@"Replace in hand",@"Add to backpack"], self.giverMode, ^(NSInteger i) { self.giverMode = i; })];
+        [giver addObject:HaloUIButton(@"Choose weapon from this map…",0,^(UIButton *b){(void)b;[self chooseCampaignAssetKind:HALO_CAMPAIGN_ASSET_WEAPON];})];
+        [giver addObject:HaloUINote(@"The picker lists weapon tags loaded by the current map, including Custom Edition weapons. Drop in front puts the weapon on the ground. Add to backpack fills an empty weapon slot; if both are full, use Replace in hand. Both players selected gives the chosen weapon to each active player.")];
         [cards addObject:HaloUICardView(@"Weapon giver",giver)];
     }
     [cards addObject:HaloUICardView(nil, @[
@@ -1064,9 +1053,9 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
     [cards addObject:HaloUICardView(nil, @[
         CHEAT_SWITCH(@"Infinite Vehicle Health", @"Restores the occupied vehicle’s body and shields while it is alive. Cannot revive destroyed vehicles.", cheat_vehicle_health)])];
     [cards addObject:HaloUICardView(nil, @[
-        HaloUIButton(@"Choose a vehicle", 0, ^(UIButton *b) { [self chooseCampaignAsset:@"Spawn a vehicle" names:@[@"Warthog", @"Ghost", @"Banshee", @"Scorpion"] base:200]; }),
-        HaloUINote(@"The vehicle appears in front of you. Only vehicles loaded by the current map can be spawned; others report a message.")])];
-    [self addCheatSection:@"Vehicle Spawner" summary:(settings->cheat_vehicle_health?@"Infinite Vehicle Health":@"Warthog, Ghost, Banshee, Scorpion") views:cards];
+        HaloUIButton(@"Choose vehicle from this map…", 0, ^(UIButton *b) { (void)b; [self chooseCampaignAssetKind:HALO_CAMPAIGN_ASSET_VEHICLE]; }),
+        HaloUINote(@"The picker lists vehicle tags loaded by the current map, including Custom Edition vehicles. With Both players selected, each gets one. Infinite Vehicle Health follows the player’s occupied vehicle.")])];
+    [self addCheatSection:@"Vehicle Spawner" summary:(settings->cheat_vehicle_health?@"Infinite Vehicle Health":@"Loaded map vehicles") views:cards];
 #undef CHEAT_SWITCH
     NSMutableArray *bindings = [NSMutableArray array];
     for (int k=1;k<4;k++) {
@@ -1083,6 +1072,51 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
 {
     if (![[HaloSettingsStore shared] campaignActive]) { halo_ios_toast("Start a solo campaign before using cheats");return; }
     if (!halo_ios_queue_campaign_action(action)) halo_ios_toast("The campaign action queue is full or unavailable");
+}
+
+- (void)chooseCampaignAssetKind:(uint32_t)kind
+{
+    if(!halo_ios_campaign_assets_request()) { halo_ios_toast("Start a solo campaign before choosing map assets"); return; }
+    halo_ios_toast(kind==HALO_CAMPAIGN_ASSET_WEAPON?"Reading weapons from the current map…":"Reading vehicles from the current map…");
+    __weak HaloSettingsViewController *weakSelf=self;
+    __block NSUInteger attempts=0;
+    __block void (^poll)(void)=nil;
+    poll=^{
+        HaloSettingsViewController *strong=weakSelf;
+        if(!strong || !strong.view.window) { poll=nil; return; }
+        if(halo_ios_campaign_assets_state()==1) {
+            HaloCampaignAssetEntry entries[HALO_CAMPAIGN_ASSET_MAX];
+            int count=halo_ios_campaign_assets_list(kind,entries,HALO_CAMPAIGN_ASSET_MAX);
+            if(count<=0) {
+                halo_ios_toast(kind==HALO_CAMPAIGN_ASSET_WEAPON?"This map has no loaded weapon tags":"This map has no loaded vehicle tags");
+                poll=nil;return;
+            }
+            NSMutableArray<NSDictionary *> *assets=[NSMutableArray arrayWithCapacity:(NSUInteger)count];
+            for(int i=0;i<count;i++) {
+                NSString *name=[NSString stringWithUTF8String:entries[i].name];
+                if(name.length)[assets addObject:@{@"name":name,@"token":@(entries[i].token)}];
+            }
+            [assets sortUsingComparator:^NSComparisonResult(NSDictionary *a,NSDictionary *b){
+                return [a[@"name"] localizedStandardCompare:b[@"name"]];
+            }];
+            NSMutableArray<NSString *> *names=[NSMutableArray arrayWithCapacity:assets.count];
+            for(NSDictionary *asset in assets)[names addObject:asset[@"name"]];
+            [strong presentChoices:kind==HALO_CAMPAIGN_ASSET_WEAPON?@"Loaded map weapons":@"Loaded map vehicles"
+                names:names from:strong pick:^(NSUInteger choice){
+                    if(choice>=assets.count)return;
+                    uint32_t token=[assets[choice][@"token"] unsignedIntValue];
+                    uint32_t mode=kind==HALO_CAMPAIGN_ASSET_WEAPON?(uint32_t)self.giverMode:0u;
+                    [self queueCampaignAction:HALO_CAMPAIGN_ASSET_ACTION(token,mode)];
+                }];
+            poll=nil;return;
+        }
+        if(attempts++>=60) {
+            halo_ios_toast("The map asset list did not respond. Reopen the picker to try again");
+            poll=nil;return;
+        }
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.1*NSEC_PER_SEC)),dispatch_get_main_queue(),poll);
+    };
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.1*NSEC_PER_SEC)),dispatch_get_main_queue(),poll);
 }
 
 - (void)chooseCampaignAsset:(NSString *)title names:(NSArray<NSString *> *)names base:(uint32_t)base

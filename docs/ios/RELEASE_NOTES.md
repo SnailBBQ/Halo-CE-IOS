@@ -1,17 +1,17 @@
 # Release notes
 
-The current update is **M2.6.96**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.118**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
-No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test.
+No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test. M2.6.118 has not been built on a Mac or validated on a device; no IPA was generated as part of this update.
 
 **Device result, 2026-10-08:** the M2.6.101 Non-Jailbreak build is confirmed playable on an iPhone 14 Plus (iOS 16.2, Sideloadly): a10 played, second map loaded, about 60 FPS, no crashes, no pointer faults. Documentation only; no code change after M2.6.101.
 
-**Latest:** [M2.6.116](../../port/ios/UPDATE_M2716.md) moves to OpenCE **build 246** (network version 32: every player must be on build 246) and follows OpenCE's change to the AGPL license.
+**Latest:** [M2.6.118](../../port/ios/UPDATE_M2718.md) integrates OpenCE build 244 / network 32, including upstream networking, map, renderer and Custom Edition changes while preserving the iOS host/guest adaptation. Network-29 clients cannot cross-play with network 32. The source update passes strict upstream acceptance; a Mac build and device validation are still required.
 
-**Previous:** [M2.6.115](../../port/ios/UPDATE_M2715.md) moved to OpenCE **build 235** (same network version 29). The iPhone keyboard now comes up for Server Setup's game name and password, the join password and Direct Link's invite link, as well as the text chat ([M2.6.114](../../port/ios/UPDATE_M2714.md): D-pad Up in a network game).
+**Previous:** [M2.6.116](../../port/ios/UPDATE_M2716.md) recovers to the main menu after a rejected map load instead of leaving Halo on the blue fatal-error screen. It preserves map validation and corrects the texture snapshot budget diagnostic.
 
 **Previous:** [M2.6.113](../../port/ios/UPDATE_M2713.md) moves to OpenCE **build 220** (same network version 29) and makes Settings > Mods the same list as the game's new Mods menu: mods turned on or off, reordered, removed or added in either place show in both.
 
@@ -95,7 +95,6 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
-| M2.6.116 | OpenCE build 246 integration (network 32): bots, co-op changes, latency meter, passenger camera; AGPL license; 256 MiB memory window and 64 MiB texture cache for large Custom Edition maps; texture check once per frame. |
 | M2.6.105 | OpenCE build 201 / network 28 integration: Custom Edition map sharing, shield glow and armor colors, first-person legs; no host import change. |
 | M2.6.113 | OpenCE build 220 integration (network 29): the new Mods system; Settings > Mods lists, orders, turns on and off, removes and adds mods in step with the game's Mods menu. |
 | M2.6.112 | Settings search; Talk / Mute touch button; microphone off by default and synced with the game; profile picker; emoji / photo Settings icons with favorites; Mods filters; title screen cleanup. |
