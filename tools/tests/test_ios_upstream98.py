@@ -11,13 +11,13 @@ quit_fn=function('port/linux/src/sdl_platform.c','void platform_request_quit(voi
 split_fn=function('port/linux/game/menu_functions.c','unsigned char pc_menu_split_players(void)')
 brokers_fn=function('port/linux/src/p2p_signal.c','static void brokers_list(')
 common=r'''
-#define DEFAULT_BROKERS "default.example:1883"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <setjmp.h>
+#define DEFAULT_BROKERS "opence.milenko.org:1883,broker.emqx.io:1883,broker.hivemq.com:1883,test.mosquitto.org:1883"
 static jmp_buf stopped;
 static int exited,pushed;
 void host_exit(int code) __attribute__((noreturn));

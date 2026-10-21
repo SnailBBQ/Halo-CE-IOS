@@ -173,10 +173,10 @@ static NSArray<NSString *> *HaloLibraryShowChoices(void) { return @[@"Hide",@"Al
         @try{HaloModPackSave(newOrder,newOff);}@catch(NSException *e){[weakSelf message:e.reason];}
         [weakSelf render];};
     [self.rows addArrangedSubview:HaloUICardView(@"Add",@[
-        HaloUIButton(@"Add a mod folder…",1,^(UIButton *b){(void)b;weakSelf.pickerKind=9;UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeFolder] asCopy:NO];picker.allowsMultipleSelection=YES;picker.delegate=weakSelf;[weakSelf presentViewController:picker animated:YES completion:nil];}),
-        HaloUINote(@"Textures, sounds, text and models that change how the game looks and sounds, on this iPhone only. Unzip the mod in the Files app first."),
         HaloUIButton(@"Import Custom Edition maps…",1,^(UIButton *b){(void)b;weakSelf.pickerKind=7;UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:YES];picker.allowsMultipleSelection=YES;picker.delegate=weakSelf;[weakSelf presentViewController:picker animated:YES completion:nil];}),
-        HaloUINote(@"Extra multiplayer maps (.map files). Pick bitmaps.map, sounds.map and loc.map in the same selection if a map needs them.")])];
+        HaloUINote(@"Extra multiplayer maps (.map files). Pick bitmaps.map, sounds.map and loc.map in the same selection if a map needs them."),
+        HaloUIButton(@"Add a mod folder…",1,^(UIButton *b){(void)b;weakSelf.pickerKind=9;UIDocumentPickerViewController *picker=[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeFolder] asCopy:NO];picker.allowsMultipleSelection=YES;picker.delegate=weakSelf;[weakSelf presentViewController:picker animated:YES completion:nil];}),
+        HaloUINote(@"Textures, sounds, text and models that change how the game looks and sounds, on this iPhone only. Unzip the mod in the Files app first.")])];
     [self.rows addArrangedSubview:HaloLibrarySection(@"Mod order",@"The mod at the top plays over the ones below it. This is the same list as the game's Mods menu.")];
     if(!mods.count){[self.rows addArrangedSubview:HaloUICardView(nil,@[HaloUINote(@"No mods yet. Tap “Add a mod folder…” above.")])];return;}
     NSInteger count=(NSInteger)mods.count;

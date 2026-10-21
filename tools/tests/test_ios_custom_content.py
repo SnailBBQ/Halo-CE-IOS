@@ -2,16 +2,16 @@
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 HOST=ROOT/'port/ios/HaloIOS'
-mods=(HOST/'HaloMods.m').read_text()
-header=(HOST/'HaloMods.h').read_text()
-library=(HOST/'HaloLibrary.m').read_text()
-app=(HOST/'AppDelegate.m').read_text()
-disc=(HOST/'HaloDiscImport.m').read_text()
-backup=(HOST/'HaloBackupArchive.m').read_text()
-runner=(HOST/'halo_guest_runner.m').read_text()
-stubs=(ROOT/'tools/ios_gl_stubs.py').read_text()
-bink=(ROOT/'source/bink/bink_playback.c').read_text()
-attract=(ROOT/'source/interface/attract_mode.c').read_text()
+mods=(HOST/'HaloMods.m').read_text(encoding="utf-8")
+header=(HOST/'HaloMods.h').read_text(encoding="utf-8")
+library=(HOST/'HaloLibrary.m').read_text(encoding="utf-8")
+app=(HOST/'AppDelegate.m').read_text(encoding="utf-8")
+disc=(HOST/'HaloDiscImport.m').read_text(encoding="utf-8")
+backup=(HOST/'HaloBackupArchive.m').read_text(encoding="utf-8")
+runner=(HOST/'halo_guest_runner.m').read_text(encoding="utf-8")
+stubs=(ROOT/'tools/ios_gl_stubs.py').read_text(encoding="utf-8")
+bink=(ROOT/'source/bink/bink_playback.c').read_text(encoding="utf-8")
+attract=(ROOT/'source/interface/attract_mode.c').read_text(encoding="utf-8")
 
 # Replacement mods are retired from the public UI; the old transaction exists
 # only to unwind an installed overlay safely at the next launch.
