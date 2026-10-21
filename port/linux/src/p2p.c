@@ -2908,7 +2908,8 @@ void p2p_new_invite_if_listed(void)
 		return;
 	make_invite();
 #ifdef HALO_IOS_GUEST
-	/* Keep the iOS invite display and active invite in sync. */
+	/* Keep Settings, clipboard sharing and the active invite file in sync
+	   when upstream revokes a previously public invite. */
 	if (p2p.hosting) host_active_invite(p2p.invite);
 #endif
 	{
@@ -3665,22 +3666,16 @@ static void *p2p_thread(void *unused)
 		update_upnp();
 		p2p_discord_update();
 #ifdef HALO_IOS_GUEST
-		/* Publish a network-thread snapshot; Settings never blocks the game. */
-		{
-			extern void host_network_status(unsigned int, unsigned int, unsigned int);
-			unsigned int peers = 0, ping = 0, client = 0;
-			for (index = 0; index < P2P_MAXIMUM_PEERS; index++)
-			{
-				if (p2p.peers[index].used && p2p.peers[index].connected && !p2p.peers[index].probe)
-				{
-					peers++;
-					if (p2p.peers[index].is_host) client = 1;
-					if (p2p.peers[index].round_trip && (!ping || p2p.peers[index].round_trip < ping))
-						ping = (unsigned int)p2p.peers[index].round_trip;
-				}
-			}
-			host_network_status(client ? 2 : p2p.hosting ? 1 : p2p.joining ? 3 : 0, peers, ping);
-		}
+        /* Network-thread snapshot only; the game never waits on the Settings UI. */
+        {
+            extern void host_network_status(unsigned int,unsigned int,unsigned int);
+            unsigned int peers=0,ping=0,client=0;
+            for(index=0;index<P2P_MAXIMUM_PEERS;index++)if(p2p.peers[index].used && p2p.peers[index].connected) {
+                peers++;if(p2p.peers[index].is_host)client=1;
+                if(p2p.peers[index].round_trip && (!ping || p2p.peers[index].round_trip<ping))ping=(unsigned int)p2p.peers[index].round_trip;
+            }
+            host_network_status(client?2:p2p.hosting?1:p2p.joining?3:0,peers,ping);
+        }
 #endif
 #ifdef HALO_ANDROID
 		poll_invite_file();

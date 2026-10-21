@@ -45,20 +45,14 @@ assert '--ios-arena-fastpath' in (scratch/'build.ninja').read_text()
 # Non-Jailbreak Stage 3 gets a distinct guest ABI: x15 scratch + x27 arena base,
 # flexible-base converter, and an explicit HALO_IOS_FLEX_BASE define.
 (scratch/'build.ninja').write_bytes((generated+'\n-DHALO_ANDROID=1\n--target=arm64_32-apple-watchos\nld.lld -m aarch64linux -static -T port/android/guest/guest.ld\ntools/android_gl_stubs.py\n').encode())
-nonjb_result=subprocess.run([sys.executable,'-c',body],cwd=scratch,capture_output=True,text=True,
-                            env={**os.environ,'ARENA_FASTPATH':'true','NON_JAILBREAK':'true','COMPATIBILITY_TEST':'false'})
-if nonjb_result.returncode:
-    # Some local clang builds lack LLVM's compressed-jump-table switch. The
-    # production transformation must reject that compiler for Stage 3; CI's
-    # supported clang continues through the full output assertions below.
-    assert 'Non-Jailbreak Stage 3 requires compressed jump tables to be disabled' in nonjb_result.stderr, nonjb_result.stderr
-else:
-    nonjb=(scratch/'build.ninja').read_text()
-    assert '-DHALO_IOS_GUEST=1 -DHALO_IOS_FLEX_BASE=1' in nonjb
-    assert 'tools/android_asm_convert.py --ios-flex-base-fastpath $out.darwin.s $out.s' in nonjb
-    assert '--target=arm64_32-apple-watchos -ffixed-x15 -ffixed-x27' in nonjb
-    assert '-aarch64-enable-compress-jump-tables=false' in nonjb
-    assert '--ios-arena-fastpath' not in nonjb
+subprocess.run([sys.executable,'-c',body],cwd=scratch,check=True,
+               env={**os.environ,'ARENA_FASTPATH':'true','NON_JAILBREAK':'true','COMPATIBILITY_TEST':'false'})
+nonjb=(scratch/'build.ninja').read_text()
+assert '-DHALO_IOS_GUEST=1 -DHALO_IOS_FLEX_BASE=1' in nonjb
+assert 'tools/android_asm_convert.py --ios-flex-base-fastpath $out.darwin.s $out.s' in nonjb
+assert '--target=arm64_32-apple-watchos -ffixed-x15 -ffixed-x27' in nonjb
+assert '-aarch64-enable-compress-jump-tables=false' in nonjb
+assert '--ios-arena-fastpath' not in nonjb
 # Stage 3 is correctness-critical and must not build with the rewrite disabled.
 (scratch/'build.ninja').write_bytes((generated+'\n-DHALO_ANDROID=1\n--target=arm64_32-apple-watchos\nld.lld -m aarch64linux -static -T port/android/guest/guest.ld\ntools/android_gl_stubs.py\n').encode())
 assert subprocess.run([sys.executable,'-c',body],cwd=scratch,
@@ -69,9 +63,10 @@ assert subprocess.run([sys.executable,'-c',body],cwd=scratch,
 assert subprocess.run([sys.executable,'-c',body],cwd=scratch,env=env,capture_output=True).returncode!=0
 print('PASS: real android_guest_cc command emitted by repository Ninja writer, LF/CRLF continuation matching and full workflow transformation (regular aligned and Non-JB flexible-base guest ABIs)')
 
-# Keep IPA builds manual so pushes cannot spend hosted macOS minutes.
-assert "  workflow_dispatch:" in wf
-assert "\n  push:" not in wf, 'the iOS IPA workflow must not start automatically on pushes'
+# Only regular-app main pushes may spend hosted build time. Keep expensive
+# jobs behind diagnostics and cancel obsolete builds on replacement pushes.
+assert "  push:\n    branches: [main]\n    paths:" in wf
+assert "      - 'port/ios/**'\n      - '!port/ios/*.md'" in wf, 'notes-only port/ios markdown must not trigger the automatic IPA build'
 assert "  group: halo-ios-${{ inputs.non_jailbreak && 'non-jailbreak' || inputs.compatibility_test && 'modtest' || 'main' }}\n  cancel-in-progress: true" in wf, 'official pushes must keep the halo-ios-main group; manual flavors get their own'
 assert "    needs: diagnostics" in wf
 assert "    uses: ./.github/workflows/ios-memory-tests.yml" in wf

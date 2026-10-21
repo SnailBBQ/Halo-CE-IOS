@@ -6,7 +6,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is **in beta**: it boots and plays on a stock, sideloaded iPhone 14 Plus but has glitches, bugs and crashes (see the [Device test results](docs/ios/DEVICE_TESTS.md)). The current source update is **M2.6.118**, on OpenCE **build 244** (network version 32). This upstream promotion includes newer networking, rendering, map, and Custom Edition code; device validation is still needed. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
+> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is **in beta**: it boots and plays on a stock, sideloaded iPhone 14 Plus but has glitches, bugs and crashes (see [Device test results](docs/ios/DEVICE_TESTS.md)). The current source update is **M2.6.116**, on OpenCE **build 246** (network version 32) with Custom Edition maps, the MP4 movie fallback and Mods. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
@@ -24,7 +24,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 **Fix:** [M2.6.107](port/ios/UPDATE_M2707.md) repairs M2.6.104-106: a startup failure (guest ABI mismatch, fixed in M2.6.106) and a freeze when joining an internet game. Do not use those builds.
 
-**Update:** [M2.6.118](port/ios/UPDATE_M2718.md) integrates OpenCE build 244 / network 32, preserving the iOS host and guest hooks and the map-aware Custom Edition pickers. Network-29 builds cannot cross-play with this version. [M2.6.117](port/ios/UPDATE_M2717.md) added map-aware weapon and vehicle pickers; [M2.6.116](port/ios/UPDATE_M2716.md) added map-load recovery.
+**Update:** [M2.6.116](port/ios/UPDATE_M2716.md) moves to OpenCE **build 246** (network version 32, so every player must be on build 246; OpenCE is now under the AGPL). [M2.6.115](port/ios/UPDATE_M2715.md) moved to OpenCE **build 235** (network version 29). Typing now uses the iPhone keyboard everywhere: Server Setup's game name and password, the join password, Direct Link's invite link, and the game's text chat (D-pad Up in a network game). [M2.6.114](port/ios/UPDATE_M2714.md) brought the text chat, streamer mode and the multiplayer HUD options (OpenCE build 232).
 
 **Previous:** [M2.6.113](port/ios/UPDATE_M2713.md) moves to OpenCE **build 220** (same network version 29) and makes Settings > Mods the same list as the game's new Mods menu: mods turned on or off, reordered, removed or added in either place show in both.
 
@@ -165,9 +165,12 @@ them, so please don't share them, or links to them, here.
 The engine is recovered from the original game by the upstream OpenCE project. This project claims no rights
 held by Microsoft or anyone else.
 
-Code written by this project and its upstream contributors is offered under [CC0 1.0](LICENSE.md), to the
-extent they own it. That gives you no rights in *Halo*. Third-party libraries and fonts, the app icon by ORION,
-and the screenshots in the docs keep their own terms (see the [credits](docs/UPSTREAM.md#credits)).
+This project is free software under the **GNU Affero General Public License, version 3 or (at your option) any later
+version** ([LICENSE](LICENSE)), the license OpenCE moved to with build 246 (the source of earlier OpenCE builds stays under
+[CC0 1.0](LICENSES/CC0-1.0.txt)). If you change the game and let others play with your version over a network, the AGPL
+asks you to offer them your source (section 13); this repository is the source of the iOS app, and the app's Settings >
+About links to it. That gives you no rights in *Halo*. Third-party libraries and fonts, the app icon by ORION, and the
+screenshots in the docs keep their own terms (see the [credits](docs/UPSTREAM.md#credits)).
 
 Builds are free and come with no warranty. If you share one, keep it free: no selling and no ads.
 

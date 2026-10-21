@@ -4,7 +4,6 @@
 int halo_ios_run_full_guest(void (^line)(const char *text));
 
 #include <stdint.h>
-#include "../../include/halo_ios_campaign_assets.h"
 
 /* SDL gamepad button index; called by the on-screen controls. */
 void halo_ios_menu_button(int button, int pressed);
@@ -35,9 +34,6 @@ void halo_ios_set_viewmodel_flags(uint32_t flags);
 /* One-shot request; refuses a second action until the game consumes the first. */
 int halo_ios_queue_campaign_action(uint32_t action);
 void halo_ios_campaign_state(int active);
-int halo_ios_campaign_assets_request(void);
-int halo_ios_campaign_assets_state(void); /* -1 stale, 0 loading, 1 ready */
-int halo_ios_campaign_assets_list(uint32_t kind, HaloCampaignAssetEntry *out, int max);
 void halo_ios_quit_app(void);
 
 /* The sampling profiler (log reports "Where the time goes"); costs about 1% of one core. */
