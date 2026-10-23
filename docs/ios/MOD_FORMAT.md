@@ -39,8 +39,8 @@ Quick test: a file only matters if the **same path exists in the game**, for exa
 You can also copy a mod folder yourself, in the Files app, into **Halo CE > Halo > mods** (`Documents/Halo/mods`).
 
 The mod is **on** as soon as it is added. A map that is running picks it up when you press OK in the game's Mods screen, or after Settings
-changes it; otherwise it plays the next time a map loads. Settings > Mods and the game's own **Mods** screen (main menu) are one list: turning a
-mod on or off, moving it or removing it in either place shows in the other.
+changes it; otherwise it plays the next time a map loads. Settings > Mods and the game's own **Mods** screen (main menu) use one list: turning a
+mod on or off in either menu updates the other. Settings refreshes its list while open.
 
 ## Making a mod
 
@@ -120,8 +120,7 @@ Every mod is on until you turn it off. Mods load in an order, and where two mods
 **Mods that cannot be played together.** On a computer the game asks about them before it starts. The iPhone cannot show that question: the app
 plays them all and shows the warning on the mod, so you can turn one off yourself.
 
-The game's console commands (`mods_list`, `mods_reload`, `mods_enable`) are not available on the iPhone. To see the original game, turn the mods
-off in Settings > Mods.
+The game's console commands (`mods_list`, `mods_reload`, `mods_enable`) can be entered from **Settings > Cheats > Developer Console**. For ordinary on/off changes, use either **Settings > Mods** or the game's **Mods** menu; both update the same list. To see the original game, turn the mods off in either menu.
 
 ## What a mod can replace
 

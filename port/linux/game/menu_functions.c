@@ -72,6 +72,9 @@ their handlers open opens.
 #include "interface/ui_widget.h"
 #include "interface/ui_widget_event_handler_functions.h"
 #include "main/main.h"
+#ifdef HALO_IOS_GUEST
+#include "main/console.h" /* port: the iOS Settings console button and command field */
+#endif
 #include "networking/network_game_manager.h"
 #include "saved games/player_profile.h"
 #include "tag_files/tag_groups.h"
@@ -248,6 +251,16 @@ void pc_menu_ios_sync_settings(void)
         void mods_apply(void);
         text[0]=0;
         if(host_settings_value((unsigned)-7,text,0))mods_apply();
+    }
+    {
+        /* port: console controls from the touch UI or a controller shortcut.
+        The host passes requests; only this game thread changes console state. */
+        char command[256]={0};
+        if(host_settings_value((unsigned)-12,NULL,0)) {
+            if(console_is_active())console_close();else console_open();
+        }
+        if(host_settings_value((unsigned)-13,command,0))console_ios_command(command);
+        host_settings_value((unsigned)-14,NULL,console_is_active());
     }
     if(player_ui_ios_initialized()) {
         /* Settings > Profiles: switch to the Halo player profile the host asked for (-6), and publish the profiles (-4, then -5
@@ -2715,6 +2728,14 @@ static boolean mods_toggle(struct widget_instance *widget)
 		return FALSE;
 	if (port_mods_status(mod, NULL, 0) != _port_mod_unplayable)
 		port_mods_turn(mod, !port_mods_on(mod));
+#ifdef HALO_IOS_GUEST
+	if (port_mods_status(mod, NULL, 0) != _port_mod_unplayable)
+	{
+		/* port: Settings > Mods reads load_order.toml while this screen is open. */
+		port_mods_save();
+		mods_apply();
+	}
+#endif
 	return TRUE;
 }
 

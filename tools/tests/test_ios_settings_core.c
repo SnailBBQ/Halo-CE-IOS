@@ -26,6 +26,8 @@ int main(void)
     CHECK(!halo_shortcut_press(&shortcut,&binding,0,6) && !halo_shortcut_press(&shortcut,&binding,1,6.2),"total timeout also applies");
     s.shortcuts[1]=binding;s.shortcuts[1].total=4;s.gear_opacity=.4f;s.gear_icon=3;
     CHECK(hs_serialize(&s,text,sizeof(text))>0 && hs_parse(&t,text) && !strcmp(t.shortcuts[1].sequence,"0,1") && near(t.shortcuts[1].total,4) && near(t.gear_opacity,.4f) && t.gear_icon==3,"shortcuts and icon appearance round-trip within the existing buffer");
+    strcpy(s.shortcuts[4].sequence,"15,16");s.shortcuts[4].action=31;
+    CHECK(hs_serialize(&s,text,sizeof(text))>0 && hs_parse(&t,text) && !strcmp(t.shortcuts[4].sequence,"15,16") && t.shortcuts[4].action==0,"console shortcut round-trips separately from campaign actions");
     he_set(&s,0,"0.25");he_set(&s,1,"0.5");he_set(&s,3,"0");he_set(&s,9,"10000000000000000000");hs_sanitize(&s);
     CHECK(near(s.volume,.25f) && near(s.music_volume,.5f) && !s.game_vsync && s.game_controls[0]==10,"shared values normalize and hostile integer inputs are bounded");
     he_set(&s,17,"Player");CHECK(s.game_profile_ready && !strcmp(s.game_name,"Player"),"engine profile name copied without retaining pointers");

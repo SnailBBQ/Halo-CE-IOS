@@ -31,7 +31,7 @@ assert "else if (cache_file_globals.tags_loaded && cache_file_globals.tag_header
 assert "cache_file_globals.tag_header = NULL;" in unload
 assert "snapshot budget 48 MiB" in runner
 assert "snapshot budget 8 MiB" not in runner
-assert info["CFBundleShortVersionString"] == "0.2.119"
-assert info["CFBundleVersion"] == "2719"
-assert info["HaloSourceMilestone"] == "M2.6.119"
-print("PASS: rejected map loads clean up and return to menu; tag-header cleanup is guarded; diagnostics and identity match M2.6.119")
+assert info["CFBundleShortVersionString"] == "0.2.120"
+assert info["CFBundleVersion"] == "2720"
+assert info["HaloSourceMilestone"] == "M2.6.120"
+print("PASS: rejected map loads clean up and return to menu; tag-header cleanup is guarded; diagnostics and identity match M2.6.120")

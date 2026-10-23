@@ -848,6 +848,25 @@ static int g_profile_list_count;
 static uint32_t g_profile_request;
 static _Atomic(int) g_mods_changed;
 void halo_ios_mods_changed(void){atomic_store(&g_mods_changed,1);}
+static _Atomic(unsigned) g_console_toggles;
+static _Atomic(int) g_console_active;
+static pthread_mutex_t g_console_command_lock=PTHREAD_MUTEX_INITIALIZER;
+static char g_console_command[256];
+static int g_console_command_ready;
+void halo_ios_console_toggle(void){atomic_fetch_add(&g_console_toggles,1);}
+int halo_ios_console_active(void){return atomic_load(&g_console_active);}
+int halo_ios_console_command(const char *command)
+{
+    if(!command)return 0;
+    size_t length=strnlen(command,sizeof(g_console_command));
+    if(!length || length>=sizeof(g_console_command) || strchr(command,'\n') || strchr(command,'\r'))return 0;
+    pthread_mutex_lock(&g_console_command_lock);
+    if(g_console_command_ready){pthread_mutex_unlock(&g_console_command_lock);return 0;}
+    memcpy(g_console_command,command,length+1);
+    g_console_command_ready=1;
+    pthread_mutex_unlock(&g_console_command_lock);
+    return 1;
+}
 static int g_profile_requested;
 int halo_ios_campaign_assets_state(void)
 {
@@ -994,6 +1013,21 @@ static int ios_settings_value(uint32_t index,uint32_t address,uint32_t profile) 
     }
     if(index==UINT32_MAX-6) { /* -7: Settings > Mods changed the mods folder or load_order.toml: the engine applies it, once */
         return atomic_exchange(&g_mods_changed,0);
+    }
+    if(index==UINT32_MAX-11) { /* -12: one requested developer console toggle */
+        return atomic_exchange(&g_console_toggles,0)&1u;
+    }
+    if(index==UINT32_MAX-12) { /* -13: one command, copied to a 256-byte guest buffer */
+        char *guest=gp(address,256);if(!guest)return 0;
+        pthread_mutex_lock(&g_console_command_lock);
+        int ready=g_console_command_ready;
+        if(ready){memcpy(guest,g_console_command,sizeof(g_console_command));g_console_command_ready=0;}
+        pthread_mutex_unlock(&g_console_command_lock);
+        return ready;
+    }
+    if(index==UINT32_MAX-13) { /* -14: guest reports whether Halo's console is open */
+        atomic_store(&g_console_active,profile?1:0);
+        return 0;
     }
     if(index==UINT32_MAX-7) { /* -8: the text chat's line, typed on the phone's keyboard (halo_ios_chat_input); `profile` is 1 and up while typing, 100 when the game ended the line */
         char *guest=gp(address,64);if(!guest || !memchr(guest,0,64))return 0;

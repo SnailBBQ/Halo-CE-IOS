@@ -82,6 +82,7 @@ static const HssEntry hss_entries[] = {
     { 4, "Weapon giver", "give gun rifle pistol spawn replace weapon in hand", 0 },
     { 4, "Give frag and plasma grenades", "grenade refill", 0 },
     { 4, "Vehicle Spawner", "warthog ghost banshee scorpion spawn vehicle", 1 },
+    { 4, "Developer Console", "console command keyboard shortcut tilde backquote", 1 },
     { 4, "Teleport me to crosshair", "move warp", 0 },
     { 4, "Infinite Active Camo", "invisible", 0 },
     { 4, "Infinite Overshield", "shield", 0 },

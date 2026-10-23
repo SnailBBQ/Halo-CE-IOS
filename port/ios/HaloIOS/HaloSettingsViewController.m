@@ -65,7 +65,7 @@ static NSArray<NSString *> *HaloShortcutKeys(void) {
 @implementation HaloShortcutEditor
 - (void)viewDidLoad {
     [super viewDidLoad];self.view.backgroundColor=HaloUIBackground();
-    self.title=self.slot?[NSString stringWithFormat:@"Cheat Shortcut %d",self.slot]:@"Settings Shortcut";
+    self.title=self.slot==4?@"Developer Console Shortcut":self.slot?[NSString stringWithFormat:@"Cheat Shortcut %d",self.slot]:@"Settings Shortcut";
     self.navigationItem.leftBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self action:@selector(cancel)];
     self.navigationItem.rightBarButtonItem=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemSave target:self action:@selector(save)];
     HsSettings settings=[HaloSettingsStore.shared snapshot];HsShortcut q=settings.shortcuts[self.slot];
@@ -74,7 +74,7 @@ static NSArray<NSString *> *HaloShortcutKeys(void) {
         if(part.length && part.intValue>=0 && part.intValue<17 && part.intValue!=5)[self.steps addObject:@(part.intValue)];
     UIStackView *stack=HaloUIScrollingStack(self.view,12);
     __weak HaloShortcutEditor *weakSelf=self;
-    if(self.slot) {
+    if(self.slot>=1 && self.slot<=3) {
         UIButton *choose=HaloUIButton(HaloShortcutActions()[self.action],1,^(UIButton *button){
             HaloShortcutEditor *editor=weakSelf;if(!editor)return;
             HaloOptionPicker *picker=[HaloOptionPicker new];picker.title=@"Choose Cheat";
@@ -125,7 +125,7 @@ static NSArray<NSString *> *HaloShortcutKeys(void) {
 - (void)cancel { [self dismissViewControllerAnimated:YES completion:nil]; }
 - (void)save {
     NSString *sequence=[self.steps componentsJoinedByString:@","];int slot=self.slot,action=self.action;float gap=self.gap,total=self.total;
-    [HaloSettingsStore.shared update:^(HsSettings *s){snprintf(s->shortcuts[slot].sequence,sizeof(s->shortcuts[slot].sequence),"%s",sequence.UTF8String);s->shortcuts[slot].gap=gap;s->shortcuts[slot].total=total;if(slot)s->shortcuts[slot].action=action;}];
+    [HaloSettingsStore.shared update:^(HsSettings *s){snprintf(s->shortcuts[slot].sequence,sizeof(s->shortcuts[slot].sequence),"%s",sequence.UTF8String);s->shortcuts[slot].gap=gap;s->shortcuts[slot].total=total;if(slot>=1 && slot<=3)s->shortcuts[slot].action=action;}];
     void (^saved)(void)=self.saved;[self dismissViewControllerAnimated:YES completion:^{if(saved)saved();}];
 }
 @end
@@ -923,7 +923,7 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
 - (void)buildCheats:(const HsSettings *)settings
 {
     [self add:HaloUINote(@"The selected control preset activates its saved cheat recipe automatically in solo campaign. Multiplayer disables all cheats.")];
-    [self add:HaloUINote(@"Tap a section to open it. Everything here works only in the solo campaign and switches itself off in multiplayer and network games.")];
+    [self add:HaloUINote(@"Tap a section to open it. Campaign cheats switch off in multiplayer and network games. The Developer Console is available separately.")];
     [self add:HaloUICardView(@"Splitscreen campaign", @[
         HaloUISegmentRow(@"Cheats act on", @[@"Player 1",@"Player 2",@"Both players"], settings->cheat_target, ^(NSInteger i) { [self update:^(HsSettings *s) { s->cheat_target = (int)i; }]; }),
         HaloUINote(@"Player-specific cheats affect Player 1 or Player 2 when selected; Both players applies them to each active local player. One-time player actions, such as restoring health or giving a weapon, also run once for each active player when Both is selected. Global effects such as wireframe, jetpack, AI behavior, time scale and gravity affect the whole game and ignore this selector.")])];
@@ -1056,6 +1056,27 @@ static NSArray<NSString *> *HaloShortcutActions(void) {
         HaloUIButton(@"Choose vehicle from this map…", 0, ^(UIButton *b) { (void)b; [self chooseCampaignAssetKind:HALO_CAMPAIGN_ASSET_VEHICLE]; }),
         HaloUINote(@"The picker lists vehicle tags loaded by the current map, including Custom Edition vehicles. With Both players selected, each gets one. Infinite Vehicle Health follows the player’s occupied vehicle.")])];
     [self addCheatSection:@"Vehicle Spawner" summary:(settings->cheat_vehicle_health?@"Infinite Vehicle Health":@"Loaded map vehicles") views:cards];
+    cards = [NSMutableArray array];
+    [cards addObject:HaloUICardView(nil,@[
+        HaloUIButton(halo_ios_console_active()?@"Close Developer Console":@"Open Developer Console",1,^(UIButton *b){(void)b;
+            halo_ios_console_toggle();
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.35*NSEC_PER_SEC)),dispatch_get_main_queue(),^{[self renderSoon];});
+        }),
+        HaloUIButton(@"Enter console command…",0,^(UIButton *b){(void)b;
+            UIAlertController *alert=[UIAlertController alertControllerWithTitle:@"Developer Console" message:@"Type or paste one Halo console command. It runs in the game and opens the console if needed." preferredStyle:UIAlertControllerStyleAlert];
+            [alert addTextFieldWithConfigurationHandler:^(UITextField *field){field.keyboardType=UIKeyboardTypeASCIICapable;field.autocorrectionType=UITextAutocorrectionTypeNo;field.autocapitalizationType=UITextAutocapitalizationTypeNone;field.returnKeyType=UIReturnKeyDone;field.placeholder=@"Console command";}];
+            [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+            [alert addAction:[UIAlertAction actionWithTitle:@"Run" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){(void)action;
+                NSString *line=alert.textFields.firstObject.text?:@"";
+                NSData *bytes=[line dataUsingEncoding:NSUTF8StringEncoding];
+                if(!bytes.length || bytes.length>=256 || [line rangeOfCharacterFromSet:[NSCharacterSet newlineCharacterSet]].location!=NSNotFound){halo_ios_toast("Enter one command up to 255 bytes");return;}
+                if(!halo_ios_console_command(line.UTF8String))halo_ios_toast("Console is busy; try again");
+            }]];
+            [self presentViewController:alert animated:YES completion:nil];
+        }),
+        HaloUIButton(@"Change console shortcut…",0,^(UIButton *b){(void)b;[self editShortcut:4];}),
+        HaloUINote(@"Use the button or your saved touch/controller button sequence to open or close Halo's console. Enter a command here with the iOS keyboard; normal copy and paste work. The shortcut can be cleared in its editor.")])];
+    [self addCheatSection:@"Developer Console" summary:settings->shortcuts[4].sequence[0]?@"Button sequence set":@"Touch button and command input" views:cards];
 #undef CHEAT_SWITCH
     NSMutableArray *bindings = [NSMutableArray array];
     for (int k=1;k<4;k++) {

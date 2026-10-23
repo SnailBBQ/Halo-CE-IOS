@@ -239,6 +239,18 @@ static boolean console_process_command(
 	return hs_compile_and_evaluate(command);
 }
 
+#ifdef HALO_IOS_GUEST
+/* port: UIKit never touches console_globals; the iOS host passes one command
+through the regular game-thread settings poll. */
+boolean console_ios_command(const char *command)
+{
+	if (!command || !command[0])
+		return FALSE;
+	if (!console_globals.active)
+		console_open();
+	return console_process_command(command);
+}
+#endif
 static char *console_get_text_to_autocomplete(
 	void)
 {
