@@ -50,6 +50,9 @@ BOOL HaloConfigSetBool(const char *section, const char *key, BOOL value);
 NSArray<NSDictionary *> *HaloModPackList(void);
 /* Keeps the load order (folder names, first loads first) and the folders turned off; the running game applies it at once. */
 void HaloModPackSave(NSArray<NSString *> *order, NSSet<NSString *> *off);
+/* Toggle against the latest on-disk order so an in-game change cannot be
+overwritten by a Settings row that was rendered before it. */
+void HaloModPackSetEnabled(NSString *folder, BOOL enabled);
 void HaloModPackRemove(NSString *folder);
 /* Copies mod folders (each with a mod.toml) into the mods folder; throws with a message the person can read. */
 void HaloModPackImport(NSArray<NSURL *> *folders);

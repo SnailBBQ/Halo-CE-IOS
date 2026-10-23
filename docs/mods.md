@@ -4,6 +4,8 @@ Mods replace supported sounds, pictures, text and models with files on your devi
 
 **New to mods on iPhone?** Start with the [iPhone Mods guide](ios/MOD_FORMAT.md). It explains what works and how to add a mod. To create one, jump to [Making a mod](ios/MOD_FORMAT.md#making-a-mod); the [starter folder](ios/mod-template/MyMod) is ready to copy.
 
+On iPhone, the game's **Mods** menu and **Settings > Mods** use the same list. Turning a mod on or off in either menu updates the other and applies the change to the running game. The Settings list refreshes while it is open.
+
 ## Making a mod
 
 1. Start from the [MyMod template](ios/mod-template/MyMod).

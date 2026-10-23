@@ -6,7 +6,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is **in beta**: it boots and plays on a stock, sideloaded iPhone 14 Plus but has glitches, bugs and crashes (see the [Device test results](docs/ios/DEVICE_TESTS.md)). The current source update is **M2.6.119**, on OpenCE **build 246** (network version 32). This upstream promotion includes newer networking, rendering, map, and Custom Edition code; device validation is still needed. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
+> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build is **in beta**: it boots and plays on a stock, sideloaded iPhone 14 Plus but has glitches, bugs and crashes (see the [Device test results](docs/ios/DEVICE_TESTS.md)). The current source update is **M2.6.120**, on OpenCE **build 256** (network version 32). It adds iOS Developer Console controls and immediate mod-toggle synchronization; this source update still needs a Mac build and device validation. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
@@ -24,7 +24,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 **Fix:** [M2.6.107](port/ios/UPDATE_M2707.md) repairs M2.6.104-106: a startup failure (guest ABI mismatch, fixed in M2.6.106) and a freeze when joining an internet game. Do not use those builds.
 
-**Update:** [M2.6.119](port/ios/UPDATE_M2719.md) moves to OpenCE **build 246** (network version 32, unchanged from build 244; OpenCE is now under the AGPL), and enlarges the Xbox memory window to 256 MiB with a 64 MiB texture cache so large Custom Edition maps stop showing red or wrong-colored textures. [M2.6.118](port/ios/UPDATE_M2718.md) integrated OpenCE build 244 / network 32 with the map-aware Custom Edition pickers. Network-29 builds cannot cross-play with this version. [M2.6.117](port/ios/UPDATE_M2717.md) added map-aware weapon and vehicle pickers; [M2.6.116](port/ios/UPDATE_M2716.md) added map-load recovery.
+**Update:** [M2.6.120](port/ios/UPDATE_M2720.md) moves to OpenCE **build 256** (network version 32), adds an iOS Developer Console button and customizable touch/controller shortcut, and synchronizes mod toggles between the two menus. [M2.6.119](port/ios/UPDATE_M2719.md) brought build 246 and increased the memory window and texture cache. [M2.6.118](port/ios/UPDATE_M2718.md) integrated OpenCE build 244 / network 32 with the map-aware Custom Edition pickers. Network-29 builds cannot cross-play with this version. [M2.6.117](port/ios/UPDATE_M2717.md) added map-aware weapon and vehicle pickers; [M2.6.116](port/ios/UPDATE_M2716.md) added map-load recovery.
 
 **Previous:** [M2.6.113](port/ios/UPDATE_M2713.md) moves to OpenCE **build 220** (same network version 29) and makes Settings > Mods the same list as the game's new Mods menu: mods turned on or off, reordered, removed or added in either place show in both.
 

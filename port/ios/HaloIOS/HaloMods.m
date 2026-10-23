@@ -227,7 +227,7 @@ static void ValidateCEMap(NSURL *url)
     NSDictionary *info = CustomMapInfo(url, YES);
     uint32_t version = [info[@"version"] unsignedIntValue];
     if (version == 5) HaloBackupRequire(NO, @"That is an Xbox version 5 map. Use Import maps for original/Xbox maps; Custom Edition Maps requires version 609.");
-    HaloBackupRequire([info[@"valid"] boolValue], @"Custom Edition map header is invalid or unsupported. OpenCE build 246 supports standard version 609 CE maps; OpenSauce maps are not supported.");
+    HaloBackupRequire([info[@"valid"] boolValue], @"Custom Edition map header is invalid or unsupported. OpenCE build 256 supports standard version 609 CE maps; OpenSauce maps are not supported.");
 }
 
 NSArray<NSURL *> *HaloImportSharedAndMovies(NSArray<NSURL *> *urls, NSString **summary, NSMutableArray<NSString *> *errors)
@@ -685,6 +685,23 @@ void HaloModPackSave(NSArray<NSString *> *order, NSSet<NSString *> *off)
     ModPackSignal();
 }
 
+void HaloModPackSetEnabled(NSString *folder, BOOL enabled)
+{
+    NSArray<NSDictionary *> *latest=HaloModPackList();
+    NSMutableArray<NSString *> *order=[NSMutableArray arrayWithCapacity:latest.count];
+    NSMutableSet<NSString *> *off=[NSMutableSet set];
+    BOOL found=NO;
+    for(NSDictionary *mod in latest){
+        NSString *name=mod[@"folder"];
+        [order addObject:name];
+        if(![mod[@"on"] boolValue])[off addObject:name];
+        if([name isEqualToString:folder])found=YES;
+    }
+    HaloBackupRequire(found,@"That mod is no longer installed. Refresh the list.");
+    if(enabled)[off removeObject:folder];else [off addObject:folder];
+    HaloModPackSave(order,off);
+}
+
 void HaloModPackRemove(NSString *folder)
 {
     HaloBackupRequire(hms_folder_ok(folder.UTF8String) && ![folder hasPrefix:@"."], @"That is not a mod folder.");
@@ -735,11 +752,12 @@ NSString *HaloModPackFingerprint(void)
 {
     NSFileManager *fm = NSFileManager.defaultManager;
     NSMutableString *text = [NSMutableString string];
+    NSData *orderData=[NSData dataWithContentsOfFile:ModPackOrderPath()];
     NSDate *order = [fm attributesOfItemAtPath:ModPackOrderPath() error:nil][NSFileModificationDate];
-    [text appendFormat:@"%.3f", order.timeIntervalSince1970];
+    [text appendFormat:@"%.9f:%lu:%lu",order.timeIntervalSince1970,(unsigned long)orderData.length,(unsigned long)orderData.hash];
     for (NSString *name in [[fm contentsOfDirectoryAtPath:ModPackRoot() error:nil] sortedArrayUsingSelector:@selector(compare:)]) {
         NSDate *date = [fm attributesOfItemAtPath:[[ModPackRoot() stringByAppendingPathComponent:name] stringByAppendingPathComponent:@"mod.toml"] error:nil][NSFileModificationDate];
-        [text appendFormat:@"|%@:%.3f", name, date.timeIntervalSince1970];
+        [text appendFormat:@"|%@:%.9f", name, date.timeIntervalSince1970];
     }
     return text;
 }

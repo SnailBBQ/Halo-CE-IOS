@@ -31,7 +31,7 @@ static void (^g_shortcut_capture)(int);
 static _Atomic unsigned g_capture_generation;
 static BOOL g_pad_refresh;
 static void HaloRefreshPads(void);
-static HaloShortcutState g_shortcuts[4];
+static HaloShortcutState g_shortcuts[5];
 static unsigned g_pad_previous[2];
 static void HaloResetShortcuts(void) { memset(g_shortcuts,0,sizeof(g_shortcuts));memset(g_pad_previous,0,sizeof(g_pad_previous)); }
 void halo_ios_shortcut_capture(void (^record)(int button))
@@ -51,9 +51,9 @@ void halo_ios_shortcut_button(int button)
         if (g_shortcut_capture) { g_shortcut_capture(button); return; }
         HsSettings settings = [HaloSettingsStore.shared snapshot];
         double now = CACurrentMediaTime();
-        for (int k = 0; k < 4; k++) {
+        for (int k = 0; k < 5; k++) {
             HsShortcut q = settings.shortcuts[k];
-            if (k && ![HaloSettingsStore.shared campaignActive]) {
+            if (k>=1 && k<=3 && ![HaloSettingsStore.shared campaignActive]) {
                 g_shortcuts[k].progress = 0;
                 continue;
             }
@@ -62,6 +62,7 @@ void halo_ios_shortcut_button(int button)
                 [[NSNotificationCenter defaultCenter] postNotificationName:@"HaloSettingsVisibilityShortcut" object:nil];
                 continue;
             }
+            if (k==4) { halo_ios_console_toggle(); continue; }
             if (q.action>=23 && q.action<=31 && q.action!=29) {
                 const unsigned actions[]={1,3,4,2,10,11,0,13,14};
                 halo_ios_queue_campaign_action(actions[q.action-23]);

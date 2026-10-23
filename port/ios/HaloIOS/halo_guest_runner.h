@@ -70,6 +70,11 @@ void halo_ios_profile_create(const char *name, int color);
 int halo_ios_profile_create_result(void);
 /* Settings > Mods wrote the mods folder or mods/load_order.toml: the engine reads them again (as the game's Mods menu's OK does) */
 void halo_ios_mods_changed(void);
+/* The developer console runs on the guest thread. UIKit queues requests and
+reads only a copied active state. Commands use the iOS system keyboard. */
+void halo_ios_console_toggle(void);
+int halo_ios_console_active(void);
+int halo_ios_console_command(const char *command);
 /* Environment sounds (the device and ambient sound classes); 0 ... 1. */
 void halo_ios_set_ambient_gain(float gain);
 #ifdef __OBJC__

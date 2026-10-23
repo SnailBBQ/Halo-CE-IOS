@@ -195,7 +195,8 @@ static NSArray<NSString *> *HaloLibraryShowChoices(void) { return @[@"Hide",@"Al
         [text setContentHuggingPriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
         UISwitch *toggle=[UISwitch new];toggle.on=isOn;toggle.onTintColor=HaloUIAccent();toggle.accessibilityLabel=[title stringByAppendingString:@" on or off"];
         [toggle addAction:[UIAction actionWithHandler:^(UIAction *action){(void)action;
-            NSMutableSet *next=[off mutableCopy];if(toggle.on)[next removeObject:folder];else [next addObject:folder];save(order,next);}] forControlEvents:UIControlEventValueChanged];
+            @try{HaloModPackSetEnabled(folder,toggle.on);}@catch(NSException *e){[weakSelf message:e.reason];}
+            [weakSelf render];}] forControlEvents:UIControlEventValueChanged];
         UIButton *(^icon)(NSString *,NSString *,BOOL,void (^)(void))=^UIButton *(NSString *symbol,NSString *label,BOOL enabled,void (^act)(void)){
             UIButton *button=[UIButton buttonWithType:UIButtonTypeSystem];
             [button setImage:[UIImage systemImageNamed:symbol] forState:UIControlStateNormal];button.tintColor=HaloUIAccent();button.enabled=enabled;button.accessibilityLabel=label;

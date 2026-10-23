@@ -26,6 +26,10 @@ void console_warning(const char *format, ...);
 void console_startup(void);
 void console_dispose(void);
 boolean console_update(void);
+#ifdef HALO_IOS_GUEST
+/* port: iOS Settings sends a complete line on the game thread. */
+boolean console_ios_command(const char *command);
+#endif
 
 /* ---------- globals */
 

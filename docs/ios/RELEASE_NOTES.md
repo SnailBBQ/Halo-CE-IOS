@@ -1,15 +1,15 @@
 # Release notes
 
-The current update is **M2.6.119**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.120**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
-No iOS release or downloadable release attachment has been published yet. A source milestone is not proof that its IPA passed a device test. M2.6.119 has not been built on a Mac or validated on a device; no IPA was generated as part of this update.
+The latest published GitHub pre-release is v0.2.118-beta. A source milestone is not proof that its IPA passed a device test. M2.6.120 has not been built on a Mac or validated on a device; no IPA was generated as part of this update.
 
 **Device result, 2026-10-08:** the M2.6.101 Non-Jailbreak build is confirmed playable on an iPhone 14 Plus (iOS 16.2, Sideloadly): a10 played, second map loaded, about 60 FPS, no crashes, no pointer faults. Documentation only; no code change after M2.6.101.
 
-**Latest:** [M2.6.119](../../port/ios/UPDATE_M2719.md) moves to OpenCE build 246 (network 32, AGPL license) and enlarges the Xbox memory window to 256 MiB with a 64 MiB texture cache for large Custom Edition maps. It has not been built or device-tested.
+**Latest:** [M2.6.120](../../port/ios/UPDATE_M2720.md) moves to OpenCE build 256 (network 32), adds iOS Developer Console access and synchronizes mod toggles. It has not been built or device-tested.
 
 **Previous:** [M2.6.118](../../port/ios/UPDATE_M2718.md) integrated OpenCE build 244 / network 32, including upstream networking, map, renderer and Custom Edition changes while preserving the iOS host/guest adaptation. Network-29 clients cannot cross-play with network 32. The source update passes strict upstream acceptance; a Mac build and device validation are still required.
 
@@ -97,6 +97,7 @@ No iOS release or downloadable release attachment has been published yet. A sour
 
 | Update | Highlights |
 | --- | --- |
+| M2.6.120 | OpenCE build 256 integration (network 32); iOS Developer Console button, command input and customizable shortcut; mod switches synchronize between Settings and the game's Mods menu. Source checks pass; IPA build and device test pending. |
 | M2.6.119 | OpenCE build 246 integration (network 32): bots, co-op changes, latency meter, passenger camera; AGPL license; 256 MiB memory window and 64 MiB texture cache for large Custom Edition maps; texture check once per frame. |
 | M2.6.105 | OpenCE build 201 / network 28 integration: Custom Edition map sharing, shield glow and armor colors, first-person legs; no host import change. |
 | M2.6.113 | OpenCE build 220 integration (network 29): the new Mods system; Settings > Mods lists, orders, turns on and off, removes and adds mods in step with the game's Mods menu. |

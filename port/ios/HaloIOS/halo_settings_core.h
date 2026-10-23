@@ -71,7 +71,7 @@ typedef struct { char name[HS_NAME_MAX+1]; HsHud elements[HS_HUD_COUNT]; } HsHud
 typedef struct { char sequence[96]; float gap, total; int action; } HsShortcut;
 typedef struct
 {
-    HsShortcut shortcuts[4]; /* 0 Settings visibility, 1..3 campaign modifiers */
+    HsShortcut shortcuts[5]; /* 0 Settings visibility, 1..3 campaign modifiers, 4 developer console */
     int game_vsync, game_online, game_upnp, game_player_names;
     int game_controls[8]; /* sensitivity, invert, flight, autocenter, buttons, sticks, vibration, help */
     char game_name[24]; int game_color, game_profile_ready;
@@ -287,7 +287,7 @@ static inline void hs_defaults(HsSettings *s)
     s->gear_scale=1.f;s->gear_opacity=1.f;
     s->game_vsync=s->game_online=1;
     s->game_controls[0]=3;s->game_controls[6]=s->game_controls[7]=1;
-    for(int k=0;k<4;k++){s->shortcuts[k].gap=2;s->shortcuts[k].total=15;}
+    for(int k=0;k<5;k++){s->shortcuts[k].gap=2;s->shortcuts[k].total=15;}
     strcpy(s->shortcuts[0].sequence,"11,11,12,12,13,14,13,14,1,0");
     s->show_fps = 0;
     s->profiler = 1;
@@ -386,7 +386,7 @@ static inline void hs_sanitize(HsSettings *s)
     for(int k=1;k<8;k++)s->game_controls[k]=hs_clampi(s->game_controls[k],0,k==4?4:k==5?3:1);
     s->game_name[23]=0;s->game_color=hs_clampi(s->game_color,0,17);
     s->game_player_names=hs_clampi(s->game_player_names,0,3);
-    for(int k=0;k<4;k++){s->shortcuts[k].sequence[95]=0;s->shortcuts[k].gap=hs_clampf(s->shortcuts[k].gap,.25f,10);s->shortcuts[k].total=hs_clampf(s->shortcuts[k].total,1,60);s->shortcuts[k].action=hs_clampi(s->shortcuts[k].action,0,31);if(s->shortcuts[k].action==29)s->shortcuts[k].action=0; /* retired equipment action; never reuse ID */}
+    for(int k=0;k<5;k++){s->shortcuts[k].sequence[95]=0;s->shortcuts[k].gap=hs_clampf(s->shortcuts[k].gap,.25f,10);s->shortcuts[k].total=hs_clampf(s->shortcuts[k].total,1,60);s->shortcuts[k].action=hs_clampi(s->shortcuts[k].action,0,31);if(s->shortcuts[k].action==29 || k==4)s->shortcuts[k].action=0; /* retired equipment action; never reuse ID */}
     s->gear_scale=hs_clampf(s->gear_scale,.75f,1.75f);s->ui_theme=hs_clampi(s->ui_theme,0,4);
     s->gear_placed=!!s->gear_placed;s->gear_x=hs_clampf(s->gear_x,0,1);s->gear_y=hs_clampf(s->gear_y,0,1);
     s->display_mode = hs_clampi(s->display_mode, 0, 2);
@@ -539,7 +539,7 @@ static inline int hs_serialize(const HsSettings *s, char *out, size_t size)
     EMIT("geartoken=%s\ngearfavs=%s\n",s->gear_token,s->gear_favs);
     EMIT("mapscampaign=%d\ncustomhide=%d\ncustomfilter=%d\n",s->maps_campaign_only,s->custom_hide,s->custom_filter);
     EMIT("gamenames=%d\n",s->game_player_names);
-    for(int k=0;k<4;k++) EMIT("shortcut%d=%s\nshortcutgap%d=%.3f\nshortcuttotal%d=%.3f\nshortcutaction%d=%d\n",k,s->shortcuts[k].sequence,k,s->shortcuts[k].gap,k,s->shortcuts[k].total,k,s->shortcuts[k].action);
+    for(int k=0;k<5;k++) EMIT("shortcut%d=%s\nshortcutgap%d=%.3f\nshortcuttotal%d=%.3f\nshortcutaction%d=%d\n",k,s->shortcuts[k].sequence,k,s->shortcuts[k].gap,k,s->shortcuts[k].total,k,s->shortcuts[k].action);
     EMIT("gearscale=%.3f\nuitheme=%d\n",s->gear_scale,s->ui_theme);
     EMIT("gear=%d,%.4f,%.4f\n",s->gear_placed,s->gear_x,s->gear_y);
     EMIT("music=%.3f\ndialogue=%.3f\neffects=%.3f\n",s->music_volume,s->dialogue_volume,s->effects_volume);
@@ -651,10 +651,10 @@ static inline int hs_parse(HsSettings *s, const char *text)
                 else if (!strcmp(key,"customhide")) s->custom_hide=atoi(value);
                 else if (!strcmp(key,"customfilter")) s->custom_filter=atoi(value);
                 else if (!strncmp(key,"shortcut",8)) {int k=-1;
-                    if(sscanf(key,"shortcutgap%d",&k)==1 && k>=0 && k<4)s->shortcuts[k].gap=(float)atof(value);
-                    else if(sscanf(key,"shortcuttotal%d",&k)==1 && k>=0 && k<4)s->shortcuts[k].total=(float)atof(value);
-                    else if(sscanf(key,"shortcutaction%d",&k)==1 && k>=0 && k<4)s->shortcuts[k].action=atoi(value);
-                    else if(sscanf(key,"shortcut%d",&k)==1 && k>=0 && k<4)snprintf(s->shortcuts[k].sequence,96,"%s",value);
+                    if(sscanf(key,"shortcutgap%d",&k)==1 && k>=0 && k<5)s->shortcuts[k].gap=(float)atof(value);
+                    else if(sscanf(key,"shortcuttotal%d",&k)==1 && k>=0 && k<5)s->shortcuts[k].total=(float)atof(value);
+                    else if(sscanf(key,"shortcutaction%d",&k)==1 && k>=0 && k<5)s->shortcuts[k].action=atoi(value);
+                    else if(sscanf(key,"shortcut%d",&k)==1 && k>=0 && k<5)snprintf(s->shortcuts[k].sequence,96,"%s",value);
                 }
                 else if (!strcmp(key,"gearscale")) s->gear_scale=(float)atof(value);
                 else if (!strcmp(key,"uitheme")) s->ui_theme=atoi(value);
