@@ -1,17 +1,17 @@
 # Release notes
 
-The current update is **M2.6.121**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.122**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
-The latest published GitHub pre-release is v0.2.118-beta. A source milestone is not proof that its IPA passed a device test. M2.6.121 has not been built on a Mac or validated on a device; no IPA was generated as part of this update.
+The latest published GitHub pre-release is v0.2.118-beta. A source milestone is not proof that its IPA passed a device test. M2.6.122 has not been built on a Mac or validated on a device; no IPA was generated as part of this update.
 
 **Device result, 2026-10-08:** the M2.6.101 Non-Jailbreak build is confirmed playable on an iPhone 14 Plus (iOS 16.2, Sideloadly): a10 played, second map loaded, about 60 FPS, no crashes, no pointer faults. Documentation only; no code change after M2.6.101.
 
-**Latest:** [M2.6.121](../../port/ios/UPDATE_M2721.md) moves to OpenCE build 266 (network 36), bringing new multiplayer modes and Custom Edition HUD/texture changes to the source. It has not been built or device-tested.
+**Latest:** [M2.6.122](../../port/ios/UPDATE_M2722.md) moves to OpenCE build 268 (network 38), naming the new multiplayer modes in game listings and adding a per-player shield-effects option. It has not been built or device-tested.
 
-**Prior:** [M2.6.120](../../port/ios/UPDATE_M2720.md) integrated build 256, iOS Developer Console access and synchronized mod toggles.
+**Prior:** [M2.6.121](../../port/ios/UPDATE_M2721.md) integrated build 266, including new multiplayer modes and Custom Edition HUD/texture changes. [M2.6.120](../../port/ios/UPDATE_M2720.md) added iOS Developer Console access and synchronized mod toggles.
 
 **Previous:** [M2.6.118](../../port/ios/UPDATE_M2718.md) integrated OpenCE build 244 / network 32, including upstream networking, map, renderer and Custom Edition changes while preserving the iOS host/guest adaptation. Network-29 clients cannot cross-play with network 32. The source update passes strict upstream acceptance; a Mac build and device validation are still required.
 
@@ -99,7 +99,8 @@ The latest published GitHub pre-release is v0.2.118-beta. A source milestone is 
 
 | Update | Highlights |
 | --- | --- |
-| M2.6.121 | OpenCE build 266 integration (network 36): new SWAT, Infection, Gun Game and Hardcore modes; Custom Edition HUD and Android texture-cache changes. Source checks pass; IPA build and device test pending. |
+| M2.6.122 | OpenCE build 268 integration (network 38): OpenCE mode names in game listings and per-player shield effects. Source checks pass; IPA build and device test pending. |
+| M2.6.121 | OpenCE build 266 integration (network 36): new SWAT, Infection, Gun Game and Hardcore modes; Custom Edition HUD and Android texture-cache changes. Source checks passed; IPA build and device test pending. |
 | M2.6.120 | OpenCE build 256 integration (network 32); iOS Developer Console button, command input and customizable shortcut; mod switches synchronize between Settings and the game's Mods menu. Source checks pass; IPA build and device test pending. |
 | M2.6.119 | OpenCE build 246 integration (network 32): bots, co-op changes, latency meter, passenger camera; AGPL license; 256 MiB memory window and 64 MiB texture cache for large Custom Edition maps; texture check once per frame. |
 | M2.6.105 | OpenCE build 201 / network 28 integration: Custom Edition map sharing, shield glow and armor colors, first-person legs; no host import change. |

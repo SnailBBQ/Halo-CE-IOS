@@ -579,6 +579,7 @@ static void dxt_decode_level(unsigned char kind, const unsigned char *source, un
 	}
 }
 
+#endif
 #ifdef HALO_ANDROID
 /* ---------- DXT1 as ASTC 4x4, for ES drivers with ASTC and no S3TC
 
@@ -795,7 +796,6 @@ static void dxt1_astc_level(const unsigned char *source, unsigned long width, un
 	for (block = 0; block < count; block++)
 		dxt1_astc_block(source + block * 8, blocks + block * 16);
 }
-#endif
 #endif
 #endif
 

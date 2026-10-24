@@ -1,12 +1,12 @@
-"""M2.6.121 build identity, build-266 promotion, save protection and Stage-3 Non-JB wiring."""
+"""M2.6.122 build identity, build-268 promotion, save protection and Stage-3 Non-JB wiring."""
 from pathlib import Path
 import json, plistlib, re
 ROOT=Path(__file__).resolve().parents[2]
 HOST=ROOT/'port/ios/HaloIOS'
 with (HOST/'Info.plist').open('rb') as f: info=plistlib.load(f)
 up=json.loads((ROOT/'port/ios/upstream.json').read_text())
-assert info['CFBundleShortVersionString']=='0.2.121' and info['CFBundleVersion']=='2721'
-assert info['HaloSourceMilestone']=='M2.6.121'
+assert info['CFBundleShortVersionString']=='0.2.122' and info['CFBundleVersion']=='2722'
+assert info['HaloSourceMilestone']=='M2.6.122'
 assert info['HaloOpenCERelease']==up['tag'] and info['HaloOpenCECommit']==up['commit']
 limits=(ROOT/'port/linux/include/halo_port_limits.h').read_text(encoding='utf-8')
 network=int(re.search(r'#define\s+HALO_PORT_NETWORK_VERSION\s+(\d+)',limits).group(1))
@@ -38,4 +38,4 @@ workflow=(ROOT/'.github/workflows/ios.yml').read_text(encoding='utf-8')
 for token in ('Set :HaloBuildFlavor $FLAVOR','Set :HaloGuestSHA256 $GUEST_SHA','Set :HaloSourceCommit ${GITHUB_SHA:-local}','DIAGNOSTICS=flex-base-stage3-real-guest+exec-trace-v3','python3 tools/ios_upstream_acceptance.py --json'):
     assert token in workflow, token
 assert 'GUEST_ARCHITECTURE=flexible-base-x27-v1' in workflow and 'GUEST_ADAPTATION=ios-flex-x27-v1' in workflow
-print('PASS: M2.6.121 metadata matches OpenCE build-266/source constants; logs/About expose it; Non-JB stamps its flexible x27 identity; engine changes use .halobackup; workflow runs acceptance gates')
+print('PASS: M2.6.122 metadata matches OpenCE build-268/source constants; logs/About expose it; Non-JB stamps its flexible x27 identity; engine changes use .halobackup; workflow runs acceptance gates')
