@@ -5048,9 +5048,11 @@ static BOOL mirror_range(unsigned long address, unsigned long size, GLuint *buff
 	BOOL present = TRUE;
 
 #ifdef HALO_ANDROID
+#ifndef HALO_IOS_GUEST
 	/* Persistent geometry caching causes corruption on affected Android
 	devices. Use current vertex/index bytes through the streaming path. */
 	return FALSE;
+#endif
 #endif
 	if (!size || address < PLATFORM_CONTIGUOUS_BASE || start + size > PLATFORM_CONTIGUOUS_SIZE)
 		return FALSE;
