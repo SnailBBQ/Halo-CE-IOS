@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "upstream": "OpenCommunityEdition/OpenCE",
-  "tag": "build-268",
-  "commit": "5e27f3a27b2d3c27d3edeb450fe40c24defb9c15",
-  "integrated_in": "M2.6.122"
+  "tag": "build-335",
+  "commit": "da8d455623cf50002e6a798b1980068fd3ca0292",
+  "integrated_in": "M2.6.123"
 }
