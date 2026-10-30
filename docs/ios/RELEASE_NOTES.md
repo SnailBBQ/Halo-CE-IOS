@@ -1,15 +1,17 @@
 # Release notes
 
-The current update is **M2.6.122**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
+The current update is **M2.6.123**. Each update has its own notes in [`port/ios`](../../port/ios), with what changed, the limits that remain and a **device checklist**. Local checks and CI
 cannot prove how the app looks or feels on a device, so every note says what still needs a device test.
 
 ## Publication status
 
-The latest published GitHub pre-release is v0.2.118-beta. A source milestone is not proof that its IPA passed a device test. M2.6.122 has not been built on a Mac or validated on a device; no IPA was generated as part of this update.
+The latest published GitHub pre-release is v0.2.118-beta. A source milestone is not proof that its IPA passed a device test. M2.6.123 has not been built on a Mac or validated on a device; no IPA was generated as part of this update.
 
 **Device result, 2026-10-08:** the M2.6.101 Non-Jailbreak build is confirmed playable on an iPhone 14 Plus (iOS 16.2, Sideloadly): a10 played, second map loaded, about 60 FPS, no crashes, no pointer faults. Documentation only; no code change after M2.6.101.
 
-**Latest:** [M2.6.122](../../port/ios/UPDATE_M2722.md) moves to OpenCE build 268 (network 38), naming the new multiplayer modes in game listings and adding a per-player shield-effects option. It has not been built or device-tested.
+**Latest:** [M2.6.123](../../port/ios/UPDATE_M2723.md) integrates OpenCE build 335 (network 41) with major upstream renderer, controller, HUD, multiplayer and server-browser changes. Mac and device validation remain pending.
+
+**Prior:** [M2.6.122](../../port/ios/UPDATE_M2722.md) moves to OpenCE build 268 (network 38), naming the new multiplayer modes in game listings and adding a per-player shield-effects option. It has not been built or device-tested.
 
 **Prior:** [M2.6.121](../../port/ios/UPDATE_M2721.md) integrated build 266, including new multiplayer modes and Custom Edition HUD/texture changes. [M2.6.120](../../port/ios/UPDATE_M2720.md) added iOS Developer Console access and synchronized mod toggles.
 

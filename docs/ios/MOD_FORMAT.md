@@ -92,12 +92,15 @@ load_after = ["hd_textures"]  # mods it plays over: they load before it
 load_before = ["fixes"]       # mods that play over it: they load after it
 incompatible = ["other_audio"]  # mods it cannot be played with
 format = 1                    # the mods' format it is made for
+channel_order = "pc"          # use "xbox" if bitmap channels are already in Xbox order
 ```
 
 - `load_after`, `load_before` and `incompatible` name other mods by their `id` or folder name. A mod they name that is not installed is passed over.
   `maps = []` is every map.
 - A mod made for a later `format` than the app's build, or whose `maps` names no map, is not played. Anything else wrong in `mod.toml` (an unknown
   key, a wrong type) is logged and the rest is used.
+- `channel_order = "xbox"` keeps that mod's multipurpose-map and HUD-meter bitmap channels as supplied. Use it only when those bitmaps already have
+  Xbox channel order; PC-format bitmaps use the default `"pc"`. Keep bitmaps of different channel orders in separate mods.
 
 ## The load order and the Mods list
 

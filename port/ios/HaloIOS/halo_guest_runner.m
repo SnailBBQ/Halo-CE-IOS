@@ -7,6 +7,7 @@
 #import "halo_ios_controls.h"
 
 #import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 
 #include "halo_guest_exec_bridge.h"
 #include "halo_guest_runtime.h"
@@ -2684,6 +2685,96 @@ static int ios_sdl_set_clipboard_text(uint32_t text)
     return 1;
 }
 
+/* iOS uses its own text fields and touch overlay, not Android's keyboard. */
+static int ios_sdl_text_input(uint32_t window, int type)
+{
+    (void)window; (void)type;
+    return 0;
+}
+
+static int ios_sdl_open_url(uint32_t url_va)
+{
+    char text[2048];
+    if (!ios_copy_guest_string(url_va, text, sizeof(text))) return 0;
+    NSString *string = [NSString stringWithUTF8String:text];
+    NSURL *url = string ? [NSURL URLWithString:string] : nil;
+    if (!url || !([url.scheme.lowercaseString isEqualToString:@"https"] ||
+                  [url.scheme.lowercaseString isEqualToString:@"http"])) return 0;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [UIApplication.sharedApplication openURL:url options:@{} completionHandler:nil];
+    });
+    return 1;
+}
+
+/* OpenCE's Android rendering policy is overridden in guest_render_policy.c
+ * for the iOS guest; unknown here leaves its other defaults intact. */
+static int ios_android_chip_family(void) { return 0; }
+static int ios_touch_devices(void) { return 0; }
+
+/* The master-server browser asks the native host to fetch a bounded HTTPS
+ * response. All guest buffers are checked before the asynchronous request. */
+static int ios_https_get(uint32_t url_va, uint32_t status_va, uint32_t headers_va,
+                         int headers_capacity, uint32_t body_va, int body_capacity,
+                         uint32_t body_size_va, uint32_t error_va, int error_capacity)
+{
+    char url_text[2048];
+    int *status = gp(status_va, sizeof(*status));
+    int *body_size = gp(body_size_va, sizeof(*body_size));
+    char *headers = headers_capacity > 0 && headers_capacity <= 16384 ? gp(headers_va, headers_capacity) : NULL;
+    char *body = body_capacity > 0 && body_capacity <= 1024 * 1024 ? gp(body_va, body_capacity) : NULL;
+    char *error = error_capacity > 0 && error_capacity <= 4096 ? gp(error_va, error_capacity) : NULL;
+    if (status) *status = 0;
+    if (body_size) *body_size = 0;
+    if (headers) headers[0] = 0;
+    if (error) error[0] = 0;
+    if (!status || !body_size || !headers || !body || !error ||
+        !ios_copy_guest_string(url_va, url_text, sizeof(url_text))) return 0;
+
+    NSString *string = [NSString stringWithUTF8String:url_text];
+    NSURL *url = string ? [NSURL URLWithString:string] : nil;
+    if (!url || ![url.scheme.lowercaseString isEqualToString:@"https"]) {
+        snprintf(error, (size_t)error_capacity, "HTTPS URL required");
+        return 0;
+    }
+    __block NSData *answer = nil;
+    __block NSHTTPURLResponse *http = nil;
+    __block NSError *failure = nil;
+    dispatch_semaphore_t done = dispatch_semaphore_create(0);
+    NSURLSessionDataTask *task = [NSURLSession.sharedSession dataTaskWithURL:url
+        completionHandler:^(NSData *data, NSURLResponse *response, NSError *request_error) {
+            answer = data;
+            if ([response isKindOfClass:NSHTTPURLResponse.class]) http = (NSHTTPURLResponse *)response;
+            failure = request_error;
+            dispatch_semaphore_signal(done);
+        }];
+    [task resume];
+    if (dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 15 * NSEC_PER_SEC)) != 0) {
+        [task cancel];
+        snprintf(error, (size_t)error_capacity, "HTTPS request timed out");
+        return 0;
+    }
+    if (failure || !http || !answer || answer.length > (NSUInteger)body_capacity) {
+        snprintf(error, (size_t)error_capacity, "%s", failure.localizedDescription.UTF8String ?: "HTTPS response too large or unavailable");
+        return 0;
+    }
+    NSMutableString *header_text = [NSMutableString string];
+    for (id key in http.allHeaderFields) {
+        NSString *value = [http.allHeaderFields[key] description];
+        [header_text appendFormat:@"%@: %@\n", key, value];
+    }
+    NSData *header_bytes = [header_text dataUsingEncoding:NSUTF8StringEncoding];
+    if (header_bytes.length >= (NSUInteger)headers_capacity) {
+        snprintf(error, (size_t)error_capacity, "HTTPS headers too large");
+        return 0;
+    }
+    memcpy(headers, header_bytes.bytes, header_bytes.length);
+    headers[header_bytes.length] = 0;
+    memcpy(body, answer.bytes, answer.length);
+    *status = (int)http.statusCode;
+    *body_size = (int)answer.length;
+    return 1;
+}
+
 /* The game's key bindings ask for a key's name and for a name's key (halo_scancodes.h). */
 static void ios_sdl_scancode_name(int32_t scancode, uint32_t buffer_va, uint32_t size)
 {
@@ -3321,6 +3412,8 @@ static void *resolve_host_import(const char *name)
     MAP("host_sdl_gl_set_swap_interval", ios_sdl_gl_set_swap_interval);
     MAP("host_sdl_gl_swap_window", ios_sdl_gl_swap_window);
     MAP("host_sdl_poll_event", ios_sdl_poll_event);
+    MAP("host_sdl_text_input", ios_sdl_text_input);
+    MAP("host_sdl_open_url", ios_sdl_open_url);
     MAP("host_sdl_set_clipboard_text", ios_sdl_set_clipboard_text);
     MAP("host_sdl_get_clipboard_text", ios_sdl_get_clipboard_text);
     MAP("host_sdl_scancode_name", ios_sdl_scancode_name);
@@ -3347,6 +3440,7 @@ static void *resolve_host_import(const char *name)
     MAP("host_touch_rumble", ios_touch_rumble);
     MAP("host_touch_scene", ios_touch_scene);
     MAP("host_touch_bindings", ios_touch_bindings);
+    MAP("host_touch_devices", ios_touch_devices);
     MAP("host_sdl_close_gamepad", ios_sdl_close_gamepad);
 
     MAP("host_gl_get_string", ios_gl_get_string);
@@ -3356,6 +3450,8 @@ static void *resolve_host_import(const char *name)
     MAP("host_gl_fence_frame", ios_gl_fence);
     MAP("host_gl_wait_frame", ios_gl_wait);
     MAP("host_android_path", ios_host_android_path);
+    MAP("host_android_chip_family", ios_android_chip_family);
+    MAP("host_https_get", ios_https_get);
 
     if(!strncmp(name,"hostgl_",7))
     {

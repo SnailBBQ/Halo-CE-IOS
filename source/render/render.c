@@ -330,6 +330,7 @@ static void render_window(
 	render.local_player_index = local_player_index;
 	render.camera = *camera;
 	render.frustum = *frustum;
+	object_functions_set_for_render(TRUE);
 	parameters.camera = *rasterizer_camera;
 	parameters.frustum = *rasterizer_frustum;
 	parameters.rasterizer_target = rasterizer_target;
@@ -533,7 +534,8 @@ static void render_window(
 		interface_draw_screen();
 #endif
 		rasterizer_screen_flash();
-		halo_screen_ui_offset(TRUE);
+		/* port: the view's menus centred in it (a quarter's are 320 wide) */
+		halo_screen_ui_offset_view(rasterizer_camera->viewport_bounds.x1 - rasterizer_camera->viewport_bounds.x0);
 #ifdef HALO_IOS_GUEST
 		IOS_SCENE_PHASE(17,render_ui_widgets(local_player_index, &rasterizer_camera->viewport_bounds));
 #else
@@ -549,6 +551,7 @@ static void render_window(
 	rasterizer_debug_draw();
 	rasterizer_window_end();
 	profile_render_window_end();
+	object_functions_set_for_render(FALSE);
 
 	return;
 }
