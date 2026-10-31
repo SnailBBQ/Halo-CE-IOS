@@ -2161,7 +2161,7 @@ void network_chat_update(
 		chat_input.text[length] = 0;
 		if (answer == 1)
 		{
-			chat_send(chat_input.channel, chat_input.text, TRUE);
+			chat_send(chat_input.channel, chat_input.text, TRUE, TRUE);
 			chat_input_end();
 		}
 		else if (answer)
