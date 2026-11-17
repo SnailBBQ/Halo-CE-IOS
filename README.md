@@ -6,7 +6,7 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 > **One branch.** The regular app, Mod Test, and the Non-Jailbreak build are options on **Actions → Halo CE iOS — Build IPA**. There is no separate Mod Test branch.
 
-> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build remains **in beta** (see [device test results](docs/ios/DEVICE_TESTS.md)). The current source update is **M2.6.123**, on OpenCE **build 335** (network version 41). This larger upstream jump needs CI, a Mac build and device validation before an IPA release. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
+> **Status: playable.** The regular app is playable on jailbroken devices, and the separate Non-Jailbreak build remains **in beta** (see [device test results](docs/ios/DEVICE_TESTS.md)). The current source update is **M2.6.124**, on OpenCE **build 387** (network version 44). This larger upstream jump needs CI, a Mac build and device validation before an IPA release. See the [release notes](docs/ios/RELEASE_NOTES.md) and [project status](IOS_PORT_STATUS.md).
 
 ## Current Status
 
@@ -24,7 +24,9 @@ controller support, cross-play multiplayer with OpenCE players, and a full in-ap
 
 **Fix:** [M2.6.107](port/ios/UPDATE_M2707.md) repairs M2.6.104-106: a startup failure (guest ABI mismatch, fixed in M2.6.106) and a freeze when joining an internet game. Do not use those builds.
 
-**Update:** [M2.6.123](port/ios/UPDATE_M2723.md) moves to OpenCE **build 335** (network version 41) with upstream renderer, input, multiplayer and server-browser changes; older network-38 builds cannot cross-play. Mac and device validation are pending.
+**Update:** [M2.6.124](port/ios/UPDATE_M2724.md) integrates OpenCE **build 387** (network version 44). The larger MCC and multiplayer changes need CI, a manual Mac build and device validation. MCC package loading/sharing and Steam Workshop downloads are unavailable on iOS in this source update.
+
+**Prior:** [M2.6.123](port/ios/UPDATE_M2723.md) moves to OpenCE **build 335** (network version 41) with upstream renderer, input, multiplayer and server-browser changes; older network-38 builds cannot cross-play. Mac and device validation are pending.
 
 **Prior:** [M2.6.122](port/ios/UPDATE_M2722.md) moves to OpenCE **build 268** (network version 38), adding OpenCE gametype names to game listings and a per-player shield-effects option. Network-36 clients cannot cross-play with this build. [M2.6.121](port/ios/UPDATE_M2721.md) brought SWAT, Infection, Gun Game, Hardcore and Custom Edition HUD/texture work. [M2.6.120](port/ios/UPDATE_M2720.md) added the iOS Developer Console and mod-toggle synchronization. [M2.6.119](port/ios/UPDATE_M2719.md) brought build 246 and increased the memory window and texture cache. [M2.6.118](port/ios/UPDATE_M2718.md) integrated OpenCE build 244 / network 32 with the map-aware Custom Edition pickers. [M2.6.117](port/ios/UPDATE_M2717.md) added map-aware weapon and vehicle pickers; [M2.6.116](port/ios/UPDATE_M2716.md) added map-load recovery.
 

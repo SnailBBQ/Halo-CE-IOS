@@ -44,6 +44,7 @@ drive the controller.
 /* port/linux/game/network_aim_assist.c */
 extern unsigned char network_aim_assist_block_mouse(void);
 #include "halo_keyboard.h"
+#include "keyboard_prompts.h"
 #include "controller_buttons.h"
 #include "controller_remap.h"
 
@@ -152,6 +153,35 @@ static float mouse_sensitivity(void)
 			vertical_sensitivity = sensitivity;
 	}
 	return sensitivity;
+}
+
+/* the game's own dead zone of each stick, of 32767 (source/input/input_xbox.c) */
+#define STICK_DEAD_RANGE 9000
+/* the most a stick's dead zone setting takes, in percent */
+#define STICK_DEAD_ZONE_MAXIMUM 50
+
+/* the deflection a stick reads as none, of 32767, for the game's sticks
+(stick 0 the left, 1 the right): input.left_stick_dead_zone and
+input.right_stick_dead_zone as a percentage, else the game's own */
+short halo_stick_dead_range(short stick)
+{
+	static const char *const settings[2] = { "input.left_stick_dead_zone", "input.right_stick_dead_zone" };
+	static short ranges[2] = { STICK_DEAD_RANGE, STICK_DEAD_RANGE };
+	static unsigned long read_at = (unsigned long)-1;
+	int index;
+
+	if (read_at != config_changes())
+	{
+		read_at = config_changes();
+		for (index = 0; index < 2; index++)
+		{
+			long percent = config_integer(settings[index]);
+
+			ranges[index] = percent < 0 || percent > STICK_DEAD_ZONE_MAXIMUM
+				? STICK_DEAD_RANGE : (short)(percent * 32767 / 100);
+		}
+	}
+	return ranges[stick ? 1 : 0];
 }
 
 /* radians of yaw and pitch for the mouse motion since the last call; the
@@ -773,6 +803,22 @@ static void bindings_read(void)
 			text += length;
 		}
 	}
+}
+
+/* Prompt readers use the same parsed bindings and refresh generation as play.
+ * No parallel setting table: a rebind is visible on the next lookup. */
+int halo_keyboard_binding_label(int action, int slot, char *shown, unsigned int size)
+{
+	char name[64];
+	if (!shown || !size) return 0;
+	shown[0] = 0;
+	if (action < 0 || action >= NUMBER_OF_HALO_KEYBOARD_ACTIONS || slot < 0 || slot >= MAXIMUM_BINDINGS)
+		return 0;
+	bindings_read();
+	if (bindings[action][slot] < 0) return 0;
+	halo_input_name(bindings[action][slot], name, sizeof(name));
+	halo_input_shown_name(name, shown, size);
+	return shown[0] != 0;
 }
 
 static BOOL input_held(const struct platform_input_state *input, int code)
@@ -1634,6 +1680,8 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 	int count;
 	XINPUT_GAMEPAD physical;
 	int captured;
+	unsigned long prompt_buttons;
+	int prompt_index;
 
 	memset(state, 0, sizeof(*state));
 	if (port < 0)
@@ -1650,14 +1698,31 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 	/* Keep the opening chat press so even B can open it without immediately closing it. */
 	chat_pad_record((short)port, &physical);
 	chat_physical_pad[port] = chat_pad[port];
+	/* Observe physical input before keyboard/touch merging or remapping. */
+	prompt_buttons = physical.wButtons;
+	for (prompt_index = 0; prompt_index < 8; prompt_index++)
+		if (physical.bAnalogButtons[prompt_index] > 30) prompt_buttons |= 1UL << (16 + prompt_index);
+	keyboard_prompt_pad((short)port, prompt_buttons,
+		abs(physical.sThumbLX) > 12000 || abs(physical.sThumbLY) > 12000 ||
+		abs(physical.sThumbRX) > 12000 || abs(physical.sThumbRY) > 12000,
+		port_gamepad(gamepads, count, port) != NULL);
 	captured = controller_remap_input((short)port, &physical, port_gamepad(gamepads, count, port) != NULL);
 	if (port == 0)
 	{
 		struct platform_input_state input;
 		unsigned long held;
 		BOOL console_active;
+		short aiming_deflection;
 
 		platform_input_read(&input, TRUE);
+		if (input.focused)
+		{
+			unsigned int mouse = 0;
+			for (prompt_index = 0; prompt_index < PLATFORM_MOUSE_BUTTON_COUNT; prompt_index++)
+				if (input.mouse_buttons[prompt_index]) mouse |= 1U << prompt_index;
+			if (input.mouse_dx || input.mouse_dy || input.mouse_wheel) mouse |= 0x100;
+			keyboard_prompt_keys(input.keys, sizeof(input.keys), mouse);
+		}
 		mouse_poll(&input);
 		wheel_update();
 		keyboard_actions_held = 0;
@@ -1698,8 +1763,12 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 #if defined(HALO_ANDROID) || defined(HALO_WEB)
 		touch_input_controls(&state->Gamepad, input.menus);
 #endif
-		if (abs(state->Gamepad.sThumbRX) > STICK_AIMING_DEFLECTION ||
-			abs(state->Gamepad.sThumbRY) > STICK_AIMING_DEFLECTION)
+		/* (a right stick dead zone set below it aims from that) */
+		aiming_deflection = halo_stick_dead_range(1);
+		if (aiming_deflection > STICK_AIMING_DEFLECTION)
+			aiming_deflection = STICK_AIMING_DEFLECTION;
+		if (abs(state->Gamepad.sThumbRX) > aiming_deflection ||
+			abs(state->Gamepad.sThumbRY) > aiming_deflection)
 		{
 			pthread_mutex_lock(&mouse_lock);
 			stick_aimed_ms = SDL_GetTicks();

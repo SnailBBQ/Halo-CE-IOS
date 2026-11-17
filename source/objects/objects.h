@@ -425,6 +425,8 @@ boolean object_has_node(long object_index, short node_index);
 void object_set_automatic_deactivation(long object_index, boolean automatic_deactivation);
 void object_set_visibility(long object_index, boolean visible_flag);
 void object_get_velocities(long object_index, real_vector3d *translational_velocity, real_vector3d *angular_velocity);
+/* port: for the sounds' Doppler effect (game_sound.c, sound_manager.c) */
+void object_get_point_velocity(long object_index, real_point3d const *point, real_vector3d *velocity);
 struct location *object_get_location(long object_index, struct location *location);
 void object_start_interpolation(long object_index, short frame_count);
 void object_offset_interpolation(long object_index, real_vector3d *offset);
@@ -478,6 +480,9 @@ void objects_scripting_attach(long parent_object_index, char const *parent_marke
 void object_delete_immediately(long object_index);
 void objects_garbage_collection(void);
 void objects_update(void);
+/* port: an object's update count (vehicle_riding.c) */
+void object_count_update(long object_index);
+long object_update_count(long object_index);
 void objects_memory_compact(void);
 
 
