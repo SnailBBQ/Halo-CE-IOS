@@ -18,9 +18,10 @@ assert "errors_handle();" in load
 assert "returning to the main menu" in load
 assert "main_globals.want_to_be_at_main_menu = TRUE;" in load
 assert "main_globals.defer_map_change = FALSE;" in load
-assert "#ifdef HALO_IOS_GUEST" in load and "#else\n\t\terror(_error_immediate, \"game_load() failed.\");\n#endif" in load
+assert "#ifdef HALO_IOS_GUEST" in load and "#else\n\t\t/* port: an MCC map that fails to load goes back to the menus (mcc_main.c) */" in load
 assert "if (loading_main_menu)" in load and 'error(_error_immediate, "main menu scenario failed to load.");' in load
 assert 'error(_error_immediate, "game_load() failed.")' not in load.split("#else", 1)[0]
+assert "if (mcc_main_load_failed(options->map_name))" in load
 assert 'error(_error_immediate, "game_load() failed.")' in load
 
 unload_start = cache.index("void scenario_tags_unload(")
@@ -31,7 +32,7 @@ assert "else if (cache_file_globals.tags_loaded && cache_file_globals.tag_header
 assert "cache_file_globals.tag_header = NULL;" in unload
 assert "snapshot budget 48 MiB" in runner
 assert "snapshot budget 8 MiB" not in runner
-assert info["CFBundleShortVersionString"] == "0.2.123"
-assert info["CFBundleVersion"] == "2723"
-assert info["HaloSourceMilestone"] == "M2.6.123"
-print("PASS: rejected map loads clean up and return to menu; tag-header cleanup is guarded; diagnostics and identity match M2.6.123")
+assert info["CFBundleShortVersionString"] == "0.2.124"
+assert info["CFBundleVersion"] == "2724"
+assert info["HaloSourceMilestone"] == "M2.6.124"
+print("PASS: rejected map loads clean up and return to menu; tag-header cleanup is guarded; diagnostics and identity match M2.6.124")

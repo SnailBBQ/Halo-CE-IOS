@@ -35,6 +35,7 @@
 #include "halo_ios_platform.h"
 #include "halo_hash_native.h"
 #include "halo_geometry_cache.h"
+#include "halo_mcc_host.h"
 #include "halo_crash_report.h"
 #include "halo_scancodes.h"
 #include "halo_launch_state.h"
@@ -3346,6 +3347,38 @@ static void *resolve_host_import(const char *name)
     MAP("host_get_tp", ios_host_get_tp);
     MAP("host_set_tp", ios_host_set_tp);
     MAP("host_thread_create", ios_host_thread_create);
+    MAP("host_mcc_memory_reserve", ios_mcc_memory_reserve);
+    MAP("host_mcc_memory_release", ios_mcc_memory_release);
+    MAP("host_mcc_hash_start", ios_mcc_hash_start);
+    MAP("host_mcc_hash_wait", ios_mcc_hash_wait);
+    MAP("host_mcc_hash_cancel", ios_mcc_hash_cancel);
+    MAP("host_sha256_start", ios_sha256_start);
+    MAP("host_sha256_poll", ios_sha256_poll);
+    MAP("host_sha256_cancel", ios_sha256_cancel);
+    MAP("host_steam_open", ios_steam_open);
+    MAP("host_steam_close", ios_steam_close);
+    MAP("host_steam_poll", ios_steam_zero);
+    MAP("host_steam_count", ios_steam_zero);
+    MAP("host_steam_view", ios_steam_zero);
+    MAP("host_steam_first", ios_steam_zero);
+    MAP("host_steam_set_first", ios_steam_set_first);
+    MAP("host_steam_chosen", ios_steam_zero);
+    MAP("host_steam_set_chosen", ios_steam_set_chosen);
+    MAP("host_steam_row", ios_steam_row);
+    MAP("host_steam_details", ios_steam_details);
+    MAP("host_steam_choose", ios_steam_choose);
+    MAP("host_steam_back", ios_steam_zero);
+    MAP("host_steam_picture", ios_steam_picture);
+    MAP("host_steam_text_wanted", ios_steam_text_wanted);
+    MAP("host_steam_text_caption", ios_steam_text_caption);
+    MAP("host_steam_text_typed", ios_steam_text_typed);
+    MAP("host_steam_shared_fetch", ios_steam_shared_fetch);
+    MAP("host_steam_shared_state", ios_steam_unavailable);
+    MAP("host_steam_install_start", ios_steam_install_start);
+    MAP("host_steam_install_status", ios_steam_unavailable);
+    MAP("host_steam_install_progress", ios_steam_install_progress);
+    MAP("host_steam_take_rescan", ios_steam_zero);
+    MAP("host_steam_author", ios_steam_author);
     MAP("host_cache_inflate_init", ios_cache_inflate_init);
     MAP("host_texture_decode_dxt", ios_texture_decode_dxt);
     MAP("host_texture_hash", ios_texture_hash);
@@ -3470,6 +3503,12 @@ static void *resolve_host_import(const char *name)
         PMAP("truncate", ios_posix_truncate);
         PMAP("make_directory", ios_posix_make_directory);
         PMAP("set_read_only", ios_posix_set_read_only);
+        PMAP("mcc_preview_read", ios_mcc_preview_read);
+        PMAP("mcc_share_path_safe", ios_mcc_share_path_safe);
+        PMAP("mcc_share_publish", ios_mcc_share_publish);
+        PMAP("mcc_share_open", ios_mcc_share_open);
+        PMAP("mcc_share_close", ios_mcc_share_close);
+        PMAP("mcc_share_remove", ios_mcc_share_remove);
         PMAP("disk_space", ios_posix_disk_space);
         PMAP("directory_open", ios_posix_directory_open);
         PMAP("directory_next", ios_posix_directory_next);
@@ -3503,6 +3542,7 @@ static void *resolve_host_import(const char *name)
         PMAP("upnp_forward_udp", ios_posix_upnp_forward);
         PMAP("user_secret", ios_posix_zero_int); /* none, as on Android: the game then makes its own */
         PMAP("upnp_stop_forwarding_udp", ios_posix_zero_int);
+        PMAP("upnp_cancel", ios_upnp_cancel);
         PMAP("discord_connect", ios_posix_minus_one);
         PMAP("discord_write", ios_posix_minus_one);
         PMAP("discord_read", ios_posix_minus_one);

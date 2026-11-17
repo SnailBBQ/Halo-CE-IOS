@@ -129,12 +129,7 @@ symbols in this file:
 #include "sound/sound_manager.h"
 #include "units/units.h"
 #include "view_fov.h" /* port: port/linux/game/view_fov.c */
-#include "shaders/shader_definitions.h" /* port: (the shield's flare on the arms) */
-#include "shaders/shaders.h"
-/* port: port/linux/game/shield_color.c */
-real_rgb_color const *shield_color_colors(long unit_index, real_rgb_color const *colors);
-/* port: port/linux/game/overshield_effect.c */
-real const *overshield_effect_values(long unit_index, real const *values, boolean arms);
+#include "viewmodel_shield.h" /* port: port/linux/game/viewmodel_shield.c */
 
 /* ---------- constants */
 
@@ -582,6 +577,7 @@ void first_person_weapon_draw(
 							FLAG(_render_model_first_person_bit));
 					}
 
+#ifdef HALO_IOS_GUEST
 					/* port: the shield's flare on the arms as on the body, the
 					unit's own modifier shader (display.viewmodel_shield,
 					view_fov.c), in the color chosen for it as on the body
@@ -606,7 +602,6 @@ void first_person_weapon_draw(
 						}
 					}
 
-#ifdef HALO_IOS_GUEST
 					if ((viewmodel_flags & 2u) &&
 						first_person_weapon->hands_node_remapping_table_valid &&
 #else
@@ -620,6 +615,9 @@ void first_person_weapon_draw(
 							weapon_definition->weapon.interface_definition.first_person_animations.index,
 							first_person_weapon->node_matrices,
 							first_person_weapon->hands_node_remapping_table);
+						/* port: only the posed hands receive the shield modifier (viewmodel_shield.c). */
+						viewmodel_shield_apply(render.local_player_index, unit_index,
+							first_person_interface->hands.index, model_node_matrices, unit_functions, &model_effect);
 						render_model(
 							first_person_interface->hands.index,
 							0.0f,
@@ -939,6 +937,9 @@ static void first_person_weapon_forget_weapon(
 
 	return;
 }
+
+/* port: MCC equipment replacement invalidates the cached weapon before deletion. */
+#include "mcc_first_person.inl" /* port: port/linux/game/mcc_first_person.inl */
 
 static void first_person_weapon_predict(
 	short local_player_index)
@@ -1514,9 +1515,12 @@ static void first_person_weapon_build_node_matrices(
 		(void)local_player_index;
 #else
 		/* the pose between the last two ticks (render_interpolation.c) */
-		/* port: no more nodes than the weapon's matrices hold (a map's count) */
+		/* port: no more nodes than the weapon's matrices hold (a map's count);
+		the weapon and its graph tell its poses from another weapon's */
 		render_interpolation_first_person(
 			local_player_index,
+			first_person_weapon->weapon_index,
+			weapon_definition->weapon.interface_definition.first_person_animations.index,
 			first_person_weapon->node_matrices,
 			(short)MIN(animation_graph->nodes.count, MAXIMUM_NODES_PER_ANIMATION),
 			&render.camera);
